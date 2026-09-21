@@ -94,6 +94,15 @@ push shared history or discard unrelated working-tree changes.
 
 ### Commit messages
 
+Prefer small, atomic commits made frequently as each coherent increment passes
+its relevant checks. Each commit should express one reviewable purpose and leave
+the branch working; keep unrelated changes in separate commits. Use TDD within
+each increment, pairing the regression/behavior tests with their implementation
+rather than committing a deliberately failing intermediate state. Avoid saving
+an entire milestone for one large commit. This preference does not authorize
+committing: obtain user authorization as required above; otherwise keep the
+work reviewable and report the proposed commit boundaries at handoff.
+
 Use Conventional Commits for every commit, including squash and merge commit
 messages: `type(optional-scope): description`. Choose a meaningful type such as
 `feat`, `fix`, `docs`, `test`, `refactor`, `build`, `ci`, or `chore`, and write a
