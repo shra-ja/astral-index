@@ -8,29 +8,41 @@ Users own their data and can inspect, back up, and export it without a hosted se
 ## Confirmed requirements
 
 - Tauri desktop application with a web-based interface.
-- Offline operation.
+- Run on the user’s machine and store player data locally.
+- Fetch history directly from HoYoverse only upon an explicit user request;
+  no startup fetching, background polling, or automatic synchronization.
 - Multiple games, initially Genshin Impact and Honkai: Star Rail.
-- Ingestion from directly supplied files and usable local installation sources.
+- Ingestion from user-provided files and user-requested HoYoverse API responses.
+  Local installation files may supply request/authentication context.
 - Test-driven development with a mandatory 100% first-party code coverage gate.
 - Trunk-based development: all code changes on separate short-lived branches.
 
 ## Proposed first release
 
-1. Select a game and account, then choose a supported history file.
+1. Select a game and account, then explicitly request history from HoYoverse
+   using a supported source of authentication. Add supported history-file import
+   after the first API import flow.
 2. Preview the detected format, account, accepted records, duplicates, and errors.
 3. Confirm import and browse persistent history with game/account/banner/date filters.
 4. View roll totals, rarity breakdowns, and game-specific pity information only
    where the imported evidence and verified rules support it.
 5. Export a versioned portable backup and restore it into a fresh local profile.
-6. Discover a supported local installation source, show what it contains, and
-   import it through the same pipeline. Explain unsupported sources clearly.
+6. Discover a supported local installation source or accept a user-selected
+   cache, extract request context, and fetch history only when requested. Route
+   responses through the same import pipeline; explain unsupported sources.
 
-The first vertical slice should cover one verified file format for one game.
-Add the second adapter before calling the multi-game milestone complete.
+The first implemented feature after the shell is Honkai: Star Rail API history
+import. Milestone 2 builds response parsing and transactional storage services;
+milestone 3 connects cache/request selection, API fetching, preview, commit, and
+history display. Standalone history-file import follows in milestone 4 alongside
+the second adapter, before calling the multi-game milestone complete.
 
 ## Acceptance criteria
 
-- After installation, core workflows succeed with networking disabled.
+- History requests require connectivity and happen only on explicit user action.
+- Network/authentication failures and cancellation preserve existing history.
+- Stored-history browsing, analysis, file import, and export remain local and
+  do not initiate network requests.
 - Data survives application restart; overlapping imports do not inflate history.
 - Different games, accounts, and servers cannot contaminate each other's history.
 - Failed imports leave existing data intact and explain how to correct the input.
@@ -42,7 +54,9 @@ Add the second adapter before calling the multi-game milestone complete.
 ## Outside the initial scope
 
 Cloud sync, public profiles, spending recommendations, live game overlays,
-automatic updates, game process inspection, and network-based history acquisition.
+automatic updates, game process inspection, and automatic history fetching.
+User-requested HoYoverse history acquisition is in scope; see
+[decision 0002](decisions/0002-user-requested-history-acquisition.md).
 
 ## Open decisions
 

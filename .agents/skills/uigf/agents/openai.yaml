@@ -1,0 +1,4 @@
+interface:
+  display_name: "UIGF 4.2"
+  short_description: "UIGF roll storage, IDs, enums, and interoperability"
+  default_prompt: "Use $uigf to design or review UIGF v4.2 roll storage and import/export."

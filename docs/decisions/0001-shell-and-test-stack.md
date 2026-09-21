@@ -1,7 +1,9 @@
 # 0001 — Minimal offline shell and test stack
 
 Date: 2026-09-17
-Status: Accepted
+Status: Accepted for the shell and test stack. The product-wide offline assumption
+is superseded by [0002](0002-user-requested-history-acquisition.md); the existing
+webview CSP and isolated native smoke test remain applicable.
 
 ## Context
 

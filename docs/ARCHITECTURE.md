@@ -11,15 +11,38 @@ Web UI (src/)
     | typed Tauri commands and results
 Rust application services (src-tauri/src/)
     |-- source readers: selected files and read-only installation discovery
+    |-- acquisition client: user-requested HoYoverse API calls and pagination
     |-- game adapters: detection, parsing, normalization, banner rules
     |-- import service: validation, preview, deduplication, transaction
     |-- history/statistics service: queries and evidence-aware calculations
     `-- persistence: local database, migrations, backup/restore
 ```
 
-Use one application, without a local HTTP server or remote backend. Keep parsing
-and game logic testable independently of Tauri and UI state. Start with concrete
+Use one application, without a local HTTP server or a project-hosted backend.
+Keep parsing and game logic testable independently of Tauri and UI state. Start with concrete
 adapters and a small shared contract rather than a general plugin framework.
+
+## User-requested history acquisition
+
+[Decision 0002](decisions/0002-user-requested-history-acquisition.md) permits
+HoYoverse requests only in response to an explicit user action. A single action
+may initiate a bounded, cancellable sequence of validation and paginated history
+requests. No startup fetches, background polling, or scheduled synchronization.
+
+The Rust acquisition client uses extracted request context, validates HTTPS
+hosts/paths and redirects, bounds timeouts/responses/attempts, and keeps auth keys
+out of frontend state and logs. Game adapters interpret responses; validated
+records enter the shared preview and transactional import pipeline. Network or
+authentication failures must not corrupt existing history. HTTP library choice,
+retry policy, and credential retention remain implementation decisions.
+
+The webview keeps its restrictive CSP and calls a narrow typed native command;
+no arbitrary URL-fetch or shell capability is exposed. The current shell has no
+acquisition client. Its isolated native test remains useful for checking local
+operation and blocked webview fetches, not as proof that history can be acquired
+without a connection. Automated tests must stay local and self-contained.
+Network-client tests use HTTP mocks or isolated local test servers with synthetic responses, including
+errors and cancellation; no live API calls or player credentials.
 
 ## Testability requirements
 
@@ -35,7 +58,7 @@ tooling capable of measuring all required metrics before adding application code
 SQLite in the OS application-data directory is the initial proposal. Select its
 Rust integration during implementation. Keep SQL and migrations in the backend;
 do not store durable history in browser localStorage or inside game directories.
-Bundle assets and required game metadata for offline use, with explicit versions.
+Bundle assets and required game metadata for local use, with explicit versions.
 
 Logical entities (not a finalized schema):
 
@@ -58,8 +81,9 @@ rolls can be legitimate. Ambiguous matches need reconciliation, not silent remov
 
 ## Native boundary and durability
 
-Expose specific commands for preview, commit, query, export, and restore. Validate
-all parameters in Rust, including paths and identifiers. A preview must identify
+Expose specific commands for acquisition, cancellation, preview, commit, query,
+export, and restore. Validate all parameters in Rust, including paths and
+identifiers. A preview must identify
 the validated bytes; do not blindly re-read a changed file on commit. Keep imports
 atomic and enforce uniqueness in storage as well as in preflight validation.
 

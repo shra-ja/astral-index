@@ -6,7 +6,7 @@ beforeEach(async () => {
   await import('../src/main');
 });
 
-test('starts with accessible game selection and an honest offline empty state', () => {
+test('starts with accessible game selection and a local-app empty state', () => {
   expect(document.querySelector('h1')?.textContent).toBe('Your rolls, kept local.');
   const select = document.querySelector('select')!;
   expect(document.querySelector('label')?.htmlFor).toBe(select.id);
@@ -16,7 +16,8 @@ test('starts with accessible game selection and an honest offline empty state', 
   expect(select.value).toBe('genshin-impact');
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Genshin Impact rolls yet');
   expect(document.body.textContent).toContain('File import is coming next.');
-  expect(document.body.textContent).toContain('Offline');
+  expect(document.body.textContent).toContain('Local app');
+  expect(document.body.textContent).not.toContain('Offline');
   expect(document.querySelector('button')).toBeNull();
 });
 

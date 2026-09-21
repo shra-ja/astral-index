@@ -88,3 +88,15 @@ Do not run probes concurrently with editing, coverage or native builds. They
 mutate source briefly and restore it in `finally` blocks. After interruption,
 inspect `src/coverage-probe.ts`, `src-tauri/src/coverage_probe.rs`,
 `src-tauri/src/main.rs`, and report backup files before resuming.
+
+## Connectivity scope after decision 0002
+
+The `test:offline` command verifies local shell behavior in an isolated network
+namespace; it does not impose an offline-only product requirement. The webview's
+external-fetch rejection remains intentional. Future user-requested HoYoverse
+acquisition runs through a native client. All automated tests must remain local
+and self-contained, with appropriate HTTP mocks or isolated local test servers
+and synthetic responses. No live HoYoverse requests or player credentials are
+allowed in tests. Add coverage for
+pagination, errors, cancellation, and absence of unrequested fetching. See
+[decision 0002](decisions/0002-user-requested-history-acquisition.md).

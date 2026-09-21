@@ -29,6 +29,8 @@ What tradeoffs, limitations, and follow-up work result?
 Relevant documentation, experiments, or validation results.
 ```
 
-Tauri and offline operation originate from the project brief.
+Tauri originates from the project brief. Decision 0002 replaces the original
+offline-only acquisition assumption with user-requested HoYoverse fetching.
 
 - [0001 — Minimal offline shell and test stack](0001-shell-and-test-stack.md)
+- [0002 — User-requested HoYoverse history acquisition](0002-user-requested-history-acquisition.md)

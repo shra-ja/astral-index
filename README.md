@@ -1,8 +1,10 @@
 # Roll Tracker
 
-An offline Tauri desktop application for gacha history, starting with Genshin
-Impact and Honkai: Star Rail. The first milestone provides a bundled web UI with
-game selection and an empty state. Imports, persistence and statistics come next.
+A locally run Tauri desktop application for gacha history, starting with
+Honkai: Star Rail and Genshin Impact. History acquisition will contact HoYoverse
+only when the user requests it; player data stays on the user’s machine.
+The current shell provides game selection and an empty state. History fetching,
+file import, persistence, and statistics are not implemented yet.
 
 ## Development setup
 
@@ -38,7 +40,8 @@ cargo fetch --manifest-path src-tauri/Cargo.toml --locked
 
 The Python native-test helper uses only the standard library; system Python 3
 or an existing asdf Python 3 installation works. Fetch dependencies before the
-offline test. Setup needs internet access; the installed app does not. See
+isolated native test. Setup and future user-requested history acquisition need
+internet access; stored-history operations remain local. See
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for platform details.
 
 ## Commands
