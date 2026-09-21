@@ -149,3 +149,47 @@ requiring private research artifacts. No auth keys, account IDs, or actual roll
 IDs are included. Windows discovery, pagination edge cases,
 and history completeness remain untested. No executable project code changed,
 so red/green testing is not applicable.
+
+## Response foundation review (2026-09-21)
+
+The [UIGF API collection's HSR section](https://uigf.org/zh/mihoyo-api-collection/hoyolab/user/game_account_info.html#获取跃迁记录)
+documents an envelope with numeric `retcode`, a message, and `data.list`.
+Records carry string UID, record/pool/item IDs, banner, quantity, local timestamp,
+localized labels, language and rarity. Page context includes region and a numeric
+UTC offset. Its table and example disagree on page/size types, and its older
+China endpoint/size limit do not establish the current global contract.
+
+The [exporter's own implementation](https://github.com/vikiboss/star-rail-gacha-export/blob/main/api.ts)
+advances the last record ID, stops on an empty list, and handles an expired-key
+code on its first request. This is evidence of client practice, not an official
+termination guarantee. Its hardcoded export offset is not account timezone evidence.
+The [UIGF v4.2 contract](https://uigf.org/en/standards/uigf.html) supplies the six
+supported HSR categories and string record identity constraints; it does not
+specify the live API or guarantee completeness.
+
+Application policy for this increment:
+
+- Parse bounded response bytes in Rust, independent of acquisition or storage.
+  Accept only integer zero as success; preserve any nonzero code as an API error
+  without echoing messages, JSON errors, or payloads.
+- Preserve record order, all documented record strings, leading zeros, long IDs,
+  unknown item IDs, duplicates, conflicting records, and unknown page/record fields
+  for future reconciliation.
+  Require one UID per page. UID is response evidence; no UID is inferred on empty pages.
+- Retain optional region/offset evidence. Unknown evidence remains unknown; never
+  infer server from UID, or timezone from device settings. Validate an explicit
+  whole-hour offset within -12 through +14 as application policy. Do not derive UTC.
+- Validate calendar timestamps with exact spelling, rejecting leap seconds and
+  impossible dates. Support count `"1"`, rarity `"3"`–`"5"`, and UIGF HSR banner
+  categories; reject unsupported values rather than reinterpret them.
+- Limit each body to 2 MiB. The future transport must also enforce the bound while
+  receiving bytes. Ignore transport page/size metadata for pagination decisions.
+- Missing success data or list is malformed, never end-of-history. Future fetching
+  must distinguish empty success from errors, continue after a short nonempty
+  page, reject repeated/nonadvancing cursors, and bound total requests.
+
+No live calls were made for this review. Synthetic tests verify application
+policy, not external compatibility. Current global response variants, stable ID
+semantics across all categories, server/offset evidence, terminal pages, expiry,
+rate limits and retention remain unverified. Keep the roadmap verification item
+open. The parser is not yet connected to the desktop shell or a network client.

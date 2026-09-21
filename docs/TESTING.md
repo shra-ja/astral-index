@@ -28,8 +28,8 @@ packaging and other operating systems are later release work.
 | `src-tauri/src/**/*.rs`, `src-tauri/build.rs` | cargo-llvm-cov with nightly branch instrumentation | Lines, regions, functions, branches: 100% |
 
 LLVM uses executable regions rather than a distinct Rust statement metric. Zero
-branch points means there are no branches to cover; the shell currently has no
-handwritten Rust conditionals. An automated probe adds an actual conditional and
+branch points means there are no branches to cover; startup has no handwritten
+conditionals, while the HSR parser has measured validation branches. An automated probe adds an actual conditional and
 verifies LLVM reports a missed branch before restoring the source. Macro-generated
 mappings remain in the report; handwritten native glue is not excluded.
 
@@ -72,9 +72,8 @@ On `feat/offline-shell`, based on authorized documentation baseline `2d78399`:
    Rust branch, an uncompiled Rust source file, and missing/incomplete reports.
    Each must fail the real gate, then restore source and regenerate clean reports.
 
-The shell has no Rust domain logic yet, so `cargo test` reports zero Rust unit
-tests. Native integration covers startup and the build script. Add Rust unit
-tests first when implementing import/domain logic.
+Milestone 1 had no Rust domain logic. Native integration covers startup and the
+build script; the milestone 2 response tests below now run in the same harness.
 
 ## CI and handoff
 
@@ -100,3 +99,21 @@ and synthetic responses. No live HoYoverse requests or player credentials are
 allowed in tests. Add coverage for
 pagination, errors, cancellation, and absence of unrequested fetching. See
 [decision 0002](decisions/0002-user-requested-history-acquisition.md).
+
+## HSR response foundation TDD
+
+On `feat/hsr-response-foundations`, the first seven integration tests failed
+against a compiling parser placeholder returning `InvalidResponse`: valid pages,
+empty pages, API codes, validation categories and size bounds were absent.
+The parser implementation made all seven pass. Two additional tests then failed
+on discarded unknown fields and an API error without `data`; preserving page/roll
+extras and defaulting absent envelope data made both pass. A scripted mock source
+adds overlap and terminal-success/error scenarios, for ten passing Rust tests.
+A preliminary missing serialization-trait compile error was corrected before
+observing the unknown-field assertion failure; it is not counted as red evidence.
+
+Run `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr`
+for focused tests. `npm run check` runs these under LLVM instrumentation alongside
+native startup and unchanged coverage failure probes. Fixtures and mocks have
+no credentials or network access. They test parser policy, not live compatibility,
+HTTP transport, automatic cursor progression, persistence, or complete history.

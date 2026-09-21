@@ -2,7 +2,8 @@
 
 ## Source status
 
-No production import adapter is implemented yet. HSR research established
+A pure Rust HSR API response parser is implemented and tested with synthetic
+pages. No user-facing importer, acquisition client, or persistence exists yet. HSR research established
 cache-based request extraction and API retrieval: the inspected cache supplies
 authentication/request context, and history is fetched from HoYoverse. Acquisition
 is now in scope only upon an explicit user request; see
@@ -14,7 +15,7 @@ of records that the API no longer provides.
 | Game | User-provided files | Installation source |
 | --- | --- | --- |
 | Genshin Impact | Planned; format and version to verify | Research required per OS/version |
-| Honkai: Star Rail | First milestone 2 game; history format still to verify | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor pagination verified on one sample; edge cases/completeness unverified; see [flow](HSR-API-RESEARCH.md) |
+| Honkai: Star Rail | Synthetic API response parser implemented; current global compatibility still to verify | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor pagination verified on one sample; edge cases/completeness unverified; see [flow](HSR-API-RESEARCH.md) |
 
 Implementation order: HSR API response parsing and transactional services in
 milestone 2, user-requested API import in milestone 3, then standalone history-

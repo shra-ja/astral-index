@@ -50,6 +50,7 @@ internet access; stored-history operations remain local. See
 | --- | --- |
 | `npm run tauri -- dev` | Native development; Vite uses loopback port 1420 |
 | `npm run dev` | Browser preview only; does not verify native behavior |
+| `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr` | Focused synthetic Rust HSR response tests |
 | `npm test` | UI behavior and coverage-validator tests |
 | `npm run coverage` | Fresh frontend/tooling coverage with 100% per-file thresholds |
 | `npm run build` | Strict TypeScript checks, including tests, and bundled web assets |

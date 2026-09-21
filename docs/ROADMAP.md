@@ -51,9 +51,14 @@ completeness still need verification.
 
 - [ ] Verify the HSR API response format, record identity, account/server context,
   timestamp/timezone semantics, and pagination termination/error behavior.
-- [ ] Create synthetic response fixtures and request mocks; keep all automated
+- [x] Create synthetic response fixtures and request mocks; keep all automated
   tests local and self-contained, with no live API calls or player credentials.
-- [ ] Implement the domain model and response parser with test-first validation.
+- [x] Implement the domain model and response parser with test-first validation.
+  The initial model validates individual pages and preserves optional context;
+  it is not yet a resolved account or transactional import model. Request mocks
+  are scripted parser-boundary responses, not tests of a production HTTP client.
+  See [response review](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21)
+  for policy and remaining external-verification limits.
 - [ ] Select and implement the local database, initial migration, and shared
   preview/transactional import services.
 - [ ] Verify persistence, repeat/overlap imports, validation failures, migration

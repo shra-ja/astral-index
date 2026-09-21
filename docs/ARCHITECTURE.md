@@ -2,7 +2,7 @@
 
 The shell uses vanilla TypeScript, Vite/npm and Tauri 2; see decision 0001.
 Node.js and Rust are managed with asdf. The import/storage/service design below
-remains a proposal for later milestones. Instrumentation is documented in `TESTING.md`.
+remains a proposal except for the pure HSR response adapter described below. Instrumentation is documented in `TESTING.md`.
 
 ## Boundaries
 
@@ -100,3 +100,19 @@ Pity and guarantee rules belong to each game adapter and may vary by banner and
 rule version. Record evidence for rule mappings. Preserve banner identity even
 when multiple banners share a pity group. Incomplete history must not be presented
 as a known starting state; report observed counts or unknown values explicitly.
+
+## Implemented HSR response adapter
+
+`src-tauri/src/hsr.rs` is a standalone Rust library target; integration tests live
+in `tests/hsr.rs` and run within the existing native coverage harness. It parses
+bounded bytes into a page with optional server/timezone evidence and string roll
+fields. It neither deduplicates nor persists. Mixed-account pages and invalid
+records reject the entire page. Structured errors omit source messages and data.
+SerDe/serde_json and chrono are pinned existing lockfile dependencies, now used
+directly for decoding and calendar validation without device-clock access.
+
+A page is not an import-ready account identity: the future service must resolve
+missing server evidence and compare UID, server, timezone, and requested banner
+across pages before merging. No complete-history claim follows from an empty
+page. The shell does not invoke the adapter. Database and service design remain
+open; see [research](HSR-API-RESEARCH.md) for the deliberately limited contract.

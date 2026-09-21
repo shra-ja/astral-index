@@ -11,9 +11,56 @@ CI passed and **Tests and 100% coverage** is required on protected `main`.
 The remote uses SSH: `git@github.com:shra-ja/roll-tracker.git`.
 
 The app is a vanilla TypeScript/Vite web UI in Tauri 2, with game selection,
-an accessible local-app empty state and bundled styling. No import, database,
-game rules or statistics are implemented. Production CSP blocks network calls;
+an accessible local-app empty state and bundled styling. The shell has no user-facing import, database,
+game rules or statistics. A pure Rust HSR response parser now exists separately. Production CSP blocks network calls;
 no native capabilities or plugins are enabled. Decision 0001 records the stack.
+
+## Milestone 2 response foundations
+
+On `feat/hsr-response-foundations`, created from up-to-date `main` before code
+changes, contribution guidance was updated first to favour frequent small atomic
+commits. At the user's request, that documentation alone was committed as
+`9bea698` (`docs: favour small frequent atomic commits`). The user subsequently
+authorized committing the response foundation as
+`feat(hsr): validate bounded API response pages`, including its synthetic tests,
+contract research and status documentation.
+
+Implemented a pure Rust page/roll model and response parser with a 2 MiB body
+bound, string identity preservation, calendar validation, six supported banner
+categories, optional server/offset evidence, intra-page account consistency and
+safe error categories. Unknown page/record fields, unknown catalog identifiers,
+source order, duplicates and conflicts are retained. It does not infer UTC,
+completeness, account identity from empty pages, or a server from UID/offset.
+Synthetic valid/empty/error fixtures and scripted request/response mocks cover
+parser boundaries without credentials, private files or network calls.
+
+TDD: seven behavior tests failed against a compiling placeholder, then passed;
+two follow-up assertions failed for unknown-field loss and API errors without
+data, then passed after implementation. Ten Rust tests pass, including a
+scripted overlap/terminal-response scenario. See [testing](TESTING.md) for details.
+
+Final verification on Ubuntu 24.04:
+
+- `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr`:
+  all 10 tests passed.
+- `npm run check`: passed; 17 UI/tooling tests, 10 Rust tests, native keyboard/CSP/
+  shutdown integration, 3 failure probes, source inventory and fresh coverage
+  verification, TypeScript build, Rust formatting and Clippy all passed.
+- Frontend/tooling: 100% lines/statements/functions/branches per file.
+  HSR parser: 47/47 lines, 57/57 regions, 6/6 functions, 36/36 branch outcomes.
+  Startup/build-script coverage remains complete. No exclusions or thresholds changed.
+- `npm run tauri -- build --no-bundle`: passed.
+- Relative Markdown links and `git diff --check`: passed. Hosted CI was not run
+  for this branch; other platforms remain untested.
+
+Next concrete task: select the local database and implement its initial migration
+and preview/transactional import services with TDD. Resolve account/server context
+before merging; test repeats, overlaps, conflicts, rollback and migration safety.
+The API format-verification item remains open: current global endpoint variants,
+terminal pages, expiry/rate-limit behavior and completeness need further evidence.
+The parser is not connected to the shell or an HTTP client. Scripted mocks do not
+validate network transport or an automatic pagination loop. See
+[response research](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21).
 
 ## Environment
 
@@ -23,7 +70,7 @@ tauri-driver 2.0.6. `.tool-versions` pins the runtimes. The user installed the
 required Ubuntu shared libraries/test utilities; their availability was verified.
 Python 3 from the existing asdf setup runs the standard-library-only X11 test helper.
 
-## Verification
+## Milestone 1 verification
 
 - `npm run check`: passed on Ubuntu 24.04 x86_64, including strict TypeScript
   checks of app/tooling/tests, Rust formatting and Clippy with warnings denied.
@@ -47,10 +94,10 @@ Python 3 from the existing asdf setup runs the standard-library-only X11 test he
 
 See `TESTING.md` for red/green evidence, scope, exclusions and probe behavior.
 Reports and the native screenshot are ignored local artifacts. Other platforms
-are untested. There are no Rust domain unit tests yet; real native integration
-covers the minimal shell and build script.
+are untested. At milestone 1 there were no Rust domain tests; native integration
+covered the minimal shell and build script. Milestone 2 adds the tests above.
 
-## Next task
+## Prior research and milestone sequencing
 
 Milestone 2 starts with Honkai: Star Rail. Research on
 `docs/hsr-cache-format-research` (from up-to-date `main`, `eb10fb5`) now focuses
