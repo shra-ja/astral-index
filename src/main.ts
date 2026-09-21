@@ -1,7 +1,7 @@
 document.querySelector('main')!.innerHTML = `
   <header>
     <a class="wordmark" href="#">ROLL TRACKER</a>
-    <span class="offline"><span aria-hidden="true">●</span> Offline</span>
+    <span class="local-app"><span aria-hidden="true">●</span> Local app</span>
   </header>
   <section class="intro" aria-labelledby="title">
     <p class="eyebrow">A little history. All yours.</p>

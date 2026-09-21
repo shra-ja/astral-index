@@ -37,26 +37,69 @@ The user confirmed hosted CI passed and required checks were configured on
 by milestone 6 release validation. Review, integration and branch deletion follow
 the standard workflow in `../CONTRIBUTING.md`.
 
-## 2 — First file-import vertical slice
+## 2 — HSR API import foundations
 
-- [ ] Verify one game/format, including identity and timezone semantics.
-- [ ] Implement domain model, local database, initial migration, and parser fixtures.
-- [ ] Implement file selection, preview, atomic commit, and history display.
-- [ ] Verify restart persistence, repeat/overlap imports, errors, and account isolation.
+Honkai: Star Rail API history import is the first feature to implement after the
+shell. This milestone establishes its backend foundations; milestone 3 completes
+the user-facing acquisition and import flow. Standalone history-file import is
+not a prerequisite.
 
-Done when one supported file can be imported and browsed offline without duplicate
-records on re-import, with failure cases leaving history intact.
+[API research](HSR-API-RESEARCH.md) records request extraction and a working
+nine-field query. Advancing `end_id` and `page` reproduced 50 records across five
+pages. Full response semantics, identity, timezone, pagination edge cases, and
+completeness still need verification.
 
-## 3 — Multi-game history and statistics
+- [ ] Verify the HSR API response format, record identity, account/server context,
+  timestamp/timezone semantics, and pagination termination/error behavior.
+- [ ] Create synthetic response fixtures and request mocks; keep all automated
+  tests local and self-contained, with no live API calls or player credentials.
+- [ ] Implement the domain model and response parser with test-first validation.
+- [ ] Select and implement the local database, initial migration, and shared
+  preview/transactional import services.
+- [ ] Verify persistence, repeat/overlap imports, validation failures, migration
+  safety, and account isolation at the service level.
 
-- [ ] Add the second game's independently verified adapter and fixtures.
+Done when synthetic HSR API responses can be validated, previewed, and committed
+through tested services without duplicate records or partial writes. This is a
+foundation for the first API-import feature, not a separate file-import release.
+
+## 3 — First user-requested API history import
+
+Moved forward from former milestone 5; depends on milestone 2's parser and
+transactional import services.
+
+- [ ] Verify HSR cache/request discovery on the initial supported OS and record
+  supported and unsupported sources with evidence.
+- [ ] Implement read-only manual cache/game-data selection and request extraction;
+  add automatic discovery where verified. A selected cache supplies request
+  context, not a standalone roll-history export.
+- [ ] Implement user-initiated native HoYoverse fetching with bounded cursor
+  pagination, cancellation, and network/authentication error handling, using
+  mocked requests in automated tests. No background or automatic fetching.
+- [ ] Connect acquisition to import preview, atomic commit, and history display.
+- [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
+  account isolation, cancellation, and failure recovery using local test data.
+
+Done when an explicit user request retrieves HSR history through the API,
+previews and commits it locally, and displays it after restart without duplicate
+records. Failures preserve existing data; stored-history operations never trigger
+acquisition. This is the first implemented import feature. See
+[decision 0002](decisions/0002-user-requested-history-acquisition.md).
+
+## 4 — Additional import sources, multi-game history and statistics
+
+- [ ] Add supported history-file selection and parsing through the shared import
+  pipeline, independently verifying each file format.
+- [ ] Add the second game's independently verified adapter, acquisition sources,
+  response/file fixtures, and request mocks.
 - [ ] Add account/server switching, filters, totals, and rarity breakdowns.
 - [ ] Implement verified banner grouping and coverage-aware pity calculations.
 
-Done when both games coexist without shared identity/rule assumptions and partial
-histories display appropriate uncertainty.
+Done when both games coexist without shared identity/rule assumptions, supported
+history files reuse the import pipeline, and partial histories display appropriate
+uncertainty.
 
-## 4 — Backup and restore
+## 5 — Backup and restore
 
 - [ ] Define a versioned export format and validate imports of backups.
 - [ ] Implement backup, restore, and migration recovery behavior.
@@ -64,18 +107,9 @@ histories display appropriate uncertainty.
 
 Done when a fresh profile can recover the same records and metadata from a backup.
 
-## 5 — Local installation ingestion
-
-- [ ] Research actual offline data availability per game and target OS.
-- [ ] Record supported and unsupported sources with evidence.
-- [ ] Add read-only discovery/manual selection and reuse the validated import pipeline.
-
-Done when a verified local source works end to end. If history is unavailable
-offline, document that limitation and retain file import; do not claim this source
-is implemented or silently introduce network acquisition.
-
 ## 6 — Release readiness
 
 - [ ] Check accessibility, large histories, native permissions, and bundled resources.
-- [ ] Verify offline workflows, upgrades, backups, and packaging on each release OS.
+- [ ] Verify local workflows, requested fetching, network failures, upgrades, backups,
+  and packaging on each release OS.
 - [ ] Choose license/distribution, document supported formats, and provide recovery help.

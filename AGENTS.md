@@ -10,13 +10,18 @@ inspect actual code before assuming a feature exists.
 
 ## Product constraints
 
-- Build an offline desktop application with a web UI hosted by Tauri.
+- Build a locally run desktop application with a web UI hosted by Tauri.
 - Start with Genshin Impact and Honkai: Star Rail, using separate game adapters.
 - Support user-provided files and, where technically feasible, read-only local
   installation sources. Do not assume local files contain complete roll history.
-- Core import, browsing, analysis, and export must work without network access.
+- Fetch history from HoYoverse only on an explicit user request. Cache files may
+  supply authentication/request context rather than roll records. No automatic
+  startup fetching, background polling, or scheduled history synchronization.
+- Keep stored-history browsing, analysis, file import, and export local; these
+  operations do not trigger history requests.
 - No accounts with our service, telemetry, cloud storage, remote assets, or hidden
-  network dependencies. Any future online acquisition is a separate product decision.
+  network dependencies. User-initiated HoYoverse history acquisition is in scope
+  (decision 0002); it requires connectivity and valid authentication.
 - Keep player data local. Never commit real histories, account IDs, credentials,
   auth URLs, game logs, databases, or private filesystem paths. Use synthetic fixtures.
 
@@ -37,6 +42,9 @@ inspect actual code before assuming a feature exists.
   complete history, guarantees, or exact pity from incomplete evidence.
 - Never modify game installations. Limit file access to the source locations
   needed for the user-selected import; avoid broad filesystem scans.
+- Keep automated tests local and self-contained. Mock HoYoverse requests with
+  synthetic responses, including failures; never call live APIs or use player
+  credentials in tests.
 - Use narrowly scoped Tauri permissions. Do not expose arbitrary filesystem or
   shell commands to the webview.
 - Keep changes focused. Make routine reversible choices independently, documenting
@@ -75,7 +83,8 @@ inspect actual code before assuming a feature exists.
   tests during TDD and the full tests and coverage gates before handoff/integration.
   Test observable behavior rather than mirroring implementation.
 - Prioritize parser failures, repeated/overlapping imports, cross-account isolation,
-  migration safety, uncertain timestamps, incomplete histories, and offline use.
+  migration safety, uncertain timestamps, incomplete histories, user-initiated acquisition,
+  network/authentication failures, cancellation, and local use without fetching.
 - For UI work, check keyboard operation, readable empty/error states, and native
   Tauri behavior where available. Browser mocks alone do not validate native I/O.
 - Update `docs/STATUS.md` with completed work, actual verification, and the next
@@ -87,7 +96,7 @@ inspect actual code before assuming a feature exists.
 ## Code review priorities
 
 Flag data loss, duplicate or silently omitted rolls, account mixing, unjustified
-pity calculations, accidental network dependencies, overbroad native permissions,
+pity calculations, unrequested network activity, overbroad native permissions,
 and leakage of player data. Require evidence for claimed import compatibility.
 Reject code changes made on the trunk, missing TDD evidence, coverage below 100%,
 and exclusions or disabled tests that conceal untested first-party code.

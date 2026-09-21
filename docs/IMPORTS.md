@@ -2,15 +2,24 @@
 
 ## Source status
 
-No external formats or installation sources have been verified yet. A local game
-installation is not proof that roll history is available offline. An extracted
-URL or token is not itself history, and fetching it would require an explicitly
-separate online feature. Never promise recovery of unavailable records.
+No production import adapter is implemented yet. HSR research established
+cache-based request extraction and API retrieval: the inspected cache supplies
+authentication/request context, and history is fetched from HoYoverse. Acquisition
+is now in scope only upon an explicit user request; see
+[decision 0002](decisions/0002-user-requested-history-acquisition.md).
+The [documented acquisition flow](HSR-API-RESEARCH.md) is not an implemented importer.
+Do not assume other local sources contain complete history or promise recovery
+of records that the API no longer provides.
 
 | Game | User-provided files | Installation source |
 | --- | --- | --- |
 | Genshin Impact | Planned; format and version to verify | Research required per OS/version |
-| Honkai: Star Rail | Planned; format and version to verify | Research required per OS/version |
+| Honkai: Star Rail | First milestone 2 game; history format still to verify | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor pagination verified on one sample; edge cases/completeness unverified; see [flow](HSR-API-RESEARCH.md) |
+
+Implementation order: HSR API response parsing and transactional services in
+milestone 2, user-requested API import in milestone 3, then standalone history-
+file imports and additional game sources in milestone 4. Cache selection for
+authentication is part of API acquisition, not history-file import.
 
 ## Adapter contract
 
@@ -22,6 +31,9 @@ formats rather than selecting an adapter merely because a filename matches.
 Pipeline:
 
 1. Read an explicitly chosen file or supported local source with size limits.
+   For API acquisition, extract request context and fetch bounded responses from
+   HoYoverse only on user request; support cancellation and actionable network/
+   authentication errors. Both file data and fetched data enter validation below.
 2. Detect game/format/version and request missing account context when necessary.
 3. Parse and validate without changing persistent history.
 4. Normalize records while preserving identity, ordering, and time uncertainty.

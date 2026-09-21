@@ -22,6 +22,10 @@ prove a behavior assertion fails before implementing that behavior.
 
 Use unit tests for rules and parsing, integration tests for database transactions,
 migrations and native boundaries, and UI/end-to-end tests for user workflows.
+Automated tests must remain local and self-contained. When adding request
+functionality, use appropriate HTTP mocks or isolated local test servers with
+synthetic responses for success, pagination, errors, and cancellation. Never call
+live HoYoverse endpoints or use real player credentials in automated tests.
 Mock OS/network boundaries where useful, but verify real file and database behavior
 using isolated temporary resources. Coverage does not replace meaningful assertions.
 Use synthetic fixtures and deterministic clocks/data; never real player histories.
