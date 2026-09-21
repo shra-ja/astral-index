@@ -106,6 +106,15 @@ and `git diff --check` also passed. No commits or publishing were performed.
 
 ## Outstanding decisions
 
+The UIGF v4.2 reference skill is installed locally to the project at
+[`.agents/skills/uigf/SKILL.md`](../.agents/skills/uigf/SKILL.md). It covers
+roll storage, import/export, IDs, enums, timestamps, and legacy conversion.
+The installed copy passed the skill validator and matches the validated source;
+its synthetic example was checked against the published UIGF schema. This is
+documentation only; no storage or import behavior is implemented. App tests and
+coverage were not rerun for the skill installation. Next: apply the UIGF contract
+when designing the HSR parser and local persistence model.
+
 Supported release OS/packaging; persistence library; exact import formats and
 installation-source feasibility; account UX; game-rule evidence; final branding
 and license. Do not assume installation files contain usable offline history.
