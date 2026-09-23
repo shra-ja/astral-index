@@ -21,11 +21,13 @@ pub enum Error {
     InvalidStoredData,
 }
 impl From<rusqlite::Error> for Error {
+    // Keep SQL details and stored values out of errors exposed to callers.
     fn from(_: rusqlite::Error) -> Self {
         Self::Database
     }
 }
 impl From<serde_json::Error> for Error {
+    // Report unreadable stored records without leaking their contents.
     fn from(_: serde_json::Error) -> Self {
         Self::InvalidStoredData
     }
@@ -36,6 +38,7 @@ impl From<ParseError> for Error {
     }
 }
 
+/// Counts let callers review an import before committing and retain a compact audit.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct Summary {
     pub inserted: usize,
@@ -58,6 +61,7 @@ impl Preview {
     }
 }
 
+/// Keeps local history access and transactional import rules behind one boundary.
 pub struct Store {
     connection: Connection,
 }
@@ -67,6 +71,7 @@ impl Store {
         Self::initialize(Connection::open(path)?)
     }
 
+    /// Establish a usable store atomically, refusing to repurpose an incompatible database.
     fn initialize(mut connection: Connection) -> Result<Self, Error> {
         connection.execute_batch("PRAGMA busy_timeout=250; PRAGMA foreign_keys=ON;")?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -204,6 +209,7 @@ impl Store {
     }
 }
 
+/// Block merges that would silently change how an account's source times are interpreted.
 fn check_timezone(
     connection: &Connection,
     uid: &str,
@@ -223,6 +229,7 @@ fn check_timezone(
     Ok(())
 }
 
+/// Bind a preview to one database revision so later writes require renewed review.
 fn snapshot(connection: &Connection) -> Result<(String, i64), Error> {
     Ok(connection.query_row(
         "SELECT database_id,revision FROM metadata WHERE singleton=1",
@@ -231,6 +238,8 @@ fn snapshot(connection: &Connection) -> Result<(String, i64), Error> {
     )?)
 }
 
+/// Compare scoped identities with stored and earlier incoming rolls to expose conflicts
+/// and identify which input positions need insertion, without writing any state.
 fn classify(
     connection: &Connection,
     uid: &str,

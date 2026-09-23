@@ -32,6 +32,7 @@ beforeAll(() => {
 test('the bundled native shell works offline, supports keyboard selection, and closes cleanly', async () => {
   const driver = spawn('tauri-driver', [], { env: nativeEnv, stdio: 'inherit' });
   let session = '';
+  // Surface WebDriver failures at the request boundary instead of later UI assertions.
   const request = async (path: string, method = 'GET', body?: unknown) => {
     const response = await fetch(`http://127.0.0.1:4444${path}`, {
       method,
@@ -54,6 +55,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       } } },
     });
     session = created.sessionId;
+    // Inspect the real webview through its active native session.
     const execute = (script: string) => request(`/session/${session}/execute/sync`, 'POST', { script, args: [] });
     expect(await execute('return location.protocol')).toBe('tauri:');
     expect(await execute('return document.querySelector("h1").textContent')).toBe('Your rolls, kept local.');

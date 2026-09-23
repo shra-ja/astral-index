@@ -232,6 +232,7 @@ struct MockResponses {
 }
 
 impl MockResponses {
+    // Enforce the expected pagination sequence before returning the next synthetic response.
     fn request(&mut self, page: u32, end_id: &str) -> Vec<u8> {
         let (expected_page, expected_cursor, body) = self.steps.pop_front().unwrap();
         assert_eq!((page, end_id), (expected_page, expected_cursor.as_str()));

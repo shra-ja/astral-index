@@ -46,6 +46,16 @@ Keep tests with the layer they exercise:
 Update test discovery, imports, fixture paths and the coverage source inventory
 when moving tests. Test-only directory exclusions must not hide production code.
 
+## Intent-focused comments
+
+Add short descriptive comments to functions and structs when their intent is not
+immediately apparent. Explain why they exist, what they aim to achieve, or which
+invariant they protect; avoid narrating implementation steps or repeating names.
+Use Rust doc comments for useful API documentation. Apply the same principle to
+frontend/tooling functions and test helpers. Straightforward accessors, wrappers
+and clearly named tests need no redundant comment. Keep comments accurate as code
+changes; treat this as the default review practice.
+
 ## Pre-release database schemas
 
 While the application is unreleased, breaking schema changes are allowed. Keep

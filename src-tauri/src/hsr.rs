@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 
+/// Distinguish actionable failures without exposing response contents.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
     TooLarge,
@@ -15,6 +16,7 @@ pub enum ParseError {
     MixedAccounts,
 }
 
+/// Preserve source identity and fields losslessly for validation, merging and later export.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Roll {
     #[serde(flatten)]
@@ -32,6 +34,7 @@ pub struct Roll {
     pub rank_type: String,
 }
 
+/// Retain page context and record order without treating a page as complete history.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Page {
     #[serde(flatten)]
@@ -47,6 +50,7 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
     if bytes.len() > MAX_RESPONSE_BYTES {
         return Err(ParseError::TooLarge);
     }
+    // Read the API status before requiring success data; ignore server messages.
     #[derive(Deserialize)]
     struct Envelope {
         retcode: i64,
@@ -80,10 +84,12 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
     Ok(page)
 }
 
+/// Validate decimal identity text while retaining leading zeros and avoiding numeric conversion.
 fn digits(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
+/// Enforce the supported HSR record contract before any record can enter an import.
 fn valid_roll(roll: &Roll) -> bool {
     digits(&roll.id)
         && roll.id.len() <= 19
@@ -97,6 +103,7 @@ fn valid_roll(roll: &Roll) -> bool {
         && valid_time(&roll.time)
 }
 
+/// Require canonical, valid source-local timestamps without assuming a timezone.
 fn valid_time(value: &str) -> bool {
     use chrono::{NaiveDateTime, Timelike};
     let Ok(time) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S") else {

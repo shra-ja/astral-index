@@ -1,6 +1,7 @@
 export type Metric = { total: number; covered: number };
 export type FileCoverage = Record<'lines' | 'statements' | 'functions' | 'branches', Metric>;
 
+/** Fail closed when any inventoried source lacks valid, fully covered executable metrics. */
 export function assertCompleteCoverage(files: string[], report: Record<string, FileCoverage>): void {
   if (files.length === 0) throw new Error('No source files');
   for (const file of files) {

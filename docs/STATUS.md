@@ -16,6 +16,23 @@ game rules or statistics. The native library now has an HSR response parser and
 SQLite preview/import/history services, independently of the shell. Production CSP blocks network calls;
 no native capabilities or plugins are enabled. Decision 0001 records the stack.
 
+## Intent-focused comments (2026-09-23)
+
+Added short comments describing purpose and protected invariants in Rust models,
+storage/parser helpers, frontend/tooling functions and non-obvious test helpers.
+Straightforward accessors, wrappers and clearly named tests retain their existing
+concise form. `CONTRIBUTING.md` now establishes this as the default review practice.
+All source/test changes are comments only; no behavior changed, so no new TDD
+cycle was needed. The user authorized committing this increment on
+`feat/hsr-response-foundations`.
+
+`npm run check` passed: 37 Rust tests, 17 frontend/tooling tests, native offline
+integration, three coverage failure probes, required per-file 100% coverage,
+TypeScript, formatting and Clippy. The native namespace required the permitted
+run outside the sandbox. `git diff --check` passed. A production rebuild was not
+needed for comments. Next remains external HSR API contract verification; no push
+or integration was performed.
+
 ## Milestone 2 compact overlap storage (2026-09-23)
 
 Implemented the four overlap-focused roadmap items on the existing

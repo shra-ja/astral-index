@@ -32,6 +32,7 @@ document.querySelector('main')!.innerHTML = `
 const game = document.querySelector<HTMLSelectElement>('#game')!;
 const heading = document.querySelector('h2')!;
 
+// Keep the empty-state heading aligned with the selected game, including on first render.
 function updateGame() {
   heading.textContent = `No ${game.selectedOptions[0].textContent} rolls yet`;
 }

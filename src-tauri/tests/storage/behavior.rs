@@ -9,8 +9,10 @@ const PAGE: &[u8] = include_bytes!("../fixtures/hsr-api/page.json");
 const UID: &str = "100000002";
 const SERVER: &str = "synthetic-server";
 static NEXT: AtomicU64 = AtomicU64::new(0);
+// Own an isolated on-disk database and its cleanup for persistence and rollback tests.
 struct Database(PathBuf);
 impl Database {
+    // Give parallel tests independent directories without touching application data.
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
             "roll-tracker-storage-{}-{}",
@@ -23,6 +25,7 @@ impl Database {
     fn store(&self) -> Store {
         Store::open(&self.0).unwrap()
     }
+    // Inspect or perturb durable state independently of the service under test.
     fn connection(&self) -> Connection {
         Connection::open(&self.0).unwrap()
     }
@@ -32,6 +35,7 @@ impl Drop for Database {
         std::fs::remove_dir_all(self.0.parent().unwrap()).unwrap();
     }
 }
+// Derive a focused input variation while preserving the rest of the valid synthetic page.
 fn page(edit: impl FnOnce(&mut Value)) -> Vec<u8> {
     let mut value: Value = serde_json::from_slice(PAGE).unwrap();
     edit(&mut value);
@@ -44,6 +48,7 @@ fn summary(inserted: usize, duplicates: usize, conflicts: usize) -> Summary {
         conflicts,
     }
 }
+// Exercise the normal preview/commit flow with fixed context and time.
 fn import(store: &mut Store, bytes: &[u8]) -> Summary {
     let preview = store.preview(UID, SERVER, &[bytes]).unwrap();
     store.commit(preview, 1234).unwrap()

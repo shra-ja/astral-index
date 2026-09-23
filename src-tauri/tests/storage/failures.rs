@@ -9,6 +9,7 @@ const UID: &str = "100000002";
 const SERVER: &str = "synthetic-server";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
+// Fail selected operations in real SQLite to verify error handling and rollback.
 fn deny(connection: &Connection, predicate: impl Fn(AuthAction<'_>) -> bool + Send + 'static) {
     connection
         .authorizer(Some(move |context: AuthContext<'_>| {
@@ -28,6 +29,7 @@ fn allow(connection: &Connection) {
 fn empty_store() -> Store {
     Store::initialize(Connection::open_in_memory().unwrap()).unwrap()
 }
+// Verify that a failed operation leaves neither durable import state nor an open transaction.
 fn no_imports(store: &Store) {
     for table in ["accounts", "rolls", "batches"] {
         assert_eq!(
