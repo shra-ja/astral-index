@@ -16,22 +16,54 @@ game rules or statistics. The native library now has an HSR response parser and
 SQLite preview/import/history services, independently of the shell. Production CSP blocks network calls;
 no native capabilities or plugins are enabled. Decision 0001 records the stack.
 
-## Next milestone 2 work: frequent overlapping imports
+## Milestone 2 compact overlap storage (2026-09-23)
 
-The user established repeated imports of the last 12 months of history as a
-baseline workload, with substantial overlap between imports. Additional pending
-items in [milestone 2](ROADMAP.md#2--hsr-api-import-foundations) now cover compact
-import summaries, first-import provenance, removal of default response snapshots
-and repeated per-roll associations, preserved conflict/transaction guarantees,
-schema transition safety, and synthetic performance/storage-growth measurements.
-Exact reconstruction of every historical import is deliberately not a requirement
-for the proposed compact model. The current implementation remains unchanged and
-still stores full validated page snapshots and per-import roll associations.
+Implemented the four overlap-focused roadmap items on the existing
+`feat/hsr-response-foundations` task branch. Fetched `origin`; `origin/main`
+remained at the branch base `3dedfc4`. The user authorized committing this
+increment, including the pre-release schema simplification. No push, integration
+or release was performed.
 
-This is a documentation-only planning update. Whitespace and relative Markdown
-links were checked; application tests were not rerun. Implement these pending
-storage changes before moving on to milestone 3; API contract verification also
-remains open.
+Schema 2 stores unique rolls with first-import provenance and compact successful
+batch summaries. Repeated imports retain counts, time and scoped adapter context,
+without snapshots or repeated roll associations. Prepared statements handle
+classification and new-record inserts; previews no longer keep a full-page copy.
+Conflicts, isolation, immutable input ownership, stale previews and rollback
+remain enforced. At the user's request, the compact schema is now the sole initial migration.
+Breaking pre-release schema changes are permitted; obsolete development databases
+are rejected unchanged and must be explicitly recreated. There is no upgrade
+chain. The lack of historical input reconstruction and compatibility policy are
+recorded in [decision 0004](decisions/0004-compact-import-provenance.md).
+
+TDD: repeat-import tests first failed on attempted duplicate inserts. For the
+subsequent schema simplification, tests first failed because initial SQL created
+the old layout and opening an obsolete database attempted an upgrade. Compact
+initialization and explicit rejection now satisfy these assertions. Initialization
+rollback and persistence tests remain; obsolete upgrade tests were removed.
+
+Verification after simplification: focused Rust tests and `npm run check` pass,
+including 37 Rust tests, 17 frontend/tooling tests, native offline integration,
+three failure probes, formatting, TypeScript and Clippy. Every first-party file
+meets the required 100% coverage metrics. Storage has 191/191 lines, 257/257
+regions, 23/23 functions and 32/32 branch outcomes covered. The native namespace
+required the permitted run outside the sandbox.
+
+The standalone synthetic test imports 6,000 rolls, repeats the same year 24 times,
+then advances the 12-month window 12 times, reaching 12,000 unique rolls and 37
+summaries. Initial/repeat/rolling times were 202 ms / 4.143 s / 2.062 s; process
+peak RSS was 26,376 KiB. The database stayed at 2,420,736 bytes through complete
+repeats, then grew to 4,808,704 bytes with new rolls. These are local debug-build
+observations, not release-speed guarantees. See [testing](TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
+for the reproducible workload, assertions and measurement limits.
+
+`npm run tauri -- build --no-bundle` passed. Relative Markdown links and
+`git diff --check` passed. Commit: `feat(storage): compact overlapping imports`.
+
+Next: finish the external HSR API response/identity/timezone/pagination/error
+verification item. Synthetic tests do not establish live endpoint compatibility
+or history completeness. The shell still opens no database and has no acquisition
+or import UI; that integration belongs to milestone 3. Hosted CI has not run for
+this increment.
 
 ## Milestone 2 response foundations
 

@@ -72,17 +72,24 @@ fn preview_does_not_write_and_commit_survives_restart_with_exact_fields() {
         1
     );
     assert_eq!(
-        conn.query_row("SELECT count(*) FROM batch_rolls", [], |r| r
-            .get::<_, i64>(0))
-            .unwrap(),
+        scalar(&conn, "SELECT count(*) FROM rolls WHERE first_batch=1"),
         2
     );
-    let saved: String = conn
-        .query_row("SELECT pages FROM batches", [], |r| r.get(0))
-        .unwrap();
-    let saved: Value = serde_json::from_str(&saved).unwrap();
-    assert_eq!(saved[0]["list"][0]["id"], "9007199254740993");
-    assert_eq!(saved[0]["region_time_zone"], 8);
+    assert_eq!(scalar(&conn, "SELECT inserted FROM batches"), 2);
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT count(*) FROM pragma_table_info('batches') WHERE name='pages'"
+        ),
+        0
+    );
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT count(*) FROM sqlite_schema WHERE name='batch_rolls'"
+        ),
+        0
+    );
 }
 
 #[test]
@@ -252,7 +259,7 @@ fn failed_insert_rolls_back_account_batch_rolls_provenance_and_revision() {
     let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
     db.connection().execute_batch("CREATE TRIGGER reject_second BEFORE INSERT ON rolls WHEN NEW.id='9007199254740992' BEGIN SELECT RAISE(ABORT,'synthetic private failure'); END;").unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::Database));
-    for table in ["accounts", "rolls", "batches", "batch_rolls"] {
+    for table in ["accounts", "rolls", "batches"] {
         assert_eq!(
             db.connection()
                 .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r
@@ -334,11 +341,11 @@ fn database_uniqueness_foreign_keys_and_game_isolation_are_enforced() {
     );
     assert!(
         conn.execute_batch(
-            "INSERT INTO rolls VALUES ('genshin-impact','synthetic','synthetic','1','{}')"
+            "INSERT INTO rolls VALUES ('genshin-impact','synthetic','synthetic','1','{}',1)"
         )
         .is_err()
     );
-    conn.execute_batch("INSERT INTO accounts SELECT 'genshin-impact',uid,server,timezone FROM accounts; INSERT INTO rolls SELECT 'genshin-impact',uid,server,id,payload FROM rolls WHERE game='honkai-star-rail'").unwrap();
+    conn.execute_batch("INSERT INTO accounts SELECT 'genshin-impact',uid,server,timezone FROM accounts; INSERT INTO batches SELECT 2,'genshin-impact',uid,server,adapter,imported_at,inserted,duplicates,conflicts FROM batches WHERE id=1; INSERT INTO rolls SELECT 'genshin-impact',uid,server,id,payload,2 FROM rolls WHERE game='honkai-star-rail'").unwrap();
     assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
     assert_eq!(
         conn.query_row("SELECT count(*) FROM rolls", [], |r| r.get::<_, i64>(0))
@@ -405,13 +412,7 @@ fn failure_at_transaction_commit_rolls_back_every_table() {
     let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
     db.connection().execute_batch("CREATE TABLE deferred_parent(id INTEGER PRIMARY KEY); CREATE TABLE deferred_child(id INTEGER REFERENCES deferred_parent(id) DEFERRABLE INITIALLY DEFERRED); CREATE TRIGGER fail_commit AFTER INSERT ON rolls BEGIN INSERT INTO deferred_child VALUES(1); END;").unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::Database));
-    for table in [
-        "accounts",
-        "rolls",
-        "batches",
-        "batch_rolls",
-        "deferred_child",
-    ] {
+    for table in ["accounts", "rolls", "batches", "deferred_child"] {
         assert_eq!(
             db.connection()
                 .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r
@@ -457,5 +458,164 @@ fn commit_rechecks_account_timezone_evidence() {
             .query_row("SELECT count(*) FROM batches", [], |r| r.get::<_, i64>(0))
             .unwrap(),
         1
+    );
+}
+
+fn scalar(conn: &Connection, sql: &str) -> i64 {
+    conn.query_row(sql, [], |r| r.get(0)).unwrap()
+}
+
+#[test]
+fn duplicate_imports_only_add_summaries_and_keep_first_provenance() {
+    let db = Database::new();
+    let mut store = db.store();
+    import(&mut store, PAGE);
+    let conn = db.connection();
+    conn.execute_batch("CREATE TRIGGER no_repeat BEFORE INSERT ON rolls WHEN EXISTS(SELECT 1 FROM rolls WHERE id=NEW.id) BEGIN SELECT RAISE(ABORT,'duplicate write'); END;").unwrap();
+    for _ in 0..20 {
+        assert_eq!(import(&mut store, PAGE), summary(0, 2, 0));
+    }
+    assert_eq!(
+        scalar(&conn, "SELECT count(*) FROM rolls WHERE first_batch=1"),
+        2
+    );
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT count(*) FROM batches WHERE inserted=0 AND duplicates=2 AND conflicts=0 AND adapter='hsr-api-v1'"
+        ),
+        20
+    );
+    let overlap = page(|p| p["data"]["list"][1]["id"] = json!("0007199254740991"));
+    assert_eq!(import(&mut store, &overlap), summary(1, 1, 0));
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT first_batch FROM rolls WHERE id='0007199254740991'"
+        ),
+        22
+    );
+}
+
+#[test]
+fn initial_schema_creates_compact_storage_directly() {
+    let db = Database::new();
+    let conn = db.connection();
+    conn.execute_batch(include_str!("../../migrations/001_initial.sql"))
+        .unwrap();
+    assert_eq!(scalar(&conn, "PRAGMA user_version"), 2);
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT count(*) FROM pragma_table_info('rolls') WHERE name='first_batch'"
+        ),
+        1
+    );
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT count(*) FROM pragma_table_info('batches') WHERE name='pages'"
+        ),
+        0
+    );
+    assert_eq!(
+        scalar(
+            &conn,
+            "SELECT count(*) FROM sqlite_schema WHERE name='batch_rolls'"
+        ),
+        0
+    );
+    let before = std::fs::read(&db.0).unwrap();
+    db.store();
+    assert_eq!(std::fs::read(&db.0).unwrap(), before);
+}
+
+#[test]
+fn obsolete_prerelease_schema_is_rejected_without_modification() {
+    let db = Database::new();
+    db.connection().execute_batch("PRAGMA application_id=1381257795; PRAGMA user_version=1; CREATE TABLE metadata(singleton,database_id,revision); INSERT INTO metadata VALUES(1,'synthetic',0);").unwrap();
+    let before = std::fs::read(&db.0).unwrap();
+    assert!(matches!(Store::open(&db.0), Err(Error::Schema)));
+    assert_eq!(std::fs::read(&db.0).unwrap(), before);
+}
+
+#[test]
+fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
+    use std::time::Instant;
+    let db = Database::new();
+    let mut store = db.store();
+    let conn = db.connection();
+    let base = serde_json::from_slice::<Value>(PAGE).unwrap()["data"]["list"][0].clone();
+    // 500 synthetic rolls/month, 12 months/window; one page per month.
+    let pages: Vec<Vec<u8>> = (0..24)
+        .map(|month| {
+            page(|p| {
+                p["data"]["list"] = Value::Array(
+                    (0..500)
+                        .map(|index| {
+                            let mut roll = base.clone();
+                            roll["id"] = json!(format!("{:019}", month * 500 + index + 1));
+                            roll["time"] = json!(format!(
+                                "{}-{:02}-01 12:00:00",
+                                2024 + month / 12,
+                                month % 12 + 1
+                            ));
+                            roll
+                        })
+                        .collect(),
+                );
+            })
+        })
+        .collect();
+    let run = |store: &mut Store, start: usize| {
+        let bytes: Vec<&[u8]> = pages[start..start + 12].iter().map(Vec::as_slice).collect();
+        let preview = store.preview(UID, SERVER, &bytes).unwrap();
+        store.commit(preview, 1234).unwrap()
+    };
+    let began = Instant::now();
+    assert_eq!(run(&mut store, 0), summary(6000, 0, 0));
+    let initial_time = began.elapsed();
+    let initial_size = std::fs::metadata(&db.0).unwrap().len();
+    let began = Instant::now();
+    for _ in 0..24 {
+        assert_eq!(run(&mut store, 0), summary(0, 6000, 0));
+    }
+    let repeats_time = began.elapsed();
+    let repeats_size = std::fs::metadata(&db.0).unwrap().len();
+    assert_eq!(
+        scalar(&conn, "SELECT count(*) FROM rolls WHERE first_batch=1"),
+        6000
+    );
+    assert_eq!(scalar(&conn, "SELECT count(*) FROM batches"), 25);
+    assert!(
+        repeats_size - initial_size <= 32 * 1024,
+        "duplicate-only growth: {}",
+        repeats_size - initial_size
+    );
+    let began = Instant::now();
+    for start in 1..=12 {
+        assert_eq!(run(&mut store, start), summary(500, 5500, 0));
+    }
+    let rolling_time = began.elapsed();
+    let final_size = std::fs::metadata(&db.0).unwrap().len();
+    assert_eq!(scalar(&conn, "SELECT count(*) FROM rolls"), 12000);
+    assert_eq!(scalar(&conn, "SELECT sum(inserted) FROM batches"), 12000);
+    assert_eq!(scalar(&conn, "SELECT sum(duplicates) FROM batches"), 210000);
+    assert_eq!(scalar(&conn, "SELECT count(*) FROM batches"), 37);
+    assert!(final_size <= 2 * initial_size + 64 * 1024);
+    let mut conflict: Value = serde_json::from_slice(&pages[23]).unwrap();
+    conflict["data"]["list"][0]["name"] = json!("changed synthetic name");
+    let conflict = serde_json::to_vec(&conflict).unwrap();
+    let before = std::fs::read(&db.0).unwrap();
+    let began = Instant::now();
+    let preview = store.preview(UID, SERVER, &[&conflict]).unwrap();
+    assert_eq!(preview.summary(), summary(0, 499, 1));
+    assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
+    let conflict_time = began.elapsed();
+    assert_eq!(std::fs::read(&db.0).unwrap(), before);
+    drop(store);
+    assert_eq!(db.store().history(UID, SERVER).unwrap().len(), 12000);
+    println!(
+        "initial={initial_time:?}; 24 repeats={repeats_time:?}; 12 rolling={rolling_time:?}; conflict={conflict_time:?}; database bytes={initial_size}/{repeats_size}/{final_size}"
     );
 }

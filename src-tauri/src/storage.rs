@@ -1,5 +1,5 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
-use crate::{Page, ParseError, Roll, parse_response};
+use crate::{ParseError, Roll, parse_response};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use std::{collections::BTreeMap, path::Path};
 
@@ -50,7 +50,6 @@ pub struct Preview {
     server: String,
     timezone: Option<i32>,
     records: Vec<(String, String)>,
-    pages: String,
     snapshot: (String, i64),
 }
 impl Preview {
@@ -83,7 +82,7 @@ impl Store {
                 return Err(Error::Schema);
             }
             tx.execute_batch(include_str!("../migrations/001_initial.sql"))?;
-        } else if (version, app) != (1, APPLICATION_ID) {
+        } else if (version, app) != (2, APPLICATION_ID) {
             return Err(Error::Schema);
         }
         snapshot(&tx)?;
@@ -103,7 +102,7 @@ impl Store {
         {
             return Err(Error::TooLarge);
         }
-        let mut pages: Vec<Page> = Vec::new();
+        let mut timezone = None;
         let mut records = Vec::new();
         for bytes in bytes {
             let page = parse_response(bytes)?;
@@ -114,10 +113,7 @@ impl Store {
             {
                 return Err(Error::Context);
             }
-            if pages
-                .first()
-                .is_some_and(|first| first.region_time_zone != page.region_time_zone)
-            {
+            if timezone.is_some_and(|first| first != page.region_time_zone) {
                 return Err(Error::Context);
             }
             for roll in &page.list {
@@ -126,22 +122,21 @@ impl Store {
                 }
                 records.push((roll.id.clone(), serde_json::json!(roll).to_string()));
             }
-            pages.push(page);
+            timezone = Some(page.region_time_zone);
         }
         if records.is_empty() {
             return Err(Error::Empty);
         }
-        let timezone = pages[0].region_time_zone;
+        let timezone = timezone.flatten();
         let tx = self.connection.transaction()?;
         check_timezone(&tx, uid, server, timezone)?;
-        let summary = classify(&tx, uid, server, &records)?;
+        let (summary, _) = classify(&tx, uid, server, &records)?;
         let preview = Preview {
             summary,
             uid: uid.to_owned(),
             server: server.to_owned(),
             timezone,
             records,
-            pages: serde_json::json!(pages).to_string(),
             snapshot: snapshot(&tx)?,
         };
         tx.commit()?;
@@ -160,21 +155,31 @@ impl Store {
             return Err(Error::StalePreview);
         }
         check_timezone(&tx, &preview.uid, &preview.server, preview.timezone)?;
-        if classify(&tx, &preview.uid, &preview.server, &preview.records)? != preview.summary {
+        let (current, new_records) =
+            classify(&tx, &preview.uid, &preview.server, &preview.records)?;
+        if current != preview.summary {
             return Err(Error::StalePreview);
         }
         tx.execute("INSERT INTO accounts(game,uid,server,timezone) VALUES (?1,?2,?3,?4) ON CONFLICT DO NOTHING",
             params![GAME, preview.uid, preview.server, preview.timezone])?;
         tx.execute(
-            "INSERT INTO batches(game,uid,server,adapter,pages,imported_at) VALUES (?1,?2,?3,'hsr-api-v1',?4,?5)",
-            params![GAME, preview.uid, preview.server, preview.pages, imported_at],
+            "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,'hsr-api-v1',?4,?5,?6,0)",
+            params![GAME, preview.uid, preview.server, imported_at, current.inserted as i64, current.duplicates as i64],
         )?;
         let batch = tx.last_insert_rowid();
-        for (occurrence, (id, payload)) in preview.records.iter().enumerate() {
-            tx.execute("INSERT INTO rolls(game,uid,server,id,payload) VALUES (?1,?2,?3,?4,?5) ON CONFLICT DO NOTHING",
-                params![GAME, preview.uid, preview.server, id, payload])?;
-            tx.execute("INSERT INTO batch_rolls(batch_id,occurrence,game,uid,server,roll_id) VALUES (?1,?2,?3,?4,?5,?6)",
-                params![batch, occurrence as i64, GAME, preview.uid, preview.server, id])?;
+        {
+            let mut insert = tx.prepare("INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)")?;
+            for index in new_records {
+                let (id, payload) = &preview.records[index];
+                insert.execute(params![
+                    GAME,
+                    preview.uid,
+                    preview.server,
+                    id,
+                    payload,
+                    batch
+                ])?;
+            }
         }
         tx.execute(
             "UPDATE metadata SET revision=revision+1 WHERE singleton=1",
@@ -231,18 +236,22 @@ fn classify(
     uid: &str,
     server: &str,
     records: &[(String, String)],
-) -> Result<Summary, Error> {
+) -> Result<(Summary, Vec<usize>), Error> {
+    let mut new_records = Vec::new();
+    let mut query = connection
+        .prepare("SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4")?;
     let mut summary = Summary::default();
     let mut seen: BTreeMap<&String, String> = BTreeMap::new();
-    for (id, payload) in records {
-        let previous =
-            if let Some(previous) = seen.get(id) {
-                Some(previous.clone())
-            } else {
-                connection.query_row(
-                "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4",
-                params![GAME, uid, server, id], |row| row.get::<_, String>(0)).optional()?
-            };
+    for (index, (id, payload)) in records.iter().enumerate() {
+        let previous = if let Some(previous) = seen.get(id) {
+            Some(previous.clone())
+        } else {
+            query
+                .query_row(params![GAME, uid, server, id], |row| {
+                    row.get::<_, String>(0)
+                })
+                .optional()?
+        };
         match previous {
             Some(previous) => {
                 if previous == *payload {
@@ -254,11 +263,12 @@ fn classify(
             }
             None => {
                 summary.inserted += 1;
+                new_records.push(index);
                 seen.insert(id, payload.clone());
             }
         }
     }
-    Ok(summary)
+    Ok((summary, new_records))
 }
 
 #[cfg(test)]

@@ -14,9 +14,12 @@ commands, I/O, database, acquisition, or startup integration. See the response
 contract and limits in [API research](../docs/HSR-API-RESEARCH.md).
 
 `src/storage.rs` implements SQLite storage, immutable previews and atomic commits,
-with the initial declarative schema in `migrations/001_initial.sql`. Tests use
-real temporary SQLite files. See [decision 0003](../docs/decisions/0003-sqlite-import-foundations.md)
-for identity, conflict, provenance and migration policy. The library's native
+with a single initial schema in `migrations/001_initial.sql`. It creates compact
+summaries and first-import provenance directly. Obsolete pre-release databases
+are rejected unchanged and must be explicitly recreated; there is no upgrade chain. Tests use real temporary SQLite files. See
+[decision 0003](../docs/decisions/0003-sqlite-import-foundations.md) and
+[decision 0004](../docs/decisions/0004-compact-import-provenance.md) for identity,
+conflict, provenance and migration policy. The library's native
 path argument is not exposed to the webview; app-data path selection and typed
 commands remain milestone 3 work.
 

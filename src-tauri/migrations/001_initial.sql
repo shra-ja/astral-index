@@ -1,3 +1,4 @@
+-- Unreleased baseline: incompatible development databases must be recreated.
 CREATE TABLE metadata (
     singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
     database_id TEXT NOT NULL,
@@ -11,15 +12,6 @@ CREATE TABLE accounts (
     timezone INTEGER,
     PRIMARY KEY(game, uid, server)
 ) STRICT;
-CREATE TABLE rolls (
-    game TEXT NOT NULL,
-    uid TEXT NOT NULL,
-    server TEXT NOT NULL,
-    id TEXT NOT NULL,
-    payload TEXT NOT NULL CHECK(json_valid(payload)),
-    PRIMARY KEY(game, uid, server, id),
-    FOREIGN KEY(game, uid, server) REFERENCES accounts(game, uid, server)
-) STRICT;
 CREATE TABLE batches (
     id INTEGER PRIMARY KEY,
     game TEXT NOT NULL,
@@ -27,18 +19,22 @@ CREATE TABLE batches (
     server TEXT NOT NULL,
     adapter TEXT NOT NULL,
     imported_at INTEGER NOT NULL,
-    pages TEXT NOT NULL CHECK(json_valid(pages)),
-    FOREIGN KEY(game, uid, server) REFERENCES accounts(game, uid, server)
+    inserted INTEGER NOT NULL CHECK(inserted>=0),
+    duplicates INTEGER NOT NULL CHECK(duplicates>=0),
+    conflicts INTEGER NOT NULL CHECK(conflicts=0),
+    UNIQUE(id,game,uid,server),
+    FOREIGN KEY(game,uid,server) REFERENCES accounts(game,uid,server)
 ) STRICT;
-CREATE TABLE batch_rolls (
-    batch_id INTEGER NOT NULL REFERENCES batches(id),
-    occurrence INTEGER NOT NULL,
+CREATE TABLE rolls (
     game TEXT NOT NULL,
     uid TEXT NOT NULL,
     server TEXT NOT NULL,
-    roll_id TEXT NOT NULL,
-    PRIMARY KEY(batch_id, occurrence),
-    FOREIGN KEY(game, uid, server, roll_id) REFERENCES rolls(game, uid, server, id)
+    id TEXT NOT NULL,
+    payload TEXT NOT NULL CHECK(json_valid(payload)),
+    first_batch INTEGER NOT NULL,
+    PRIMARY KEY(game,uid,server,id),
+    FOREIGN KEY(game,uid,server) REFERENCES accounts(game,uid,server),
+    FOREIGN KEY(first_batch,game,uid,server) REFERENCES batches(id,game,uid,server)
 ) STRICT;
 PRAGMA application_id = 1381257795;
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;

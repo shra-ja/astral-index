@@ -126,13 +126,16 @@ validated values and counts. The 16 MiB total batch limit supplements the parser
 2 MiB page limit. Empty datasets produce a no-records error, without creating an
 account. No source is reread on commit and no service makes network requests.
 
-Schema version 1 has accounts, rolls, import batches, ordered roll-to-batch
-associations and database identity/revision metadata. Keys include game, UID,
-server and string record ID. JSON payloads retain source fields/extensions;
-batch page snapshots retain ordering, duplicates and context. Identical reimports
-add provenance without adding rolls. Conflicts block the entire import, including
-localized-label or timezone changes. Unknown timezone is retained as unknown;
-resolving it later requires explicit reconciliation rather than silent conversion.
+Schema version 2 has accounts, unique rolls, compact import summaries and database
+identity/revision metadata. Keys include game, UID, server and string record ID.
+Roll JSON retains source fields/extensions; a scoped foreign key identifies its
+first batch. Successful summaries retain adapter, import time and counts. Full
+page snapshots and repeated associations are not retained. Identical reimports
+add only a summary and revision update. Conflicts block the entire import,
+including localized-label or timezone changes. Unknown timezone stays unknown;
+resolving it requires explicit reconciliation rather than silent conversion.
+See [decision 0004](decisions/0004-compact-import-provenance.md) for the deliberate
+loss of exact historical input reconstruction and pre-release schema policy.
 
 Commit acquires an immediate transaction, verifies database identity/revision,
 rechecks timezone evidence and record classifications, then writes all state
@@ -140,12 +143,15 @@ atomically. Import time is a caller-supplied Unix timestamp in seconds. Other su
 imports invalidate outstanding previews, even for a different account. Cancellation
 before commit is dropping a preview; UI cancellation during a transaction is not
 implemented. A failed SQL insert or final commit rolls back the account, records,
-batch associations and revision. Queries are scoped to HSR/account/server and use
+first provenance, summary and revision. Queries are scoped to HSR/account/server and use
 deterministic ID ordering, without treating that order as historical chronology.
 
 Migration initializes only an empty unclaimed database and refuses unsupported
-versions or unrelated content. This increment has no upgrade from an older app
-schema because version 1 is the first schema. Database corruption yields safe
+versions or unrelated content. The sole initial migration creates compact storage
+directly. Pre-release schema changes may break compatibility: obsolete development
+databases must be explicitly recreated and are rejected without modification.
+The current header marker remains 2 to distinguish the old layout; no upgrade
+chain is maintained. Database corruption yields safe
 error categories; no repair/overwrite path is implemented. The shell still opens
 no database and exposes no new Tauri capability. The next UI/acquisition increment
 must resolve selected account/server and compare requested banner context.

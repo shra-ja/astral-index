@@ -1,6 +1,7 @@
 # 0003 — SQLite storage and reviewed imports
 
-Status: accepted for the milestone 2 backend increment, 2026-09-22.
+Status: accepted for the milestone 2 backend increment, 2026-09-22. Snapshot and
+repeated-association policy superseded by [decision 0004](0004-compact-import-provenance.md).
 
 Use SQLite through exactly pinned `rusqlite` 0.40.2 with bundled SQLite. This
 keeps the database local and avoids dependence on the host SQLite version.

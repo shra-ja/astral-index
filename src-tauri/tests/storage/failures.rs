@@ -29,7 +29,7 @@ fn empty_store() -> Store {
     Store::initialize(Connection::open_in_memory().unwrap()).unwrap()
 }
 fn no_imports(store: &Store) {
-    for table in ["accounts", "rolls", "batches", "batch_rolls"] {
+    for table in ["accounts", "rolls", "batches"] {
         assert_eq!(
             store
                 .connection
@@ -184,7 +184,7 @@ fn failed_commit_statements_roll_back_the_entire_import() {
         "rolls",
         "accounts",
         "batches",
-        "batch_rolls",
+        "roll_insert",
         "revision",
     ] {
         let mut store = empty_store();
@@ -215,9 +215,9 @@ fn failed_commit_statements_roll_back_the_entire_import() {
                         table_name: "batches",
                     },
                 ) | (
-                    "batch_rolls",
+                    "roll_insert",
                     AuthAction::Insert {
-                        table_name: "batch_rolls",
+                        table_name: "rolls",
                     },
                 ) | (
                     "revision",
@@ -241,9 +241,13 @@ fn malformed_database_metadata_and_payload_types_fail_safely() {
         store.connection.execute_batch(&format!("DROP TABLE metadata; CREATE TABLE metadata(singleton,database_id,revision); INSERT INTO metadata VALUES(1,{values});")).unwrap();
         assert_eq!(snapshot(&store.connection), Err(Error::Database));
     }
-    let store = empty_store();
-    store.connection.execute_batch("DROP TABLE rolls; CREATE TABLE rolls(game,uid,server,id,payload); INSERT INTO rolls VALUES('honkai-star-rail','100000002','synthetic-server','1',x'00');").unwrap();
+    let mut store = empty_store();
+    store.connection.execute_batch("DROP TABLE rolls; CREATE TABLE rolls(game,uid,server,id,payload); INSERT INTO rolls VALUES('honkai-star-rail','100000002','synthetic-server','9007199254740993',x'00');").unwrap();
     assert_eq!(store.history(UID, SERVER), Err(Error::Database));
+    assert!(matches!(
+        store.preview(UID, SERVER, &[PAGE]),
+        Err(Error::Database)
+    ));
 }
 
 #[test]

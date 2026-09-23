@@ -172,3 +172,78 @@ This is a layout refactor: the baseline 17 frontend/tooling and 33 Rust tests
 passed before moves. The same tests pass after moves; no application behavior or
 test assertions changed. Coverage inventories and test-only exclusions follow
 the new directories, with the same per-file thresholds and failure probes.
+
+## Overlapping imports and schema 2 (2026-09-23)
+
+Test-first evidence: the duplicate-write rejection test failed because a repeated
+import attempted to insert existing rolls. Compact storage and inserting only
+newly classified records made it pass. Existing conflict, isolation, ownership,
+stale-preview and rollback tests remain in place.
+
+The user subsequently authorized breaking pre-release schema changes. Tests first
+failed because the initial SQL still created the old layout and the initializer
+attempted to upgrade an obsolete schema rather than reject it. The sole initial
+schema now creates compact storage directly. Tests verify unchanged bytes when
+reopening it or rejecting an obsolete schema. The old upgrade implementation and
+its compatibility tests were removed. Initialization failure injection still
+verifies complete rollback, including partial DDL and final commit failures.
+Malformed stored payload types return a safe error from both history and
+classification. No source/coverage exclusions changed.
+
+`rolling_year_imports_grow_with_unique_rolls_and_compact_summaries` creates 24
+synthetic months of 500 rolls each. It imports the first 12 months (6,000 rolls),
+repeats that window 24 times, then advances it monthly for 12 imports (500 new,
+5,500 duplicates each). A final 500-record page contains one conflicting existing
+ID and must leave the database byte-for-byte unchanged. Reopen yields 12,000
+unique rolls, 37 successful summaries, 12,000 inserted and 210,000 duplicates.
+Assertions bound duplicate-only file growth to 32 KiB, overall growth to twice
+the initial file plus 64 KiB, and verify first provenance stays unchanged. Separate
+tests verify snapshots/association tables are absent and reject any attempted
+insertion of an existing roll, including a mixed new/duplicate import.
+
+Run the workload with output:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib rolling_year_imports -- --nocapture --test-threads=1
+```
+
+For process peak RSS, first build without running, then time the emitted library
+test executable directly (avoids measuring Cargo/compiler memory):
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib --no-run --message-format=json > /tmp/overlap-artifacts.json
+python3 - <<'PY'
+import json, subprocess
+for line in open('/tmp/overlap-artifacts.json'):
+    artifact = json.loads(line)
+    if (artifact.get('reason') == 'compiler-artifact'
+            and artifact.get('executable') and artifact['target']['kind'] == ['lib']):
+        subprocess.run(['/usr/bin/time', '-v', artifact['executable'],
+            'storage::integration_tests::rolling_year_imports_grow_with_unique_rolls_and_compact_summaries',
+            '--exact', '--nocapture', '--test-threads=1'], check=True)
+PY
+```
+
+Timings include preview and commit against a real temporary SQLite file. RSS is
+for the whole test process, including synthetic inputs and restart assertions,
+not an allocation measurement of the importer alone. Timings/RSS are observations,
+not CI speed thresholds or release-build guarantees. Storage assertions run in
+the normal native coverage suite. Obsolete pre-release databases are rejected without modification; this change
+does not automatically delete, migrate or vacuum them.
+
+Measured on Ubuntu 24.04 x86_64, unoptimized test build, 2026-09-23, running the
+workload alone: initial import **202 ms**; 24 complete repeats **4.143 s** total
+(~173 ms/import); 12 rolling imports **2.062 s** total (~172 ms/import); rejected
+conflicting page **12 ms**. The test reported **6.61 s** elapsed and maximum process RSS was
+**26,376 KiB**. Database file sizes were **2,420,736 bytes** after initial import,
+**2,420,736 bytes** after all complete repeats, and **4,808,704 bytes** after rolling
+imports. Zero file growth in this repeat phase reflects space already available
+in SQLite pages; summaries still consume space and will eventually grow the file.
+No before/after throughput speedup or real-player performance claim is made.
+
+
+After schema consolidation, `npm run check` passed: 37 Rust tests (21 storage
+behavior, 6 storage failure, 10 parser), 17 frontend/tooling tests, native offline
+integration and all three failure probes. Storage has 191/191 lines, 257/257
+regions, 23/23 functions and 32/32 branch outcomes covered. Every other first-party
+file also meets its required 100% metrics; formatting, TypeScript and Clippy pass.

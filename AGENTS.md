@@ -28,8 +28,7 @@ inspect actual code before assuming a feature exists.
 ## Implementation conventions
 
 - Use vanilla TypeScript, Vite, npm, and Tauri 2 (decision 0001). Manage Node.js
-  and Rust with asdf and `.tool-versions`. The database library is not yet
-  selected. Record consequential choices in
+  and Rust with asdf and `.tool-versions`. Use pinned rusqlite with bundled SQLite (decision 0003). Record consequential choices in
   `docs/decisions/` and update setup instructions when scaffolding the app.
 - Keep UI presentation, game rules, parsing, persistence, and OS discovery separate.
 - Prefer Rust for file access, import validation, persistence, and authoritative
@@ -76,7 +75,8 @@ inspect actual code before assuming a feature exists.
 
 ## Validation and handoff
 
-- The shell exists; imports and persistence do not. Use `npm test` for UI/tooling
+- The shell and native parser/storage services exist; the acquisition/import UI
+  is not connected yet. Use `npm test` for UI/tooling
   tests, `npm run check` for all test/coverage/type/lint gates, and
   `npm run tauri -- build --no-bundle` for a production desktop executable.
 - Document exact setup/check commands in `README.md`. Run focused

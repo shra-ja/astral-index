@@ -46,6 +46,15 @@ Keep tests with the layer they exercise:
 Update test discovery, imports, fixture paths and the coverage source inventory
 when moving tests. Test-only directory exclusions must not hide production code.
 
+## Pre-release database schemas
+
+While the application is unreleased, breaking schema changes are allowed. Keep
+one current initial schema instead of maintaining migrations between development
+versions. Reject incompatible existing databases without modifying them; recreate
+development databases explicitly when needed. Retain initialization, persistence,
+constraint and rollback tests. After release, use versioned migrations with data
+preservation and recovery tests for changes to persisted data.
+
 ## Coverage is a blocking gate
 
 - Require exactly 100% of executable lines, statements, functions, and branches
