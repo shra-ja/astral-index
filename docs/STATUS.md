@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-21
+Updated: 2026-09-23
 
 ## Current state
 
@@ -11,8 +11,9 @@ CI passed and **Tests and 100% coverage** is required on protected `main`.
 The remote uses SSH: `git@github.com:shra-ja/roll-tracker.git`.
 
 The app is a vanilla TypeScript/Vite web UI in Tauri 2, with game selection,
-an accessible local-app empty state and bundled styling. The shell has no user-facing import, database,
-game rules or statistics. A pure Rust HSR response parser now exists separately. Production CSP blocks network calls;
+an accessible local-app empty state and bundled styling. The shell has no user-facing import,
+game rules or statistics. The native library now has an HSR response parser and
+SQLite preview/import/history services, independently of the shell. Production CSP blocks network calls;
 no native capabilities or plugins are enabled. Decision 0001 records the stack.
 
 ## Milestone 2 response foundations
@@ -53,14 +54,100 @@ Final verification on Ubuntu 24.04:
 - Relative Markdown links and `git diff --check`: passed. Hosted CI was not run
   for this branch; other platforms remain untested.
 
-Next concrete task: select the local database and implement its initial migration
-and preview/transactional import services with TDD. Resolve account/server context
-before merging; test repeats, overlaps, conflicts, rollback and migration safety.
+The response-parser handoff deferred the database, migration and transactional
+services. The storage increment below now implements those foundations.
 The API format-verification item remains open: current global endpoint variants,
 terminal pages, expiry/rate-limit behavior and completeness need further evidence.
 The parser is not connected to the shell or an HTTP client. Scripted mocks do not
 validate network transport or an automatic pagination loop. See
 [response research](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21).
+
+## Milestone 2 SQLite services (2026-09-22)
+
+Continued on `feat/hsr-response-foundations` after confirming `origin/main` had
+not advanced beyond the branch's base. Parser commit `c4715a8` remains intact.
+The user authorized committing this increment on 2026-09-23, including the
+schema, tests, test layout and documentation. No push, integration or release
+was performed.
+
+Selected pinned `rusqlite` 0.40.2 with bundled SQLite; see
+[decision 0003](decisions/0003-sqlite-import-foundations.md). Implemented schema
+version 1, native database open, immutable HSR previews, atomic commits, scoped
+history queries and batch provenance. Text identity keys preserve game/UID/server/
+record separation. Source fields, unknown extensions, order, optional timezone,
+repeat occurrences and a caller-supplied import timestamp are retained.
+
+Preview validates every page before database classification. Conflict counts block
+the complete batch. Commit holds a write transaction, rejects cross-database or
+stale previews, rechecks timezone evidence and record classifications, and writes
+accounts, records, provenance and revision together. Reimports add no duplicate
+rolls. The service has no source rereads, automatic acquisition or clock access.
+A 16 MiB batch bound supplements the parser's 2 MiB page bound. Empty datasets
+return a no-records error without creating an account.
+
+TDD evidence: eight initial service tests failed against a compiling placeholder,
+then passed with the storage implementation. Later failing regressions drove
+payload and timezone rechecks before commit, and caller-supplied import time.
+Real SQLite failure tests verify rollback on partial DDL, denied operations,
+failed inserts, locked writers and failed final commits. Tests also cover restart,
+source ownership, cancelled previews, overlaps, conflicts, isolation, unknown
+timezone, incompatible database headers and corrupt stored values.
+
+Verification:
+
+- `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline`: passed
+  all 33 Rust tests (17 service integration, 6 internal failure, 10 parser).
+- `npm run check`: passed, including the same Rust tests, 17 UI/tooling tests,
+  native keyboard/CSP/shutdown integration, 3 failure probes, report inventory,
+  TypeScript build, formatting and Clippy with warnings denied.
+- Frontend/tooling: 100% required metrics per file. Storage: 180/180 lines,
+  259/259 regions, 23/23 functions and 32/32 branch outcomes. Parser, startup and
+  build-script coverage remain complete. No coverage exclusions or thresholds changed.
+- `npm run tauri -- build --no-bundle`: passed. Relative Markdown links and
+  `git diff --check` passed.
+- An initial sandbox run could not create the native network namespace; the
+  permitted rerun retained isolation. Initial uncovered propagation paths and
+  test lint findings were corrected before the final passing full check.
+
+The roadmap's database/service and service-verification steps are complete.
+The API contract-verification step remains open; synthetic tests do not establish
+live global-endpoint variants, terminal-page behavior, expiry or retention.
+Next: finish that evidence review, then connect explicit acquisition and native
+preview/commit/history commands in milestone 3. The shell still opens no database;
+app-data path selection, account-resolution UX, mid-commit UI cancellation,
+backup/restore, later migrations and other OS support remain future work. Hosted
+CI has not run for this increment.
+
+## Test layout (2026-09-22)
+
+At the user's request, frontend tests now live in `src/tests/`, backend Rust
+tests and fixtures in `src-tauri/tests/`, and tooling tests in `scripts/tests/`.
+Root `tests/` now contains only the application native end-to-end test, its X11
+helper and documentation. `CONTRIBUTING.md` records this convention for future work.
+
+Cargo discovers the HSR integration test automatically; its custom manifest path
+was removed. Storage tests remain in one library test artifact for private
+failure-boundary access and complete coverage, with their files under
+`src-tauri/tests/storage/`. Package commands, imports, fixture references and
+coverage inventories were updated. Test-directory exclusions now follow each
+layer; no production source was excluded and thresholds remain unchanged.
+
+This refactor started with 17 frontend/tooling and 33 Rust tests passing. The
+same tests pass after relocation. Final `npm run check` passed, including native
+end-to-end execution, coverage failure probes, fresh per-file 100% coverage,
+TypeScript build, Rust formatting and Clippy. The native namespace required the
+permitted rerun outside the sandbox. Relative Markdown links and
+`git diff --check` passed. Application behavior is unchanged, so no new behavior
+or regression test was needed. The earlier production build remains applicable;
+this test-layout refactor did not require another production build.
+
+The test layout is included with the storage increment on
+`feat/hsr-response-foundations` in the user-authorized commit.
+
+Fresh pre-commit validation on 2026-09-23: `npm run check` passed, including
+all 33 Rust tests, 17 frontend/tooling tests, native end-to-end tests, failure
+probes, 100% required coverage, formatting and Clippy. Relative Markdown links
+and whitespace checks also passed.
 
 ## Environment
 
@@ -162,7 +249,7 @@ documentation only; no storage or import behavior is implemented. App tests and
 coverage were not rerun for the skill installation. Next: apply the UIGF contract
 when designing the HSR parser and local persistence model.
 
-Supported release OS/packaging; persistence library; exact import formats and
+Supported release OS/packaging; future schema upgrades; exact import formats and
 installation-source feasibility; account UX; game-rule evidence; final branding
 and license. Do not assume installation files contain usable offline history.
 

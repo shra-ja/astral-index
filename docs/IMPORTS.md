@@ -3,7 +3,8 @@
 ## Source status
 
 A pure Rust HSR API response parser is implemented and tested with synthetic
-pages. No user-facing importer, acquisition client, or persistence exists yet. HSR research established
+pages. Native SQLite preview/transactional import services now preserve validated
+HSR histories locally. No user-facing importer or acquisition client exists yet. HSR research established
 cache-based request extraction and API retrieval: the inspected cache supplies
 authentication/request context, and history is fetched from HoYoverse. Acquisition
 is now in scope only upon an explicit user request; see

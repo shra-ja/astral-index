@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 beforeEach(async () => {
   document.body.innerHTML = '<main></main>';
   vi.resetModules();
-  await import('../src/main');
+  await import('../main');
 });
 
 test('starts with accessible game selection and a local-app empty state', () => {

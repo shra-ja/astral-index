@@ -2,7 +2,7 @@
 
 The shell uses vanilla TypeScript, Vite/npm and Tauri 2; see decision 0001.
 Node.js and Rust are managed with asdf. The import/storage/service design below
-remains a proposal except for the pure HSR response adapter described below. Instrumentation is documented in `TESTING.md`.
+is implemented for the HSR response adapter and SQLite import services described below; acquisition and UI integration remain proposals. Instrumentation is documented in `TESTING.md`.
 
 ## Boundaries
 
@@ -55,8 +55,9 @@ tooling capable of measuring all required metrics before adding application code
 
 ## Storage proposal
 
-SQLite in the OS application-data directory is the initial proposal. Select its
-Rust integration during implementation. Keep SQL and migrations in the backend;
+SQLite through pinned `rusqlite` with bundled SQLite is implemented for native
+services; see [decision 0003](decisions/0003-sqlite-import-foundations.md).
+Choosing the OS application-data path belongs to the later native UI integration. Keep SQL and migrations in the backend;
 do not store durable history in browser localStorage or inside game directories.
 Bundle assets and required game metadata for local use, with explicit versions.
 
@@ -104,7 +105,7 @@ as a known starting state; report observed counts or unknown values explicitly.
 ## Implemented HSR response adapter
 
 `src-tauri/src/hsr.rs` is a standalone Rust library target; integration tests live
-in `tests/hsr.rs` and run within the existing native coverage harness. It parses
+in `src-tauri/tests/hsr.rs` and run within the existing native coverage harness. It parses
 bounded bytes into a page with optional server/timezone evidence and string roll
 fields. It neither deduplicates nor persists. Mixed-account pages and invalid
 records reject the entire page. Structured errors omit source messages and data.
@@ -114,5 +115,37 @@ directly for decoding and calendar validation without device-clock access.
 A page is not an import-ready account identity: the future service must resolve
 missing server evidence and compare UID, server, timezone, and requested banner
 across pages before merging. No complete-history claim follows from an empty
-page. The shell does not invoke the adapter. Database and service design remain
-open; see [research](HSR-API-RESEARCH.md) for the deliberately limited contract.
+page. The shell does not invoke the adapter. SQLite service behavior is described below; see [research](HSR-API-RESEARCH.md) for the deliberately limited contract.
+
+## Implemented SQLite import services
+
+`src-tauri/src/storage.rs` accepts native database paths, HSR response byte slices,
+and explicit UID/server context. The adapter validates every page before a read
+transaction classifies scoped record identities. An immutable preview owns the
+validated values and counts. The 16 MiB total batch limit supplements the parser's
+2 MiB page limit. Empty datasets produce a no-records error, without creating an
+account. No source is reread on commit and no service makes network requests.
+
+Schema version 1 has accounts, rolls, import batches, ordered roll-to-batch
+associations and database identity/revision metadata. Keys include game, UID,
+server and string record ID. JSON payloads retain source fields/extensions;
+batch page snapshots retain ordering, duplicates and context. Identical reimports
+add provenance without adding rolls. Conflicts block the entire import, including
+localized-label or timezone changes. Unknown timezone is retained as unknown;
+resolving it later requires explicit reconciliation rather than silent conversion.
+
+Commit acquires an immediate transaction, verifies database identity/revision,
+rechecks timezone evidence and record classifications, then writes all state
+atomically. Import time is a caller-supplied Unix timestamp in seconds. Other successful
+imports invalidate outstanding previews, even for a different account. Cancellation
+before commit is dropping a preview; UI cancellation during a transaction is not
+implemented. A failed SQL insert or final commit rolls back the account, records,
+batch associations and revision. Queries are scoped to HSR/account/server and use
+deterministic ID ordering, without treating that order as historical chronology.
+
+Migration initializes only an empty unclaimed database and refuses unsupported
+versions or unrelated content. This increment has no upgrade from an older app
+schema because version 1 is the first schema. Database corruption yields safe
+error categories; no repair/overwrite path is implemented. The shell still opens
+no database and exposes no new Tauri capability. The next UI/acquisition increment
+must resolve selected account/server and compare requested banner context.

@@ -59,10 +59,17 @@ completeness still need verification.
   are scripted parser-boundary responses, not tests of a production HTTP client.
   See [response review](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21)
   for policy and remaining external-verification limits.
-- [ ] Select and implement the local database, initial migration, and shared
+- [x] Select and implement the local database, initial migration, and shared
   preview/transactional import services.
-- [ ] Verify persistence, repeat/overlap imports, validation failures, migration
+- [x] Verify persistence, repeat/overlap imports, validation failures, migration
   safety, and account isolation at the service level.
+
+The native service now uses SQLite/rusqlite with schema version 1, immutable
+previews, exact-ID deduplication, conflict rejection and transactional provenance.
+Real-file and injected-failure tests cover restart, isolation, stale previews and
+rollback. The API verification checkbox remains open; synthetic service tests do
+not establish current live endpoint compatibility or complete retained history.
+See [decision 0003](decisions/0003-sqlite-import-foundations.md).
 
 Done when synthetic HSR API responses can be validated, previewed, and committed
 through tested services without duplicate records or partial writes. This is a

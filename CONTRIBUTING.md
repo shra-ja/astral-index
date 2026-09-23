@@ -30,6 +30,22 @@ Mock OS/network boundaries where useful, but verify real file and database behav
 using isolated temporary resources. Coverage does not replace meaningful assertions.
 Use synthetic fixtures and deterministic clocks/data; never real player histories.
 
+## Test layout
+
+Keep tests with the layer they exercise:
+
+- `src/tests/`: frontend tests and frontend-only fixtures/helpers.
+- `src-tauri/tests/`: backend Rust tests and backend-only fixtures/helpers.
+  Use Cargo's automatic discovery for integration-test entry points. Tests that
+  require private implementation access may be included as test-only modules
+  from subdirectories here; do not expose production internals just for tests.
+- `scripts/tests/`: development-tooling tests, including coverage gate tests.
+- Root `tests/`: application end-to-end tests spanning the frontend and backend,
+  with their fixtures/helpers. Do not place layer-specific tests here.
+
+Update test discovery, imports, fixture paths and the coverage source inventory
+when moving tests. Test-only directory exclusions must not hide production code.
+
 ## Coverage is a blocking gate
 
 - Require exactly 100% of executable lines, statements, functions, and branches

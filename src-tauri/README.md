@@ -12,3 +12,15 @@ adapters and persistence follow `../docs/ARCHITECTURE.md`.
 It returns validated page/roll values and safe error categories. It has no native
 commands, I/O, database, acquisition, or startup integration. See the response
 contract and limits in [API research](../docs/HSR-API-RESEARCH.md).
+
+`src/storage.rs` implements SQLite storage, immutable previews and atomic commits,
+with the initial declarative schema in `migrations/001_initial.sql`. Tests use
+real temporary SQLite files. See [decision 0003](../docs/decisions/0003-sqlite-import-foundations.md)
+for identity, conflict, provenance and migration policy. The library's native
+path argument is not exposed to the webview; app-data path selection and typed
+commands remain milestone 3 work.
+
+Backend tests and fixtures live in `tests/` within this Rust package. Cargo
+finds `tests/hsr.rs` automatically. The storage tests in `tests/storage/` run as
+library test modules so they can test private failure boundaries without widening
+the production API. Root-level application end-to-end tests remain separate.

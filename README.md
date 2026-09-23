@@ -4,7 +4,8 @@ A locally run Tauri desktop application for gacha history, starting with
 Honkai: Star Rail and Genshin Impact. History acquisition will contact HoYoverse
 only when the user requests it; player data stays on the user’s machine.
 The current shell provides game selection and an empty state. History fetching,
-file import, persistence, and statistics are not implemented yet.
+file import and statistics are not implemented yet. Tested Rust response parsing
+and SQLite preview/import services exist independently of the shell.
 
 ## Development setup
 
@@ -51,6 +52,8 @@ internet access; stored-history operations remain local. See
 | `npm run tauri -- dev` | Native development; Vite uses loopback port 1420 |
 | `npm run dev` | Browser preview only; does not verify native behavior |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr` | Focused synthetic Rust HSR response tests |
+| `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage` | SQLite migration, preview, transaction, isolation and restart tests |
+| `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage::tests` | SQLite internal failure-injection tests |
 | `npm test` | UI behavior and coverage-validator tests |
 | `npm run coverage` | Fresh frontend/tooling coverage with 100% per-file thresholds |
 | `npm run build` | Strict TypeScript checks, including tests, and bundled web assets |
@@ -60,6 +63,11 @@ internet access; stored-history operations remain local. See
 | `npm run coverage:verify` | Validate both reports against source inventory and modification times |
 | `npm run check` | All coverage, build/type, offline native, probe, format and lint gates |
 | `npm run tauri -- build --no-bundle` | Production executable; installer packaging is deferred |
+
+Frontend tests live in `src/tests/`, backend Rust tests and fixtures in
+`src-tauri/tests/`, and tooling tests in `scripts/tests/`. Root `tests/` is reserved
+for application end-to-end tests spanning the frontend and backend. See
+[contributor test layout](CONTRIBUTING.md#test-layout).
 
 Native tests require Linux, Xvfb, WebKitWebDriver and user network namespaces.
 They use X11 even on Wayland hosts. Run checks serially: probes temporarily change
@@ -84,6 +92,7 @@ Keep [current status](docs/STATUS.md) up to date between tasks.
 | [Import design](docs/IMPORTS.md) | Requirements for the next milestone |
 | [Roadmap](docs/ROADMAP.md) | Implementation milestones |
 | [Testing](docs/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
+| [Storage decision](docs/decisions/0003-sqlite-import-foundations.md) | SQLite migration, identity and transactional import policy |
 | [Stack decision](docs/decisions/0001-shell-and-test-stack.md) | Tools, target platform and tradeoffs |
 
 GitHub Actions runs **Tests and 100% coverage** for pull requests, `main` pushes

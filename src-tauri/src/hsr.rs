@@ -1,5 +1,7 @@
 //! Pure HSR response parsing; no filesystem, network, or persistence access.
-use serde::Deserialize;
+pub mod storage;
+
+use serde::{Deserialize, Serialize};
 
 pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 
@@ -13,7 +15,7 @@ pub enum ParseError {
     MixedAccounts,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Roll {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
@@ -30,7 +32,7 @@ pub struct Roll {
     pub rank_type: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Page {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,

@@ -34,7 +34,7 @@ verifies LLVM reports a missed branch before restoring the source. Macro-generat
 mappings remain in the report; handwritten native glue is not excluded.
 
 `scripts/coverage.ts` compares integer covered/total counts, so rounded percentages
-cannot pass. The validator itself has 100% coverage. `tests/reports.test.ts`
+cannot pass. The validator itself has 100% coverage. `scripts/tests/reports.test.ts`
 inventories source independently of execution and rejects absent, empty or stale
 reports. New executable files outside the instrumented directories fail the
 inventory check until instrumentation is added. V8 includes unexecuted files; the
@@ -44,7 +44,10 @@ including `build.rs`.
 
 Exclusions are limited to:
 
-- `tests/`: test code, the X11 test helper, and synthetic fixtures.
+- `src/tests/`, `src-tauri/tests/`, `scripts/tests/`, and root `tests/`:
+  test code, test helpers and synthetic fixtures only. Frontend/tooling coverage
+  and source inventories explicitly exclude those test directories; production
+  source globs and per-file thresholds are unchanged.
 - `node_modules/`, Cargo dependencies and `src-tauri/target/`: third-party or generated artifacts.
 - `src-tauri/gen/`, `dist/`, `coverage/`: mechanically generated output.
 - HTML, CSS, SVG/PNG, Markdown, lockfiles and declarative JSON/YAML/TOML: no
@@ -117,3 +120,55 @@ for focused tests. `npm run check` runs these under LLVM instrumentation alongsi
 native startup and unchanged coverage failure probes. Fixtures and mocks have
 no credentials or network access. They test parser policy, not live compatibility,
 HTTP transport, automatic cursor progression, persistence, or complete history.
+
+## SQLite service tests and failure injection
+
+The storage increment began with a compiling no-op service. Eight tests failed
+on absent preview counts, persistence, isolation, validation, schema protection
+and stale-preview behavior. The implementation made them pass; the rollback
+scenario then reached its real insert-failure assertions. A subsequent regression
+test failed because a direct payload edit without a revision bump could pass
+commit. Reclassification under the write transaction made it pass. A matching
+regression for altered account timezone evidence then drove a shared context
+check at preview and commit. Another test
+failed on a system-generated import time, then passed with an explicit caller
+Unix timestamp. No dependency, environment or compile failure counts as red.
+
+`src-tauri/tests/storage/behavior.rs` uses real temporary database files for restart, overlapping
+and repeated imports, conflicts, account/server/game isolation, unknown timezone,
+source ownership, cancellation before commit, unsupported/corrupt databases,
+constraints, concurrent writers, and insert/final-commit rollback. The tests do
+not read player files or call external endpoints.
+
+`src-tauri/tests/storage/failures.rs` uses SQLite's own authorizer and size limits to deny
+specific database operations. It checks safe errors, complete rollback, unchanged
+schema version and no lingering transaction. It is included only in the library's
+test build so it can access the private connection initialization boundary;
+the real-file storage suite is compiled in that same artifact to avoid splitting
+normal and failure coverage across duplicate instantiations of the library;
+rusqlite hooks/limits are dev-dependency features, not a production UI capability.
+These tests supplement the real-file integration tests, not replace them.
+
+The initial coverage run rejected uncovered error-propagation regions despite
+100% measured branch outcomes. Failure injection covers those regions; no
+thresholds, source inventory or exclusions were relaxed. JSON values use built-in
+string/map/array serialization without unreachable custom serialization-error
+branches. Malformed stored JSON still returns a safe, tested decoding error.
+The migration SQL is a declarative schema included by the instrumented Rust
+initializer; tests exercise its constraints, header version, successful creation,
+rollback of partially applied DDL, and reopen behavior.
+
+## Test layout refactor (2026-09-22)
+
+Frontend tests now live in `src/tests/`; backend Rust tests and synthetic API
+fixtures live in `src-tauri/tests/`. Cargo automatically discovers
+`src-tauri/tests/hsr.rs` without a custom manifest target. Storage behavior and
+failure tests live under `src-tauri/tests/storage/` and are included as test-only
+library modules, preserving private connection access and a single storage test
+artifact. Tooling tests are in `scripts/tests/`. Root `tests/` contains only the
+application native end-to-end test and its X11 close-window helper.
+
+This is a layout refactor: the baseline 17 frontend/tooling and 33 Rust tests
+passed before moves. The same tests pass after moves; no application behavior or
+test assertions changed. Coverage inventories and test-only exclusions follow
+the new directories, with the same per-file thresholds and failure probes.

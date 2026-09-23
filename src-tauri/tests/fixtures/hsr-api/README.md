@@ -1,7 +1,7 @@
 # Synthetic HSR API responses
 
 These invented records model the documented API envelope, not UIGF archives or
-captured player data. See [research and limits](../../../docs/HSR-API-RESEARCH.md).
+captured player data. See [research and limits](../../../../docs/HSR-API-RESEARCH.md).
 
 - `page.json`: two distinct long IDs at the same second, one fictional account,
   explicit fictional server and offset, and unknown catalog identifiers.
@@ -9,10 +9,10 @@ captured player data. See [research and limits](../../../docs/HSR-API-RESEARCH.m
 - `error.json`: nonzero API result with a synthetic message that must not escape
   into diagnostics; null data is not a successful empty page.
 
-`tests/hsr.rs` derives malformed, oversized, mixed-account, unsupported-banner,
+`src-tauri/tests/hsr.rs` derives malformed, oversized, mixed-account, unsupported-banner,
 invalid-date and duplicate variants in memory. All tests run without live history
 requests, credentials, or access to private local-data files.
 
-The scripted mock in `tests/hsr.rs` checks expected page/cursor request metadata
+The scripted mock in `src-tauri/tests/hsr.rs` checks expected page/cursor request metadata
 and supplies overlapping pages followed by empty success or API failure. It is a
 parser-boundary fixture source; HTTP/client pagination tests remain future work.
