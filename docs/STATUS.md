@@ -16,6 +16,23 @@ game rules or statistics. The native library now has an HSR response parser and
 SQLite preview/import/history services, independently of the shell. Production CSP blocks network calls;
 no native capabilities or plugins are enabled. Decision 0001 records the stack.
 
+## Next milestone 2 work: frequent overlapping imports
+
+The user established repeated imports of the last 12 months of history as a
+baseline workload, with substantial overlap between imports. Additional pending
+items in [milestone 2](ROADMAP.md#2--hsr-api-import-foundations) now cover compact
+import summaries, first-import provenance, removal of default response snapshots
+and repeated per-roll associations, preserved conflict/transaction guarantees,
+schema transition safety, and synthetic performance/storage-growth measurements.
+Exact reconstruction of every historical import is deliberately not a requirement
+for the proposed compact model. The current implementation remains unchanged and
+still stores full validated page snapshots and per-import roll associations.
+
+This is a documentation-only planning update. Whitespace and relative Markdown
+links were checked; application tests were not rerun. Implement these pending
+storage changes before moving on to milestone 3; API contract verification also
+remains open.
+
 ## Milestone 2 response foundations
 
 On `feat/hsr-response-foundations`, created from up-to-date `main` before code
