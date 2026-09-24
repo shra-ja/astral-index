@@ -9,14 +9,18 @@ cache-based request extraction and API retrieval: the inspected cache supplies
 authentication/request context, and history is fetched from HoYoverse. Acquisition
 is now in scope only upon an explicit user request; see
 [decision 0002](decisions/0002-user-requested-history-acquisition.md).
-The [documented acquisition flow](HSR-API-RESEARCH.md) is not an implemented importer.
+The [initial API contract](HSR-API-CONTRACT.md) formalises the user's accepted
+assumptions and the [researched acquisition flow](HSR-API-RESEARCH.md); neither
+is an implemented acquisition client. For this initial HSR client, assume retained
+history is complete and account volume manageable. Fetch every page for the
+selected scope; bounds or errors must never cause silent truncation.
 Do not assume other local sources contain complete history or promise recovery
 of records that the API no longer provides.
 
 | Game | User-provided files | Installation source |
 | --- | --- | --- |
 | Genshin Impact | Planned; format and version to verify | Research required per OS/version |
-| Honkai: Star Rail | Synthetic API response parser implemented; current global compatibility still to verify | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor pagination verified on one sample; edge cases/completeness unverified; see [flow](HSR-API-RESEARCH.md) |
+| Honkai: Star Rail | Parser/storage implemented; initial single-endpoint contract accepted | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor test accepted for initial implementation; see [contract](HSR-API-CONTRACT.md) |
 
 Implementation order: HSR API response parsing and transactional services in
 milestone 2, user-requested API import in milestone 3, then standalone history-

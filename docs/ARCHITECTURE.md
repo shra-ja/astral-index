@@ -155,3 +155,19 @@ chain is maintained. Database corruption yields safe
 error categories; no repair/overwrite path is implemented. The shell still opens
 no database and exposes no new Tauri capability. The next UI/acquisition increment
 must resolve selected account/server and compare requested banner context.
+
+
+## Initial acquisition contract
+
+The [HSR API contract](HSR-API-CONTRACT.md) fixes the initial single-endpoint scope
+and records accepted assumptions separately from observed evidence. Trust the auth
+key to select the account for initial acquisition; preserve response UID, region
+and offset for storage. Formal account/server verification is a closing requirement
+of milestone 3. Existing scoped storage and conflict checks remain mandatory.
+
+The future client defaults to 1000 records per page and sequential fetching,
+balancing request count with smaller response batches.
+Retries are limited to one per transiently failed request and two extra attempts
+per acquisition. Authentication, validation and identity failures abort with an
+actionable UI error. Complete retained history and manageable volume are accepted
+assumptions; byte/request limits never justify silently incomplete commits.

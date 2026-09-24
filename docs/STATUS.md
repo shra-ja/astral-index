@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-23
+Updated: 2026-09-24
 
 ## Current state
 
@@ -15,6 +15,65 @@ an accessible local-app empty state and bundled styling. The shell has no user-f
 game rules or statistics. The native library now has an HSR response parser and
 SQLite preview/import/history services, independently of the shell. Production CSP blocks network calls;
 no native capabilities or plugins are enabled. Decision 0001 records the stack.
+
+## Milestone 2 contract complete (2026-09-23)
+
+Formalised [the initial HSR API contract](HSR-API-CONTRACT.md) on
+`feat/hsr-response-foundations` using the user's explicit scope decisions. Milestone
+2 is complete under those accepted assumptions. Reviewed all 12 saved response
+bodies locally, reporting only field types and aggregate context evidence.
+The contract documents every observed field, six recognised banner codes, stable
+identity/conflict policy, auth-key account selection, server-local timestamps,
+tested cursor pagination, low-request defaults and bounded retries. A successful
+page containing fewer records than requested, including an empty `list`, ends
+retrieval for that category without a follow-up request. The expired-key response
+is confirmed: HTTP 200, `retcode: -101`, message `"authkey timeout"`, `data: null`.
+The client must stop without retrying and prompt for a refreshed key. Initial
+contract decisions are settled and the questions section has been removed.
+Assume no new rolls are made during an import; handling history changes during
+pagination is deferred.
+Default request size is
+`1000`; `5000` remains the largest tested value. Pagination retrieves remaining
+records, so no higher-limit testing is required.
+`gacha_id` identifies an individual pool and is sufficient for initial import.
+Banner metadata lookup is deferred to later banner work in milestone 4. Category
+`21` is Character Collaboration Warp; `22` is Light Cone Collaboration Warp.
+Roll IDs and their records are immutable; matching IDs with changed fields abort
+import. Timestamp-based detection of unexpectedly unmatched IDs across a large
+overlap with older history is a deferred, low-priority diagnostic, not currently
+implemented. It must account for earlier incorrect or skipped imports and must
+not merge legitimate same-second rolls.
+
+The samples contain record UID, page region and consistent integer offset evidence;
+this supports the server-time assumption for now without independently proving
+clock semantics. `list_v2` was present and empty in every saved response. Its
+purpose is unknown; assume it is always empty for the initial implementation.
+Complete retained history and manageable per-account volume are accepted product
+assumptions, not new empirical retention guarantees. The initial review made no
+live requests or executable code changes. Later user-authorized comparisons made
+twenty successful requests using the updated
+cache: incrementing `page`, fixed `page=1`, and omitted `page` with advancing
+`end_id` returned identical 50-record sequences. Only page metadata differed;
+omitting the parameter returned `data.page="0"`. A fourth run incremented `page`
+without `end_id`: all five requests repeated the first ten records, yielding only
+10 unique IDs among 50 entries despite increasing response page metadata. A read-only
+cache inspection also found three in-game category-11 requests with `page=1,2,3`
+and changing cursors. The contract retains page increments to mirror that client
+convention; `end_id` controls pagination. Raw responses remain
+in ignored local storage; the application code is unchanged. The public UIGF enum was reviewed without sending local data. Banner labels
+use the official in-game terminology supplied by the user; superseded third-party
+implementation references have been removed.
+
+Formal account/server verification is now explicitly the final milestone-3 task.
+Next: implement milestone 3's read-only source discovery and single-endpoint client
+against the contract, with TDD, synthetic requests and the established full gates.
+The existing parser/storage guarantees remain intact; the client, retries
+and user-visible conflict errors are still future work.
+This documentation-only change requires no new behavior tests. Whitespace and
+relative-link checks passed; the contract inventory covers every sampled field
+and contains no sampled account or roll IDs. The user authorized committing all
+pending documentation changes on 2026-09-24. No push, integration or release
+was performed.
 
 ## Intent-focused comments (2026-09-23)
 

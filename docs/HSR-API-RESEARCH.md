@@ -1,6 +1,20 @@
 # Honkai: Star Rail API research
 
-Research performed 2026-09-19. Documentation updated 2026-09-21.
+Research performed 2026-09-19. Contract review updated 2026-09-24.
+
+## Current contract
+
+[Initial HSR API contract](HSR-API-CONTRACT.md) is the implementation reference.
+It inventories all fields in 12 saved response bodies, documents supported banner
+codes, and records the user's accepted assumptions for the single tested endpoint,
+stable identity, auth-key account selection, server time, pagination and complete
+retained history. It also defines a low-request, bounded-retry policy and the
+observed expired-key response. Account/server verification finishes at the
+end of milestone 3. Milestone 2's contract work is complete under that scope.
+
+The dated observations below remain research evidence. Earlier statements that
+verification blocks milestone 2 are superseded by the accepted contract; they
+must not be read as additional prerequisites or as proof of unobserved behaviour.
 
 ## What the cache is used for
 
@@ -40,7 +54,7 @@ user-authorized requests retrieved records and verified cursor pagination.
 6. **Fetch on user request**. Validate the HTTPS host and endpoint, request the
    JSON response, and check HTTP status and `retcode`. A zero return code alone
    does not establish that any records were returned. Handle network, API, and
-   parsing errors explicitly; authentication expiry behavior remains unverified.
+   parsing errors explicitly; the expired-key response is documented below.
 7. **Advance and import**. Use the verified cursor sequence below for subsequent
    pages, then pass records through validation, preview, and transactional import.
    End-of-history rules and failure handling still require implementation tests.
@@ -61,7 +75,7 @@ required or a complete API specification.
 | `lang` | `en` | English language context. |
 | `end_id` | `0` initially; then the preceding page’s last record ID | Pagination cursor; preserve the ID as a string. Advancing it worked in the five-page test below. |
 | `gacha_type` | Select the desired banner type | User identifies six banner types; names, IDs, and mappings will be documented later. |
-| `page` | Start at `1`, increment for each request | Tested through page 5 alongside an advancing `end_id`; incrementing page alone repeated records. |
+| `page` | Start at `1`, increment for each request | Both increasing and fixed `page=1` returned identical records with advancing `end_id` in the 2026-09-23 test; keep incrementing to mirror the in-game requests observed in the supplied cache. |
 | `size` | Up to `5000` tested | Requested page size; smaller pages with proper pagination may be preferable later. |
 
 Treat the first five fields as stable request context for a retrieval session,
@@ -104,11 +118,105 @@ The tested retrieval sequence is:
 4. Increment `page` and use that ID as the next request's `end_id`.
 
 This verifies advancement through five pages for the sampled type-1 history,
-with supporting cache evidence for type 11. It does not establish whether
-`page` is required when the cursor advances, behavior during concurrent new
-rolls, or the correct end-of-history stop condition. The future client should
+with supporting cache evidence for type 11. The later page-parameter comparison below isolates the effect of incrementing
+`page`. Concurrent new-roll behaviour and end-of-history semantics were not
+established by this five-page test. The future client should
 handle empty pages and repeated/nonadvancing cursors without looping forever;
 those cases still need dedicated verification and synthetic tests.
+
+## Page parameter comparison (2026-09-23)
+
+The user supplied an updated cache and explicitly requested a repeat of the
+five-page, size-10 cursor test with incrementing versus fixed page numbers.
+Local extraction found three matching URLs and one distinct five-field request
+context. Credentials were read locally and sent only to the tested HTTPS endpoint;
+no token-bearing URLs or private identifiers are included here.
+
+Both runs queried category `1` with `size=10`, starting at `end_id=0` and advancing
+to each preceding response's last record ID. All other request context stayed
+fixed. The incrementing run completed first, then the fixed run restarted at
+cursor `0`. Requests were sequential, one second apart, with no automatic retries.
+An initial sandbox network failure produced no response; the permitted network
+run then completed all ten requests successfully.
+
+| Run | Requested `page` values | Result |
+| --- | --- | --- |
+| Incrementing | `1`, `2`, `3`, `4`, `5` | Five successful pages, ten records each, 50 unique IDs. |
+| Fixed | `1`, `1`, `1`, `1`, `1` | Five successful pages, ten records each, the same 50 unique IDs. |
+
+Every response had HTTP 200 and `retcode: 0`. Corresponding pages and concatenated
+records matched in order and every record field. Full response objects were also
+identical except `data.page`, which echoed the requested page string on steps
+2–5. Raw responses and the comparison are retained only in ignored local storage.
+
+For this endpoint, category and sampled five-page sequence, advancing `end_id`
+was sufficient: incrementing `page` did not change which records were returned.
+Together with the earlier fixed-cursor test, this supports treating `end_id` as
+the pagination control. The follow-up below tests omission separately. Arbitrary page values and
+other categories/server versions remain outside the comparison. The initial contract can retain incrementing page numbers for compatibility;
+no additional probe or change to the application's code is needed for this result.
+
+### Omitting page (2026-09-23)
+
+At the user's request, a third run omitted the `page` query parameter entirely.
+It used the same cache context, category `1`, `size=10`, initial `end_id=0` and
+last-record cursor advancement. Five sequential requests, one second apart and
+without retries, all returned HTTP 200, `retcode: 0` and ten records.
+
+The resulting 50 unique records matched both previous runs in order and every
+field. Each response reported `data.page` as the string `"0"`. After removing that
+metadata field, full responses matched the fixed-`page=1` run exactly. Thus, for
+this sampled sequence, `page` is optional and does not control which records are
+returned; the cursor is sufficient. This finding does not establish behaviour
+for other categories or arbitrary invalid parameter values. Private response
+bodies and the comparison remain in ignored local storage.
+
+### Incrementing page without end_id (2026-09-23)
+
+A fourth user-requested run omitted `end_id` entirely and incremented `page` from
+1 to 5, keeping category `1`, `size=10` and the same authentication context.
+All five sequential requests returned HTTP 200, `retcode: 0` and ten records.
+Requests were one second apart, with no retries and a fixed five-request limit.
+
+Every returned list matched the first page of the earlier cursor runs exactly,
+in order and every record field: 50 returned entries contained only 10 unique
+roll IDs. `data.page` echoed `"1"` through `"5"`, despite the repeated records.
+This demonstrates that incrementing `page` alone does not advance this sampled
+history, even when `end_id` is absent rather than explicitly `0`. Advancing the
+cursor is necessary for the tested pagination recipe; response page metadata is
+not evidence of record progress. Raw results remain in ignored local storage.
+
+### In-game page convention in the supplied cache (2026-09-23)
+
+A read-only inspection of the updated `data_2` found three requests to the tested
+endpoint, all for category `11` with `size=5`:
+
+| Requested `page` | Requested `end_id` |
+| --- | --- |
+| `1` | `0` |
+| `2` | First nonzero cursor |
+| `3` | A different nonzero cursor |
+
+Cursor values are deliberately omitted here. The request parameters show that
+the in-game client increments `page` while changing `end_id`; this conclusion
+does not depend on treating cache byte order as a timestamp. No network requests
+were needed for this inspection. Follow the observed client convention: send
+`page=1` initially and increment it whenever requesting the next cursor page,
+although the live comparison establishes that cursor advancement alone works
+for the tested sequence. `end_id` remains the actual pagination control.
+
+## Expired-key response (2026-09-24)
+
+At the user's explicit request, one request reused the auth key from the supplied
+cache with category `1`, `size=1000`, `page=1` and `end_id=0`. The response was
+HTTP 200 with `retcode: -101`, message `"authkey timeout"` and `data: null`.
+No retry was made. This establishes an observed expired-key response, not a
+measured authentication-key lifetime or every possible authentication error code.
+
+The client must inspect `retcode` even when HTTP succeeds. On `-101`, stop without
+retrying or committing history and ask the user to refresh the key. Match the
+numeric code rather than requiring the diagnostic string. No credentials,
+request URL or private history are included in this evidence.
 
 ## Translation into the application later
 
@@ -140,7 +248,7 @@ Implementation considerations:
 
 Still to verify: response schema, account/server identity, stable roll IDs,
 timezone semantics, endpoint/banner mapping, pagination edge cases and stop conditions,
-expiry/error behavior, rate limits, and retention/completeness. Milestone 2's format-verification item remains open.
+expiry/error behavior, rate limits, and retention/completeness. These were the open research questions before the 2026-09-23 contract decision.
 
 ## Verification scope
 
@@ -159,10 +267,6 @@ localized labels, language and rarity. Page context includes region and a numeri
 UTC offset. Its table and example disagree on page/size types, and its older
 China endpoint/size limit do not establish the current global contract.
 
-The [exporter's own implementation](https://github.com/vikiboss/star-rail-gacha-export/blob/main/api.ts)
-advances the last record ID, stops on an empty list, and handles an expired-key
-code on its first request. This is evidence of client practice, not an official
-termination guarantee. Its hardcoded export offset is not account timezone evidence.
 The [UIGF v4.2 contract](https://uigf.org/en/standards/uigf.html) supplies the six
 supported HSR categories and string record identity constraints; it does not
 specify the live API or guarantee completeness.
@@ -185,11 +289,12 @@ Application policy for this increment:
 - Limit each body to 2 MiB. The future transport must also enforce the bound while
   receiving bytes. Ignore transport page/size metadata for pagination decisions.
 - Missing success data or list is malformed, never end-of-history. Future fetching
-  must distinguish empty success from errors, continue after a short nonempty
-  page, reject repeated/nonadvancing cursors, and bound total requests.
+  must distinguish success from errors, reject repeated/nonadvancing cursors and
+  bound total requests. The current contract stops on any successful page shorter
+  than the requested size, including an empty page; no follow-up request is needed.
 
 No live calls were made for this review. Synthetic tests verify application
 policy, not external compatibility. Current global response variants, stable ID
 semantics across all categories, server/offset evidence, terminal pages, expiry,
-rate limits and retention remain unverified. Keep the roadmap verification item
-open. The parser is not yet connected to the desktop shell or a network client.
+rate limits and retention remain unverified. This was the basis for keeping the roadmap item open at that date; the accepted
+2026-09-23 contract now supplies its initial implementation scope. The parser is not yet connected to the desktop shell or a network client.

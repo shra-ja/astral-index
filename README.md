@@ -96,6 +96,7 @@ Keep [current status](docs/STATUS.md) up to date between tasks.
 | [Roadmap](docs/ROADMAP.md) | Implementation milestones |
 | [Testing](docs/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
 | [Compact provenance](docs/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
+| [HSR API contract](docs/HSR-API-CONTRACT.md) | Accepted initial fields, assumptions, pagination and error handling |
 | [Storage decision](docs/decisions/0003-sqlite-import-foundations.md) | SQLite migration, identity and transactional import policy |
 | [Stack decision](docs/decisions/0001-shell-and-test-stack.md) | Tools, target platform and tradeoffs |
 
