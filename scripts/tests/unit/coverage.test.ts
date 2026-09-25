@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assertCompleteCoverage, type FileCoverage } from '../coverage';
+import { assertCompleteCoverage, type FileCoverage } from '../../coverage';
 
 const complete = (): FileCoverage => ({
   lines: { total: 2, covered: 2 }, statements: { total: 2, covered: 2 },

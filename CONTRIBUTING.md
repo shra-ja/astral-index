@@ -39,7 +39,10 @@ Keep tests with the layer they exercise:
   Use Cargo's automatic discovery for integration-test entry points. Tests that
   require private implementation access may be included as test-only modules
   from subdirectories here; do not expose production internals just for tests.
-- `scripts/tests/`: development-tooling tests, including coverage gate tests.
+- `scripts/tests/unit/`: development-tooling unit tests, discovered together with
+  `src/tests/` by both `npm test` and `npm run coverage`.
+- `scripts/tests/`: explicit coverage-report and mutation-probe suites; keep these
+  outside unit discovery to avoid recursive test runs.
 - Root `tests/`: application end-to-end tests spanning the frontend and backend,
   with their fixtures/helpers. Do not place layer-specific tests here.
 

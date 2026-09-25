@@ -64,3 +64,38 @@ test('the report gate fails closed when a required report is missing or incomple
     unlinkSync(backup);
   }
 }, 30000);
+
+// Exercise the public commands so adding a suite cannot silently bypass either gate.
+test('test and coverage commands discover additional frontend and tooling suites', () => {
+  const paths = ['src/tests/discovery-probe.test.ts', 'scripts/tests/unit/discovery-probe.test.ts'];
+  for (const path of paths) expect(existsSync(path)).toBe(false);
+  try {
+    for (const path of paths) {
+      writeFileSync(path, `import { test, expect } from 'vitest';\ntest('${path}', () => expect('discovery probe').toBe('must fail'));\n`);
+    }
+    for (const command of ['test', 'coverage']) {
+      const result = spawnSync('npm', ['run', command], { encoding: 'utf8' });
+      expect(result.status).not.toBe(0);
+      for (const path of paths) expect(result.stdout + result.stderr).toContain(path);
+    }
+  } finally {
+    for (const path of paths) unlinkSync(path);
+    execFileSync('npm', ['run', 'coverage'], { stdio: 'inherit' });
+  }
+}, 30000);
+
+// A network failure alone must not satisfy the native CSP assertion.
+test('the native CSP test rejects a permissive connection policy', () => {
+  const path = 'src-tauri/tauri.conf.json';
+  const original = readFileSync(path, 'utf8');
+  expect(original).toContain("connect-src 'none'");
+  try {
+    writeFileSync(path, original.replace("connect-src 'none'", 'connect-src *'));
+    const result = spawnSync('npm', ['run', 'test:offline'], { encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain('CSP must block webview connections');
+  } finally {
+    writeFileSync(path, original);
+    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
+  }
+}, 180000);
