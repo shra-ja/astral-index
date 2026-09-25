@@ -624,3 +624,103 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
         "initial={initial_time:?}; 24 repeats={repeats_time:?}; 12 rolling={rolling_time:?}; conflict={conflict_time:?}; database bytes={initial_size}/{repeats_size}/{final_size}"
     );
 }
+
+#[test]
+fn precise_extensions_survive_restart_and_conflict_on_changed_values() {
+    let db = Database::new();
+    let a = include_bytes!("../fixtures/hsr-api/numeric-extensions-a.json");
+    let b = include_bytes!("../fixtures/hsr-api/numeric-extensions-b.json");
+    assert_eq!(import(&mut db.store(), a), summary(2, 0, 0));
+    let mut store = db.store();
+    let stored = serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap();
+    assert!(stored.contains("18446744073709551616"));
+    assert!(stored.contains("0.123456789012345678901"));
+    let preview = store.preview(UID, SERVER, &[b]).unwrap();
+    assert_eq!(preview.summary(), summary(0, 1, 1));
+    assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
+}
+
+#[test]
+fn corrupt_payload_identity_and_domain_values_never_escape_history_queries() {
+    for (field, value) in [
+        ("uid", "100000003"),
+        ("id", "999"),
+        ("rank_type", "9"),
+        ("time", "2024-02-30 12:00:00"),
+    ] {
+        let db = Database::new();
+        import(&mut db.store(), PAGE);
+        // Corrupt the last row so a valid earlier row cannot leak as a partial result.
+        db.connection()
+            .execute(
+                "UPDATE rolls SET payload=json_set(payload,?1,?2) WHERE id='9007199254740993'",
+                rusqlite::params![format!("$.{field}"), value],
+            )
+            .unwrap();
+        assert_eq!(
+            db.store().history(UID, SERVER),
+            Err(Error::InvalidStoredData),
+            "{field}"
+        );
+    }
+}
+
+#[test]
+fn page_timezone_evidence_must_agree_even_on_empty_terminal_pages() {
+    let db = Database::new();
+    let mut store = db.store();
+    let unknown = page(|p| {
+        p["data"]
+            .as_object_mut()
+            .unwrap()
+            .remove("region_time_zone");
+    });
+    let empty_known = page(|p| p["data"]["list"] = json!([]));
+    let empty_unknown = page(|p| {
+        p["data"]["list"] = json!([]);
+        p["data"]
+            .as_object_mut()
+            .unwrap()
+            .remove("region_time_zone");
+    });
+    for pages in [
+        vec![PAGE, unknown.as_slice()],
+        vec![unknown.as_slice(), PAGE],
+        vec![PAGE, empty_unknown.as_slice()],
+        vec![unknown.as_slice(), empty_known.as_slice()],
+    ] {
+        assert!(matches!(
+            store.preview(UID, SERVER, &pages),
+            Err(Error::Context)
+        ));
+        assert!(store.history(UID, SERVER).unwrap().is_empty());
+    }
+    assert_eq!(
+        store
+            .preview(UID, SERVER, &[PAGE, &empty_known])
+            .unwrap()
+            .summary(),
+        summary(2, 0, 0)
+    );
+    assert_eq!(
+        store
+            .preview(UID, SERVER, &[&unknown, &empty_unknown])
+            .unwrap()
+            .summary(),
+        summary(2, 0, 0)
+    );
+}
+
+#[test]
+fn ambiguous_stored_json_is_rejected_before_deserialization() {
+    let db = Database::new();
+    let mut store = db.store();
+    import(&mut store, PAGE);
+    db.connection()
+        .execute(
+            "UPDATE rolls SET payload=?1",
+            [r#"{"uid":"100000003","uid":"100000002"}"#],
+        )
+        .unwrap();
+    assert_eq!(store.history(UID, SERVER), Err(Error::InvalidStoredData));
+}

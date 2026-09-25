@@ -278,3 +278,10 @@ fn missing_metadata_in_an_existing_schema_is_not_reinitialized() {
         Err(Error::Database)
     ));
 }
+
+#[test]
+fn nontext_indexed_identity_fails_history_read() {
+    let store = empty_store();
+    store.connection.execute_batch("DROP TABLE rolls; CREATE TABLE rolls(game,uid,server,id,payload); INSERT INTO rolls VALUES('honkai-star-rail','100000002','synthetic-server',x'00','{}');").unwrap();
+    assert_eq!(store.history(UID, SERVER), Err(Error::Database));
+}

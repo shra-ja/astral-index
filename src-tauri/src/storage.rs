@@ -97,7 +97,7 @@ impl Store {
 
     /// Preview all pages atomically; ambiguous or mismatched context blocks the batch.
     pub fn preview(&mut self, uid: &str, server: &str, bytes: &[&[u8]]) -> Result<Preview, Error> {
-        if !crate::digits(uid) || server.trim().is_empty() {
+        if !crate::hsr::digits(uid) || server.trim().is_empty() {
             return Err(Error::Context);
         }
         if bytes
@@ -107,7 +107,8 @@ impl Store {
         {
             return Err(Error::TooLarge);
         }
-        let mut timezone = None;
+        // None means no page seen; Some(None) means a page with unknown offset.
+        let mut timezone: Option<Option<i32>> = None;
         let mut records = Vec::new();
         for bytes in bytes {
             let page = parse_response(bytes)?;
@@ -197,13 +198,20 @@ impl Store {
     /// Returns a deterministic identity ordering, not an inferred chronological ordering.
     pub fn history(&self, uid: &str, server: &str) -> Result<Vec<Roll>, Error> {
         let mut statement = self.connection.prepare(
-            "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id",
+            "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id",
         )?;
-        let rows =
-            statement.query_map(params![GAME, uid, server], |row| row.get::<_, String>(0))?;
+        let rows = statement.query_map(params![GAME, uid, server], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
         let mut records = Vec::new();
         for row in rows {
-            records.push(serde_json::from_str(&row?)?);
+            let (id, payload) = row?;
+            crate::validate_json(payload.as_bytes())?;
+            let record: Roll = serde_json::from_str(&payload)?;
+            if record.uid != uid || record.id != id || !crate::hsr::valid_roll(&record) {
+                return Err(Error::InvalidStoredData);
+            }
+            records.push(record);
         }
         Ok(records)
     }

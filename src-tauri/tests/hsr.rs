@@ -271,3 +271,68 @@ fn scripted_pages_preserve_overlap_and_do_not_turn_errors_into_empty_history() {
         assert!(source.steps.is_empty());
     }
 }
+
+#[test]
+fn preserves_precise_numeric_extensions_without_collapsing_distinct_values() {
+    let a = parse_response(include_bytes!("fixtures/hsr-api/numeric-extensions-a.json")).unwrap();
+    let b = parse_response(include_bytes!("fixtures/hsr-api/numeric-extensions-b.json")).unwrap();
+    assert_ne!(a, b);
+    let saved = serde_json::to_string(&a).unwrap();
+    assert!(saved.contains("18446744073709551616"));
+    assert!(saved.contains("0.123456789012345678901"));
+    assert_eq!(
+        serde_json::from_str::<roll_tracker::Page>(&saved).unwrap(),
+        a
+    );
+}
+
+#[test]
+fn rejects_duplicate_members_before_identity_or_error_classification() {
+    let original = std::str::from_utf8(PAGE).unwrap();
+    let duplicate_uid = original.replacen(
+        "\"uid\": \"100000002\"",
+        "\"uid\":\"100000003\",\"uid\":\"100000002\"",
+        1,
+    );
+    let duplicate_list = original.replacen("\"list\":", "\"list\":[],\"list\":", 1);
+    for bytes in [
+        duplicate_uid.as_bytes(),
+        duplicate_list.as_bytes(),
+        br#"{"retcode":-101,"retcode":0,"data":{"list":[]}}"#,
+        br#"{"retcode":0,"data":{"list":[],"future":{"x":1,"x":2}}}"#,
+        br#"{"retcode":0,"data":{"list":[],"future":[{"x":1,"\u0078":1}]}}"#,
+        br#"{"retcode":0,"data":{"list":[],"future":{"$serde_json::private::Number":"123"}}}"#,
+    ] {
+        assert_eq!(parse_response(bytes), Err(ParseError::InvalidResponse));
+    }
+}
+
+#[test]
+fn rejects_signed_and_extended_timestamp_years() {
+    for time in ["+10000-02-29 12:34:56", "-0001-02-28 12:34:56"] {
+        let mut input = fixture();
+        input["data"]["list"][0]["time"] = json!(time);
+        assert_eq!(parse(&input), Err(ParseError::InvalidRecord));
+    }
+}
+
+#[test]
+fn rejects_malformed_ambiguous_and_excessively_nested_raw_json() {
+    for bytes in [
+        b"true".as_slice(),
+        b"{} trailing",
+        b"{1:2}",
+        b"{\"x\":}",
+        b"[1,]",
+        b"[",
+        b"{",
+        b"[ {\"a\":1,\"a\":2} ]",
+    ] {
+        assert_eq!(parse_response(bytes), Err(ParseError::InvalidResponse));
+    }
+    let nested = format!("{}0{}", "[".repeat(130), "]".repeat(130));
+    assert_eq!(
+        parse_response(nested.as_bytes()),
+        Err(ParseError::InvalidResponse)
+    );
+}

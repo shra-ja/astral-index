@@ -1,5 +1,4 @@
 //! Pure HSR response parsing; no filesystem, network, or persistence access.
-pub mod storage;
 
 use serde::{Deserialize, Serialize};
 
@@ -50,20 +49,21 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
     if bytes.len() > MAX_RESPONSE_BYTES {
         return Err(ParseError::TooLarge);
     }
+    crate::validate_json(bytes).map_err(|_| ParseError::InvalidResponse)?;
     // Read the API status before requiring success data; ignore server messages.
     #[derive(Deserialize)]
     struct Envelope {
         retcode: i64,
         #[serde(default)]
-        data: serde_json::Value,
+        data: Option<Box<serde_json::value::RawValue>>,
     }
     let envelope: Envelope =
         serde_json::from_slice(bytes).map_err(|_| ParseError::InvalidResponse)?;
     if envelope.retcode != 0 {
         return Err(ParseError::Api(envelope.retcode));
     }
-    let page: Page =
-        serde_json::from_value(envelope.data).map_err(|_| ParseError::InvalidResponse)?;
+    let page: Page = serde_json::from_str(envelope.data.ok_or(ParseError::InvalidResponse)?.get())
+        .map_err(|_| ParseError::InvalidResponse)?;
     if page.region.as_deref() == Some("") {
         return Err(ParseError::InvalidContext);
     }
@@ -85,12 +85,12 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
 }
 
 /// Validate decimal identity text while retaining leading zeros and avoiding numeric conversion.
-fn digits(value: &str) -> bool {
+pub(crate) fn digits(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 /// Enforce the supported HSR record contract before any record can enter an import.
-fn valid_roll(roll: &Roll) -> bool {
+pub(crate) fn valid_roll(roll: &Roll) -> bool {
     digits(&roll.id)
         && roll.id.len() <= 19
         && digits(&roll.uid)
@@ -106,6 +106,22 @@ fn valid_roll(roll: &Roll) -> bool {
 /// Require canonical, valid source-local timestamps without assuming a timezone.
 fn valid_time(value: &str) -> bool {
     use chrono::{NaiveDateTime, Timelike};
+    if value.len() != 19 {
+        return false;
+    }
+    if !value
+        .bytes()
+        .zip(b"0000-00-00 00:00:00")
+        .all(|(byte, template)| {
+            if *template == b'0' {
+                byte.is_ascii_digit()
+            } else {
+                byte == *template
+            }
+        })
+    {
+        return false;
+    }
     let Ok(time) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S") else {
         return false;
     };

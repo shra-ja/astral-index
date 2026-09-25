@@ -71,7 +71,20 @@ remain strings, including leading zeros; no floating-point conversion is allowed
 The record/pool/item distinction and six category codes align with
 [UIGF v4.2](https://uigf.org/en/standards/uigf.html). UIGF is an interchange
 reference, not evidence of live API behaviour. Unknown record extensions remain
-part of the exact stored payload. Page extensions remain available during parsing
+part of the exact stored payload. Numbers retain arbitrary precision through
+parsing, storage and export serialization; they are never rounded to floating
+point. Equality compares the preserved serialized number representation, not
+mathematical equivalence: differently spelled decimals such as `1.0` and `1.00`
+may conflict even when mathematically equal. JSON formatting and object-member
+order are not identity evidence. Duplicate members anywhere in a response,
+including extension objects, are rejected before decoding. The internal Serde
+number-marker key `$serde_json::private::Number` is also rejected to prevent a
+source object from being reinterpreted as a number. Nested validation is bounded;
+excessively nested input fails safely. Timestamps must have exactly the 19-byte
+ASCII `YYYY-MM-DD HH:MM:SS` shape and a valid calendar value; signed or extended
+years are rejected without imposing a game-launch cutoff.
+
+Page extensions remain available during parsing
 but are not durable snapshots. The parser currently treats `page`, `size` and
 `list_v2` as untyped extensions. No special `list_v2` handling is required under
 the always-empty assumption. Region and offset may be
