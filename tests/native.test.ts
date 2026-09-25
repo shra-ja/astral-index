@@ -32,6 +32,7 @@ beforeAll(() => {
 test('the bundled native shell works offline, supports keyboard selection, and closes cleanly', async () => {
   const driver = spawn('tauri-driver', [], { env: nativeEnv, stdio: 'inherit' });
   let session = '';
+  // Surface WebDriver failures at the request boundary instead of later UI assertions.
   const request = async (path: string, method = 'GET', body?: unknown) => {
     const response = await fetch(`http://127.0.0.1:4444${path}`, {
       method,
@@ -54,6 +55,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       } } },
     });
     session = created.sessionId;
+    // Inspect the real webview through its active native session.
     const execute = (script: string) => request(`/session/${session}/execute/sync`, 'POST', { script, args: [] });
     expect(await execute('return location.protocol')).toBe('tauri:');
     expect(await execute('return document.querySelector("h1").textContent')).toBe('Your rolls, kept local.');
@@ -66,9 +68,17 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     expect(await execute('return document.querySelector("[role=status]").textContent')).toContain('No Honkai: Star Rail rolls yet');
     expect(await execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(true);
     const network = await request(`/session/${session}/execute/async`, 'POST', {
-      script: 'const done = arguments[arguments.length - 1]; fetch("https://example.com").then(() => done("allowed"), () => done("blocked"));', args: [],
+      script: `
+        const done = arguments[arguments.length - 1];
+        const timeout = setTimeout(() => done(null), 1000);
+        document.addEventListener('securitypolicyviolation', event => {
+          clearTimeout(timeout);
+          done({ directive: event.effectiveDirective, disposition: event.disposition });
+        }, { once: true });
+        fetch('http://127.0.0.1:43199/csp-probe').catch(() => {});
+      `, args: [],
     });
-    expect(network).toBe('blocked');
+    expect(network, 'CSP must block webview connections').toEqual({ directive: 'connect-src', disposition: 'enforce' });
     mkdirSync('test-results', { recursive: true });
     const screenshot = await request(`/session/${session}/screenshot`);
     writeFileSync('test-results/native-shell.png', Buffer.from(screenshot, 'base64'));

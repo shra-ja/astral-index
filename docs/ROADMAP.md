@@ -46,21 +46,60 @@ not a prerequisite.
 
 [API research](HSR-API-RESEARCH.md) records request extraction and a working
 nine-field query. Advancing `end_id` and `page` reproduced 50 records across five
-pages. Full response semantics, identity, timezone, pagination edge cases, and
-completeness still need verification.
+pages. The [initial API contract](HSR-API-CONTRACT.md) now records observed fields,
+accepted assumptions and the observed expired-key response. Additional external
+verification does not block this milestone under the user's agreed scope.
 
-- [ ] Verify the HSR API response format, record identity, account/server context,
-  timestamp/timezone semantics, and pagination termination/error behavior.
-- [ ] Create synthetic response fixtures and request mocks; keep all automated
+- [x] Formalise the initial HSR API contract: observed fields, banner codes,
+  stable-ID policy, auth-key account selection, server-local timestamps, tested
+  cursor pagination and bounded errors/retries, including `-101` for an expired
+  auth key. Adopt the user's assumptions and defer formal account/server verification to
+  the end of milestone 3. This is an accepted contract, not proof of all live behaviour.
+- [x] Create synthetic response fixtures and request mocks; keep all automated
   tests local and self-contained, with no live API calls or player credentials.
-- [ ] Implement the domain model and response parser with test-first validation.
-- [ ] Select and implement the local database, initial migration, and shared
+- [x] Implement the domain model and response parser with test-first validation.
+  The initial model validates individual pages and preserves optional context;
+  it is not yet a resolved account or transactional import model. Request mocks
+  are scripted parser-boundary responses, not tests of a production HTTP client.
+  See [response review](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21)
+  for policy and remaining external-verification limits.
+- [x] Select and implement the local database, initial migration, and shared
   preview/transactional import services.
-- [ ] Verify persistence, repeat/overlap imports, validation failures, migration
+- [x] Verify persistence, repeat/overlap imports, validation failures, migration
   safety, and account isolation at the service level.
+- [x] Optimize persistence for the baseline workload: repeatedly importing the
+  last 12 months of history at varying points throughout the year, with substantial
+  overlap. Keep each scoped roll once and retain compact import summaries with
+  time, account/server, source/adapter, and new/duplicate/conflict counts.
+- [x] Stop retaining full response snapshots by default. Replace per-import
+  associations for unchanged rolls with first-import provenance; an entirely
+  overlapping successful import should add only a compact summary, while an
+  import with new rolls adds those rolls and their first-import provenance.
+- [x] Preserve conflict validation for existing IDs, account/server isolation,
+  immutable previews and atomic rollback under the compact storage model. Test
+  schema initialization/rollback and rejection of obsolete development schemas.
+  Document the deliberate lack of exact historical import reconstruction and
+  the allowed pre-release compatibility break.
+- [x] Add local synthetic performance and storage-growth tests for thousands of
+  records across many rolling 12-month imports, including complete overlap,
+  partial overlap, new records and conflicts. Record import time, peak memory
+  and database growth; verify duplicate-only imports do not copy roll payloads
+  or add per-roll associations again.
+
+The native service now uses SQLite/rusqlite with schema version 2, immutable
+previews, exact-ID deduplication, conflict rejection and compact first-import provenance.
+Real-file and injected-failure tests cover restart, isolation, stale previews and
+rollback. The contract task is complete under the accepted assumptions; synthetic service
+tests do not establish universal endpoint behaviour or prove lifetime retention.
+See [decision 0003](decisions/0003-sqlite-import-foundations.md).
+The sole initial schema creates compact storage directly, without page snapshots
+or repeated associations. Obsolete pre-release schemas are rejected, not upgraded. See [decision 0004](decisions/0004-compact-import-provenance.md)
+and the synthetic overlap measurements in [testing](TESTING.md#overlapping-imports-and-schema-2-2026-09-23).
 
 Done when synthetic HSR API responses can be validated, previewed, and committed
-through tested services without duplicate records or partial writes. This is a
+through tested services without duplicate records or partial writes, and repeated
+overlapping imports retain only new rolls plus compact import summaries and
+first-import provenance, with measured performance and storage-growth evidence. This is a
 foundation for the first API-import feature, not a separate file-import release.
 
 ## 3 — First user-requested API history import
@@ -73,12 +112,21 @@ transactional import services.
 - [ ] Implement read-only manual cache/game-data selection and request extraction;
   add automatic discovery where verified. A selected cache supplies request
   context, not a standalone roll-history export.
-- [ ] Implement user-initiated native HoYoverse fetching with bounded cursor
-  pagination, cancellation, and network/authentication error handling, using
-  mocked requests in automated tests. No background or automatic fetching.
+- [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
+  native client: single tested endpoint, 1000-record default pages, cursor pagination,
+  cancellation and actionable failures. Use one retry
+  per transiently failed request, at most two extra attempts per acquisition, and
+  synthetic request mocks. No background or automatic fetching.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
+  Expose a narrow native review DTO with validated account/server/context, records
+  and conflict locations, plus safe page/record indices for validation failures.
+  Do not reparse private source bytes in the frontend or expose credentials/raw
+  payloads in diagnostics.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.
+- [ ] At the end of this milestone, verify auth-key/account binding, response UID
+  and server mapping, account switching, and empty/missing-context handling before
+  declaring the milestone complete; preserve existing service isolation checks.
 
 Done when an explicit user request retrieves HSR history through the API,
 previews and commits it locally, and displays it after restart without duplicate
@@ -93,6 +141,8 @@ acquisition. This is the first implemented import feature. See
 - [ ] Add the second game's independently verified adapter, acquisition sources,
   response/file fixtures, and request mocks.
 - [ ] Add account/server switching, filters, totals, and rarity breakdowns.
+- [ ] Source banner metadata mapping HSR `gacha_id` pool IDs to banners; keep
+  initial imports independent of metadata lookup.
 - [ ] Implement verified banner grouping and coverage-aware pity calculations.
 
 Done when both games coexist without shared identity/rule assumptions, supported
@@ -113,3 +163,14 @@ Done when a fresh profile can recover the same records and metadata from a backu
 - [ ] Verify local workflows, requested fetching, network failures, upgrades, backups,
   and packaging on each release OS.
 - [ ] Choose license/distribution, document supported formats, and provide recovery help.
+
+
+## Deferred low-priority follow-ups
+
+- [ ] Detect suspiciously unmatched roll IDs across substantially overlapping older
+  history periods using timestamps, scoped to the same game/account/server/banner.
+  Distinguish genuine gaps from anomalous overlap and flag detected mismatches
+  before commit without automatic reconciliation. Define thresholds and test
+  incorrect/skipped earlier imports and legitimate same-second rolls. This niche
+  diagnostic is not a prerequisite for milestones 2 or 3; see the
+  [identity contract](HSR-API-CONTRACT.md#identity-and-mismatch-handling).

@@ -30,6 +30,44 @@ Mock OS/network boundaries where useful, but verify real file and database behav
 using isolated temporary resources. Coverage does not replace meaningful assertions.
 Use synthetic fixtures and deterministic clocks/data; never real player histories.
 
+## Test layout
+
+Keep tests with the layer they exercise:
+
+- `src/tests/`: frontend tests and frontend-only fixtures/helpers.
+- `src-tauri/tests/`: backend Rust tests and backend-only fixtures/helpers.
+  Use Cargo's automatic discovery for integration-test entry points. Tests that
+  require private implementation access may be included as test-only modules
+  from subdirectories here; do not expose production internals just for tests.
+- `scripts/tests/unit/`: development-tooling unit tests, discovered together with
+  `src/tests/` by both `npm test` and `npm run coverage`.
+- `scripts/tests/`: explicit coverage-report and mutation-probe suites; keep these
+  outside unit discovery to avoid recursive test runs.
+- Root `tests/`: application end-to-end tests spanning the frontend and backend,
+  with their fixtures/helpers. Do not place layer-specific tests here.
+
+Update test discovery, imports, fixture paths and the coverage source inventory
+when moving tests. Test-only directory exclusions must not hide production code.
+
+## Intent-focused comments
+
+Add short descriptive comments to functions and structs when their intent is not
+immediately apparent. Explain why they exist, what they aim to achieve, or which
+invariant they protect; avoid narrating implementation steps or repeating names.
+Use Rust doc comments for useful API documentation. Apply the same principle to
+frontend/tooling functions and test helpers. Straightforward accessors, wrappers
+and clearly named tests need no redundant comment. Keep comments accurate as code
+changes; treat this as the default review practice.
+
+## Pre-release database schemas
+
+While the application is unreleased, breaking schema changes are allowed. Keep
+one current initial schema instead of maintaining migrations between development
+versions. Reject incompatible existing databases without modifying them; recreate
+development databases explicitly when needed. Retain initialization, persistence,
+constraint and rollback tests. After release, use versioned migrations with data
+preservation and recovery tests for changes to persisted data.
+
 ## Coverage is a blocking gate
 
 - Require exactly 100% of executable lines, statements, functions, and branches
@@ -93,6 +131,15 @@ actions. Branch creation for an authorized coding task is expected. Do not force
 push shared history or discard unrelated working-tree changes.
 
 ### Commit messages
+
+Prefer small, atomic commits made frequently as each coherent increment passes
+its relevant checks. Each commit should express one reviewable purpose and leave
+the branch working; keep unrelated changes in separate commits. Use TDD within
+each increment, pairing the regression/behavior tests with their implementation
+rather than committing a deliberately failing intermediate state. Avoid saving
+an entire milestone for one large commit. This preference does not authorize
+committing: obtain user authorization as required above; otherwise keep the
+work reviewable and report the proposed commit boundaries at handoff.
 
 Use Conventional Commits for every commit, including squash and merge commit
 messages: `type(optional-scope): description`. Choose a meaningful type such as

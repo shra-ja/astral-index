@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 beforeEach(async () => {
   document.body.innerHTML = '<main></main>';
   vi.resetModules();
-  await import('../src/main');
+  await import('../main');
 });
 
 test('starts with accessible game selection and a local-app empty state', () => {
@@ -15,7 +15,7 @@ test('starts with accessible game selection and a local-app empty state', () => 
   ]);
   expect(select.value).toBe('genshin-impact');
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Genshin Impact rolls yet');
-  expect(document.body.textContent).toContain('File import is coming next.');
+  expect(document.body.textContent).toContain('History retrieval is coming next.');
   expect(document.body.textContent).toContain('Local app');
   expect(document.body.textContent).not.toContain('Offline');
   expect(document.querySelector('button')).toBeNull();

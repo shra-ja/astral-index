@@ -22,7 +22,7 @@ document.querySelector('main')!.innerHTML = `
     <div class="empty" role="status" aria-live="polite" aria-atomic="true">
       <span class="empty-icon" aria-hidden="true">✧</span>
       <h2></h2>
-      <p>File import is coming next.</p>
+      <p>History retrieval is coming next.</p>
       <p class="detail">Your history will stay on this device. No account needed.</p>
     </div>
   </section>
@@ -32,6 +32,7 @@ document.querySelector('main')!.innerHTML = `
 const game = document.querySelector<HTMLSelectElement>('#game')!;
 const heading = document.querySelector('h2')!;
 
+// Keep the empty-state heading aligned with the selected game, including on first render.
 function updateGame() {
   heading.textContent = `No ${game.selectedOptions[0].textContent} rolls yet`;
 }

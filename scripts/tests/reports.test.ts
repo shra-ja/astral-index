@@ -1,13 +1,13 @@
 import { globSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test } from 'vitest';
-import { assertCompleteCoverage, type FileCoverage } from '../scripts/coverage';
+import { assertCompleteCoverage, type FileCoverage } from '../coverage';
 
 test('every first-party source file has fresh, complete coverage', () => {
-  const sources = globSync(['src/**/*.ts', 'scripts/**/*.ts']).map(file => resolve(file));
+  const sources = globSync(['src/**/*.ts', 'scripts/**/*.ts'], { exclude: ['src/tests/**', 'scripts/tests/**'] }).map(file => resolve(file));
   const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs']).map(file => resolve(file));
   const allExecutable = globSync('**/*.{ts,tsx,js,jsx,mjs,cjs,rs,sh,py}', {
-    exclude: ['node_modules/**', 'src-tauri/target/**', 'src-tauri/gen/**', '.git/**', 'dist/**', 'coverage/**', 'tests/**'],
+    exclude: ['node_modules/**', 'src-tauri/target/**', 'src-tauri/gen/**', '.git/**', 'dist/**', 'coverage/**', 'tests/**', 'src/tests/**', 'scripts/tests/**', 'src-tauri/tests/**'],
   }).map(file => resolve(file));
   expect([...sources, ...rust].sort(), 'New executable source must be included in instrumentation').toEqual(allExecutable.sort());
 

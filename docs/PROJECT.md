@@ -62,8 +62,9 @@ User-requested HoYoverse history acquisition is in scope; see
 
 - Release OS and packaging targets; Ubuntu 24.04 is the first development/CI
   target and does not establish broader release support.
-- Persistence library; the initial frontend is vanilla TypeScript/Vite with npm
-  and bundled CSS (decision 0001).
+- Account reconciliation UX and future schema upgrades; SQLite/rusqlite is now
+  selected for storage (decision 0003). The frontend remains vanilla
+  TypeScript/Vite with npm and bundled CSS (decision 0001).
 - Exact supported input formats and available local sources, verified with
   documentation and synthetic or redacted samples before compatibility claims.
 - How users identify accounts and resolve ambiguous imports.

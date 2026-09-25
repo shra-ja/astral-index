@@ -2,7 +2,7 @@
 
 The shell uses vanilla TypeScript, Vite/npm and Tauri 2; see decision 0001.
 Node.js and Rust are managed with asdf. The import/storage/service design below
-remains a proposal for later milestones. Instrumentation is documented in `TESTING.md`.
+is implemented for the HSR response adapter and SQLite import services described below; acquisition and UI integration remain proposals. Instrumentation is documented in `TESTING.md`.
 
 ## Boundaries
 
@@ -33,8 +33,8 @@ The Rust acquisition client uses extracted request context, validates HTTPS
 hosts/paths and redirects, bounds timeouts/responses/attempts, and keeps auth keys
 out of frontend state and logs. Game adapters interpret responses; validated
 records enter the shared preview and transactional import pipeline. Network or
-authentication failures must not corrupt existing history. HTTP library choice,
-retry policy, and credential retention remain implementation decisions.
+authentication failures must not corrupt existing history. HTTP library choice and credential retention remain implementation decisions.
+Retry limits are settled in the [HSR API contract](HSR-API-CONTRACT.md#errors-and-completeness).
 
 The webview keeps its restrictive CSP and calls a narrow typed native command;
 no arbitrary URL-fetch or shell capability is exposed. The current shell has no
@@ -55,8 +55,9 @@ tooling capable of measuring all required metrics before adding application code
 
 ## Storage proposal
 
-SQLite in the OS application-data directory is the initial proposal. Select its
-Rust integration during implementation. Keep SQL and migrations in the backend;
+SQLite through pinned `rusqlite` with bundled SQLite is implemented for native
+services; see [decision 0003](decisions/0003-sqlite-import-foundations.md).
+Choosing the OS application-data path belongs to the later native UI integration. Keep SQL and migrations in the backend;
 do not store durable history in browser localStorage or inside game directories.
 Bundle assets and required game metadata for local use, with explicit versions.
 
@@ -100,3 +101,78 @@ Pity and guarantee rules belong to each game adapter and may vary by banner and
 rule version. Record evidence for rule mappings. Preserve banner identity even
 when multiple banners share a pity group. Incomplete history must not be presented
 as a known starting state; report observed counts or unknown values explicitly.
+
+## Implemented HSR response adapter
+
+`src-tauri/src/lib.rs` owns the shared native library, with sibling `hsr` and
+`storage` modules. `src-tauri/src/hsr.rs` contains the HSR adapter; integration tests live
+in `src-tauri/tests/hsr.rs` and run within the existing native coverage harness. It parses
+bounded bytes into a page with optional server/timezone evidence and string roll
+fields. It neither deduplicates nor persists. Mixed-account pages and invalid
+records reject the entire page. Structured errors omit source messages and data.
+SerDe/serde_json and chrono are pinned existing lockfile dependencies, now used
+directly for decoding and calendar validation without device-clock access.
+
+A page is not an import-ready account identity: the future service must resolve
+missing server evidence and compare UID, server, timezone, and requested banner
+across pages before merging. No complete-history claim follows from an empty
+page. The shell does not invoke the adapter. SQLite service behavior is described below; see [research](HSR-API-RESEARCH.md) for the deliberately limited contract.
+
+## Implemented SQLite import services
+
+`src-tauri/src/storage.rs` accepts native database paths, HSR response byte slices,
+and explicit UID/server context. The adapter validates every page before a read
+transaction classifies scoped record identities. An immutable preview owns the
+validated values and counts. The 16 MiB total batch limit supplements the parser's
+2 MiB page limit. Empty datasets produce a no-records error, without creating an
+account. No source is reread on commit and no service makes network requests.
+
+Schema version 2 has accounts, unique rolls, compact import summaries and database
+identity/revision metadata. Keys include game, UID, server and string record ID.
+Roll JSON retains source fields/extensions; a scoped foreign key identifies its
+first batch. Successful summaries retain adapter, import time and counts. Full
+page snapshots and repeated associations are not retained. Identical reimports
+add only a summary and revision update. Conflicts block the entire import,
+including localized-label or timezone changes. Unknown timezone stays unknown;
+resolving it requires explicit reconciliation rather than silent conversion.
+See [decision 0004](decisions/0004-compact-import-provenance.md) for the deliberate
+loss of exact historical input reconstruction and pre-release schema policy.
+
+Commit acquires an immediate transaction, verifies database identity/revision,
+rechecks timezone evidence and record classifications, then writes all state
+atomically. Import time is a caller-supplied Unix timestamp in seconds. Other successful
+imports invalidate outstanding previews, even for a different account. Cancellation
+before commit is dropping a preview; UI cancellation during a transaction is not
+implemented. A failed SQL insert or final commit rolls back the account, records,
+first provenance, summary and revision. Queries are scoped to HSR/account/server and use
+deterministic ID ordering, without treating that order as historical chronology.
+
+Migration initializes only an empty unclaimed database and refuses unsupported
+versions or unrelated content. The sole initial migration creates compact storage
+directly. Pre-release schema changes may break compatibility: obsolete development
+databases must be explicitly recreated and are rejected without modification.
+The current header marker remains 2 to distinguish the old layout; no upgrade
+chain is maintained. Opening checks header compatibility and identity/revision
+metadata; it is not a full schema or database integrity check. Missing tables or
+altered constraints may fail only when used. History reads validate payload
+syntax, unambiguous members, indexed UID/ID agreement and record invariants before
+returning any records. Detected corruption yields safe error categories; no
+repair/overwrite path is implemented. The shell still opens
+no database and exposes no new Tauri capability. The next UI/acquisition increment
+must resolve selected account/server and compare requested banner context.
+
+
+## Initial acquisition contract
+
+The [HSR API contract](HSR-API-CONTRACT.md) fixes the initial single-endpoint scope
+and records accepted assumptions separately from observed evidence. Trust the auth
+key to select the account for initial acquisition; preserve response UID, region
+and offset for storage. Formal account/server verification is a closing requirement
+of milestone 3. Existing scoped storage and conflict checks remain mandatory.
+
+The future client defaults to 1000 records per page and sequential fetching,
+balancing request count with smaller response batches.
+Retries are limited to one per transiently failed request and two extra attempts
+per acquisition. Authentication, validation and identity failures abort with an
+actionable UI error. Complete retained history and manageable volume are accepted
+assumptions; byte/request limits never justify silently incomplete commits.

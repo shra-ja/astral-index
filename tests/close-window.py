@@ -3,6 +3,7 @@ import ctypes as c
 import sys
 
 
+# Match the X11 client-message layout so the close request crosses the native boundary correctly.
 class ClientMessage(c.Structure):
     _fields_ = [
         ("type", c.c_int), ("serial", c.c_ulong), ("send_event", c.c_int),
@@ -12,6 +13,7 @@ class ClientMessage(c.Structure):
     ]
 
 
+# Reserve the full XEvent storage expected by XSendEvent, including its unused variants.
 class Event(c.Union):
     _fields_ = [("client", ClientMessage), ("padding", c.c_long * 24)]
 
