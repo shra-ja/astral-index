@@ -33,8 +33,8 @@ The Rust acquisition client uses extracted request context, validates HTTPS
 hosts/paths and redirects, bounds timeouts/responses/attempts, and keeps auth keys
 out of frontend state and logs. Game adapters interpret responses; validated
 records enter the shared preview and transactional import pipeline. Network or
-authentication failures must not corrupt existing history. HTTP library choice,
-retry policy, and credential retention remain implementation decisions.
+authentication failures must not corrupt existing history. HTTP library choice and credential retention remain implementation decisions.
+Retry limits are settled in the [HSR API contract](HSR-API-CONTRACT.md#errors-and-completeness).
 
 The webview keeps its restrictive CSP and calls a narrow typed native command;
 no arbitrary URL-fetch or shell capability is exposed. The current shell has no
@@ -104,7 +104,8 @@ as a known starting state; report observed counts or unknown values explicitly.
 
 ## Implemented HSR response adapter
 
-`src-tauri/src/hsr.rs` is a standalone Rust library target; integration tests live
+`src-tauri/src/lib.rs` owns the shared native library, with sibling `hsr` and
+`storage` modules. `src-tauri/src/hsr.rs` contains the HSR adapter; integration tests live
 in `src-tauri/tests/hsr.rs` and run within the existing native coverage harness. It parses
 bounded bytes into a page with optional server/timezone evidence and string roll
 fields. It neither deduplicates nor persists. Mixed-account pages and invalid
@@ -151,8 +152,12 @@ versions or unrelated content. The sole initial migration creates compact storag
 directly. Pre-release schema changes may break compatibility: obsolete development
 databases must be explicitly recreated and are rejected without modification.
 The current header marker remains 2 to distinguish the old layout; no upgrade
-chain is maintained. Database corruption yields safe
-error categories; no repair/overwrite path is implemented. The shell still opens
+chain is maintained. Opening checks header compatibility and identity/revision
+metadata; it is not a full schema or database integrity check. Missing tables or
+altered constraints may fail only when used. History reads validate payload
+syntax, unambiguous members, indexed UID/ID agreement and record invariants before
+returning any records. Detected corruption yields safe error categories; no
+repair/overwrite path is implemented. The shell still opens
 no database and exposes no new Tauri capability. The next UI/acquisition increment
 must resolve selected account/server and compare requested banner context.
 

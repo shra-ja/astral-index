@@ -118,6 +118,10 @@ transactional import services.
   per transiently failed request, at most two extra attempts per acquisition, and
   synthetic request mocks. No background or automatic fetching.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
+  Expose a narrow native review DTO with validated account/server/context, records
+  and conflict locations, plus safe page/record indices for validation failures.
+  Do not reparse private source bytes in the frontend or expose credentials/raw
+  payloads in diagnostics.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.
 - [ ] At the end of this milestone, verify auth-key/account binding, response UID
