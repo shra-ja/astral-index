@@ -78,17 +78,22 @@ fn unreadable(_: std::io::Error) -> CacheError {
 
 /// Read only the explicitly selected regular file, bounding allocation even if it grows.
 pub fn read_selected_cache(path: &Path) -> Result<Vec<RequestContext>, CacheError> {
+    read_cache(&mut open_selected_file(path)?)
+}
+
+// Shared regular-file boundary for selected caches and bounded player-log headers.
+pub(crate) fn open_selected_file(path: &Path) -> Result<fs::File, CacheError> {
     let mut options = fs::OpenOptions::new();
     options.read(true);
     // Opening a FIFO must not wait for a writer before we can inspect its type.
     // Check the opened handle, so replacing the path cannot bypass validation.
     #[cfg(unix)]
     options.custom_flags(libc::O_NONBLOCK);
-    let mut file = options.open(path).map_err(|_| CacheError::Unreadable)?;
+    let file = options.open(path).map_err(|_| CacheError::Unreadable)?;
     if !file.metadata().is_ok_and(|metadata| metadata.is_file()) {
         return Err(CacheError::NotRegularFile);
     }
-    read_cache(&mut file)
+    Ok(file)
 }
 
 fn read_cache(reader: &mut dyn Read) -> Result<Vec<RequestContext>, CacheError> {
@@ -167,8 +172,8 @@ fn encoded_value(value: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    pub(super) mod filesystem;
+pub(crate) mod tests {
+    pub(crate) mod filesystem;
     use super::*;
     use std::io::{self, Read};
 

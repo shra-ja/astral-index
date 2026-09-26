@@ -206,6 +206,32 @@ There is no Tauri command, file picker, automatic installation search, HTTP tran
 credential persistence yet. The future client must use only the validated fields,
 construct fresh pagination parameters and resolve account identity from responses.
 
+## Windows player-log discovery
+
+`src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming
+AppData location. It reads only sibling
+`LocalLow/Cognosphere/Star Rail/Player.log` and `Player-prev.log`, preserving
+each result independently. A missing or malformed current log cannot suppress
+the previous log's candidates. The caller can also supply an individual log.
+
+The shared read-only regular-file boundary retains the cache reader's nonblocking
+Unix open and opened-handle validation. Log parsing is limited to the first
+11 lines and 64 KiB, plus one overflow-detection byte. Later gameplay content,
+including invalid text, is irrelevant; malformed UTF-8 within the header fails.
+Exact startup markers yield distinct game-data directories in first-seen order.
+Malformed recognized paths fail that log instead of returning a partial result.
+
+Only drive-absolute Windows paths are accepted; UNC/device paths, traversal,
+empty components and invalid Windows component characters are rejected.
+WSL mapping requires an explicit absolute POSIX mount root and uses lowercase
+drive names. It never assumes `/mnt`, probes drives, invokes a shell or scans
+profiles. The returned paths remain native-only candidates; callers must explicitly
+choose them before cache discovery/reading. Neither log discovery nor cache
+extraction fetches history.
+
+Windows system-folder lookup, desktop selection and real-installation validation
+remain pending. These services add no Tauri command or permission.
+
 ## Unit and boundary test separation
 
 Backend unit tests execute the same service bodies against test-only replacements

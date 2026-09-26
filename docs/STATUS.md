@@ -100,15 +100,44 @@ per-file coverage metrics remain 100%, including the isolated backend unit gate.
 `npm run tauri -- build --no-bundle` also passed for the Linux development host.
 Native Windows verification remains pending.
 
+## Player-log discovery increment
+
+Work continues on `feat/hsr-request-extraction` after the cache review fixes.
+The user-provided PowerShell reference obtains roaming `ApplicationData`, then
+uses sibling `LocalLow/Cognosphere/Star Rail`. The new native discovery service
+follows that rule from an explicitly supplied host-native AppData location.
+It returns independent results for `Player.log` and `Player-prev.log`, reading
+only their first 11 lines within a 64 KiB header bound. Explicit Windows-drive
+mapping supports caller-supplied WSL mount roots. No profile scans, shell execution,
+source writes, credential exposure or network requests were added.
+
+Six new behavior tests failed against stubs before implementation, then passed.
+Seven discovery unit tests now cover mocked file access, independent log outcomes,
+header bounds, Unicode/spaces, path validation and explicit drive mapping.
+Two real-file integration tests verify unchanged source bytes and a synthetic
+mounted Windows layout from log candidate through cache extraction.
+
+Verification: `npm run check` passed: 46 backend unit tests, 31 integration
+tests, 17 frontend/tooling tests, native offline execution, eight enforcement
+probes, both report guards, TypeScript/build, formatting and Clippy. All required
+per-file metrics are 100%, including isolated backend unit lines, regions,
+functions and branches. A final integration assertion accommodates rejection of
+directories either during open or opened-type validation; focused integration
+tests, Clippy, formatting and report validation passed again afterward.
+`npm run tauri -- build --no-bundle` passed for the Linux development host.
+Native Windows and real installed-game verification remain pending.
+No private source is included in this increment; the reference script was not executed.
+
 ## Next
 
-Verify real Windows cache layouts from native Windows and WSL, then implement
-bounded Player.log/Player-prev.log discovery and explicit Windows-drive mapping
-for WSL. Connect native selection to the desktop without exposing credentials.
+Resolve Windows' roaming AppData through the native system-folder API and connect
+explicit source selection to the desktop without exposing credentials. Verify
+real Windows cache/log layouts from native Windows and WSL; synthetic tests and
+script inspection do not establish installed-game compatibility.
 Next implement the contract's cancellable HTTP client, bounded pagination/retries,
 review DTO, atomic commit and history display. Account/server verification remains
 a milestone-closing requirement. The roadmap's discovery/selection checkboxes stay
-open: synthetic directory tests do not establish real installation compatibility.
+open until their remaining verification and desktop integration criteria pass.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

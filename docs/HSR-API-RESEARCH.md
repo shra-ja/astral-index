@@ -312,10 +312,31 @@ live installation or credential validity. No private source or live API was used
 | --- | --- |
 | Manually selected `data_2` cache file | Native service implemented; framing supported by earlier cache research and local synthetic file tests. Desktop selection UI pending. |
 | Selected Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify numeric ordering, legacy paths and missing caches. Native Windows and real WSL-mounted installation verification pending. |
-| Windows installations accessed from WSL | Initial supported discovery target alongside Windows. Selected mounted paths use the same resolver; automatic profile/drive mapping pending. |
-| Windows Player.log / Player-prev.log discovery | Research proposal only; unverified and unimplemented. |
+| Windows installations accessed from WSL | Explicit mount-root mapping implemented with synthetic real-file tests. System-folder lookup and real installation verification pending. |
+| Windows Player.log / Player-prev.log discovery | Bounded reader implemented from supplied roaming AppData; script inspection and synthetic tests support the layout. Native Windows and real installation verification pending. |
 | macOS installation discovery | Unverified and unimplemented. |
 
 Windows is the initial game-installation target, with discovery intended from
 Windows and WSL. Keep milestone 3's OS-discovery verification item open until
 real installations and native Windows file behavior are validated.
+
+
+## Player-log reader increment (2026-09-26)
+
+Inspection of the beginning of the user-provided PowerShell reference confirms
+that it obtains Windows' roaming `ApplicationData` folder through the folder API,
+then looks in sibling `LocalLow/Cognosphere/Star Rail`. It reads the first
+11 lines for `Loading player data from ` and the `data.unity3d` path.
+The script was inspected, not executed; this is evidence of its discovery method,
+not independent verification against an installed game.
+
+The native service now accepts that AppData location explicitly, checks both logs
+independently, bounds header input to 64 KiB, and validates paths before returning
+candidates. WSL callers supply a host-native AppData path and explicit mount root.
+Microsoft documents that WSL's default `/mnt/` automount root
+[can be changed or automount disabled](https://learn.microsoft.com/en-us/windows/wsl/wsl-config#automount-settings),
+so the service does not hard-code it or infer drive availability.
+Synthetic tests cover Unicode/spaces, normalized drive letters/separators, custom
+mount roots, missing/malformed logs, line/byte bounds, and read-only traversal
+from a log candidate to a selected cache. System-folder integration, desktop
+selection and native Windows/live-installation verification remain pending.
