@@ -14,6 +14,8 @@ const nativeEnv: NodeJS.ProcessEnv = {
 beforeAll(() => {
   rmSync('coverage/native', { recursive: true, force: true });
   mkdirSync('coverage/native', { recursive: true });
+  rmSync('coverage/native-unit', { recursive: true, force: true });
+  mkdirSync('coverage/native-unit', { recursive: true });
   mkdirSync('src-tauri/target', { recursive: true });
   // Cargo nightly requires this standard cache tag before cleaning its artifacts.
   writeFileSync('src-tauri/target/CACHEDIR.TAG', 'Signature: 8a477f597d28d172789f06886806bc55\n');
@@ -24,6 +26,14 @@ beforeAll(() => {
     nativeEnv[key] = value.replace(/^'|'$/g, '');
   }
   nativeEnv.__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS += '\x1f-Zcoverage-options=branch';
+  // Freeze unit-only evidence before integration/native execution can add counters.
+  execFileSync('cargo', ['test', '--lib', '--locked', '--offline'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
+  execFileSync('cargo', ['llvm-cov', 'report', '--json', '--output-path', '../coverage/native-unit/coverage.json'], {
+    cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit',
+  });
+  execFileSync('cargo', ['llvm-cov', 'report', '--html', '--output-dir', '../coverage/native-unit'], {
+    cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit',
+  });
   execFileSync('cargo', ['build', '--locked', '--offline'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
   execFileSync('cargo', ['test', '--locked', '--offline'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
 }, 600000);

@@ -60,8 +60,9 @@ User-requested HoYoverse history acquisition is in scope; see
 
 ## Open decisions
 
-- Release OS and packaging targets; Ubuntu 24.04 is the first development/CI
-  target and does not establish broader release support.
+- Windows is the initial supported game-installation OS, with cache discovery
+  intended from both Windows and WSL. Ubuntu/WSL remains the development/CI
+  environment; native Windows validation and installer packaging remain pending.
 - Account reconciliation UX and future schema upgrades; SQLite/rusqlite is now
   selected for storage (decision 0003). The frontend remains vanilla
   TypeScript/Vite with npm and bundled CSS (decision 0001).

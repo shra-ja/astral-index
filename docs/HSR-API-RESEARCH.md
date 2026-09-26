@@ -298,3 +298,24 @@ policy, not external compatibility. Current global response variants, stable ID
 semantics across all categories, server/offset evidence, terminal pages, expiry,
 rate limits and retention remain unverified. This was the basis for keeping the roadmap item open at that date; the accepted
 2026-09-23 contract now supplies its initial implementation scope. The parser is not yet connected to the desktop shell or a network client.
+
+## Initial source-reader increment (2026-09-25)
+
+The native reader now supports an explicitly supplied regular cache-file path.
+Synthetic tests on the Ubuntu development environment verify real file reads,
+unchanged file bytes, binary surroundings, the researched `1/0/` and NUL framing,
+encoded request fields, distinct candidates and bounded failures. This implements
+the extraction method described above; it does not independently revalidate a
+live installation or credential validity. No private source or live API was used.
+
+| Source | Current support and evidence |
+| --- | --- |
+| Manually selected `data_2` cache file | Native service implemented; framing supported by earlier cache research and local synthetic file tests. Desktop selection UI pending. |
+| Selected Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify numeric ordering, legacy paths and missing caches. Native Windows and real WSL-mounted installation verification pending. |
+| Windows installations accessed from WSL | Initial supported discovery target alongside Windows. Selected mounted paths use the same resolver; automatic profile/drive mapping pending. |
+| Windows Player.log / Player-prev.log discovery | Research proposal only; unverified and unimplemented. |
+| macOS installation discovery | Unverified and unimplemented. |
+
+Windows is the initial game-installation target, with discovery intended from
+Windows and WSL. Keep milestone 3's OS-discovery verification item open until
+real installations and native Windows file behavior are validated.

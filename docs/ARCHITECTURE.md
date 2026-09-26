@@ -105,8 +105,7 @@ as a known starting state; report observed counts or unknown values explicitly.
 ## Implemented HSR response adapter
 
 `src-tauri/src/lib.rs` owns the shared native library, with sibling `hsr` and
-`storage` modules. `src-tauri/src/hsr.rs` contains the HSR adapter; integration tests live
-in `src-tauri/tests/hsr.rs` and run within the existing native coverage harness. It parses
+`storage` modules. `src-tauri/src/hsr.rs` contains the HSR adapter; unit tests live beside it in a `cfg(test)` module and run within the existing native coverage harness. It parses
 bounded bytes into a page with optional server/timezone evidence and string roll
 fields. It neither deduplicates nor persists. Mixed-account pages and invalid
 records reject the entire page. Structured errors omit source messages and data.
@@ -176,3 +175,44 @@ Retries are limited to one per transiently failed request and two extra attempts
 per acquisition. Authentication, validation and identity failures abort with an
 actionable UI error. Complete retained history and manageable volume are accepted
 assumptions; byte/request limits never justify silently incomplete commits.
+
+## Initial native cache extraction
+
+`src-tauri/src/acquisition.rs` reads one explicitly selected regular cache file
+without writing to it or initiating network activity. Reads stop at 16 MiB plus
+one overflow-detection byte; oversize inputs fail rather than yield partial
+contexts. This is an initial application limit, not a verified maximum cache size.
+The extractor tolerates binary data around NUL-terminated `1/0/` request entries.
+It accepts the exact researched HTTPS endpoint spelling and five required query
+fields, retaining their encoded bytes. Empty/malformed fields, duplicate required
+fields, other game contexts, fragments and alternate endpoint spellings fail
+candidate validation. Unrelated/unsupported entries are skipped; no valid candidate
+produces a safe error. Distinct contexts retain first-seen order without implying
+age, validity or current account. Callers must not silently choose an account from
+cache order.
+
+Request contexts are opaque native values with redacted debug output and no
+serialization implementation. Errors contain neither paths nor source text.
+A selected game-data directory can also be resolved through its immediate
+`webCaches` directory: existing four-component numeric version paths are returned
+in descending version order, followed by the legacy cache path. All candidates
+remain available; version order does not establish credential age. The same
+relative layouts work with native Windows paths and WSL-mounted Windows paths.
+There is no Tauri command, file picker, automatic installation search, HTTP transport or
+credential persistence yet. The future client must use only the validated fields,
+construct fresh pagination parameters and resolve account identity from responses.
+
+## Unit and boundary test separation
+
+Backend unit tests execute the same service bodies against test-only replacements
+for the filesystem and SQLite APIs. Compile-time imports select std/rusqlite in
+normal builds and strict doubles in library unit tests; no mock or test-only API
+is exposed in the desktop binary. The doubles verify boundary contracts rather
+than simulate a full filesystem or SQL engine. Public integration tests continue
+to validate real file behavior, persistence, constraints and rollback.
+
+The test harness records backend coverage immediately after `cargo test --lib`,
+before integration execution. Every backend source file defaults to the 100%
+unit gate. Only the existing minimal `main.rs` and `build.rs` delegates use the
+separate 100% native gate, with a source-body guard preventing unnoticed expansion.
+No I/O/database functionality is exempted. See CONTRIBUTING for the mandatory policy.

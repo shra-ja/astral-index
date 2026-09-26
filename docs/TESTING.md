@@ -25,7 +25,8 @@ packaging and other operating systems are later release work.
 | --- | --- | --- |
 | `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |
 | `scripts/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |
-| `src-tauri/src/**/*.rs`, `src-tauri/build.rs` | cargo-llvm-cov with nightly branch instrumentation | Lines, regions, functions, branches: 100% |
+| Backend `src-tauri/src/**/*.rs` (except `main.rs`) | cargo-llvm-cov, **unit execution only** | Lines, regions, functions, branches: 100% |
+| `src-tauri/src/main.rs`, `src-tauri/build.rs` | Separate native boundary coverage; guarded minimal delegates | Lines, regions, functions, branches: 100% |
 
 LLVM uses executable regions rather than a distinct Rust statement metric. Zero
 branch points means there are no branches to cover; startup has no handwritten
@@ -48,13 +49,16 @@ Exclusions are limited to:
   test code, test helpers and synthetic fixtures only. Frontend/tooling coverage
   and source inventories explicitly exclude those test directories; production
   source globs and per-file thresholds are unchanged.
+- `src-tauri/src/**/tests/**`: supporting unit-test doubles only, imported under
+  `cfg(test)`. The real service implementation remains in the instrumented parent
+  files; no production logic is excluded.
 - `node_modules/`, Cargo dependencies and `src-tauri/target/`: third-party or generated artifacts.
 - `src-tauri/gen/`, `dist/`, `coverage/`: mechanically generated output.
 - HTML, CSS, SVG/PNG, Markdown, lockfiles and declarative JSON/YAML/TOML: no
   instrumentable TypeScript/Rust control flow. They are exercised by native smoke
   tests, builds and schema checks as applicable.
 
-There are no coverage-ignore annotations or handwritten-source exclusions.
+There are no coverage-ignore annotations or handwritten production-source exclusions.
 Workflow steps and npm scripts compose tool commands; the custom executable gate
 is TypeScript and is instrumented.
 
@@ -89,7 +93,8 @@ after the first hosted run; local success does not prove remote CI ran.
 Do not run probes concurrently with editing, coverage or native builds. They
 mutate source briefly and restore it in `finally` blocks. After interruption,
 inspect `src/coverage-probe.ts`, `src-tauri/src/coverage_probe.rs`,
-`src-tauri/src/main.rs`, and report backup files before resuming.
+`src-tauri/src/main.rs`, `src-tauri/src/lib.rs`,
+`src-tauri/tests/unit_coverage_probe.rs`, and report backup files before resuming.
 
 ## Connectivity scope after decision 0002
 
@@ -134,20 +139,18 @@ check at preview and commit. Another test
 failed on a system-generated import time, then passed with an explicit caller
 Unix timestamp. No dependency, environment or compile failure counts as red.
 
-`src-tauri/tests/storage/behavior.rs` uses real temporary database files for restart, overlapping
+`src-tauri/tests/storage.rs` uses real temporary database files for restart, overlapping
 and repeated imports, conflicts, account/server/game isolation, unknown timezone,
 source ownership, cancellation before commit, unsupported/corrupt databases,
 constraints, concurrent writers, and insert/final-commit rollback. The tests do
 not read player files or call external endpoints.
 
-`src-tauri/tests/storage/failures.rs` uses SQLite's own authorizer and size limits to deny
-specific database operations. It checks safe errors, complete rollback, unchanged
-schema version and no lingering transaction. It is included only in the library's
-test build so it can access the private connection initialization boundary;
-the real-file storage suite is compiled in that same artifact to avoid splitting
-normal and failure coverage across duplicate instantiations of the library;
-rusqlite hooks/limits are dev-dependency features, not a production UI capability.
-These tests supplement the real-file integration tests, not replace them.
+The `tests` module in `src-tauri/src/storage.rs` uses a strict scripted SQLite API
+double. Unit tests verify queries, account/data bindings, transaction sequencing,
+commit and rollback requests, safe error propagation and core import rules without
+opening SQLite. These replace the earlier direct-SQLite private fault-injection
+suite. Real-file integration tests still verify SQLite rollback, constraints,
+persistence and corruption handling against the production bindings.
 
 The initial coverage run rejected uncovered error-propagation regions despite
 100% measured branch outcomes. Failure injection covers those regions; no
@@ -159,6 +162,8 @@ initializer; tests exercise its constraints, header version, successful creation
 rollback of partially applied DDL, and reopen behavior.
 
 ## Test layout refactor (2026-09-22)
+
+Historical layout, superseded for Rust unit tests by the 2026-09-25 refinement below.
 
 Frontend tests now live in `src/tests/`; backend Rust tests and synthetic API
 fixtures live in `src-tauri/tests/`. Cargo automatically discovers
@@ -293,3 +298,70 @@ members; excessive nesting; and lossless numeric persistence after restart.
 `npm run tauri -- build --no-bundle` and `git diff --check` also passed. The
 production Linux executable builds; Windows/macOS, installer packaging and future
 acquisition/native import commands remain outside this verification.
+
+## Selected Windows cache foundations (2026-09-25)
+
+On `feat/hsr-request-extraction`, the initial extraction/file tests were run against
+error-only implementations. They failed on successful extraction, oversize-input
+classification and reading a selected file. The game-directory resolver test also
+failed before implementation. The focused command is:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --offline --lib acquisition
+cargo test --manifest-path src-tauri/Cargo.toml --offline --test acquisition
+```
+
+The initial six tests exercised binary cache framing, preservation of encoded context,
+deduplication, safe diagnostics/debug formatting, unsupported and ambiguous URLs,
+truncated candidates, read/size failures, unchanged real files, and legacy/versioned
+Windows directory layouts with numeric ordering. Injected reader and directory
+iterator errors exercise the same implementation as real I/O. Tests use synthetic
+credentials and temporary directories and never initiate history requests.
+
+These tests run on the Ubuntu/WSL development host. They do not verify a real
+Windows installation, native Windows sharing/permission behavior, or automatic
+Windows profile/WSL mount discovery. The Windows/WSL support matrix is recorded in
+[research](HSR-API-RESEARCH.md#initial-source-reader-increment-2026-09-25).
+
+## Unit-first backend testing (2026-09-25)
+
+Rust unit tests live beside their implementation in `#[cfg(test)] mod tests` in
+`src-tauri/src/acquisition.rs`, `hsr.rs` and `storage.rs`. Supporting filesystem
+and SQLite doubles live in adjacent `tests/` subdirectories and are imported only
+under `cfg(test)`. Unit tests execute the same service bodies as production, but
+never use real filesystem or database operations. The SQL double checks outgoing
+SQL, bound values, transaction ordering and cleanup; it is not a fake SQL engine.
+
+Cargo integration targets are `src-tauri/tests/acquisition.rs` and `storage.rs`.
+They use real files and SQLite to check persistence, constraints, rollback,
+repeated/overlapping imports and the behavior assumed by the doubles. Fixtures
+stay under `src-tauri/tests/fixtures/`. Frontend and top-level application tests
+remain separate. There are 39 backend unit tests and 27 backend integration tests.
+
+`tests/native.test.ts` clears profiles, runs `cargo test --lib --locked --offline`,
+and saves JSON/HTML under `coverage/native-unit/` **before** running integration
+or desktop tests. The report gate checks every backend source file against that
+unit-only report. Subsequent execution produces `coverage/native/` for the two
+explicit exceptions: `src-tauri/src/main.rs` and `src-tauri/build.rs`. Each still
+requires 100% coverage. Exact source-body assertions guard these minimal delegates;
+adding behavior forces review of the exception. New Rust source defaults to the
+unit-only gate, including I/O and database functionality. This exception was
+explicitly authorized by the user and is documented in CONTRIBUTING and AGENTS.
+
+The new report requirement first failed on the missing unit-only report, despite
+an existing native report. The service refactor then reached 100% lines, regions,
+functions and branches from mocked unit tests alone; no thresholds were lowered.
+Additional probes cover an integration-only function that is fully exercised by
+integration tests but must still fail the unit gate, a missing/empty unit report,
+and added startup behavior rejected by the exception guard. Together with the
+previous five probes these make eight enforcement tests.
+
+CI archives frontend, unit-only and native JSON/HTML reports separately. The same
+`npm run check` gate runs locally and in CI. Windows installation/native behavior
+remains unverified; these checks run on the Ubuntu/WSL development environment.
+
+Final `npm run check` passed: 39 unit tests, 27 real-boundary integration tests,
+17 frontend/tooling tests, native offline integration, eight enforcement probes,
+both report/exception checks, formatting, TypeScript and Clippy. All required
+per-file metrics are 100% from the appropriate independent report. No thresholds
+were lowered and no production functions were excluded.

@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-25
+Updated: 2026-09-26
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -10,7 +10,7 @@ and retry policy. The shell does not yet acquire, import or display history.
 
 ## Milestone 2 review remediation
 
-Work is on `feat/hsr-response-foundations`. Parser fixes preserve precise JSON
+Integrated through PR #3 (`20428aa`). Parser fixes preserve precise JSON
 numbers, reject duplicate members and enforce the exact timestamp shape. History
 reads verify stored identity and domain invariants. A shared library root separates
 HSR and storage modules. Test discovery now covers additional frontend/tooling
@@ -23,17 +23,73 @@ formatting and Clippy. All required coverage metrics are 100% per source file.
 The regression tests reproduced the four data issues before fixes; the new-suite
 probe confirmed the old command omitted tests. See [testing](TESTING.md) for
 red/green and mutation evidence. `npm run tauri -- build --no-bundle` also passed for Linux.
-Review fixes are ready for integration; no changes have been pushed or published.
+Review fixes are integrated on `main`.
 The existing branch history is preserved; subsequent service work should use
 smaller reviewed increments and the same-day integration target in CONTRIBUTING.
 
+## Milestone 3 — selected cache foundations
+
+Work is on `feat/hsr-request-extraction`, branched from current `main` after
+fetch/fast-forward verification. Windows is the initial game-installation target;
+discovery must work from Windows and WSL. Ubuntu/WSL remains the current test
+host, not a native HSR installation target.
+
+The native acquisition module now reads bounded selected cache files without
+modifying them, extracts the five encoded request-context fields from the
+researched cache framing, validates the exact endpoint, deduplicates contexts,
+and redacts credentials from debug output. The selected game-data resolver checks
+legacy and versioned `webCaches` layouts, returning existing version paths in
+numeric descending order. It does not treat cache position/version as key age
+or silently select an account. No network calls or new Tauri capabilities exist.
+
+TDD: the initial three tests failed on valid extraction, the byte limit and file
+reading before implementation; the directory-layout test then failed before its
+resolver was implemented. The initial six focused tests covered these behaviors and safe
+I/O failures. Before the unit-first refinement below, `npm run check` passed: 52 Rust tests,
+17 frontend/tooling tests, native offline integration, all five enforcement
+probes, source/report checks, formatting, TypeScript and Clippy. All required
+coverage metrics are 100% per first-party source file, with no new exclusions.
+`npm run tauri -- build --no-bundle` passed after the probes restored the normal
+CSP, producing the Linux development-host executable. Native Windows build and
+installation verification remain pending.
+
+## Unit-first backend coverage
+
+Unit tests now sit beside acquisition, parser and storage code and use filesystem
+and SQLite API doubles. Public integration tests under `src-tauri/tests/` retain
+real I/O, persistence, constraint and rollback verification. No production API was
+widened for testing. There are 39 backend unit tests and 27 integration tests.
+
+An isolated unit-only report is captured before integration/native execution;
+every backend file requires 100% lines, regions, functions and branches from that
+report alone. Only the minimal Tauri startup/build delegates retain a separate
+100% native gate. A source-body guard rejects changes to those exceptions, and
+CONTRIBUTING/AGENTS document the user-approved scope explicitly. New backend
+files, including database/I/O code, default to unit-only coverage.
+
+`npm run check` passed on the final refactor: 39 Rust unit tests, 27 real-boundary
+integration tests, 17 frontend/tooling tests, native offline integration, eight
+enforcement probes, both report/exception guards, TypeScript/build, formatting
+and Clippy. Every backend source file reached 100% unit-only coverage, and both
+startup/build wrappers reached 100% in their separate gate. The new report
+requirement first failed when only the old combined report existed. The probes
+confirmed that integration-only execution cannot fill a unit gap and that missing
+unit reports or changed wrapper bodies fail. Only supporting test-double files
+are newly excluded from the production source inventory; no production logic is
+excluded. `npm run tauri -- build --no-bundle` also passed for the Linux
+development host after all probes restored the normal source/CSP. Windows native
+validation remains pending. This work is recorded on
+`feat/hsr-request-extraction`; nothing has been pushed or published.
+
 ## Next
 
-Integrate the reviewed milestone when authorized. Milestone
-3 connects explicit user-requested acquisition to preview, commit and local history
-browsing. Its review DTO and safe indexed diagnostics are planned in the
-[roadmap](ROADMAP.md); account/server verification remains a closing requirement.
-No startup/background requests or new native capabilities have been added.
+Verify real Windows cache layouts from native Windows and WSL, then implement
+bounded Player.log/Player-prev.log discovery and explicit Windows-drive mapping
+for WSL. Connect native selection to the desktop without exposing credentials.
+Next implement the contract's cancellable HTTP client, bounded pagination/retries,
+review DTO, atomic commit and history display. Account/server verification remains
+a milestone-closing requirement. The roadmap's discovery/selection checkboxes stay
+open: synthetic directory tests do not establish real installation compatibility.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

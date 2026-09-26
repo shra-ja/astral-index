@@ -1,4 +1,5 @@
 //! Native services and shared input validation, independent of the desktop shell.
+pub mod acquisition;
 pub mod hsr;
 pub mod storage;
 pub use hsr::{MAX_RESPONSE_BYTES, Page, ParseError, Roll, parse_response};

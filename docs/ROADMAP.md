@@ -107,11 +107,15 @@ foundation for the first API-import feature, not a separate file-import release.
 Moved forward from former milestone 5; depends on milestone 2's parser and
 transactional import services.
 
-- [ ] Verify HSR cache/request discovery on the initial supported OS and record
+- [ ] Verify HSR cache/request discovery for Windows installations, from both
+  Windows and WSL, and record
   supported and unsupported sources with evidence.
 - [ ] Implement read-only manual cache/game-data selection and request extraction;
   add automatic discovery where verified. A selected cache supplies request
   context, not a standalone roll-history export.
+  Native selected-file reading and request extraction are implemented with synthetic
+  tests, including selected game-data directory resolution; desktop selection,
+  automatic installation discovery and Windows/WSL verification remain pending.
 - [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
   native client: single tested endpoint, 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry

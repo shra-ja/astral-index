@@ -66,6 +66,12 @@ inspect actual code before assuming a feature exists.
   Rust backend, native glue, and executable tooling. Require 100% lines, statements,
   functions, and branches wherever applicable; select tooling that can enforce
   these metrics rather than silently omitting an unsupported metric.
+- Rust backend coverage must reach 100% from unit tests alone, with mocked
+  filesystem/database APIs. Integration tests use real boundaries and cannot fill
+  unit-coverage gaps. Only `src-tauri/src/main.rs` and `src-tauri/build.rs` retain
+  a separate 100% native gate while they remain minimal Tauri delegates; the
+  source-body guard in `scripts/tests/reports.test.ts` must fail if they change.
+  Reassess the exception before adding behavior to either wrapper.
 - Include unexecuted source files in coverage. Enforce thresholds per file and per
   language/package; do not round up, rely on changed-lines-only coverage, or hide
   missed paths with exclusions, ignore annotations, or trivial assertions.

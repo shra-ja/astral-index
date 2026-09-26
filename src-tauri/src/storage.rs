@@ -1,6 +1,10 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
+#[cfg(test)]
+use self::tests::database::Connection;
 use crate::{ParseError, Roll, parse_response};
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+#[cfg(not(test))]
+use rusqlite::Connection;
+use rusqlite::{OptionalExtension, TransactionBehavior, params};
 use std::{collections::BTreeMap, path::Path};
 
 const GAME: &str = "honkai-star-rail";
@@ -289,9 +293,574 @@ fn classify(
 }
 
 #[cfg(test)]
-#[path = "../tests/storage/failures.rs"]
-mod tests;
+mod tests {
+    use super::*;
+    pub(super) mod database;
+    use database::{Reply, Step};
+    use rusqlite::types::Value;
+    const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
+    const UID: &str = "100000002";
+    const SERVER: &str = "synthetic-server";
+    const SNAPSHOT: &str = "SELECT database_id,revision FROM metadata WHERE singleton=1";
+    const TIMEZONE: &str = "SELECT timezone FROM accounts WHERE game=?1 AND uid=?2 AND server=?3";
+    const LOOKUP: &str =
+        "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
+    const HISTORY: &str =
+        "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
+    fn text(value: &str) -> Value {
+        Value::Text(value.into())
+    }
+    fn step(sql: &str, bindings: Vec<Value>, reply: Reply) -> Step {
+        Step {
+            sql: sql.into(),
+            bindings,
+            reply: Ok(reply),
+        }
+    }
+    fn done(sql: &str) -> Step {
+        step(sql, vec![], Reply::Done)
+    }
+    fn rows(sql: &str, bindings: Vec<Value>, rows: Vec<Vec<Value>>) -> Step {
+        step(
+            sql,
+            bindings,
+            Reply::Rows(rows.into_iter().map(Ok).collect()),
+        )
+    }
+    fn scope() -> Vec<Value> {
+        vec![text(GAME), text(UID), text(SERVER)]
+    }
+    fn identity() -> Step {
+        rows(
+            SNAPSHOT,
+            vec![],
+            vec![vec![text("database"), Value::Integer(0)]],
+        )
+    }
+    fn timezone(value: Option<Option<i32>>) -> Step {
+        rows(
+            TIMEZONE,
+            scope(),
+            value
+                .into_iter()
+                .map(|value| {
+                    vec![
+                        value
+                            .map(|value| Value::Integer(value.into()))
+                            .unwrap_or(Value::Null),
+                    ]
+                })
+                .collect(),
+        )
+    }
+    fn record() -> (String, String) {
+        let roll = parse_response(PAGE).unwrap().list.remove(0);
+        (roll.id.clone(), serde_json::json!(roll).to_string())
+    }
+    fn lookup(id: &str, payload: Option<&str>) -> Step {
+        let mut bindings = scope();
+        bindings.push(text(id));
+        rows(
+            LOOKUP,
+            bindings,
+            payload.into_iter().map(|value| vec![text(value)]).collect(),
+        )
+    }
+    fn store() -> Store {
+        Store {
+            connection: Connection,
+        }
+    }
+    fn preview() -> Preview {
+        Preview {
+            summary: Summary {
+                inserted: 1,
+                duplicates: 0,
+                conflicts: 0,
+            },
+            uid: UID.into(),
+            server: SERVER.into(),
+            timezone: Some(8),
+            records: vec![record()],
+            snapshot: ("database".into(), 0),
+        }
+    }
+    fn setup(existing: bool) -> Vec<Step> {
+        let mut steps = vec![
+            done("PRAGMA busy_timeout=250; PRAGMA foreign_keys=ON;"),
+            done("BEGIN Immediate"),
+            rows(
+                "PRAGMA user_version",
+                vec![],
+                vec![vec![Value::Integer(if existing { 2 } else { 0 })]],
+            ),
+            rows(
+                "PRAGMA application_id",
+                vec![],
+                vec![vec![Value::Integer(if existing {
+                    APPLICATION_ID.into()
+                } else {
+                    0
+                })]],
+            ),
+        ];
+        if !existing {
+            steps.push(rows(
+                "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+                vec![],
+                vec![vec![Value::Integer(0)]],
+            ));
+            steps.push(done(include_str!("../migrations/001_initial.sql")));
+        }
+        steps.extend([identity(), done("COMMIT")]);
+        steps
+    }
+    #[test]
+    fn opens_and_initializes_only_unclaimed_or_compatible_databases() {
+        for existing in [false, true] {
+            let mut steps = vec![step("OPEN", vec![text("synthetic.sqlite")], Reply::Done)];
+            steps.extend(setup(existing));
+            database::expect(steps);
+            assert!(Store::open(Path::new("synthetic.sqlite")).is_ok());
+            database::finish();
+        }
+    }
+    fn fail_each(
+        make: &dyn Fn() -> Vec<Step>,
+        begin: Option<usize>,
+        action: &mut dyn FnMut() -> Result<(), Error>,
+    ) {
+        for index in 0..make().len() {
+            let mut steps = make();
+            if steps[index].sql == "LAST INSERT ID" {
+                continue;
+            }
+            steps.truncate(index + 1);
+            steps[index].reply = Err(rusqlite::Error::InvalidQuery);
+            if begin.is_some_and(|begin| index > begin) {
+                steps.push(done("ROLLBACK"));
+            }
+            database::expect(steps);
+            assert_eq!(action(), Err(Error::Database));
+            database::finish();
+        }
+    }
+    fn page(edit: impl FnOnce(&mut serde_json::Value)) -> Vec<u8> {
+        let mut value: serde_json::Value = serde_json::from_slice(PAGE).unwrap();
+        edit(&mut value);
+        serde_json::to_vec(&value).unwrap()
+    }
+    fn preview_script() -> Vec<Step> {
+        let mut steps = vec![
+            done("BEGIN Deferred"),
+            timezone(None),
+            done(&format!("PREPARE {LOOKUP}")),
+        ];
+        for roll in parse_response(PAGE).unwrap().list {
+            steps.push(lookup(&roll.id, None));
+        }
+        steps.extend([identity(), done("COMMIT")]);
+        steps
+    }
+    const ACCOUNTS: &str = "INSERT INTO accounts(game,uid,server,timezone) VALUES (?1,?2,?3,?4) ON CONFLICT DO NOTHING";
+    const BATCH: &str = "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,'hsr-api-v1',?4,?5,?6,0)";
+    const INSERT: &str =
+        "INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)";
+    const REVISION: &str = "UPDATE metadata SET revision=revision+1 WHERE singleton=1";
+    fn commit_script(duplicate: bool) -> Vec<Step> {
+        let (id, payload) = record();
+        let mut account_bindings = scope();
+        account_bindings.push(Value::Integer(8));
+        let mut batch_bindings = scope();
+        batch_bindings.extend([
+            Value::Integer(1234),
+            Value::Integer(i64::from(!duplicate)),
+            Value::Integer(i64::from(duplicate)),
+        ]);
+        let mut steps = vec![
+            done("BEGIN Immediate"),
+            identity(),
+            timezone(Some(Some(8))),
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup(&id, if duplicate { Some(&payload) } else { None }),
+            step(ACCOUNTS, account_bindings, Reply::Count(1)),
+            step(BATCH, batch_bindings, Reply::Count(1)),
+            step("LAST INSERT ID", vec![], Reply::Id(7)),
+            done(&format!("PREPARE {INSERT}")),
+        ];
+        if !duplicate {
+            let mut bindings = scope();
+            bindings.extend([text(&id), text(&payload), Value::Integer(7)]);
+            steps.push(step(INSERT, bindings, Reply::Count(1)));
+        }
+        steps.extend([step(REVISION, vec![], Reply::Count(1)), done("COMMIT")]);
+        steps
+    }
 
-#[cfg(test)]
-#[path = "../tests/storage/behavior.rs"]
-mod integration_tests;
+    #[test]
+    fn initialization_errors_are_safe_and_rollback_after_begin() {
+        fail_each(&|| setup(false), Some(1), &mut || {
+            Store::initialize(Connection).map(|_| ())
+        });
+        database::expect(vec![Step {
+            sql: "OPEN".into(),
+            bindings: vec![text("synthetic")],
+            reply: Err(rusqlite::Error::InvalidQuery),
+        }]);
+        assert!(matches!(
+            Store::open(Path::new("synthetic")),
+            Err(Error::Database)
+        ));
+        database::finish();
+    }
+    #[test]
+    fn initialization_rejects_incompatible_or_claimed_databases() {
+        for (version, app) in [(3, APPLICATION_ID), (2, 0), (0, APPLICATION_ID)] {
+            let mut steps = setup(true);
+            steps.truncate(4);
+            steps[2] = rows(
+                "PRAGMA user_version",
+                vec![],
+                vec![vec![Value::Integer(version)]],
+            );
+            steps[3] = rows(
+                "PRAGMA application_id",
+                vec![],
+                vec![vec![Value::Integer(app.into())]],
+            );
+            steps.push(done("ROLLBACK"));
+            database::expect(steps);
+            assert!(matches!(Store::initialize(Connection), Err(Error::Schema)));
+            database::finish();
+        }
+        let mut steps = setup(false);
+        steps.truncate(5);
+        steps[4] = rows(
+            "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+            vec![],
+            vec![vec![Value::Integer(1)]],
+        );
+        steps.push(done("ROLLBACK"));
+        database::expect(steps);
+        assert!(matches!(Store::initialize(Connection), Err(Error::Schema)));
+        database::finish();
+    }
+    #[test]
+    fn metadata_column_failures_are_safe() {
+        for row in [
+            vec![Value::Null, Value::Integer(0)],
+            vec![text("database"), text("invalid revision")],
+        ] {
+            database::expect(vec![rows(SNAPSHOT, vec![], vec![row])]);
+            assert_eq!(snapshot(&Connection), Err(Error::Database));
+            database::finish();
+        }
+    }
+    #[test]
+    fn timezone_evidence_is_preserved_without_guessing() {
+        for (stored, incoming, result) in [
+            (None, None, Ok(())),
+            (Some(None), None, Ok(())),
+            (Some(Some(8)), Some(8), Ok(())),
+            (Some(None), Some(8), Err(Error::Context)),
+            (Some(Some(8)), None, Err(Error::Context)),
+        ] {
+            database::expect(vec![timezone(stored)]);
+            assert_eq!(check_timezone(&Connection, UID, SERVER, incoming), result);
+            database::finish();
+        }
+        database::expect(vec![rows(TIMEZONE, scope(), vec![vec![text("invalid")]])]);
+        assert_eq!(
+            check_timezone(&Connection, UID, SERVER, None),
+            Err(Error::Database)
+        );
+        database::finish();
+    }
+    #[test]
+    fn classification_reuses_first_seen_identity_and_never_writes() {
+        database::expect(vec![
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup("001", None),
+        ]);
+        let records = vec![
+            ("001".into(), "a".into()),
+            ("001".into(), "a".into()),
+            ("001".into(), "b".into()),
+        ];
+        assert_eq!(
+            classify(&Connection, UID, SERVER, &records).unwrap(),
+            (
+                Summary {
+                    inserted: 1,
+                    duplicates: 1,
+                    conflicts: 1
+                },
+                vec![0]
+            )
+        );
+        database::finish();
+        database::expect(vec![
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup("001", Some("a")),
+        ]);
+        assert_eq!(
+            classify(&Connection, UID, SERVER, &records).unwrap(),
+            (
+                Summary {
+                    inserted: 0,
+                    duplicates: 2,
+                    conflicts: 1
+                },
+                vec![]
+            )
+        );
+        database::finish();
+    }
+    #[test]
+    fn lookup_decode_failures_are_safe() {
+        let mut bindings = scope();
+        bindings.push(text("001"));
+        database::expect(vec![
+            done(&format!("PREPARE {LOOKUP}")),
+            rows(LOOKUP, bindings, vec![vec![Value::Integer(3)]]),
+        ]);
+        assert_eq!(
+            classify(&Connection, UID, SERVER, &[("001".into(), "a".into())]),
+            Err(Error::Database)
+        );
+        database::finish();
+    }
+    #[test]
+    fn preview_owns_validated_records_and_has_no_write_operations() {
+        database::expect(preview_script());
+        let mut bytes = PAGE.to_vec();
+        let preview = store().preview(UID, SERVER, &[&bytes]).unwrap();
+        bytes.fill(0);
+        assert_eq!(
+            preview.summary(),
+            Summary {
+                inserted: 2,
+                duplicates: 0,
+                conflicts: 0
+            }
+        );
+        assert_eq!(preview.records[0], record());
+        assert_eq!(preview.timezone, Some(8));
+        assert_eq!(preview.snapshot, ("database".into(), 0));
+        database::finish();
+    }
+    #[test]
+    fn preview_rejects_invalid_context_before_database_access() {
+        database::expect(vec![]);
+        for (uid, server) in [
+            ("invalid", SERVER),
+            (UID, " "),
+            ("100000001", SERVER),
+            (UID, "different"),
+        ] {
+            assert!(matches!(
+                store().preview(uid, server, &[PAGE]),
+                Err(Error::Context)
+            ));
+        }
+        assert!(matches!(
+            store().preview(UID, SERVER, &[b"not json"]),
+            Err(Error::Parse(_))
+        ));
+        assert!(matches!(
+            store().preview(UID, SERVER, &[]),
+            Err(Error::Empty)
+        ));
+        let too_large = vec![0; MAX_BATCH_BYTES + 1];
+        assert!(matches!(
+            store().preview(UID, SERVER, &[&too_large]),
+            Err(Error::TooLarge)
+        ));
+        database::finish();
+    }
+    #[test]
+    fn preview_rejects_cross_page_timezone_changes() {
+        let unknown = page(|value| {
+            value["data"]["region_time_zone"] = serde_json::Value::Null;
+        });
+        database::expect(vec![]);
+        assert!(matches!(
+            store().preview(UID, SERVER, &[PAGE, &unknown]),
+            Err(Error::Context)
+        ));
+        database::finish();
+    }
+    #[test]
+    fn preview_retains_unknown_context_and_empty_terminal_page_evidence() {
+        let unknown = page(|value| {
+            value["data"]["region_time_zone"] = serde_json::Value::Null;
+            value["data"]["region"] = serde_json::Value::Null;
+        });
+        let empty = page(|value| {
+            value["data"]["list"] = serde_json::json!([]);
+            value["data"]["region_time_zone"] = serde_json::Value::Null;
+        });
+        database::expect(preview_script());
+        let preview = store().preview(UID, SERVER, &[&unknown, &empty]).unwrap();
+        assert_eq!(preview.timezone, None);
+        assert_eq!(preview.records.len(), 2);
+        database::finish();
+    }
+    #[test]
+    fn preview_database_failures_rollback_and_do_not_return_partial_previews() {
+        fail_each(&preview_script, Some(0), &mut || {
+            store().preview(UID, SERVER, &[PAGE]).map(|_| ())
+        });
+        database::expect(vec![
+            done("BEGIN Deferred"),
+            timezone(Some(Some(9))),
+            done("ROLLBACK"),
+        ]);
+        assert!(matches!(
+            store().preview(UID, SERVER, &[PAGE]),
+            Err(Error::Context)
+        ));
+        database::finish();
+    }
+    #[test]
+    fn commit_binds_account_payload_provenance_and_caller_time_atomically() {
+        database::expect(commit_script(false));
+        assert_eq!(
+            store().commit(preview(), 1234),
+            Ok(Summary {
+                inserted: 1,
+                duplicates: 0,
+                conflicts: 0
+            })
+        );
+        database::finish();
+    }
+    #[test]
+    fn duplicate_commit_only_adds_a_compact_summary_and_revision() {
+        let mut preview = preview();
+        preview.summary = Summary {
+            inserted: 0,
+            duplicates: 1,
+            conflicts: 0,
+        };
+        database::expect(commit_script(true));
+        assert_eq!(
+            store().commit(preview, 1234),
+            Ok(Summary {
+                inserted: 0,
+                duplicates: 1,
+                conflicts: 0
+            })
+        );
+        database::finish();
+    }
+    #[test]
+    fn commit_conflicts_and_stale_previews_do_not_write() {
+        let mut conflict = preview();
+        conflict.summary.conflicts = 1;
+        database::expect(vec![]);
+        assert_eq!(store().commit(conflict, 0), Err(Error::Conflict));
+        database::finish();
+        database::expect(vec![
+            done("BEGIN Immediate"),
+            rows(
+                SNAPSHOT,
+                vec![],
+                vec![vec![text("another database"), Value::Integer(1)]],
+            ),
+            done("ROLLBACK"),
+        ]);
+        assert_eq!(store().commit(preview(), 0), Err(Error::StalePreview));
+        database::finish();
+        let (id, payload) = record();
+        database::expect(vec![
+            done("BEGIN Immediate"),
+            identity(),
+            timezone(None),
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup(&id, Some(&payload)),
+            done("ROLLBACK"),
+        ]);
+        assert_eq!(store().commit(preview(), 0), Err(Error::StalePreview));
+        database::finish();
+        database::expect(vec![
+            done("BEGIN Immediate"),
+            identity(),
+            timezone(Some(Some(9))),
+            done("ROLLBACK"),
+        ]);
+        assert_eq!(store().commit(preview(), 0), Err(Error::Context));
+        database::finish();
+    }
+    #[test]
+    fn commit_failures_rollback_instead_of_returning_success() {
+        fail_each(&|| commit_script(false), Some(0), &mut || {
+            store().commit(preview(), 1234).map(|_| ())
+        });
+    }
+    fn history_script(rows_data: Vec<Vec<Value>>) -> Vec<Step> {
+        vec![
+            done(&format!("PREPARE {HISTORY}")),
+            rows(HISTORY, scope(), rows_data),
+        ]
+    }
+    #[test]
+    fn history_returns_only_valid_scoped_records_in_database_order() {
+        let (id, payload) = record();
+        database::expect(history_script(vec![vec![text(&id), text(&payload)]]));
+        assert_eq!(
+            store().history(UID, SERVER).unwrap(),
+            vec![parse_response(PAGE).unwrap().list.remove(0)]
+        );
+        database::finish();
+    }
+    #[test]
+    fn history_query_and_row_failures_are_safe() {
+        fail_each(&|| history_script(vec![]), None, &mut || {
+            store().history(UID, SERVER).map(|_| ())
+        });
+        for rows_data in [
+            vec![vec![Value::Null, text("{}")]],
+            vec![vec![text("1"), Value::Null]],
+        ] {
+            database::expect(history_script(rows_data));
+            assert_eq!(store().history(UID, SERVER), Err(Error::Database));
+            database::finish();
+        }
+        database::expect(vec![
+            done(&format!("PREPARE {HISTORY}")),
+            step(
+                HISTORY,
+                scope(),
+                Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]),
+            ),
+        ]);
+        assert_eq!(store().history(UID, SERVER), Err(Error::Database));
+        database::finish();
+    }
+    #[test]
+    fn history_rejects_corrupt_payloads_and_identity_without_partial_results() {
+        let (id, payload) = record();
+        let mut corrupt = vec!["{".into(), "{}".into(), "{\"id\":1,\"id\":2}".into()];
+        for (field, value) in [
+            ("uid", "100000001"),
+            ("id", "001"),
+            ("gacha_type", "invalid"),
+        ] {
+            let mut record: serde_json::Value = serde_json::from_str(&payload).unwrap();
+            record[field] = text_json(value);
+            corrupt.push(record.to_string());
+        }
+        for corrupt in corrupt {
+            database::expect(history_script(vec![
+                vec![text(&id), text(&payload)],
+                vec![text(&id), text(&corrupt)],
+            ]));
+            assert_eq!(store().history(UID, SERVER), Err(Error::InvalidStoredData));
+            database::finish();
+        }
+    }
+    fn text_json(value: &str) -> serde_json::Value {
+        serde_json::Value::String(value.into())
+    }
+}

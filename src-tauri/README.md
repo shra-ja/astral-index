@@ -24,7 +24,18 @@ conflict, provenance and migration policy. The library's native
 path argument is not exposed to the webview; app-data path selection and typed
 commands remain milestone 3 work.
 
-Backend tests and fixtures live in `tests/` within this Rust package. Cargo
-finds `tests/hsr.rs` automatically. The storage tests in `tests/storage/` run as
-library test modules so they can test private failure boundaries without widening
-the production API. Root-level application end-to-end tests remain separate.
+Backend unit tests live in `#[cfg(test)] mod tests` beside their implementation
+in `src/`, including private fault-injection tests. Cargo automatically discovers
+public-API integration tests in `tests/acquisition.rs` and `tests/storage.rs`;
+synthetic fixtures remain in `tests/fixtures/`. Root-level
+application end-to-end tests remain separate. No production API is widened for tests.
+
+Pure parser tests live in `src/hsr.rs`. Filesystem and SQLite unit tests use strict
+in-memory/scripted doubles in `src/acquisition/tests/` and `src/storage/tests/`;
+these helpers are compiled only under `cfg(test)` and never create real files or
+databases. Integration tests exercise the real std/rusqlite bindings. SQL doubles
+check the query text, bound account/data values, ordering, commit and rollback
+requests; real integration tests remain necessary to verify SQLite semantics.
+Backend coverage must reach 100% from unit execution alone. Only the minimal
+startup/build delegates have the explicitly guarded native-coverage exception
+in [CONTRIBUTING](../CONTRIBUTING.md#coverage-is-a-blocking-gate).
