@@ -312,8 +312,8 @@ live installation or credential validity. No private source or live API was used
 | --- | --- |
 | Manually selected `data_2` cache file | Native service implemented; framing supported by earlier cache research and local synthetic file tests. Desktop selection UI pending. |
 | Selected Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify numeric ordering, legacy paths and missing caches. Native Windows and real WSL-mounted installation verification pending. |
-| Windows installations accessed from WSL | Explicit mount-root mapping implemented with synthetic real-file tests. System-folder lookup and real installation verification pending. |
-| Windows Player.log / Player-prev.log discovery | Bounded reader implemented from supplied roaming AppData; script inspection and synthetic tests support the layout. Native Windows and real installation verification pending. |
+| Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented. Mocked OS and synthetic subprocess tests pass; real Windows interop/installation verification pending. |
+| Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Script inspection and synthetic tests support the layout; native Windows and real installation verification pending. |
 | macOS installation discovery | Unverified and unimplemented. |
 
 Windows is the initial game-installation target, with discovery intended from
@@ -340,3 +340,29 @@ Synthetic tests cover Unicode/spaces, normalized drive letters/separators, custo
 mount roots, missing/malformed logs, line/byte bounds, and read-only traversal
 from a log candidate to a selected cache. System-folder integration, desktop
 selection and native Windows/live-installation verification remain pending.
+
+
+## Current-user discovery increment (2026-09-26)
+
+The current-user service now supplies the previously explicit AppData location.
+On Windows, `dirs` 6.0.0 uses the
+[Known Folder API for roaming AppData](https://docs.rs/crate/dirs/6.0.0/source/src/win.rs).
+On WSL-marked Linux, a fixed PowerShell expression queries the Windows folder,
+then `wslpath` translates AppData and the game-directory candidates. Microsoft
+documents [Windows executable interop and path translation](https://learn.microsoft.com/en-us/windows/dev-environment/wsl-interop#path-translation).
+No Windows username or common mount root is inferred.
+
+The helper policy is five seconds per execution, 32 KiB stdout, discarded stdin/
+stderr, and up to five seconds for error cleanup. Processes are terminated and
+reaped after errors; cancellation uses Tokio's kill-on-drop behavior. Tests use
+mocked environment/folder/process APIs and separate synthetic Linux executables,
+including failures, large output, timeouts, real cleanup and unchanged log bytes.
+No live Windows helper, private profile or game log was used in automated tests.
+
+Automatic discovery requires Windows, or Linux with nonempty `WSL_DISTRO_NAME`
+and working `powershell.exe`/`wslpath` on PATH. Missing interop/tools and malformed,
+non-Unicode, relative or UNC/device folder paths produce safe errors. Explicit
+source selection remains the fallback. Redirected roaming profiles whose logs
+are not in the derived sibling LocalLow location are not verified.
+Real Windows Known Folder behavior, WSL Windows-process cancellation, actual
+game-log/cache layouts and desktop selection remain to be verified/connected.

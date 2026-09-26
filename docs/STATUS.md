@@ -128,10 +128,43 @@ tests, Clippy, formatting and report validation passed again afterward.
 Native Windows and real installed-game verification remain pending.
 No private source is included in this increment; the reference script was not executed.
 
+## Current-user system discovery increment
+
+Work continues on `feat/hsr-request-extraction`; fetched `origin/main` remains
+`20428aa`. The asynchronous native discovery service now resolves Windows'
+roaming AppData through the Known Folder API. On WSL-marked Linux it runs a fixed
+PowerShell folder query and uses `wslpath` for AppData and each game-directory
+candidate. It does not guess usernames/mount roots or scan other profiles.
+Both paths validate folder results before game-log I/O. Explicit source APIs
+remain available; no startup hook, Tauri command or history request was added.
+
+Helper execution is limited to five seconds and 32 KiB stdout, with discarded
+stdin/stderr. Error cleanup explicitly kills/reaps the helper within a separate
+five-second bound; cancellation uses kill-on-drop. Current and previous log
+outcomes remain independent. See
+[decision 0005](decisions/0005-current-user-windows-discovery.md) for the pinned
+dependencies, alternatives and platform limitations.
+
+TDD: four initial tests failed against stubs before implementation. A real-process
+regression exposed unreliable prompt reaping on oversized output with drop-only
+cleanup; explicit bounded cleanup made it pass. Two native folder-validation
+tests then failed before rejecting unsupported paths ahead of game-log access.
+Ten new system-discovery unit tests mock OS/folder/process/file APIs and use a
+paused clock. Two Linux integration tests use synthetic executables and files;
+they never invoke real Windows tools or access private profiles/logs.
+
+`npm run check` passed on the final code: 56 backend unit tests, 33 integration
+tests, 17 frontend/tooling tests, native offline execution, eight enforcement
+probes, both report guards, TypeScript/build, formatting and Clippy. All required
+per-file metrics remain 100%, including the isolated backend unit gate. No
+coverage exception or exclusion was added.
+`npm run tauri -- build --no-bundle` also passed for the Linux development host.
+Native Windows/actual WSL interop and real-installation verification remain pending.
+
 ## Next
 
-Resolve Windows' roaming AppData through the native system-folder API and connect
-explicit source selection to the desktop without exposing credentials. Verify
+Connect current-user discovery and explicit source selection to the desktop
+without exposing credentials. Verify
 real Windows cache/log layouts from native Windows and WSL; synthetic tests and
 script inspection do not establish installed-game compatibility.
 Next implement the contract's cancellable HTTP client, bounded pagination/retries,

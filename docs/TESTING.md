@@ -382,3 +382,33 @@ Final `npm run check` passed: 39 unit tests, 27 real-boundary integration tests,
 both report/exception checks, formatting, TypeScript and Clippy. All required
 per-file metrics are 100% from the appropriate independent report. No thresholds
 were lowered and no production functions were excluded.
+
+
+## Current-user discovery (2026-09-26)
+
+The first four system-discovery unit tests failed against stubs before the
+Windows folder lookup, WSL helper orchestration and bounded subprocess reader
+were implemented. The real-process integration test subsequently exposed
+unreliable prompt reaping when relying solely on kill-on-drop. Explicit,
+deadline-bounded kill/wait cleanup made that regression pass. Two further tests
+failed before adding native folder validation for nonlocal/malformed and
+non-Unicode paths.
+
+Unit tests replace environment reads, Known Folder lookup, process spawning and
+filesystem access. A paused Tokio clock exercises process/cleanup deadlines and
+cancellation without real waiting. Tests verify exact helper arguments, byte
+limits, error redaction, failed current-log mapping with a usable previous log,
+and no game-source access before path validation.
+
+`src-tauri/tests/system_discovery.rs` runs only on Linux. Child test processes
+receive isolated PATH entries containing synthetic helpers; they never invoke
+the real Windows tools. These tests verify real stdout pipes, failed/oversized/
+stalled helpers, termination/reaping and unchanged log bytes. Synthetic executables
+model the helper protocol, not native Windows Known Folder or WSL interop behavior.
+The regular unit-only coverage gate covers all new production source; no wrapper
+exception or coverage exclusion was added.
+
+Final `npm run check` passed with 56 backend unit tests, 33 integration tests,
+17 frontend/tooling tests, native offline execution, eight enforcement probes,
+both report guards, TypeScript/build, formatting and Clippy. Required per-file
+coverage is 100%, including unit-only backend coverage.

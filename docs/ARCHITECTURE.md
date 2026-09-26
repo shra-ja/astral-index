@@ -229,8 +229,44 @@ profiles. The returned paths remain native-only candidates; callers must explici
 choose them before cache discovery/reading. Neither log discovery nor cache
 extraction fetches history.
 
-Windows system-folder lookup, desktop selection and real-installation validation
-remain pending. These services add no Tauri command or permission.
+### Current-user system discovery
+
+See [decision 0005](decisions/0005-current-user-windows-discovery.md) for the
+OS lookup, helper and dependency choices.
+
+`src-tauri/src/discovery/system.rs` adds the explicitly invoked asynchronous
+`discover_current_user_logs` service. On Windows, pinned `dirs` resolves roaming
+AppData through the Known Folder API. On Linux, a nonempty `WSL_DISTRO_NAME`
+enables WSL discovery; other hosts fail with `UnsupportedHost`. This conservative
+check avoids running Windows tools on ordinary Linux. Environments without that
+marker can still use the selected-path services.
+
+WSL discovery runs a fixed, noninteractive, profile-free `powershell.exe`
+expression to query Windows' `ApplicationData` folder with UTF-8 output.
+It then uses `wslpath -a -u` for AppData and each game-directory candidate.
+Each path is a separate argument, never PowerShell source. This respects the
+active drive mappings without scanning profiles or assuming a shared username,
+`/mnt`, or one common mount root. Both Windows and WSL folder results must be
+valid Unicode drive-absolute Windows paths; UNC/device, relative and traversal
+paths fail before game-log I/O. Translated paths must be absolute Linux paths.
+
+Pinned Tokio supplies asynchronous pipes and deadlines. Each helper has a
+five-second execution limit and a 32 KiB stdout limit plus one detection byte.
+Stdin and stderr are discarded. Failed helpers are killed and reaped with a
+separate five-second cleanup limit; cleanup failure does not mask the original
+error. Dropping the discovery future uses Tokio's kill-on-drop behavior, whose
+reaping is best-effort. These are per-helper deadlines, not a deadline for the
+whole discovery operation or synchronous log-file I/O.
+
+Log errors and translation failures remain separate for current and previous
+logs. A failed log returns no partial candidate list and cannot suppress the
+other log. Successful translated duplicates collapse in first-seen order.
+Errors contain only safe categories; source paths and helper diagnostics stay
+out of errors/logs. No game directories or caches are opened automatically by
+this service. The existing selected-path APIs remain available for manual use.
+
+Desktop selection and real Windows/WSL installation validation remain pending.
+These services add no Tauri command, permission, startup task or history request.
 
 ## Unit and boundary test separation
 

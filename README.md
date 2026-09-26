@@ -123,3 +123,20 @@ cargo test --manifest-path src-tauri/Cargo.toml --offline --test acquisition
 ```
 
 This service is not yet connected to the desktop file picker or a history client.
+
+
+For focused discovery tests (mocked OS APIs and synthetic files/processes):
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib discovery
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test discovery --test system_discovery
+```
+
+Current-user discovery is a native service; desktop controls are still pending.
+On Windows it uses the Known Folder API. On WSL it requires a nonempty
+`WSL_DISTRO_NAME` and working `powershell.exe` and `wslpath` on PATH. Helpers run
+only when discovery is explicitly invoked, with time/output limits and safe
+failure categories. Manual selected-path discovery remains available.
+The automated suites substitute synthetic helpers and require neither Windows
+interop nor installed games. Native Windows/real-installation verification is
+still pending; see [discovery architecture](docs/ARCHITECTURE.md#current-user-system-discovery).

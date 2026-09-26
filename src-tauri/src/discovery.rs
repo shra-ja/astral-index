@@ -1,4 +1,6 @@
 //! Bounded discovery from explicitly selected Windows player logs; no environment scans.
+pub mod system;
+
 use crate::acquisition::{CacheError, open_selected_file};
 use std::path::{Path, PathBuf};
 use std::{
@@ -26,9 +28,9 @@ pub enum LogError {
 
 /// Keep each log's result visible; an unreadable current log must not hide a previous log.
 /// Paths remain native-only and are not embedded in diagnostic text.
-pub struct LogDiscovery {
-    pub current: Result<Vec<PathBuf>, LogError>,
-    pub previous: Result<Vec<PathBuf>, LogError>,
+pub struct LogDiscovery<E = LogError> {
+    pub current: Result<Vec<PathBuf>, E>,
+    pub previous: Result<Vec<PathBuf>, E>,
 }
 
 /// The caller supplies the host-native roaming AppData path, not a profile name.
@@ -90,17 +92,25 @@ fn extract_game_data(bytes: &[u8], mapping: PathMapping<'_>) -> Result<Vec<PathB
 /// Accept drive-absolute paths only; never interpret traversal, UNC or device paths.
 fn map_game_data(value: &str, mapping: PathMapping<'_>) -> Result<PathBuf, LogError> {
     let normalized = value.replace('\\', "/");
-    let (drive, tail) = normalized
+    let directory = normalized
+        .strip_suffix("data.unity3d")
+        .ok_or(LogError::UnsupportedPath)?;
+    if !directory.ends_with('/') {
+        return Err(LogError::UnsupportedPath);
+    }
+    map_windows_directory(directory, mapping)
+}
+
+/// Share drive-path validation between log candidates and OS folder lookup.
+pub(crate) fn map_windows_directory(
+    value: &str,
+    mapping: PathMapping<'_>,
+) -> Result<PathBuf, LogError> {
+    let normalized = value.replace('\\', "/");
+    let (drive, directory) = normalized
         .split_once(":/")
         .ok_or(LogError::UnsupportedPath)?;
     if drive.len() != 1 || !drive.as_bytes()[0].is_ascii_alphabetic() {
-        return Err(LogError::UnsupportedPath);
-    }
-    let directory = tail
-        .strip_suffix("data.unity3d")
-        .ok_or(LogError::UnsupportedPath)?;
-    // An empty directory denotes a drive root. Otherwise require a filename boundary.
-    if !directory.is_empty() && !directory.ends_with('/') {
         return Err(LogError::UnsupportedPath);
     }
     for component in directory.split_terminator('/') {

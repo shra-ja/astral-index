@@ -114,10 +114,12 @@ transactional import services.
   add automatic discovery where verified. A selected cache supplies request
   context, not a standalone roll-history export.
   Native selected-file reading and request extraction are implemented with synthetic
-  tests, including selected game-data directory resolution; desktop selection,
-  system-folder lookup and Windows/WSL verification remain pending. Bounded
-  Player.log/Player-prev.log discovery from supplied roaming AppData and explicit
-  WSL mount-root mapping are implemented with mocked unit and synthetic real-file tests.
+  tests, including selected game-data directory resolution and bounded
+  Player.log/Player-prev.log reading. Current-user discovery now resolves Windows'
+  roaming AppData and translates WSL paths through bounded helpers; explicit
+  AppData/mount-root inputs remain available. Mocked unit and synthetic real-file/
+  subprocess tests pass. Desktop selection and real Windows/WSL verification
+  remain pending.
 - [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
   native client: single tested endpoint, 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry

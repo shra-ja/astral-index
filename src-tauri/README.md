@@ -26,21 +26,27 @@ commands remain milestone 3 work.
 
 `src/discovery.rs` reads bounded Windows player-log headers from supplied
 roaming AppData or a selected log, with explicit WSL drive mapping.
+`src/discovery/system.rs` resolves current-user roaming AppData through Windows'
+Known Folder API or fixed Windows/WSL helpers. Invoke its asynchronous service
+explicitly on a Tokio runtime with I/O and time enabled; it is not a startup task.
 `src/acquisition.rs` resolves selected game-data cache layouts and extracts opaque
 request contexts. These native services do not fetch history or expose credentials
-to the webview; system-folder lookup and desktop selection are not connected yet.
+to the webview; desktop selection is not connected yet.
 
 Backend unit tests live in `#[cfg(test)] mod tests` beside their implementation
 in `src/`, including private fault-injection tests. Cargo automatically discovers
-public-API integration tests in `tests/acquisition.rs`, `tests/discovery.rs` and
-`tests/storage.rs`;
+public-API integration tests in `tests/acquisition.rs`, `tests/discovery.rs`,
+`tests/system_discovery.rs` and `tests/storage.rs`;
 synthetic fixtures remain in `tests/fixtures/`. Root-level
 application end-to-end tests remain separate. No production API is widened for tests.
 
 Pure parser tests live in `src/hsr.rs`. Filesystem and SQLite unit tests use strict
 in-memory/scripted doubles in `src/acquisition/tests/` and `src/storage/tests/`;
 these helpers are compiled only under `cfg(test)` and never create real files or
-databases. Integration tests exercise the real std/rusqlite bindings. SQL doubles
+databases. System discovery additionally mocks environment, Known Folder and process
+APIs in `src/discovery/system/tests/os.rs`, with a paused Tokio clock.
+Integration tests exercise the real std/rusqlite bindings and Linux process pipes
+using synthetic executables; they never query a real Windows profile. SQL doubles
 check the query text, bound account/data values, ordering, commit and rollback
 requests; real integration tests remain necessary to verify SQLite semantics.
 Backend coverage must reach 100% from unit execution alone. Only the minimal
