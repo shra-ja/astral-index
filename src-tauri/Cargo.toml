@@ -13,6 +13,9 @@ chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 tauri = { version = "=2.11.5", features = [] }
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.189"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

@@ -299,6 +299,23 @@ members; excessive nesting; and lossless numeric persistence after restart.
 production Linux executable builds; Windows/macOS, installer packaging and future
 acquisition/native import commands remain outside this verification.
 
+## Cache extraction review regressions (2026-09-26)
+
+`cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test acquisition`
+includes two bounded subprocess regressions. On Unix, selecting a synthetic FIFO
+with no writer must return `NotRegularFile` within three seconds. A cache with
+80,000 distinct contexts and repeated entries, below the byte limit, must preserve
+count and first-seen order within ten seconds. The parent terminates a stuck child
+so either regression fails without hanging the suite. The FIFO test uses `mkfifo`
+on the Unix test host.
+
+Both failed before the fixes on their respective deadlines. After nonblocking
+Unix opens and hash-set deduplication, the FIFO returned immediately and the large
+cache test completed in approximately 0.43 seconds in the focused debug run.
+The filesystem double also asserts read-only and Unix nonblocking open options;
+existing unit tests cover successful reads, open/metadata failures, non-regular
+handles and byte bounds.
+
 ## Selected Windows cache foundations (2026-09-25)
 
 On `feat/hsr-request-extraction`, the initial extraction/file tests were run against

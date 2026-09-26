@@ -75,6 +75,39 @@ pub struct File {
     path: PathBuf,
     reader: Cursor<Vec<u8>>,
 }
+pub struct OpenOptions {
+    read: bool,
+    flags: i32,
+}
+impl OpenOptions {
+    pub fn new() -> Self {
+        Self {
+            read: false,
+            flags: 0,
+        }
+    }
+    pub fn read(&mut self, read: bool) -> &mut Self {
+        self.read = read;
+        self
+    }
+    #[cfg(unix)]
+    pub fn custom_flags(&mut self, flags: i32) -> &mut Self {
+        self.flags = flags;
+        self
+    }
+    pub fn open(&self, path: &Path) -> io::Result<File> {
+        assert!(self.read, "cache files must be opened for reading");
+        #[cfg(unix)]
+        assert_eq!(
+            self.flags,
+            libc::O_NONBLOCK,
+            "opening special files must not block"
+        );
+        #[cfg(not(unix))]
+        assert_eq!(self.flags, 0);
+        File::open(path)
+    }
+}
 impl File {
     pub fn open(path: &Path) -> io::Result<Self> {
         access(path);

@@ -3,7 +3,9 @@
 use self::tests::filesystem as fs;
 #[cfg(not(test))]
 use std::fs;
-use std::{fmt, io::Read, path::Path};
+#[cfg(all(unix, not(test)))]
+use std::os::unix::fs::OpenOptionsExt;
+use std::{collections::HashSet, fmt, io::Read, path::Path};
 
 pub const MAX_CACHE_BYTES: usize = 16 * 1024 * 1024;
 const ENDPOINT: &str =
@@ -76,7 +78,13 @@ fn unreadable(_: std::io::Error) -> CacheError {
 
 /// Read only the explicitly selected regular file, bounding allocation even if it grows.
 pub fn read_selected_cache(path: &Path) -> Result<Vec<RequestContext>, CacheError> {
-    let mut file = fs::File::open(path).map_err(|_| CacheError::Unreadable)?;
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    // Opening a FIFO must not wait for a writer before we can inspect its type.
+    // Check the opened handle, so replacing the path cannot bypass validation.
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NONBLOCK);
+    let mut file = options.open(path).map_err(|_| CacheError::Unreadable)?;
     if !file.metadata().is_ok_and(|metadata| metadata.is_file()) {
         return Err(CacheError::NotRegularFile);
     }
@@ -99,9 +107,10 @@ pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<RequestContext>, Cac
     }
     let text = String::from_utf8_lossy(bytes);
     let mut contexts = Vec::new();
+    let mut seen = HashSet::new();
     for segment in text.split("1/0/").skip(1) {
         if let Some(context) = parse_candidate(segment)
-            && !contexts.contains(&context)
+            && seen.insert(context.fields.clone())
         {
             contexts.push(context);
         }

@@ -181,14 +181,18 @@ assumptions; byte/request limits never justify silently incomplete commits.
 `src-tauri/src/acquisition.rs` reads one explicitly selected regular cache file
 without writing to it or initiating network activity. Reads stop at 16 MiB plus
 one overflow-detection byte; oversize inputs fail rather than yield partial
-contexts. This is an initial application limit, not a verified maximum cache size.
+contexts. On Unix, the read-only open uses `O_NONBLOCK` before checking the opened
+handle's type, so selecting a FIFO cannot wait indefinitely for a writer. The flag
+comes from pinned `libc`, already present transitively; regular-file reads are
+unchanged. This is an initial application limit, not a verified maximum cache size.
 The extractor tolerates binary data around NUL-terminated `1/0/` request entries.
 It accepts the exact researched HTTPS endpoint spelling and five required query
 fields, retaining their encoded bytes. Empty/malformed fields, duplicate required
 fields, other game contexts, fragments and alternate endpoint spellings fail
 candidate validation. Unrelated/unsupported entries are skipped; no valid candidate
 produces a safe error. Distinct contexts retain first-seen order without implying
-age, validity or current account. Callers must not silently choose an account from
+age, validity or current account. Hash-set membership avoids scanning every prior
+context for each candidate. Callers must not silently choose an account from
 cache order.
 
 Request contexts are opaque native values with redacted debug output and no

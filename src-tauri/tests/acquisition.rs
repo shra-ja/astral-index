@@ -3,6 +3,90 @@ use roll_tracker::acquisition::{
 };
 use std::fs;
 
+// Run potentially blocking regressions in a child so failures cannot hang the suite.
+fn bounded_child(name: &str, seconds: u64, path: Option<&std::path::Path>) {
+    use std::{
+        process::Command,
+        time::{Duration, Instant},
+    };
+    let mut command = Command::new(std::env::current_exe().unwrap());
+    command
+        .args(["--exact", name, "--nocapture"])
+        .env("ROLL_TRACKER_ACQUISITION_CHILD", "1");
+    if let Some(path) = path {
+        command.env("ROLL_TRACKER_FIFO_PATH", path);
+    }
+    let mut child = command.spawn().unwrap();
+    let start = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            assert!(status.success(), "acquisition regression child failed");
+            return;
+        }
+        if start.elapsed() > Duration::from_secs(seconds) {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            panic!("{name} exceeded its {seconds}-second processing budget");
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn selected_fifo_is_rejected_without_waiting_for_a_writer() {
+    if std::env::var_os("ROLL_TRACKER_ACQUISITION_CHILD").is_some() {
+        let path = std::env::var_os("ROLL_TRACKER_FIFO_PATH").unwrap();
+        assert_eq!(
+            read_selected_cache(std::path::Path::new(&path)),
+            Err(CacheError::NotRegularFile)
+        );
+        return;
+    }
+    let directory = std::env::temp_dir().join(format!("roll-tracker-fifo-{}", std::process::id()));
+    fs::create_dir(&directory).unwrap();
+    let path = directory.join("data_2");
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&path)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let result = std::panic::catch_unwind(|| {
+        bounded_child(
+            "selected_fifo_is_rejected_without_waiting_for_a_writer",
+            3,
+            Some(&path),
+        )
+    });
+    fs::remove_dir_all(directory).unwrap();
+    result.unwrap();
+}
+
+#[test]
+fn large_cache_deduplicates_within_processing_budget() {
+    if std::env::var_os("ROLL_TRACKER_ACQUISITION_CHILD").is_none() {
+        bounded_child(
+            "large_cache_deduplicates_within_processing_budget",
+            10,
+            None,
+        );
+        return;
+    }
+    use roll_tracker::acquisition::extract_request_contexts;
+    let urls: Vec<_> = (0..80_000).map(|i| url(&format!("{i:08}"))).collect();
+    let mut bytes = cache(&urls);
+    bytes.extend(cache(&[urls[0].clone(), urls[79_999].clone()]));
+    assert!(bytes.len() < MAX_CACHE_BYTES);
+    let contexts = extract_request_contexts(&bytes).unwrap();
+    assert_eq!(contexts.len(), urls.len());
+    for index in [0, 40_000, 79_999] {
+        let expected = extract_request_contexts(&cache(&[urls[index].clone()])).unwrap();
+        assert_eq!(contexts[index], expected[0]);
+    }
+}
+
 const ENDPOINT: &str =
     "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?";
 

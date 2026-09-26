@@ -81,6 +81,25 @@ development host after all probes restored the normal source/CSP. Windows native
 validation remains pending. This work is recorded on
 `feat/hsr-request-extraction`; nothing has been pushed or published.
 
+## Cache extraction review fixes
+
+Review follow-up remains on `feat/hsr-request-extraction`. Unix cache opens now use
+`O_NONBLOCK` and validate the opened handle before reading, rejecting FIFOs without
+waiting for a writer. Context deduplication uses a hash set while retaining
+first-seen order. Pinned `libc` supplies the platform flag without adding a new
+resolved dependency version.
+
+Both regression tests failed before implementation: a FIFO exceeded the
+three-second deadline and an 80,000-context cache exceeded ten seconds. Both now
+pass; the large cache completed in about 0.43 seconds in the focused debug run.
+All 39 backend unit tests and four acquisition integration tests passed in that
+run. `npm run check` then passed: 39 backend unit tests, 29 integration tests,
+17 frontend/tooling tests, native offline integration, eight enforcement probes,
+both coverage-report guards, TypeScript/build, formatting and Clippy. All required
+per-file coverage metrics remain 100%, including the isolated backend unit gate.
+`npm run tauri -- build --no-bundle` also passed for the Linux development host.
+Native Windows verification remains pending.
+
 ## Next
 
 Verify real Windows cache layouts from native Windows and WSL, then implement
