@@ -138,12 +138,13 @@ the order listed.
     sent to the frontend.
   - [x] Add accessible HSR controls for both actions, with readable empty,
     failure and fallback states.
-- [ ] Verify HSR cache/request discovery for Windows installations, from both
+- [x] Verify HSR cache/request discovery for Windows installations, from both
   Windows and WSL, and record
   supported and unsupported sources with evidence.
-  - [ ] Verify automatic extraction against a real installation from native Windows.
+  - [x] Verify automatic extraction against a real installation from native Windows.
   - [x] Verify automatic extraction against a real installation from WSL.
-  - [ ] Record supported and unsupported sources with evidence.
+  - [x] Record supported and unsupported sources with evidence
+    ([HSR API research](HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27)).
 - [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
   native client: single tested endpoint, 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry
