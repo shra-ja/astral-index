@@ -31,6 +31,14 @@ for the complete gate. Report rendering never executes tests and cannot establis
 freshness on its own. The shared tooling in `scripts/native-coverage.ts` has
 mocked unit tests and is included in the 100% tooling coverage inventory.
 
+`test:backend-probe` is a network-isolated probe-only stage. It resets counters,
+freezes unit JSON, runs only the synthetic `unit_coverage_probe` integration
+target and writes combined JSON. An unrelated failing integration fixture proves
+that this stage does not execute the full integration suite. Report validation
+has independently selectable frontend/tooling, backend-unit and wrapper tests;
+the complete command still requires every scope, source inventory and wrapper
+body guard. The probe asserts that integration coverage cannot fill a unit gap.
+
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
 | `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |

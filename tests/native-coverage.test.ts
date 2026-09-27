@@ -15,3 +15,12 @@ test('integration tests', () => {
 test('native coverage report', () => {
   nativeReport('coverage/native', true);
 }, 600000);
+
+// Only the synthetic integration target may fill this deliberately missing unit path.
+test('backend probe coverage', () => {
+  resetNativeCoverage();
+  nativeCargo(['test', '--lib', '--locked', '--offline']);
+  nativeReport('coverage/native-unit', false);
+  nativeCargo(['test', '--test', 'unit_coverage_probe', '--locked', '--offline']);
+  nativeReport('coverage/native', false);
+}, 600000);

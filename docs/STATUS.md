@@ -415,6 +415,17 @@ errors must be classified explicitly. `npm run check` passed: 80 backend unit
 tests, 34 integration tests, 28 frontend/tooling tests, native offline execution,
 eight enforcement probes, both report guards, TypeScript/build, formatting and
 Clippy, all at 100% per file. `npm run tauri -- build --no-bundle` passed on Linux.
+## Coverage probe scope — increment 2 (2026-09-27)
+
+The backend coverage-isolation probe now runs only library unit tests and its
+synthetic integration target, with JSON reports and no desktop execution.
+Report checks are separated by scope while the full gate still runs all scopes.
+A deliberately failing unrelated integration target failed the old broad command;
+the narrowed probe passed with that fixture present (41.00 seconds including
+the still-full restoration run). `npm run check` passed with 56 Rust unit tests,
+33 integration tests, 22 frontend/tooling tests, eight probes and all five scoped
+report/inventory/wrapper checks. All required coverage remains 100%; type/build,
+formatting and Clippy passed. The full probe suite took 203.18 seconds.
 
 ## Next
 

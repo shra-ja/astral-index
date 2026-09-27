@@ -105,23 +105,27 @@ test('the native CSP test rejects a permissive connection policy', () => {
 test('backend coverage requires unit execution even when integration tests cover the code', () => {
   const library = 'src-tauri/src/lib.rs';
   const integration = 'src-tauri/tests/unit_coverage_probe.rs';
+  const unrelated = 'src-tauri/tests/unrelated_scope_probe.rs';
   const original = readFileSync(library, 'utf8');
+  expect(existsSync(unrelated)).toBe(false);
   expect(existsSync(integration)).toBe(false);
   try {
+    writeFileSync(unrelated, '#[test] fn unrelated_must_not_run() { panic!("unrelated integration executed"); }\n');
     writeFileSync(library, `${original}\npub fn unit_coverage_probe(value: bool) -> u8 { if value { 1 } else { 0 } }\n`);
     writeFileSync(integration, '#[test]\nfn covers_only_in_integration() { assert_eq!(roll_tracker::unit_coverage_probe(true), 1); assert_eq!(roll_tracker::unit_coverage_probe(false), 0); }\n');
-    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
+    execFileSync('npm', ['run', 'test:backend-probe'], { stdio: 'pipe' });
     const unit = JSON.parse(readFileSync('coverage/native-unit/coverage.json', 'utf8'));
     const combined = JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8'));
     const metric = (report: typeof unit) => report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/lib.rs')).summary.functions;
     expect(metric(unit).covered).toBeLessThan(metric(unit).count);
     expect(metric(combined).covered).toBe(metric(combined).count);
-    const result = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
     expect(result.stdout + result.stderr).toContain('Uncovered');
   } finally {
     writeFileSync(library, original);
     unlinkSync(integration);
+    unlinkSync(unrelated);
     execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
 }, 180000);

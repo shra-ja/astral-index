@@ -20,7 +20,8 @@
     "coverage:rust-unit": "vitest run tests/native-coverage.test.ts -t '^unit coverage$'",
     "test:rust-integration": "vitest run tests/native-coverage.test.ts -t '^integration tests$'",
     "test:native-smoke": "dbus-run-session -- xvfb-run -a vitest run tests/native.test.ts",
-    "coverage:native-report": "vitest run tests/native-coverage.test.ts -t '^native coverage report$'"
+    "coverage:native-report": "vitest run tests/native-coverage.test.ts -t '^native coverage report$'",
+    "test:backend-probe": "bwrap --unshare-net --dev-bind / / --proc /proc vitest run tests/native-coverage.test.ts -t '^backend probe coverage$'"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4",

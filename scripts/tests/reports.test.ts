@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { assertCompleteCoverage, type FileCoverage } from '../coverage';
 
-test('every first-party source file has fresh, complete coverage', () => {
+test('every executable source is inventoried', () => {
   const sources = globSync(['src/**/*.ts', 'scripts/**/*.ts'], { exclude: ['src/tests/**', 'scripts/tests/**'] }).map(file => resolve(file));
   const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], { exclude: ['src-tauri/src/**/tests/**'] }).map(file => resolve(file));
   const allExecutable = globSync('**/*.{ts,tsx,js,jsx,mjs,cjs,rs,sh,py}', {
@@ -11,14 +11,30 @@ test('every first-party source file has fresh, complete coverage', () => {
   }).map(file => resolve(file));
   expect([...sources, ...rust].sort(), 'New executable source must be included in instrumentation').toEqual(allExecutable.sort());
 
-  const frontendPath = 'coverage/frontend/coverage-summary.json';
-  const nativePath = 'coverage/native/coverage.json';
-  const unitPath = 'coverage/native-unit/coverage.json';
-  const wrappers = ['src-tauri/src/main.rs', 'src-tauri/build.rs'].map(file => resolve(file));
-  const unitSources = rust.filter(file => !wrappers.includes(file));
-  const frontend = JSON.parse(readFileSync(frontendPath, 'utf8'));
-  assertCompleteCoverage(sources, frontend);
-  for (const [reportPath, inventory] of [[unitPath, unitSources], [nativePath, wrappers]] as const) {
+});
+
+const wrappers = ['src-tauri/src/main.rs', 'src-tauri/build.rs'].map(file => resolve(file));
+
+function assertFresh(report: string, files: string[]): void {
+  for (const file of files) {
+    expect(statSync(report).mtimeMs, `Stale report for ${file}`).toBeGreaterThanOrEqual(statSync(file).mtimeMs);
+  }
+}
+
+test('frontend and tooling coverage', () => {
+  const sources = globSync(['src/**/*.ts', 'scripts/**/*.ts'], { exclude: ['src/tests/**', 'scripts/tests/**'] }).map(file => resolve(file));
+  const report = 'coverage/frontend/coverage-summary.json';
+  assertCompleteCoverage(sources, JSON.parse(readFileSync(report, 'utf8')));
+  assertFresh(report, sources);
+});
+
+for (const [name, reportPath, boundary] of [
+  ['backend unit coverage', 'coverage/native-unit/coverage.json', false],
+  ['native wrapper coverage', 'coverage/native/coverage.json', true],
+] as const) {
+  test(name, () => {
+    const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], { exclude: ['src-tauri/src/**/tests/**'] }).map(file => resolve(file));
+    const inventory = boundary ? wrappers : rust.filter(file => !wrappers.includes(file));
     const native = JSON.parse(readFileSync(reportPath, 'utf8'));
     expect(native.type).toBe('llvm.coverage.json.export');
     expect(native.data).toHaveLength(1);
@@ -33,13 +49,9 @@ test('every first-party source file has fresh, complete coverage', () => {
       rustReport[resolve(file.filename)] = metrics;
     }
     assertCompleteCoverage(inventory, rustReport);
-  }
-  for (const [report, files] of [[frontendPath, sources], [unitPath, unitSources], [nativePath, wrappers]] as const) {
-    for (const file of files) {
-      expect(statSync(report).mtimeMs, `Stale report for ${file}`).toBeGreaterThanOrEqual(statSync(file).mtimeMs);
-    }
-  }
-});
+    assertFresh(reportPath, inventory);
+  });
+}
 
 // These are the only unit-coverage exceptions. Any added logic requires an explicit review.
 test('startup/build exceptions remain minimal third-party delegates', () => {
