@@ -95,6 +95,26 @@ define recovery behavior before implementing restore or destructive migrations.
 Restrict webview capabilities and bundle UI resources. Files are data, never code.
 Render imported names as text, and keep raw source payloads out of normal logs.
 
+### Desktop extraction commands
+
+`src-tauri/src/desktop.rs` registers `extract_automatically` and
+`extract_from_file`, listed once in `src/desktop/commands.in` for both the library
+and the `build.rs` app manifest. Declaring the manifest makes every app command
+require a capability grant; `capabilities/main.json` grants only these two to the
+main window for local content. Undeclared commands are refused.
+
+The automatic command runs current-user extraction. The file command accepts
+only a raw IPC body holding the bytes of a file the user chose through an HTML
+file input; no path crosses IPC. Both return nothing on success or a safe
+category: `unsupported_host`, `discovery_failed`, `no_game_data`, `no_cache`,
+`no_request`, `file_too_large` or `invalid_file`. Contexts stay in a native
+in-memory session, replaced by each extraction and emptied by a failed one.
+They are never serialized, persisted or returned. The CSP's `connect-src` allows
+only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC
+instead of the JSON `postMessage` fallback; network origins stay blocked. The
+file fallback does pass cache bytes through webview memory; see
+[decision 0006](decisions/0006-desktop-extraction-commands.md).
+
 ## Statistics
 
 Pity and guarantee rules belong to each game adapter and may vary by banner and

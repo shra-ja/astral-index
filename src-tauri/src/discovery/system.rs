@@ -168,8 +168,8 @@ async fn run_command(program: &str, args: &[&OsStr]) -> Result<String, Discovery
 }
 
 #[cfg(test)]
-mod tests {
-    pub(super) mod os;
+pub(crate) mod tests {
+    pub(crate) mod os;
     use super::*;
     use crate::acquisition::tests::filesystem::{self, Fixture};
 

@@ -43,12 +43,15 @@ test('every first-party source file has fresh, complete coverage', () => {
 
 // These are the only unit-coverage exceptions. Any added logic requires an explicit review.
 test('startup/build exceptions remain minimal third-party delegates', () => {
+  // Registration and the command list live in unit-tested library code; these only delegate.
   expect(readFileSync('src-tauri/src/main.rs', 'utf8').trim()).toBe(`fn main() {
-    tauri::Builder::default()
+    roll_tracker::desktop::register(tauri::Builder::default())
         .run(tauri::generate_context!())
         .expect("failed to run Roll Tracker");
 }`);
   expect(readFileSync('src-tauri/build.rs', 'utf8').trim()).toBe(`fn main() {
-    tauri_build::build();
+    let commands = tauri_build::AppManifest::new().commands(include!("src/desktop/commands.in"));
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(commands))
+        .expect("failed to build Roll Tracker");
 }`);
 });

@@ -131,7 +131,7 @@ the order listed.
     one native automatic-extraction service, tested with mocked OS and file APIs.
     Assume a single cache file holds requests for one account, and return its
     contexts in reverse file order.
-  - [ ] Expose automatic extraction and the user-provided cache file fallback
+  - [x] Expose automatic extraction and the user-provided cache file fallback
     through narrow Tauri commands and permissions. Keep paths native-only. Hold
     extracted auth keys only in short-lived native memory, never persisted or
     sent to the frontend.

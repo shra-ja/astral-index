@@ -199,16 +199,47 @@ metrics remain 100%, including the isolated backend unit gate, with no new
 exclusions. `npm run tauri -- build --no-bundle` passed for the Linux host.
 Real Windows/WSL installation verification remains pending.
 
+## Desktop extraction commands (2026-09-27)
+
+Work is on `feat/extraction-commands`, branched from `main` at `5ce4401` (PR #7).
+`src-tauri/src/desktop.rs` registers `extract_automatically` and
+`extract_from_file`. Both return nothing or a safe failure category. Extracted
+contexts stay in an in-memory native session, replaced by each extraction and
+emptied by a failed one. The file command takes the selected file's bytes as a
+raw IPC body; no path crosses IPC. See
+[decision 0006](decisions/0006-desktop-extraction-commands.md).
+
+The user reviewed the wrapper exceptions: `main.rs` now delegates through
+unit-tested `desktop::register`, and `build.rs` declares an app manifest from
+the shared `src/desktop/commands.in`. `capabilities/main.json` grants only the
+two commands to the main window. The source-body guard pins both new bodies.
+The native test showed that `connect-src 'none'` forced Tauri's JSON
+`postMessage` fallback, so both CSPs now allow only `ipc: http://ipc.localhost`.
+Network origins remain blocked, and the mutation probe was updated.
+
+TDD: four desktop tests failed against stubs, then passed. The updated wrapper
+guard failed before the wrappers changed. A new native assertion calls a granted
+command and an undeclared one from the real webview; it first failed on the CSP
+fallback (`invalid_file`), then passed. The unit gate then found macro-generated
+missing-state paths uncovered; a failing missing-session test preceded splitting
+handler registration from state management.
+
+`npm run check` passed: 65 backend unit tests, 33 integration tests, 17
+frontend/tooling tests, native offline execution with the IPC assertions, eight
+enforcement probes, both report guards, TypeScript/build, formatting and Clippy.
+All required per-file metrics are 100%, including the isolated backend unit gate,
+with no new exclusions. `npm run tauri -- build --no-bundle` passed on Linux.
+Real Windows/WSL verification remains pending.
+
 ## Next
 
-Expose automatic extraction and the user-provided cache file fallback through
-narrow Tauri commands and permissions, holding extracted auth keys only in
-short-lived native memory. Then add accessible HSR controls for both actions.
-Keep the wrapper coverage exception explicit when adding runtime registration.
-Verify real Windows cache/log layouts from native Windows and WSL; synthetic
-tests do not establish installed-game compatibility. Then implement the
-contract's auth-key validation, cancellable HTTP client, bounded
-pagination/retries, review DTO, atomic commit and history display. Account/server
+Add accessible HSR controls for automatic extraction and the file fallback, with
+readable empty, failure and fallback states and a typed frontend command client.
+Check the file size before reading it in the webview. Then verify real Windows
+cache/log layouts from native Windows and WSL; synthetic tests do not establish
+installed-game compatibility. Then implement the contract's auth-key validation,
+cancellable HTTP client, bounded pagination/retries, review DTO, atomic commit
+and history display, clearing auth keys when an import ends. Account/server
 verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are

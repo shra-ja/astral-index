@@ -1,9 +1,13 @@
 # Native shell
 
-`src/main.rs` launches the real Tauri event loop. `build.rs` generates build
-metadata; both are covered by native tests. `tauri.conf.json` defines bundled
-assets, the development loopback URL and production CSP. No plugins, custom
-commands or native capabilities are enabled yet.
+`src/main.rs` registers the desktop commands through `src/desktop.rs` and
+launches the real Tauri event loop. `build.rs` generates build metadata and the
+app command manifest from `src/desktop/commands.in`; both are covered by native
+tests. `tauri.conf.json` defines bundled assets, the development loopback URL,
+production CSP and the enabled `main` capability. `capabilities/main.json`
+grants only `extract_automatically` and `extract_from_file` to the main window.
+No plugins are enabled. See
+[decision 0006](../docs/decisions/0006-desktop-extraction-commands.md).
 
 Run commands from the repository root; see `../README.md`. Future services,
 adapters and persistence follow `../docs/ARCHITECTURE.md`.

@@ -88,9 +88,10 @@ test('test and coverage commands discover additional frontend and tooling suites
 test('the native CSP test rejects a permissive connection policy', () => {
   const path = 'src-tauri/tauri.conf.json';
   const original = readFileSync(path, 'utf8');
-  expect(original).toContain("connect-src 'none'");
+  const policy = 'connect-src ipc: http://ipc.localhost';
+  expect(original).toContain(policy);
   try {
-    writeFileSync(path, original.replace("connect-src 'none'", 'connect-src *'));
+    writeFileSync(path, original.replace(policy, 'connect-src *'));
     const result = spawnSync('npm', ['run', 'test:offline'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
     expect(result.stdout + result.stderr).toContain('CSP must block webview connections');

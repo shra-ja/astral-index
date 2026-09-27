@@ -1,5 +1,5 @@
 fn main() {
-    tauri::Builder::default()
+    roll_tracker::desktop::register(tauri::Builder::default())
         .run(tauri::generate_context!())
         .expect("failed to run Roll Tracker");
 }
