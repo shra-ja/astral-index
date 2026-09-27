@@ -430,6 +430,24 @@ the 600-second final-regeneration hook limit. A follow-up refactor shares one
 report-check helper and unrelated-test fixture across probes and groups the
 native scripts in `package.json`; no probe or gate changed.
 
+## CI cache increment (2026-09-27)
+
+On `perf/ci-pipeline`, the workflow now caches npm downloads, Rust dependency
+builds and installed Cargo tools. Cache keys account for toolchains, dependencies
+and the workflow's tool-version pins. Locked installs, all probes, fresh coverage
+generation and the production desktop build remain unconditional. npm prefers
+cached downloads and omits its install-time audit request.
+
+TDD: the new cache-policy guard failed against the uncached workflow, then both
+workflow guards passed after implementation. `npm run check` passed with 56
+backend unit tests, 33 integration tests, 19 frontend/tooling tests, eight probes,
+both report guards and all required coverage metrics at 100%. TypeScript/build,
+formatting, Clippy, actionlint 1.7.7 and `git diff --check` passed.
+`npm run tauri -- build --no-bundle` passed on Linux.
+Hosted cold/warm cache behavior and timings require CI runs; no hosted speedup
+has been measured yet. Reducing the scope of repeated native probe runs remains
+follow-up work.
+
 ## Next
 
 Validate contexts during extraction
