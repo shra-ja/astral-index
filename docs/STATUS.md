@@ -281,6 +281,26 @@ frontend/tooling tests, native offline execution, eight enforcement probes, both
 report guards, TypeScript/build, formatting and Clippy. All required per-file
 metrics remain 100%, with no new exclusions. `npm run tauri -- build --no-bundle`
 passed on Linux. The WSL verification evidence itself is recorded separately.
+## Always-visible file fallback (2026-09-27)
+
+Work is on `feat/always-show-file-fallback`, rebased onto `main` at `4486e22` (PR #10).
+In the user's WSL run the file fallback could not be tested, because it appeared
+only after an automatic failure. The `data_2` chooser is now always shown below
+"Find automatically" and stays available after a success. The user's run also
+showed "no file selected" beside the chooser after a successful extraction,
+because the input was cleared afterwards to allow choosing the same file again.
+It is now cleared only when clicked, as the dialog opens, so the chosen file
+stays shown with its result.
+
+TDD: a regression test recording writes to the input failed on the post-extraction
+clear, then passed; the native test now checks the file stays selected. The two
+visibility tests failed while the chooser started hidden and stayed
+hidden after success, then passed. The native test now checks the chooser is
+visible before the keyboard-operated search. `npm run check` passed: 65 backend
+unit tests, 33 integration tests, 28 frontend/tooling tests, native offline
+execution, eight enforcement probes, both report guards, TypeScript/build,
+formatting and Clippy, with all required per-file metrics at 100%.
+`npm run tauri -- build --no-bundle` passed on Linux.
 
 ## Next
 
