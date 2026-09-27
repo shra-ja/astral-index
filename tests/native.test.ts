@@ -40,7 +40,8 @@ beforeAll(() => {
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
 test('the bundled native shell works offline, supports keyboard selection, and closes cleanly', async () => {
-  const driver = spawn('tauri-driver', [], { env: nativeEnv, stdio: 'inherit' });
+  // Keep automatic discovery deterministic: never start Windows helpers from a WSL test host.
+  const driver = spawn('tauri-driver', [], { env: { ...nativeEnv, WSL_DISTRO_NAME: '' }, stdio: 'inherit' });
   let session = '';
   // Surface WebDriver failures at the request boundary instead of later UI assertions.
   const request = async (path: string, method = 'GET', body?: unknown) => {
@@ -102,7 +103,22 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     });
     expect(commands[0]).toBe('no_request');
     expect(commands[1]).toContain('not allowed');
+    // Keyboard-operated automatic search fails safely here, then the real file input
+    // sends a synthetic cache through raw IPC.
+    await execute('document.querySelector(".retrieval button").focus()');
+    await request(`/session/${session}/actions`, 'POST', { actions: [{ type: 'key', id: 'keyboard', actions: [
+      { type: 'keyDown', value: '\uE007' }, { type: 'keyUp', value: '\uE007' },
+    ] }] });
+    const extractionStatus = 'return document.querySelector(".extraction-status").textContent';
+    await expect.poll(() => execute(extractionStatus), { timeout: 10000 }).toContain('Automatic search needs Windows');
+    expect(await execute('return document.querySelector(".fallback").hidden')).toBe(false);
     mkdirSync('test-results', { recursive: true });
+    const cachePath = resolve('test-results/synthetic-data_2');
+    writeFileSync(cachePath, '1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0');
+    const input = await request(`/session/${session}/element`, 'POST', { using: 'css selector', value: '#cache-file' });
+    await request(`/session/${session}/element/${Object.values(input)[0]}/value`, 'POST', { text: cachePath });
+    await expect.poll(() => execute(extractionStatus), { timeout: 10000 }).toContain('Found your warp history request.');
+    rmSync(cachePath);
     const screenshot = await request(`/session/${session}/screenshot`);
     writeFileSync('test-results/native-shell.png', Buffer.from(screenshot, 'base64'));
     const windowId = execFileSync('xdotool', ['search', '--name', '^Roll Tracker$'], { encoding: 'utf8' }).trim().split('\n')[0];

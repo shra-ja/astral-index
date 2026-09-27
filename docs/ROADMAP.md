@@ -111,7 +111,7 @@ Each unchecked sub-step is one deliverable increment on its own short-lived
 branch. Check a parent item only when all of its steps are checked. Steps run in
 the order listed.
 
-- [ ] Connect user-requested automatic discovery and extraction, locating `data_2`
+- [x] Connect user-requested automatic discovery and extraction, locating `data_2`
   internally in the supported cache directory. If discovery fails, accept a
   user-provided cache file as the alternative. Do not require users to select a
   discovered cache or game-data directory. Cache files supply request context,
@@ -135,7 +135,7 @@ the order listed.
     through narrow Tauri commands and permissions. Keep paths native-only. Hold
     extracted auth keys only in short-lived native memory, never persisted or
     sent to the frontend.
-  - [ ] Add accessible HSR controls for both actions, with readable empty,
+  - [x] Add accessible HSR controls for both actions, with readable empty,
     failure and fallback states.
 - [ ] Verify HSR cache/request discovery for Windows installations, from both
   Windows and WSL, and record
