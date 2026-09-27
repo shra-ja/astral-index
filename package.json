@@ -11,12 +11,16 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run src/tests scripts/tests/unit --environment jsdom",
     "coverage": "vitest run src/tests scripts/tests/unit --environment jsdom --coverage --coverage.provider=v8 --coverage.reportsDirectory=coverage/frontend --coverage.include='src/**/*.ts' --coverage.include='scripts/**/*.ts' --coverage.exclude='src/tests/**' --coverage.exclude='scripts/tests/**' --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html --coverage.thresholds.perFile --coverage.thresholds.100",
-    "test:native": "dbus-run-session -- xvfb-run -a vitest run tests/native.test.ts",
+    "test:native": "npm run coverage:rust-unit && npm run test:rust-integration && npm run test:native-smoke && npm run coverage:native-report",
     "test:offline": "bwrap --unshare-net --dev-bind / / --proc /proc npm run test:native",
     "test:probes": "vitest run scripts/tests/probes.test.ts",
     "coverage:verify": "vitest run scripts/tests/reports.test.ts",
     "check": "npm run coverage && npm run build && npm run test:offline && npm run test:probes && npm run coverage:verify && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "coverage:rust-unit": "vitest run tests/native-coverage.test.ts -t '^unit coverage$'",
+    "test:rust-integration": "vitest run tests/native-coverage.test.ts -t '^integration tests$'",
+    "test:native-smoke": "dbus-run-session -- xvfb-run -a vitest run tests/native.test.ts",
+    "coverage:native-report": "vitest run tests/native-coverage.test.ts -t '^native coverage report$'"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4",

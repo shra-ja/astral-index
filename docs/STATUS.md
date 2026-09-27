@@ -321,6 +321,20 @@ the user accepted the Microsoft Build Tools license. It needed a generated
 The release executable opens a console window beside the app, because `main.rs`
 does not select the Windows GUI subsystem. Documentation-only change; no TDD cycle
 applies.
+## Coverage probe scope — increment 1 (2026-09-27)
+
+On `perf/coverage-probe-scope`, native unit coverage, Cargo integration execution,
+desktop smoke testing and report generation now have separate commands. The full
+native/offline command retains the original execution order and unit-only report
+snapshot. Caching PR #5 is unchanged; this branch starts from main.
+
+Five tooling tests failed against stage stubs, then passed after implementation.
+The new executable tooling has 100% unit coverage. `npm run check` passed: 56
+Rust unit tests, 33 integration tests, 22 frontend/tooling tests, eight probes and
+both report guards, with all required coverage metrics at 100%. TypeScript/build,
+formatting and Clippy passed. The unchanged-scope probes took 217.24 seconds.
+The user reports no hosted runtime improvement from caching PR #5; no cache
+speedup is assumed for this work.
 
 ## Windows console window (2026-09-27)
 

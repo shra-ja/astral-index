@@ -21,6 +21,16 @@ a fallback. See [Ubuntu's namespace policy](https://discourse.ubuntu.com/t/under
 This is a native development build with production bundled assets. Installer
 packaging and other operating systems are later release work.
 
+Native execution is split into explicit stages. `coverage:rust-unit` cleans the
+workspace's instrumentation data, runs only library unit tests and freezes their
+report. `test:rust-integration` runs Cargo tests, `test:native-smoke` builds and
+launches the desktop, and `coverage:native-report` renders combined evidence.
+`test:native` composes those stages in that order; `test:offline` isolates the
+whole sequence. Individual stages are diagnostic building blocks, not substitutes
+for the complete gate. Report rendering never executes tests and cannot establish
+freshness on its own. The shared tooling in `scripts/native-coverage.ts` has
+mocked unit tests and is included in the 100% tooling coverage inventory.
+
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
 | `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |

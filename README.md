@@ -60,6 +60,10 @@ internet access; stored-history operations remain local. See
 | `npm run build` | Strict TypeScript checks, including tests, and bundled web assets |
 | `npm run test:native` | Instrumented Rust build/tests, native UI/keyboard/close tests, LLVM reports |
 | `npm run test:offline` | Native test in a namespace with no external network route |
+| `npm run coverage:rust-unit` | Reset native counters, run Rust unit tests and freeze their JSON/HTML coverage |
+| `npm run test:rust-integration` | Run the instrumented Cargo test suite without launching the desktop |
+| `npm run test:native-smoke` | Build and exercise the native desktop without running backend tests |
+| `npm run coverage:native-report` | Render JSON/HTML from the current native execution counters |
 | `npm run test:probes` | Deliberate missing-report, uncovered-file and Rust branch failures |
 | `npm run coverage:verify` | Validate frontend, Rust unit-only and startup/build coverage against source inventories and modification times |
 | `npm run check` | All coverage, build/type, offline native, probe, format and lint gates |
