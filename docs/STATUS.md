@@ -302,27 +302,34 @@ execution, eight enforcement probes, both report guards, TypeScript/build,
 formatting and Clippy, with all required per-file metrics at 100%.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
-## WSL installation verification (2026-09-27)
+## Real-installation verification (2026-09-27)
 
-Work is on `docs/wsl-extraction-evidence`, branched from `main` at `22ad6ec`
-(PR #11). The user verified automatic extraction from WSL against a real
-installation on a custom drive, with the game closed and running, and the file
-fallback with a real `data_2`. Results and limits are in
-[WSL verification](HSR-API-RESEARCH.md#wsl-installation-verification-2026-09-27).
-The roadmap's WSL verification step is ticked. The automatic runs predate the
-two-version window; native Windows verification and recording supported and
-unsupported sources remain open. Documentation-only change; no TDD cycle applies.
+The WSL results were recorded in PR #12. The Windows results and the source
+table are on `docs/windows-extraction-evidence`, branched from `main` at `953b14d`.
+The user verified extraction against a real installation on a custom
+drive, from WSL and from a native Windows process: automatic search with the game
+closed and running, and the file fallback with a real `data_2`. SmartScreen did
+not block the unsigned executable. The WSL automatic runs predate the two-version
+window; the Windows runs used the current code. Results, limits and the
+supported/unsupported source table are in
+[HSR API research](HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27).
+The roadmap's discovery verification item and all its steps are ticked.
+
+The Windows executable was cross-compiled from WSL with `cargo-xwin` 0.23.1 after
+the user accepted the Microsoft Build Tools license. It needed a generated
+`icons/icon.ico`, which is added, with the cross-build steps, in a separate change.
+The release executable opens a console window beside the app, because `main.rs`
+does not select the Windows GUI subsystem. Documentation-only change; no TDD cycle
+applies.
 
 ## Next
 
-Verify automatic extraction and the file fallback against a real installation
-from native Windows. A Windows build of the app has not been attempted yet; if it
-fails, record that as evidence. Then record supported and unsupported sources.
-Then implement the contract's request building, transport, outcome
-classification, auth-key validation, pagination, retries and cancellation,
-followed by the review DTO, atomic commit and history display, clearing auth
-keys when an import ends. Account/server verification remains a
-milestone-closing requirement.
+Implement the contract's request building, transport, outcome classification,
+auth-key validation, pagination, retries and cancellation, starting with
+single-endpoint request building from an extracted context. Then the review DTO,
+atomic commit and history display, clearing auth keys when an import ends.
+Optionally hide the Windows console window, which changes the guarded `main.rs`.
+Account/server verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

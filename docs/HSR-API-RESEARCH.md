@@ -315,15 +315,15 @@ live installation or credential validity. No private source or live API was used
 
 | Source | Current support and evidence |
 | --- | --- |
-| User-provided cache file (fallback) | Native service and file chooser implemented. A real `data_2` extracted successfully from WSL on 2026-09-27; see [WSL verification](#wsl-installation-verification-2026-09-27). Native Windows pending. |
-| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify the two-newest-version window, numeric ordering, the unsupported unversioned layout and missing caches. A real WSL-mounted installation with version folders worked on 2026-09-27. Native Windows pending. |
+| User-provided cache file (fallback) | Native service and file chooser implemented. A real `data_2` extracted successfully from WSL and native Windows on 2026-09-27; see [supported sources](#supported-and-unsupported-extraction-sources-2026-09-27). |
+| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify the two-newest-version window, numeric ordering, the unsupported unversioned layout and missing caches. Real installations with version folders worked from WSL and native Windows on 2026-09-27. |
 | Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented and verified against a real custom-drive installation on 2026-09-27, including while the game was running. |
-| Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Worked through WSL on a real installation on 2026-09-27; which log supplied the path is not reported. Native Windows pending. |
+| Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Worked on a real installation from WSL and native Windows on 2026-09-27; which log supplied the path is not reported. |
 | macOS installation discovery | Unverified and unimplemented. |
 
-Windows is the initial game-installation target, with discovery intended from
-Windows and WSL. Keep milestone 3's OS-discovery verification item open until
-real installations and native Windows file behavior are validated.
+Windows is the initial game-installation target, with discovery from Windows and
+WSL. Real-installation verification from both completed on 2026-09-27; see
+[supported sources](#supported-and-unsupported-extraction-sources-2026-09-27).
 
 
 ## Player-log reader increment (2026-09-26)
@@ -404,4 +404,45 @@ It does not establish:
   so the outcome should be unchanged, but it was not re-run.
 - Key validity: no history request was made.
 - Native Windows behavior, which remains pending.
+
+## Native Windows verification (2026-09-27)
+
+The user ran a Windows build of the app, started from Windows Explorer, against
+the same installation. The executable was cross-compiled from WSL with
+`cargo-xwin` 0.23.1 for `x86_64-pc-windows-msvc`, after the user accepted the
+Microsoft Build Tools license terms that `cargo-xwin` relies on. The build needed
+a Windows icon, `icons/icon.ico`, generated from the existing `source.svg`. This
+build included the two-version window and the always-visible file chooser.
+
+| Check | Result |
+| --- | --- |
+| Automatic search, game closed, warp history opened recently | Success: a request was found. |
+| Automatic search, game running, warp history just opened | Success. Reads were not blocked while the game ran. |
+| File fallback, choosing the latest `data_2` directly | Success, and the chosen file name stayed shown. |
+| Windows SmartScreen | Did not block the unsigned executable. |
+
+This establishes that Known Folder AppData lookup, player-log discovery, the
+two-version cache window and the file fallback work in a native Windows process,
+with the current code. It does not establish that the project builds with the
+native Windows toolchain, installer packaging or signing, which belong to
+milestone 6's release validation. The release executable also opens a console
+window beside the app, because `main.rs` does not select the Windows GUI
+subsystem. As with WSL, no history request was made and the app reports neither
+the log nor the cache version it used.
+
+## Supported and unsupported extraction sources (2026-09-27)
+
+| Source | Status | Evidence |
+| --- | --- | --- |
+| Automatic discovery on native Windows | Supported | [Native Windows verification](#native-windows-verification-2026-09-27) |
+| Automatic discovery from WSL with Windows interop | Supported | [WSL verification](#wsl-installation-verification-2026-09-27) |
+| Game installed on a custom drive | Supported | Both runs used a custom-drive installation. |
+| Reading while the game is running | Supported | Both runs. |
+| Versioned `webCaches/<version>` caches, two newest versions | Supported | Both runs; window verified natively on Windows. |
+| User-chosen `data_2` file | Supported | Both runs. |
+| Unversioned `webCaches/Cache` layout | Unsupported by decision | Assumed absent from current installations (PR #10). |
+| Caches older than the previous game version | Unsupported by decision | Keys last about 24 hours, as the user reports (PR #10). |
+| Linux without WSL, or WSL without `WSL_DISTRO_NAME` | Automatic search unsupported | Reports `unsupported_host`; the file chooser remains available. |
+| macOS | Unsupported | Not implemented. |
+| Redirected roaming profiles, other game regions/clients | Unverified | Not tested. |
 
