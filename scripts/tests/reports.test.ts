@@ -44,7 +44,10 @@ test('every first-party source file has fresh, complete coverage', () => {
 // These are the only unit-coverage exceptions. Any added logic requires an explicit review.
 test('startup/build exceptions remain minimal third-party delegates', () => {
   // Registration and the command list live in unit-tested library code; these only delegate.
-  expect(readFileSync('src-tauri/src/main.rs', 'utf8').trim()).toBe(`fn main() {
+  // The attribute only selects the Windows GUI subsystem for release builds; no code runs.
+  expect(readFileSync('src-tauri/src/main.rs', 'utf8').trim()).toBe(`#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+fn main() {
     roll_tracker::desktop::register(tauri::Builder::default())
         .run(tauri::generate_context!())
         .expect("failed to run Roll Tracker");

@@ -23,6 +23,8 @@ run inside a unit test: `main` starts the real event loop, and Cargo runs
 `build.rs` as a separate build-time program. Both remain delegates without logic:
 
 - `main.rs` passes the builder through `roll_tracker::desktop::register`.
+  Its only other line is Tauri's standard attribute selecting the Windows GUI
+  subsystem for release builds, which adds no executable code.
   Registration, state and command bodies are library code with unit coverage
   through Tauri's mock runtime (dev-only `test` feature, no new crates).
 - `build.rs` declares an app manifest from `src/desktop/commands.in`, which

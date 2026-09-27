@@ -322,13 +322,30 @@ The release executable opens a console window beside the app, because `main.rs`
 does not select the Windows GUI subsystem. Documentation-only change; no TDD cycle
 applies.
 
+## Windows console window (2026-09-27)
+
+Work is on `fix/windows-console-window`, branched from `main` at `ba0f5ce`
+(PR #14). The Windows release executable opened a console window beside the app.
+`main.rs` now carries Tauri's standard attribute selecting the Windows GUI
+subsystem for release builds; debug builds keep the console for logs, and other
+platforms ignore it. The user approved changing the guarded wrapper; the
+attribute adds no executable code, and the source-body guard pins the new body.
+
+TDD: the updated guard failed before `main.rs` changed, then passed. A
+cross-built release executable changed from `PE32+ executable (console)` to
+`PE32+ executable (GUI)`. `npm run check` passed: 65 backend unit tests, 33
+integration tests, 28 frontend/tooling tests, native offline execution, eight
+enforcement probes, both report guards, TypeScript/build, formatting and Clippy;
+`main.rs` and `build.rs` remain at 100% in the native gate.
+`npm run tauri -- build --no-bundle` passed on Linux. The user has not yet run
+the updated Windows executable.
+
 ## Next
 
 Implement the contract's request building, transport, outcome classification,
 auth-key validation, pagination, retries and cancellation, starting with
 single-endpoint request building from an extracted context. Then the review DTO,
 atomic commit and history display, clearing auth keys when an import ends.
-Optionally hide the Windows console window, which changes the guarded `main.rs`.
 Account/server verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
