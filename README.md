@@ -114,7 +114,8 @@ read it before the first build. The executable is
 `src-tauri/target/x86_64-pc-windows-msvc/release/roll-tracker.exe`. Copy it to a
 Windows folder and start it from Explorer; it needs the WebView2 runtime, which
 Windows 11 includes. Linker warnings about missing `libcmt` debug information are
-harmless. The release executable currently opens a console window beside the app.
+harmless. Release builds use the Windows GUI subsystem, so no console window opens;
+debug builds keep the console for logs.
 `src-tauri/icons/icon.ico`, generated from `source.svg` with `npx tauri icon`,
 is required for Windows builds.
 

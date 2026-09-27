@@ -425,9 +425,9 @@ This establishes that Known Folder AppData lookup, player-log discovery, the
 two-version cache window and the file fallback work in a native Windows process,
 with the current code. It does not establish that the project builds with the
 native Windows toolchain, installer packaging or signing, which belong to
-milestone 6's release validation. The release executable also opens a console
-window beside the app, because `main.rs` does not select the Windows GUI
-subsystem. As with WSL, no history request was made and the app reports neither
+milestone 6's release validation. The tested executable also opened a console
+window beside the app, because `main.rs` did not select the Windows GUI
+subsystem; release builds now select it. As with WSL, no history request was made and the app reports neither
 the log nor the cache version it used.
 
 ## Supported and unsupported extraction sources (2026-09-27)

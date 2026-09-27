@@ -1,7 +1,8 @@
 # Native shell
 
 `src/main.rs` registers the desktop commands through `src/desktop.rs` and
-launches the real Tauri event loop. `build.rs` generates build metadata and the
+launches the real Tauri event loop. On Windows, release builds use the GUI
+subsystem, so no console window opens. `build.rs` generates build metadata and the
 app command manifest from `src/desktop/commands.in`; both are covered by native
 tests. `tauri.conf.json` defines bundled assets, the development loopback URL,
 production CSP and the enabled `main` capability. `capabilities/main.json`
