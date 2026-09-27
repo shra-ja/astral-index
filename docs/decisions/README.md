@@ -36,3 +36,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0002 — User-requested HoYoverse history acquisition](0002-user-requested-history-acquisition.md)
 
 - [0005 — Current-user Windows discovery](0005-current-user-windows-discovery.md)
+- [0006 — Desktop extraction commands](0006-desktop-extraction-commands.md)

@@ -26,5 +26,6 @@ custom-protocol = ["tauri/custom-protocol"]
 path = "src/lib.rs"
 
 [dev-dependencies]
+tauri = { version = "=2.11.5", features = ["test"] }
 rusqlite = { version = "=0.40.2", features = ["hooks", "limits"] }
 tokio = { version = "=1.53.1", features = ["test-util"] }

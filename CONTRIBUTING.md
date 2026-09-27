@@ -84,8 +84,10 @@ tests; their execution must never fill unit-test gaps. Use test doubles for
 filesystem and SQLite APIs while running the same service implementation.
 
 The only exceptions are `src-tauri/src/main.rs` and `src-tauri/build.rs`, currently
-minimal delegates to Tauri runtime/build tooling. They retain their own 100%
-native boundary gate. This is an explicit, user-approved exception, not a general
+minimal delegates to Tauri runtime/build tooling. `main.rs` passes the builder
+through unit-tested registration; `build.rs` declares the shared command list
+(see [decision 0006](docs/decisions/0006-desktop-extraction-commands.md)).
+They retain their own 100% native boundary gate. This is an explicit, user-approved exception, not a general
 exception for I/O, databases, new commands or platform code. The report gate pins
 both wrappers' current bodies: adding logic fails a guard and requires review of
 this exception. Move new functionality into unit-tested code rather than silently

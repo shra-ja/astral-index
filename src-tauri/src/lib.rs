@@ -1,5 +1,6 @@
 //! Native services and shared input validation, independent of the desktop shell.
 pub mod acquisition;
+pub mod desktop;
 pub mod discovery;
 pub mod hsr;
 pub mod storage;

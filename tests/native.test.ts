@@ -89,6 +89,19 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       `, args: [],
     });
     expect(network, 'CSP must block webview connections').toEqual({ directive: 'connect-src', disposition: 'enforce' });
+    // The capability grants only the manifest commands; results carry categories, never contexts.
+    const commands = await request(`/session/${session}/execute/async`, 'POST', {
+      script: `
+        const done = arguments[arguments.length - 1];
+        const invoke = window.__TAURI_INTERNALS__.invoke;
+        Promise.all([
+          invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', String),
+          invoke('read_arbitrary_file').then(() => 'resolved', String),
+        ]).then(done);
+      `, args: [],
+    });
+    expect(commands[0]).toBe('no_request');
+    expect(commands[1]).toContain('not allowed');
     mkdirSync('test-results', { recursive: true });
     const screenshot = await request(`/session/${session}/screenshot`);
     writeFileSync('test-results/native-shell.png', Buffer.from(screenshot, 'base64'));
