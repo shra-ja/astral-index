@@ -38,11 +38,12 @@ user-authorized requests retrieved records and verified cursor pagination.
    Windows/WSL installation verification and end-to-end wiring remain pending.
    If discovery fails, accept a user-provided file directly for extraction.
 2. **Resolve `data_2` internally**. Candidate locations are
-   `<game-data>/webCaches/Cache/Cache_Data/data_2` and
-   `<game-data>/webCaches/<version>/Cache/Cache_Data/data_2`.
+   `<game-data>/webCaches/<version>/Cache/Cache_Data/data_2`. The unversioned
+   `<game-data>/webCaches/Cache/Cache_Data/data_2` layout is not supported.
    Version directory names have four numeric components; compare components
-   numerically and verify file existence. This is internal resolution, not a
-   user choice; version order does not establish credential age.
+   numerically and verify file existence. Only the two newest version folders
+   are candidates: the user reports auth keys last about 24 hours, so older caches cannot hold a
+   valid key. This is internal resolution, not a user choice.
 3. **Read locally**. Read discovered `data_2` or the provided fallback file
    without modifying game files.
    If a temporary copy is needed, clean it up on success and failure.
@@ -315,7 +316,7 @@ live installation or credential validity. No private source or live API was used
 | Source | Current support and evidence |
 | --- | --- |
 | User-provided cache file (fallback) | Native service implemented; framing supported by earlier cache research and local synthetic file tests. File-upload UI pending. |
-| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify numeric ordering, legacy paths and missing caches. Native Windows and real WSL-mounted installation verification pending. |
+| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify the two-newest-version window, numeric ordering, the unsupported unversioned layout and missing caches. Native Windows and real WSL-mounted installation verification pending. |
 | Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented. Mocked OS and synthetic subprocess tests pass; real Windows interop/installation verification pending. |
 | Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Script inspection and synthetic tests support the layout; native Windows and real installation verification pending. |
 | macOS installation discovery | Unverified and unimplemented. |

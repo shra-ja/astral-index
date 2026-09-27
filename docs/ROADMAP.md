@@ -120,8 +120,9 @@ the order listed.
     rejecting non-regular files. Extract the encoded request-context fields,
     validate the exact endpoint, deduplicate contexts in first-seen order and
     redact credentials from debug output (`55e09f3`, `a0eb47f`).
-  - [x] Resolve legacy and versioned `webCaches` layouts in a game-data directory,
-    returning versions in numeric descending order (`55e09f3`).
+  - [x] Resolve versioned `webCaches` folders in a game-data directory, latest
+    first (`55e09f3`). Narrowed after WSL verification to the two newest version
+    folders, without the unversioned layout.
   - [x] Read game-data directories from bounded `Player.log` and `Player-prev.log`
     headers with independent outcomes and explicit WSL drive mapping (`0fc2cc7`).
   - [x] Resolve the current user's roaming AppData on native Windows and on WSL

@@ -216,7 +216,7 @@ Tauri commands and desktop controls are not yet.
 `discovery::system::extract_current_user_contexts` runs current-user log
 discovery, then `discovery::extract_from_logs`. Game-data directories come from
 the current log before the previous log, without repeats. Each directory's caches
-are tried newest version first, then the legacy layout. The first cache that yields
+are tried latest version first, then the previous version. The first cache that yields
 any request context is returned whole; later caches are not read, and caches are
 never merged, as each cache is assumed to hold one account's requests. Failures
 report the furthest stage reached as a safe category: discovery failure, no game
@@ -245,12 +245,17 @@ Hash-set membership avoids scanning every prior context for each candidate.
 Request contexts are opaque native values with redacted debug output and no
 serialization implementation. Errors contain neither paths nor source text.
 A discovered game-data directory can also be resolved through its immediate
-`webCaches` directory: existing four-component numeric version paths are returned
-in descending version order, followed by the legacy cache path. All candidates
-remain available; version order does not establish credential age. The same
+`webCaches` directory. Only the two newest four-component numeric version folders
+are considered, latest first, because the user reports auth keys last about 24
+hours: a previous-version key can only be valid just after a game update. Version
+folders count even without a cache, so a missing latest cache cannot bring an
+older version into the window, and a file with a version-like name is not a
+folder. The unversioned `webCaches/Cache` layout is not supported; installations
+are assumed to use version folders. Version order does not establish credential
+age within the window. The same
 relative layouts work with native Windows paths and WSL-mounted Windows paths.
-There is no desktop extraction command, file-upload fallback, HTTP transport or
-credential persistence yet. The future client must use only the validated fields,
+Desktop extraction commands and controls exist (see above); there is no HTTP
+transport or credential persistence yet. The future client must use only the validated fields,
 construct fresh pagination parameters and resolve account identity from responses.
 
 ## Windows player-log discovery
