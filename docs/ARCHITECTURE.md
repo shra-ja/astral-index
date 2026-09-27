@@ -258,6 +258,17 @@ Desktop extraction commands and controls exist (see above); there is no HTTP
 transport or credential persistence yet. The future client must use only the validated fields,
 construct fresh pagination parameters and resolve account identity from responses.
 
+`src-tauri/src/acquisition/request.rs` builds those page requests.
+`RequestContext::page_request` appends `gacha_type`, `page`, `size=1000` and
+`end_id` to the endpoint and the five cached fields, which keep their encoded
+bytes and cached order; cached paging values never carry over. `Category::ALL`
+lists the six known categories in contract order and is also the parser's list
+of valid `gacha_type` codes. The page number cannot be zero, and the cursor is
+either the start (`end_id=0`) or a previous record, whose ID is percent-encoded
+so an unexpected value cannot escape the query. `PageRequest` keeps the requested
+size for the short-page rule and redacts its credential-bearing URL in debug
+output. Building a request makes no network call.
+
 ## Windows player-log discovery
 
 `src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming

@@ -1,5 +1,6 @@
 //! Pure HSR response parsing; no filesystem, network, or persistence access.
 
+use crate::acquisition::Category;
 use serde::{Deserialize, Serialize};
 
 pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
@@ -96,7 +97,9 @@ pub(crate) fn valid_roll(roll: &Roll) -> bool {
         && digits(&roll.uid)
         && !roll.gacha_id.is_empty()
         && !roll.item_id.is_empty()
-        && ["1", "2", "11", "12", "21", "22"].contains(&roll.gacha_type.as_str())
+        && Category::ALL
+            .iter()
+            .any(|category| category.code() == roll.gacha_type)
         && roll.count == "1"
         && ["3", "4", "5"].contains(&roll.rank_type.as_str())
         && !roll.lang.is_empty()

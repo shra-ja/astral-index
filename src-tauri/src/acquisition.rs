@@ -7,6 +7,9 @@ use std::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::{collections::HashSet, fmt, io::Read, path::Path};
 
+mod request;
+pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
+
 pub const MAX_CACHE_BYTES: usize = 16 * 1024 * 1024;
 const ENDPOINT: &str =
     "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?";
