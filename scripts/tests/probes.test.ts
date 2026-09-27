@@ -22,16 +22,20 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
   const original = readFileSync(main, 'utf8');
   const orphan = 'src-tauri/src/coverage_probe.rs';
   expect(existsSync(orphan)).toBe(false);
+  const unrelated = 'src-tauri/tests/unrelated_native_probe.rs';
+  expect(existsSync(unrelated)).toBe(false);
   try {
+    writeFileSync(unrelated, '#[test] fn unrelated_must_not_run() { panic!("native probe ran backend tests"); }\n');
     writeFileSync(main, original.replace('fn main() {', 'fn main() {\n    let _probe = if std::env::var_os("ROLL_TRACKER_UNSET_COVERAGE_PROBE").is_some() { 1 } else { 0 };'));
-    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
+    execFileSync('npm', ['run', 'test:native-probe'], { stdio: 'pipe' });
     const report = JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8'));
     const summary = report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/main.rs')).summary;
     expect(summary.branches.count).toBeGreaterThan(summary.branches.covered);
-    const missedBranch = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const missedBranch = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^native wrapper coverage$'], { encoding: 'utf8' });
     expect(missedBranch.status).not.toBe(0);
     expect(missedBranch.stdout + missedBranch.stderr).toContain('Uncovered');
   } finally {
+    unlinkSync(unrelated);
     writeFileSync(main, original);
     execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
@@ -90,12 +94,16 @@ test('the native CSP test rejects a permissive connection policy', () => {
   const original = readFileSync(path, 'utf8');
   const policy = 'connect-src ipc: http://ipc.localhost';
   expect(original).toContain(policy);
+  const unrelated = 'src-tauri/tests/unrelated_native_probe.rs';
+  expect(existsSync(unrelated)).toBe(false);
   try {
+    writeFileSync(unrelated, '#[test] fn unrelated_must_not_run() { panic!("native probe ran backend tests"); }\n');
     writeFileSync(path, original.replace(policy, 'connect-src *'));
-    const result = spawnSync('npm', ['run', 'test:offline'], { encoding: 'utf8' });
+    const result = spawnSync('npm', ['run', 'test:native-probe'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
     expect(result.stdout + result.stderr).toContain('CSP must block webview connections');
   } finally {
+    unlinkSync(unrelated);
     writeFileSync(path, original);
     execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }

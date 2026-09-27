@@ -39,6 +39,12 @@ has independently selectable frontend/tooling, backend-unit and wrapper tests;
 the complete command still requires every scope, source inventory and wrapper
 body guard. The probe asserts that integration coverage cannot fill a unit gap.
 
+`test:native-probe` resets instrumentation, builds/runs the desktop in the network
+namespace and writes only JSON coverage. It never runs backend tests. The branch
+probe validates the wrapper report directly, and the CSP probe still requires the
+specific security-policy assertion failure. Both carry an unrelated failing
+integration fixture to prevent accidental regression to the full native pipeline.
+
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
 | `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |

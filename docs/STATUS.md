@@ -427,6 +427,18 @@ the still-full restoration run). `npm run check` passed with 56 Rust unit tests,
 report/inventory/wrapper checks. All required coverage remains 100%; type/build,
 formatting and Clippy passed. The full probe suite took 203.18 seconds.
 
+## Coverage probe scope — increment 3 (2026-09-27)
+
+Wrapper-branch and CSP probes now use an isolated desktop-only pipeline with
+JSON reports, without backend test execution. Both scope regressions failed
+against the broad command because it executed their unrelated failing integration
+fixture. The wrapper probe targets wrapper coverage directly; CSP still requires
+its specific assertion failure. Both scope tests then passed (80.95 seconds
+including full restoration runs). `npm run check` passed with 56 Rust unit tests,
+33 integration tests, 22 frontend/tooling tests, eight probes and five report
+checks. All required coverage remains 100%; type/build, formatting and Clippy
+passed. The full probe suite took 160.92 seconds.
+
 ## Next
 
 Validate contexts during extraction

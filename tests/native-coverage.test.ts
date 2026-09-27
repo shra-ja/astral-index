@@ -24,3 +24,11 @@ test('backend probe coverage', () => {
   nativeCargo(['test', '--test', 'unit_coverage_probe', '--locked', '--offline']);
   nativeReport('coverage/native', false);
 }, 600000);
+
+test('reset native probe', () => {
+  resetNativeCoverage();
+}, 600000);
+
+test('native JSON report', () => {
+  nativeReport('coverage/native', false);
+}, 600000);
