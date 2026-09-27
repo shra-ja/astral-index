@@ -36,3 +36,11 @@ Mocked OS/file unit tests and real Linux subprocess/file integration tests cover
 the implementation. These do not establish native Windows Known Folder behavior,
 actual WSL Windows-process cancellation, redirected-profile compatibility or
 installed-game layouts. Those checks remain required before claiming support.
+
+## Workflow clarification (2026-09-27)
+
+Explicit AppData, log and mount-root inputs are internal service APIs, not extra
+user-facing source choices. The intended desktop actions are automatic discovery
+and extraction of `data_2`, or a user-provided file as the fallback if discovery
+fails. Candidate paths stay inside the native discovery pipeline; no cache
+catalog or game-directory picker is required.

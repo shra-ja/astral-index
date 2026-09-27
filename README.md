@@ -136,7 +136,10 @@ Current-user discovery is a native service; desktop controls are still pending.
 On Windows it uses the Known Folder API. On WSL it requires a nonempty
 `WSL_DISTRO_NAME` and working `powershell.exe` and `wslpath` on PATH. Helpers run
 only when discovery is explicitly invoked, with time/output limits and safe
-failure categories. Manual selected-path discovery remains available.
+failure categories. The intended desktop flow automatically locates `data_2`
+and extracts request context, with a user-provided file as the fallback if
+discovery fails. No discovered-cache or game-directory selection is required.
+Connecting the native helpers into this flow remains pending.
 The automated suites substitute synthetic helpers and require neither Windows
 interop nor installed games. Native Windows/real-installation verification is
 still pending; see [discovery architecture](docs/ARCHITECTURE.md#current-user-system-discovery).

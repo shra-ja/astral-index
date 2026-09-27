@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-26
+Updated: 2026-09-27
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -161,15 +161,31 @@ coverage exception or exclusion was added.
 `npm run tauri -- build --no-bundle` also passed for the Linux development host.
 Native Windows/actual WSL interop and real-installation verification remain pending.
 
+## Extraction workflow correction (2026-09-27)
+
+The user requests automatic discovery and extraction; the application locates
+`data_2` internally. A user-provided file is the fallback when discovery fails.
+There is no discovered-cache chooser or game-directory picker. The incorrect
+uncommitted source-selection session and its tests have been removed; the
+existing discovery and extraction helpers remain unchanged.
+
+Verification after removal: `npm run check` passed with 56 backend unit tests,
+33 integration tests, 17 frontend/tooling tests, all enforcement probes and
+100% required coverage. `npm run tauri -- build --no-bundle` passed on Linux.
+The final diff is documentation-only; no new behavior or TDD cycle was introduced.
+Native Windows/real WSL installation verification remains pending.
+
 ## Next
 
-Connect current-user discovery and explicit source selection to the desktop
-without exposing credentials. Verify
-real Windows cache/log layouts from native Windows and WSL; synthetic tests and
-script inspection do not establish installed-game compatibility.
-Next implement the contract's cancellable HTTP client, bounded pagination/retries,
+Connect current-user discovery, internal `data_2` resolution and extraction, then
+expose automatic extraction and a file-upload fallback through narrow Tauri
+commands and accessible HSR controls. Keep paths and credentials native-only.
+Keep the wrapper coverage exception explicit when adding runtime registration.
+Verify real Windows cache/log layouts from native Windows and WSL; synthetic
+tests and script inspection do not establish installed-game compatibility.
+Then implement the contract's cancellable HTTP client, bounded pagination/retries,
 review DTO, atomic commit and history display. Account/server verification remains
-a milestone-closing requirement. The roadmap's discovery/selection checkboxes stay
+a milestone-closing requirement. The roadmap's discovery/extraction checkboxes stay
 open until their remaining verification and desktop integration criteria pass.
 
 Earlier implementation details, dated measurements and superseded next steps are

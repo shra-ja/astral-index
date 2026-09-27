@@ -176,13 +176,22 @@ per acquisition. Authentication, validation and identity failures abort with an
 actionable UI error. Complete retained history and manageable volume are accepted
 assumptions; byte/request limits never justify silently incomplete commits.
 
+## Extraction workflow
+
+The user requests automatic discovery and extraction. Native code resolves the
+current user's game location, locates the known `data_2` filename within supported
+cache layouts, and extracts request context. If discovery fails, the user can
+provide a file for local extraction. There is no discovered-cache chooser,
+game-directory picker or source-selection session. These are the two intended
+desktop actions; the existing helpers still need end-to-end wiring.
+
 ## Initial native cache extraction
 
-`src-tauri/src/acquisition.rs` reads one explicitly selected regular cache file
+`src-tauri/src/acquisition.rs` reads one supplied regular cache file
 without writing to it or initiating network activity. Reads stop at 16 MiB plus
 one overflow-detection byte; oversize inputs fail rather than yield partial
 contexts. On Unix, the read-only open uses `O_NONBLOCK` before checking the opened
-handle's type, so selecting a FIFO cannot wait indefinitely for a writer. The flag
+handle's type, so opening a FIFO cannot wait indefinitely for a writer. The flag
 comes from pinned `libc`, already present transitively; regular-file reads are
 unchanged. This is an initial application limit, not a verified maximum cache size.
 The extractor tolerates binary data around NUL-terminated `1/0/` request entries.
@@ -197,12 +206,12 @@ cache order.
 
 Request contexts are opaque native values with redacted debug output and no
 serialization implementation. Errors contain neither paths nor source text.
-A selected game-data directory can also be resolved through its immediate
+A discovered game-data directory can also be resolved through its immediate
 `webCaches` directory: existing four-component numeric version paths are returned
 in descending version order, followed by the legacy cache path. All candidates
 remain available; version order does not establish credential age. The same
 relative layouts work with native Windows paths and WSL-mounted Windows paths.
-There is no Tauri command, file picker, automatic installation search, HTTP transport or
+There is no desktop extraction command, file-upload fallback, HTTP transport or
 credential persistence yet. The future client must use only the validated fields,
 construct fresh pagination parameters and resolve account identity from responses.
 
@@ -225,8 +234,8 @@ Only drive-absolute Windows paths are accepted; UNC/device paths, traversal,
 empty components and invalid Windows component characters are rejected.
 WSL mapping requires an explicit absolute POSIX mount root and uses lowercase
 drive names. It never assumes `/mnt`, probes drives, invokes a shell or scans
-profiles. The returned paths remain native-only candidates; callers must explicitly
-choose them before cache discovery/reading. Neither log discovery nor cache
+profiles. The returned paths remain native-only candidates for internal cache
+resolution and reading, not user choices. Neither log discovery nor cache
 extraction fetches history.
 
 ### Current-user system discovery
@@ -239,7 +248,7 @@ OS lookup, helper and dependency choices.
 AppData through the Known Folder API. On Linux, a nonempty `WSL_DISTRO_NAME`
 enables WSL discovery; other hosts fail with `UnsupportedHost`. This conservative
 check avoids running Windows tools on ordinary Linux. Environments without that
-marker can still use the selected-path services.
+marker can use the planned file-upload fallback through the existing cache reader.
 
 WSL discovery runs a fixed, noninteractive, profile-free `powershell.exe`
 expression to query Windows' `ApplicationData` folder with UTF-8 output.
@@ -263,9 +272,10 @@ logs. A failed log returns no partial candidate list and cannot suppress the
 other log. Successful translated duplicates collapse in first-seen order.
 Errors contain only safe categories; source paths and helper diagnostics stay
 out of errors/logs. No game directories or caches are opened automatically by
-this service. The existing selected-path APIs remain available for manual use.
+this log-discovery service; connecting it to cache resolution and extraction is
+still pending. Explicit path inputs remain internal service APIs.
 
-Desktop selection and real Windows/WSL installation validation remain pending.
+Desktop extraction controls and real Windows/WSL installation validation remain pending.
 These services add no Tauri command, permission, startup task or history request.
 
 ## Unit and boundary test separation

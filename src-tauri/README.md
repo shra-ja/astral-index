@@ -29,9 +29,10 @@ roaming AppData or a selected log, with explicit WSL drive mapping.
 `src/discovery/system.rs` resolves current-user roaming AppData through Windows'
 Known Folder API or fixed Windows/WSL helpers. Invoke its asynchronous service
 explicitly on a Tokio runtime with I/O and time enabled; it is not a startup task.
-`src/acquisition.rs` resolves selected game-data cache layouts and extracts opaque
-request contexts. These native services do not fetch history or expose credentials
-to the webview; desktop selection is not connected yet.
+`src/acquisition.rs` resolves `data_2` in discovered game-data cache layouts and
+extracts opaque request contexts. These native services do not fetch history or expose credentials
+to the webview. Automatic extraction and a user-provided file fallback still
+need desktop wiring; there is no discovered-cache or game-directory chooser.
 
 Backend unit tests live in `#[cfg(test)] mod tests` beside their implementation
 in `src/`, including private fault-injection tests. Cargo automatically discovers

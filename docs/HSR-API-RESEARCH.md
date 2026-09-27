@@ -31,17 +31,20 @@ user-authorized requests retrieved records and verified cursor pagination.
 
 ## Extraction and acquisition flow
 
-1. **Locate game data**. Accept a user-selected cache or game-data directory.
-   A discovery approach to validate on Windows is reading
+1. **Locate game data automatically on request**. Read
    `%APPDATA%/../LocalLow/Cognosphere/Star Rail/Player.log` or `Player-prev.log`
    for `Loading player data from ` and removing that prefix and `data.unity3d`
-   to obtain the directory. Automatic discovery has not been tested.
-2. **Choose the cache**. Candidate locations are
+   to obtain the directory. Native helpers have synthetic test coverage; real
+   Windows/WSL installation verification and end-to-end wiring remain pending.
+   If discovery fails, accept a user-provided file directly for extraction.
+2. **Resolve `data_2` internally**. Candidate locations are
    `<game-data>/webCaches/Cache/Cache_Data/data_2` and
    `<game-data>/webCaches/<version>/Cache/Cache_Data/data_2`.
    Version directory names have four numeric components; compare components
-   numerically and verify file existence when implementing discovery.
-3. **Read locally**. Read the selected cache without modifying the game files.
+   numerically and verify file existence. This is internal resolution, not a
+   user choice; version order does not establish credential age.
+3. **Read locally**. Read discovered `data_2` or the provided fallback file
+   without modifying game files.
    If a temporary copy is needed, clean it up on success and failure.
 4. **Extract candidates**. The tested method reads UTF-8 text, splits on `1/0/`,
    and scans segments in reverse order for history-request URLs, taking the
@@ -220,8 +223,9 @@ request URL or private history are included in this evidence.
 
 ## Translation into the application later
 
-The requested future flow is: select/discover game data → read cache → extract
-candidate URLs locally → acquire history from HoYoverse on user request → validate/normalize
+The requested future flow is: automatically discover and read `data_2` (or read
+a user-provided fallback file) → extract candidate URLs locally → acquire history
+from HoYoverse on user request → validate/normalize
 responses → use the shared preview and transactional import pipeline. Keep the
 Rust source reader and URL extractor separate from the future network client;
 file import, stored-history browsing, analysis, and export remain local.
@@ -310,8 +314,8 @@ live installation or credential validity. No private source or live API was used
 
 | Source | Current support and evidence |
 | --- | --- |
-| Manually selected `data_2` cache file | Native service implemented; framing supported by earlier cache research and local synthetic file tests. Desktop selection UI pending. |
-| Selected Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify numeric ordering, legacy paths and missing caches. Native Windows and real WSL-mounted installation verification pending. |
+| User-provided cache file (fallback) | Native service implemented; framing supported by earlier cache research and local synthetic file tests. File-upload UI pending. |
+| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify numeric ordering, legacy paths and missing caches. Native Windows and real WSL-mounted installation verification pending. |
 | Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented. Mocked OS and synthetic subprocess tests pass; real Windows interop/installation verification pending. |
 | Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Script inspection and synthetic tests support the layout; native Windows and real installation verification pending. |
 | macOS installation discovery | Unverified and unimplemented. |
@@ -362,7 +366,7 @@ No live Windows helper, private profile or game log was used in automated tests.
 Automatic discovery requires Windows, or Linux with nonempty `WSL_DISTRO_NAME`
 and working `powershell.exe`/`wslpath` on PATH. Missing interop/tools and malformed,
 non-Unicode, relative or UNC/device folder paths produce safe errors. Explicit
-source selection remains the fallback. Redirected roaming profiles whose logs
+file upload remains the fallback. Redirected roaming profiles whose logs
 are not in the derived sibling LocalLow location are not verified.
 Real Windows Known Folder behavior, WSL Windows-process cancellation, actual
-game-log/cache layouts and desktop selection remain to be verified/connected.
+game-log/cache layouts and desktop extraction controls remain to be verified/connected.
