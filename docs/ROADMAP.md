@@ -150,7 +150,7 @@ the order listed.
   cancellation and actionable failures. Use one retry
   per transiently failed request, at most two extra attempts per acquisition, and
   synthetic request mocks. No background or automatic fetching.
-  - [ ] Build single-endpoint requests from an extracted context: fixed
+  - [x] Build single-endpoint requests from an extracted context: fixed
     authentication, language and size, 1000-record default pages, and page and
     cursor parameters.
   - [ ] Add a mockable transport with finite timeouts that enforces the 2 MiB

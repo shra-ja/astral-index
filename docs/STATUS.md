@@ -340,13 +340,37 @@ enforcement probes, both report guards, TypeScript/build, formatting and Clippy;
 `npm run tauri -- build --no-bundle` passed on Linux. The user ran the updated
 Windows executable, and no console window appeared.
 
+## Page request building (2026-09-27)
+
+Work is on `feat/page-requests`, branched from `main` at `7276259` (PR #15).
+`RequestContext::page_request` builds the single-endpoint history URL: the five
+cached fields keep their encoded bytes and order, followed by fresh `gacha_type`,
+`page`, `size=1000` and `end_id`. Cached paging values never carry over.
+`Category::ALL` lists the six known categories in contract order, and the parser
+now validates `gacha_type` against it instead of its own copy. Pages start at a
+non-zero number; the cursor is the start (`end_id=0`) or a previous record, whose
+ID is percent-encoded so unexpected bytes cannot escape the query. `PageRequest`
+redacts its credential-bearing URL in debug output. No network call is made.
+
+TDD: four request tests failed against a stub, then passed. The first full run
+then failed the unit branch gate: no test used the unreserved characters the
+encoder leaves as they are. A test for them closed the gap.
+
+`npm run check` passed: 69 backend unit tests, 33 integration tests, 28
+frontend/tooling tests, native offline execution, eight enforcement probes, both
+report guards, TypeScript/build, formatting and Clippy, all at 100% per file.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Implement the contract's request building, transport, outcome classification,
-auth-key validation, pagination, retries and cancellation, starting with
-single-endpoint request building from an extracted context. Then the review DTO,
-atomic commit and history display, clearing auth keys when an import ends.
-Account/server verification remains a milestone-closing requirement.
+Add the mockable transport with finite timeouts and a 2 MiB receive bound, then
+outcome classification, auth-key validation, pagination, retries and
+cancellation. Auth-key validation must send each cached request unchanged, but
+`RequestContext` keeps only the five credential fields: extraction will need to
+retain a cached URL per context, and deduplication currently merges cached URLs
+that differ only in paging fields. Then the review DTO, atomic commit and history
+display, clearing auth keys when an import ends. Account/server verification
+remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
