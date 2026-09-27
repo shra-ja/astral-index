@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-27
+Updated: 2026-09-28
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -321,6 +321,7 @@ the user accepted the Microsoft Build Tools license. It needed a generated
 The release executable opens a console window beside the app, because `main.rs`
 does not select the Windows GUI subsystem. Documentation-only change; no TDD cycle
 applies.
+
 ## Coverage probe scope — increment 1 (2026-09-27)
 
 On `perf/coverage-probe-scope`, native unit coverage, Cargo integration execution,
@@ -415,6 +416,7 @@ errors must be classified explicitly. `npm run check` passed: 80 backend unit
 tests, 34 integration tests, 28 frontend/tooling tests, native offline execution,
 eight enforcement probes, both report guards, TypeScript/build, formatting and
 Clippy, all at 100% per file. `npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Coverage probe scope — increment 2 (2026-09-27)
 
 The backend coverage-isolation probe now runs only library unit tests and its
@@ -439,7 +441,47 @@ including full restoration runs). `npm run check` passed with 56 Rust unit tests
 checks. All required coverage remains 100%; type/build, formatting and Clippy
 passed. The full probe suite took 160.92 seconds.
 
+## Coverage probe scope — increment 4 (2026-09-27)
+
+Probe setup now produces JSON-only frontend/unit evidence. Each probe restores
+its own files immediately, and a suite-level final hook clears old reports and
+runs full frontend coverage, the complete offline native suite and all report
+gates once. It runs even after a failed probe assertion. Unit reports are
+invalidated before execution; final validation failures propagate rather than
+reuse prior evidence. HTML is generated only in the final sequence.
+
+Six new regeneration/unit-snapshot tests failed against stubs and then passed.
+`npm run check` passed with 56 Rust unit tests, 33 integration tests, 28
+frontend/tooling tests, nine probes (including explicit stale-report rejection)
+and all five report checks. All required coverage metrics remain 100%; build/type,
+formatting and Clippy passed. A temporary probe deliberately threw after changing
+and restoring a source file: the command still failed as intended, final validation
+ran, and all report checks passed afterward. The temporary experiment was removed
+and all mutated application files match the committed source.
+
+Local timings on the same development host: the complete check took 74.92 seconds;
+the probe suite including final regeneration took 66.44 seconds, compared with
+217.24 seconds after increment 1, 203.18 after increment 2 and 160.92 after
+increment 3. These are individual warm local measurements, not a hosted CI
+speedup guarantee. Hosted timings remain to be measured independently of PR #5.
+`npm run tauri -- build --no-bundle` also passed on Linux, and `git diff --check`
+passed before committing.
+
+## Probe branch rebase verification (2026-09-28)
+
+Local `main` and the four probe-scope commits were updated to `9b9dd3b`.
+Conflict resolution preserves main's current implementation status and next
+steps. The rebased branch retains the extraction UI/IPC tests, IPC-enabled CSP,
+Windows GUI-subsystem wrapper guard, HTTPS transport and outcome classification.
+`npm run check` passed with 80 Rust unit tests, 34 integration tests, 39
+frontend/tooling tests, nine probes and five report checks. All required coverage
+metrics remain 100%; TypeScript/build, formatting and Clippy passed. The probe
+suite including final regeneration took 70.66 seconds on the development host.
+`npm run tauri -- build --no-bundle` also passed on Linux.
+
 ## Next
+
+Review the four probe-scope commits together and measure hosted CI timings.
 
 Validate contexts during extraction
 ([decision 0007](decisions/0007-validate-during-extraction.md)): extraction must

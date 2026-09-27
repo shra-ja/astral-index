@@ -45,6 +45,22 @@ probe validates the wrapper report directly, and the CSP probe still requires th
 specific security-policy assertion failure. Both carry an unrelated failing
 integration fixture to prevent accidental regression to the full native pipeline.
 
+`test:probes` first prepares JSON-only frontend and unit evidence, then runs the
+mutation suite. Every probe restores its files immediately in `finally`;
+report-only probes select the relevant report check. A suite-level `afterAll`
+clears old reports and runs frontend/tooling coverage, the complete offline native
+sequence and all report gates once. It also runs after a failed probe assertion;
+the original failure still fails the command. HTML is rendered only during this
+final sequence. A failed final stage propagates its error and cannot reuse the
+previous reports. Unit snapshots are invalidated before unit execution begins.
+
+`check` builds bundled assets before invoking this self-contained probe pipeline.
+The final sequence still executes all backend unit/integration tests and the real
+desktop smoke test. Nine probes now include explicit stale-report rejection;
+none of the existing enforcement properties or coverage thresholds was removed.
+Run `npm run build` before standalone `test:probes`. Individual low-level Vitest
+probe selections require the JSON preparation commands first.
+
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
 | `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |

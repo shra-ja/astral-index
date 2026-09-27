@@ -1,19 +1,34 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, unlinkSync, renameSync } from 'node:fs';
-import { expect, test } from 'vitest';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, renameSync, statSync, utimesSync } from 'node:fs';
+import { afterAll, expect, test } from 'vitest';
+import { refreshProbeCoverage } from '../native-coverage';
+
+// Per-probe finally blocks restore files; even failed assertions reach this full refresh.
+afterAll(refreshProbeCoverage, 600000);
+
+test('the unit gate rejects stale evidence', () => {
+  const path = 'coverage/native-unit/coverage.json';
+  const original = statSync(path);
+  try {
+    utimesSync(path, original.atime, new Date(0));
+    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain('Stale report');
+  } finally {
+    utimesSync(path, original.atime, original.mtime);
+  }
+}, 30000);
 
 test('the real coverage command rejects an unexecuted file and branch', () => {
   const probe = 'src/coverage-probe.ts';
   expect(existsSync(probe)).toBe(false);
   try {
     writeFileSync(probe, 'export const probe = (value: boolean) => value ? 1 : 0;\n');
-    const result = spawnSync('npm', ['run', 'coverage'], { encoding: 'utf8' });
+    const result = spawnSync('npm', ['run', 'coverage:json'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
     expect(result.stdout + result.stderr).toContain('coverage-probe.ts');
   } finally {
     unlinkSync(probe);
-    // Restore fresh coverage for the actual source tree, never reuse probe results.
-    execFileSync('npm', ['run', 'coverage'], { stdio: 'inherit' });
   }
 }, 30000);
 
@@ -37,11 +52,10 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
   } finally {
     unlinkSync(unrelated);
     writeFileSync(main, original);
-    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
   try {
     writeFileSync(orphan, 'pub fn uncompiled() {}\n');
-    const missingFile = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const missingFile = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
     expect(missingFile.status).not.toBe(0);
     expect(missingFile.stdout + missingFile.stderr).toContain('Missing coverage');
   } finally {
@@ -56,11 +70,11 @@ test('the report gate fails closed when a required report is missing or incomple
   const original = readFileSync(path, 'utf8');
   renameSync(path, backup);
   try {
-    const missing = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const missing = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^frontend and tooling coverage$'], { encoding: 'utf8' });
     expect(missing.status).not.toBe(0);
     expect(missing.stdout + missing.stderr).toContain('ENOENT');
     writeFileSync(path, '{}');
-    const incomplete = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const incomplete = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^frontend and tooling coverage$'], { encoding: 'utf8' });
     expect(incomplete.status).not.toBe(0);
     expect(incomplete.stdout + incomplete.stderr).toContain('Missing coverage');
   } finally {
@@ -77,14 +91,13 @@ test('test and coverage commands discover additional frontend and tooling suites
     for (const path of paths) {
       writeFileSync(path, `import { test, expect } from 'vitest';\ntest('${path}', () => expect('discovery probe').toBe('must fail'));\n`);
     }
-    for (const command of ['test', 'coverage']) {
+    for (const command of ['test', 'coverage:json']) {
       const result = spawnSync('npm', ['run', command], { encoding: 'utf8' });
       expect(result.status).not.toBe(0);
       for (const path of paths) expect(result.stdout + result.stderr).toContain(path);
     }
   } finally {
     for (const path of paths) unlinkSync(path);
-    execFileSync('npm', ['run', 'coverage'], { stdio: 'inherit' });
   }
 }, 30000);
 
@@ -105,7 +118,6 @@ test('the native CSP test rejects a permissive connection policy', () => {
   } finally {
     unlinkSync(unrelated);
     writeFileSync(path, original);
-    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
 }, 180000);
 
@@ -134,7 +146,6 @@ test('backend coverage requires unit execution even when integration tests cover
     writeFileSync(library, original);
     unlinkSync(integration);
     unlinkSync(unrelated);
-    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
 }, 180000);
 
@@ -145,13 +156,13 @@ test('the unit-only report is mandatory and cannot be replaced by boundary cover
   expect(existsSync(backup)).toBe(false);
   try {
     renameSync(path, backup);
-    const missing = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const missing = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
     expect(missing.status).not.toBe(0);
     expect(missing.stdout + missing.stderr).toContain('ENOENT');
     const incomplete = JSON.parse(original);
     incomplete.data[0].files = [];
     writeFileSync(path, JSON.stringify(incomplete));
-    const result = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
     expect(result.stdout + result.stderr).toContain('Missing coverage');
   } finally {
@@ -170,7 +181,5 @@ test('the wrapper exception guard rejects added startup behavior', () => {
     expect(result.stdout + result.stderr).toContain('startup/build exceptions');
   } finally {
     writeFileSync(path, original);
-    // Refresh the boundary report after restoring the source timestamp.
-    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
 }, 120000);

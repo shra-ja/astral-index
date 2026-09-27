@@ -57,6 +57,7 @@ internet access; stored-history operations remain local. See
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage::tests` | SQLite internal failure-injection tests |
 | `npm test` | UI behavior and coverage-validator tests |
 | `npm run coverage` | Fresh frontend/tooling coverage with 100% per-file thresholds |
+| `npm run coverage:json` | The same frontend/tooling gate without HTML rendering |
 | `npm run build` | Strict TypeScript checks, including tests, and bundled web assets |
 | `npm run test:native` | Instrumented Rust build/tests, native UI/keyboard/close tests, LLVM reports |
 | `npm run test:offline` | Native test in a namespace with no external network route |
@@ -64,10 +65,17 @@ internet access; stored-history operations remain local. See
 | `npm run test:rust-integration` | Run the instrumented Cargo test suite without launching the desktop |
 | `npm run test:native-smoke` | Build and exercise the native desktop without running backend tests |
 | `npm run coverage:native-report` | Render JSON/HTML from the current native execution counters |
-| `npm run test:probes` | Deliberate missing-report, uncovered-file and Rust branch failures |
+| `npm run test:probes` | Prepare JSON evidence, run scoped enforcement probes, then regenerate and validate full coverage |
 | `npm run coverage:verify` | Validate frontend, Rust unit-only and startup/build coverage against source inventories and modification times |
 | `npm run check` | All coverage, build/type, offline native, probe, format and lint gates |
 | `npm run tauri -- build --no-bundle` | Production executable; installer packaging is deferred |
+
+`npm run check` builds the frontend, runs the probe pipeline and its final full
+test/coverage validation, then checks reports, formatting and Clippy. Probes
+restore each mutation immediately; their final hook regenerates authoritative
+JSON/HTML reports once, including after a failed probe. Tests and per-file
+coverage thresholds are unchanged. `test:probes` needs bundled frontend assets;
+run `npm run build` first when invoking it separately.
 
 Frontend tests live in `src/tests/`, Rust unit tests beside their implementation
 in `src-tauri/src/`, backend integration tests and fixtures in `src-tauri/tests/`,

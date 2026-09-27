@@ -35,3 +35,21 @@ export function nativeReport(directory: string, html: boolean): void {
   nativeCargo(['llvm-cov', 'report', '--include-build-script', '--json', '--output-path', resolve(directory, 'coverage.json')]);
   if (html) nativeCargo(['llvm-cov', 'report', '--include-build-script', '--html', '--output-dir', resolve(directory)]);
 }
+
+/** Freeze unit evidence before integration execution. */
+export function nativeUnitCoverage(html: boolean): void {
+  rmSync('coverage/native-unit', { recursive: true, force: true });
+  resetNativeCoverage();
+  nativeCargo(['test', '--lib', '--locked', '--offline']);
+  nativeReport('coverage/native-unit', html);
+}
+
+/** Regenerate authoritative evidence after all mutations have been restored. */
+export function refreshProbeCoverage(): void {
+  for (const directory of ['coverage/frontend', 'coverage/native-unit', 'coverage/native']) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+  for (const command of ['coverage', 'test:offline', 'coverage:verify']) {
+    execFileSync('npm', ['run', command], { stdio: 'inherit' });
+  }
+}
