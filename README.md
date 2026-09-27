@@ -91,6 +91,33 @@ The executable is `src-tauri/target/release/roll-tracker`. Reports live in
 `coverage/frontend/` and `coverage/native/`; the native screenshot is
 `test-results/native-shell.png`. These outputs are ignored by Git.
 
+### Optional: Windows executable for manual verification
+
+To check behaviour in a native Windows process without a Windows toolchain,
+cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
+experimental; it is not a release process, and installers and signing remain
+milestone 6 work. It was used for the
+[native Windows verification](docs/HSR-API-RESEARCH.md#native-windows-verification-2026-09-27).
+
+```sh
+sudo apt-get install -y clang lld llvm
+rustup target add x86_64-pc-windows-msvc --toolchain nightly-2026-09-16
+cargo install cargo-xwin --version 0.23.1 --locked
+asdf reshim
+npm run tauri -- build --runner cargo-xwin --target x86_64-pc-windows-msvc --no-bundle
+```
+
+`cargo-xwin` downloads Microsoft's C runtime and Windows SDK files on first use.
+Using it means accepting the
+[Microsoft Build Tools license](https://go.microsoft.com/fwlink/?LinkId=2086102);
+read it before the first build. The executable is
+`src-tauri/target/x86_64-pc-windows-msvc/release/roll-tracker.exe`. Copy it to a
+Windows folder and start it from Explorer; it needs the WebView2 runtime, which
+Windows 11 includes. Linker warnings about missing `libcmt` debug information are
+harmless. The release executable currently opens a console window beside the app.
+`src-tauri/icons/icon.ico`, generated from `source.svg` with `npx tauri icon`,
+is required for Windows builds.
+
 ## Project context
 
 [AGENTS.md](AGENTS.md) supplies persistent instructions. All code changes require
