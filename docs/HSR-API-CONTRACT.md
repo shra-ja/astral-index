@@ -18,14 +18,37 @@ Reject redirects outside this endpoint rather than forwarding credentials.
 | `sign_type` | Preserve cached signature mode; `2` worked. Its internal meaning is outside this contract. |
 | `game_biz` | `hkrpg_global` for the tested global service. |
 | `lang` | Preserve requested language; `en` was tested. Keep it fixed during acquisition. |
-| `gacha_type` | One of the string category codes below; query each selected category separately. |
+| `gacha_type` | One of the string category codes below; query each known category separately. |
 | `page` | Optional in the sampled cursor test: omission returned identical records. Send it to mirror the observed in-game client: start at `1` and increment after full pages. |
 | `size` | Default to `1000` records per request. `5000` is the largest tested value, not the default or a proven server maximum. Pagination retrieves remaining records; no higher-limit testing is required. |
 | `end_id` | String `0` initially, then the preceding successful page's last record ID, unchanged. Omitting it while incrementing `page` repeated the first ten records in all five test requests. |
 
 These nine fields form the working request recipe. `page` was also successfully
 omitted in the sampled test; necessity of the other individual fields has not
-been isolated. No account-probing requests are required before acquisition.
+been isolated.
+
+### Auth-key validation
+
+Before building paged requests, validate extracted contexts in reverse file
+order, matching the researched extraction method. Newer cache entries often sit
+later in the file, but byte position is not chronological, so reverse order only
+reduces expected requests; it does not establish key age or validity. Validate
+at most five distinct contexts per acquisition.
+
+Send each context's cached request unchanged, after the same URL and
+endpoint validation as every other request. Use the first context whose request
+returns `retcode: 0` with a valid response page. Assume one cache file holds
+requests for a single account. Do not import records from the validation
+response; pagination retrieves them.
+
+An expired key (`-101`) or any other nonzero `retcode` rejects that context, and
+validation moves to the next one. If no validated context works, or the
+five-context limit is reached, stop with an actionable error without writing
+history. Report an expired key if any context returned `-101`, and ask the user
+to refresh the key by opening the in-game warp history. Transient failures use
+the retry policy below and count toward the acquisition's retry budget. A rate-limit error or an exhausted budget stops
+acquisition. Validation makes one request per context, and it is the only
+request made before pagination.
 
 ## Observed response fields
 
@@ -177,7 +200,7 @@ observed client convention, while using `end_id` to advance the records. A separ
 five-request run incrementing `page` without `end_id` repeated the first ten records
 on every request. Page metadata therefore does not establish progress; advancing
 the cursor is necessary for the tested recipe.
-For each selected category, keep authentication, language and size fixed; start
+For each category, keep authentication, language and size fixed; start
 with page 1/cursor `0`. Validate each successful response, then compare the number
 of records in `list` with the requested `size`:
 
@@ -196,9 +219,10 @@ that changes during pagination is deferred; no additional requests or automatic
 restarts are required to detect concurrent rolls. Existing duplicate, conflict
 and cursor-progress checks remain in place.
 
-Fetch selected categories sequentially with no speculative prefetch or duplicate
-account probes. Request `1000` records per page by default to balance request
-count with smaller response batches.
+Fetch all six known categories sequentially, with no speculative prefetch and
+no account probes beyond [auth-key validation](#auth-key-validation). Request
+`1000` records per page by default to balance request count with smaller
+response batches.
 Only explicit user actions start acquisition; no background synchronisation.
 Keep finite timeouts, cancellation and request/byte bounds even under the accepted
 small-account assumption. Existing parsing/storage limits are 2 MiB per response
@@ -237,7 +261,7 @@ If retry fails or its budget is exhausted, report the failure and leave stored
 history unchanged. Client implementation and mocked retry tests belong to milestone 3.
 
 Accept complete retained history and manageable per-account volume as product
-assumptions. Fetch all pages for all selected categories, preserve previously
+assumptions. Fetch all pages for all known categories, preserve previously
 stored rolls, and never delete old rolls merely because a later response omits
 them. A completed fetch means the assumed retained history for the selected scope
 has been retrieved. This does not turn sample evidence into a verified lifetime
@@ -248,9 +272,9 @@ retention research or unbounded-volume architecture blocks milestone 2.
 
 Milestone 2's contract task is complete under these explicitly accepted assumptions.
 The existing parser and transactional services remain unchanged. Milestone 3 must
-implement the single-endpoint client, bounded retry/pagination policy, context
-resolution and actionable failure UI with synthetic TDD
-and the existing full coverage gates. The initial contract review used saved
+implement the single-endpoint client, auth-key validation, bounded
+retry/pagination policy, context resolution and actionable failure UI with
+synthetic TDD and the existing full coverage gates. The initial contract review used saved
 responses; subsequent user-authorized page-parameter comparisons and the
 expired-key check are documented in research. The contract's initial decisions
 are settled; acquisition and user-visible error handling remain to be implemented.
