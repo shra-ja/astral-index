@@ -315,10 +315,10 @@ live installation or credential validity. No private source or live API was used
 
 | Source | Current support and evidence |
 | --- | --- |
-| User-provided cache file (fallback) | Native service implemented; framing supported by earlier cache research and local synthetic file tests. File-upload UI pending. |
-| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify the two-newest-version window, numeric ordering, the unsupported unversioned layout and missing caches. Native Windows and real WSL-mounted installation verification pending. |
-| Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented. Mocked OS and synthetic subprocess tests pass; real Windows interop/installation verification pending. |
-| Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Script inspection and synthetic tests support the layout; native Windows and real installation verification pending. |
+| User-provided cache file (fallback) | Native service and file chooser implemented. A real `data_2` extracted successfully from WSL on 2026-09-27; see [WSL verification](#wsl-installation-verification-2026-09-27). Native Windows pending. |
+| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify the two-newest-version window, numeric ordering, the unsupported unversioned layout and missing caches. A real WSL-mounted installation with version folders worked on 2026-09-27. Native Windows pending. |
+| Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented and verified against a real custom-drive installation on 2026-09-27, including while the game was running. |
+| Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Worked through WSL on a real installation on 2026-09-27; which log supplied the path is not reported. Native Windows pending. |
 | macOS installation discovery | Unverified and unimplemented. |
 
 Windows is the initial game-installation target, with discovery intended from
@@ -371,3 +371,37 @@ file upload remains the fallback. Redirected roaming profiles whose logs
 are not in the derived sibling LocalLow location are not verified.
 Real Windows Known Folder behavior, WSL Windows-process cancellation, actual
 game-log/cache layouts and desktop extraction controls remain to be verified/connected.
+
+## WSL installation verification (2026-09-27)
+
+The user ran the desktop app from WSL (Ubuntu, with Windows interop) against a
+real Honkai: Star Rail installation on Windows, installed at a custom location on
+drive D:. Only outcome categories, yes/no answers and version-folder names were
+reported; no paths, usernames, URLs, keys or file contents were shared or stored.
+
+| Check | Result |
+| --- | --- |
+| Automatic search, game closed, warp history opened recently | Success: a request was found. |
+| Automatic search, game running, warp history just opened | Success. Reading `data_2` was not blocked while the game ran. |
+| `webCaches` layout | Several version folders (for example `2.47.0.0`, `2.49.0.0`, `2.53.0.0`), each with a `Cache` folder directly inside. No unversioned `webCaches/Cache` folder. |
+| Latest version's `data_2` renamed | Automatic search still succeeded, from an older version's cache. This led to the two-version window (PR #10). |
+| File fallback, choosing the latest `data_2` directly | Success. The chooser then misleadingly showed "no file selected", fixed in PR #11. |
+
+This establishes, for WSL:
+
+- Current-user AppData lookup through PowerShell, `wslpath` translation, player-log
+  discovery, a custom-drive game path and versioned `webCaches` resolution work on
+  a real installation.
+- Cache reads succeed while the game is running.
+- The file fallback extracts from a real `data_2`.
+
+It does not establish:
+
+- Which of the two logs supplied the game path, or which version's cache was used:
+  the app deliberately reports neither.
+- That the automatic runs match the current two-version window: they used a build
+  from before PR #10. The latest version held a cache, which both rules try first,
+  so the outcome should be unchanged, but it was not re-run.
+- Key validity: no history request was made.
+- Native Windows behavior, which remains pending.
+

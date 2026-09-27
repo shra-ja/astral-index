@@ -142,7 +142,7 @@ the order listed.
   Windows and WSL, and record
   supported and unsupported sources with evidence.
   - [ ] Verify automatic extraction against a real installation from native Windows.
-  - [ ] Verify automatic extraction against a real installation from WSL.
+  - [x] Verify automatic extraction against a real installation from WSL.
   - [ ] Record supported and unsupported sources with evidence.
 - [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
   native client: single tested endpoint, 1000-record default pages, cursor pagination,
