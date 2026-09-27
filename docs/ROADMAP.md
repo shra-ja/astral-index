@@ -153,7 +153,7 @@ the order listed.
   - [x] Build single-endpoint requests from an extracted context: fixed
     authentication, language and size, 1000-record default pages, and page and
     cursor parameters.
-  - [ ] Add a mockable transport with finite timeouts that enforces the 2 MiB
+  - [x] Add a mockable transport with finite timeouts that enforces the 2 MiB
     response bound while receiving data. Record the HTTP dependency choice.
   - [ ] Classify outcomes as actionable failures: `-101` expired key, other
     nonzero codes, rate limits, malformed responses, and transient connection
