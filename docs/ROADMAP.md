@@ -107,35 +107,89 @@ foundation for the first API-import feature, not a separate file-import release.
 Moved forward from former milestone 5; depends on milestone 2's parser and
 transactional import services.
 
-- [ ] Verify HSR cache/request discovery for Windows installations, from both
-  Windows and WSL, and record
-  supported and unsupported sources with evidence.
+Each unchecked sub-step is one deliverable increment on its own short-lived
+branch. Check a parent item only when all of its steps are checked. Steps run in
+the order listed.
+
 - [ ] Connect user-requested automatic discovery and extraction, locating `data_2`
   internally in the supported cache directory. If discovery fails, accept a
   user-provided cache file as the alternative. Do not require users to select a
   discovered cache or game-data directory. Cache files supply request context,
   not standalone roll-history exports.
-  Native bounded file reading, request extraction, game-data cache resolution and
-  Player.log/Player-prev.log reading are implemented. Current-user discovery
-  resolves Windows' roaming AppData and translates WSL paths through bounded
-  helpers. Mocked unit and synthetic real-file/subprocess tests pass.
-  Connecting these helpers into automatic extraction, desktop controls for the
-  two actions, and real Windows/WSL verification remain pending.
+  - [x] Read a selected cache file within size bounds without modifying it,
+    rejecting non-regular files. Extract the encoded request-context fields,
+    validate the exact endpoint, deduplicate contexts in first-seen order and
+    redact credentials from debug output (`55e09f3`, `a0eb47f`).
+  - [x] Resolve legacy and versioned `webCaches` layouts in a game-data directory,
+    returning versions in numeric descending order (`55e09f3`).
+  - [x] Read game-data directories from bounded `Player.log` and `Player-prev.log`
+    headers with independent outcomes and explicit WSL drive mapping (`0fc2cc7`).
+  - [x] Resolve the current user's roaming AppData on native Windows and on WSL
+    through bounded, killable helpers, without profile scans
+    ([decision 0005](decisions/0005-current-user-windows-discovery.md), `4b360f2`).
+  - [ ] Compose current-user discovery, `data_2` resolution and extraction into
+    one native automatic-extraction service, tested with mocked OS and file APIs.
+    Assume a single cache file holds requests for one account, and return its
+    contexts in first-seen order.
+  - [ ] Expose automatic extraction and the user-provided cache file fallback
+    through narrow Tauri commands and permissions. Keep paths native-only. Hold
+    extracted auth keys only in short-lived native memory, never persisted or
+    sent to the frontend.
+  - [ ] Add accessible HSR controls for both actions, with readable empty,
+    failure and fallback states.
+- [ ] Verify HSR cache/request discovery for Windows installations, from both
+  Windows and WSL, and record
+  supported and unsupported sources with evidence.
+  - [ ] Verify automatic extraction against a real installation from native Windows.
+  - [ ] Verify automatic extraction against a real installation from WSL.
+  - [ ] Record supported and unsupported sources with evidence.
 - [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
   native client: single tested endpoint, 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry
   per transiently failed request, at most two extra attempts per acquisition, and
   synthetic request mocks. No background or automatic fetching.
+  - [ ] Build single-endpoint requests from an extracted context: fixed
+    authentication, language and size, 1000-record default pages, and page and
+    cursor parameters.
+  - [ ] Add a mockable transport with finite timeouts that enforces the 2 MiB
+    response bound while receiving data. Record the HTTP dependency choice.
+  - [ ] Classify outcomes as actionable failures: `-101` expired key, other
+    nonzero codes, rate limits, malformed responses, and transient connection
+    failures or HTTP 5xx. Do not expose raw messages or payloads.
+  - [ ] Validate extracted contexts in first-seen order by sending each cached
+    request unchanged, and use the first whose auth key works. If none works,
+    stop with an actionable error
+    ([auth-key validation](HSR-API-CONTRACT.md#auth-key-validation)).
+  - [ ] Paginate each category by cursor. Stop on a short page, advance on a full
+    page, reject repeated cursors and cycles, and enforce the 16 MiB batch bound.
+    Fetch all six known categories sequentially.
+  - [ ] Apply the retry budget: one retry per transiently failed request after a
+    short bounded delay, and at most two extra attempts per acquisition.
+  - [ ] Support cancellation that stops further requests and writes nothing.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
   Expose a narrow native review DTO with validated account/server/context, records
   and conflict locations, plus safe page/record indices for validation failures.
   Do not reparse private source bytes in the frontend or expose credentials/raw
   payloads in diagnostics.
+  - [ ] Build the native review DTO from an acquisition preview.
+  - [ ] Expose acquisition-to-preview, commit and cancel through narrow Tauri
+    commands. Clear the auth key from memory when the import completes, fails
+    or is cancelled.
+  - [ ] Add accessible review and commit controls for the preview.
+  - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.
+  - [ ] Verify request, preview, commit, restart and display end to end with
+    synthetic request mocks.
+  - [ ] Verify that repeat and overlapping fetches, account isolation,
+    cancellation and failure recovery leave stored history correct, and that
+    no auth key is persisted.
 - [ ] At the end of this milestone, verify auth-key/account binding, response UID
   and server mapping, account switching, and empty/missing-context handling before
   declaring the milestone complete; preserve existing service isolation checks.
+  - [ ] Verify auth-key/account binding and response UID and server mapping.
+  - [ ] Verify account switching and empty or missing-context handling.
+  - [ ] Confirm the existing service isolation checks still pass.
 
 Done when an explicit user request retrieves HSR history through the API,
 previews and commits it locally, and displays it after restart without duplicate
