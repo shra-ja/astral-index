@@ -31,7 +31,7 @@ document.querySelector('main')!.innerHTML = `
       <p>First, find the warp history request the game saved on this device.
         Nothing is sent anywhere.</p>
       <button type="button">Find automatically</button>
-      <div class="fallback" hidden>
+      <div class="fallback">
         <label for="cache-file">Or choose the game’s <code>data_2</code> cache file</label>
         <p class="detail" id="cache-file-hint">It’s in the game’s <code>webCaches</code> folder,
           under <code>Cache\\Cache_Data</code>.</p>
@@ -47,7 +47,6 @@ const game = document.querySelector<HTMLSelectElement>('#game')!;
 const heading = document.querySelector('h2')!;
 const retrieval = document.querySelector<HTMLElement>('.retrieval')!;
 const find = retrieval.querySelector('button')!;
-const fallback = retrieval.querySelector<HTMLElement>('.fallback')!;
 const cacheFile = retrieval.querySelector<HTMLInputElement>('#cache-file')!;
 const status = retrieval.querySelector('.extraction-status')!;
 
@@ -86,15 +85,17 @@ async function extract(progress: string, action: () => Promise<Failure | undefin
 
 find.addEventListener('click', async () => {
   const failure = await extract('Searching this device…', extractAutomatically);
-  if (failure) fallback.hidden = false;
   status.textContent = failure ? automaticMessages[failure] ?? unexpected : found;
 });
+
+// Clear only as the dialog opens: the chosen file stays shown with its result,
+// and choosing the same file again still fires a change.
+cacheFile.addEventListener('click', () => { cacheFile.value = ''; });
 
 cacheFile.addEventListener('change', async () => {
   const file = cacheFile.files![0];
   if (!file) return;
   const failure = await extract('Reading the file…', () => extractFromFile(file));
-  cacheFile.value = '';
   status.textContent = failure ? fileMessages[failure] ?? unexpected : found;
 });
 

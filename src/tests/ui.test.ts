@@ -52,12 +52,12 @@ test('switches games and switches back without inventing history or statistics',
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i);
 });
 
-test('Star Rail offers automatic extraction first, with the file fallback hidden', () => {
+test('Star Rail offers automatic extraction and the file chooser together', () => {
   selectStarRail();
   expect(panel().hidden).toBe(false);
   expect(findButton().textContent).toBe('Find automatically');
   expect(findButton().type).toBe('button');
-  expect(fallback().hidden).toBe(true);
+  expect(fallback().hidden).toBe(false);
   expect(document.querySelector<HTMLLabelElement>('.fallback label')?.htmlFor).toBe(fileInput().id);
   expect(extractionStatus()).toBe('');
   expect(panel().textContent).toContain('Nothing is sent anywhere');
@@ -76,10 +76,10 @@ test('automatic extraction shows progress, then success without revealing detail
   expect(findButton().disabled).toBe(false);
   expect(panel().getAttribute('aria-busy')).toBe('false');
   expect(extractionStatus()).toContain('Found your warp history request.');
-  expect(fallback().hidden).toBe(true);
+  expect(fallback().hidden).toBe(false);
 });
 
-test('each automatic failure explains what to do and offers the file fallback', async () => {
+test('each automatic failure explains what to do next', async () => {
   selectStarRail();
   for (const [failure, message] of [
     ['unsupported_host', 'Automatic search needs Windows'],
@@ -98,11 +98,8 @@ test('each automatic failure explains what to do and offers the file fallback', 
   }
 });
 
-test('choosing a cache file extracts from it, and each file failure is explained', async () => {
+test('choosing a cache file extracts from it without an automatic search first', async () => {
   selectStarRail();
-  mockIPC(() => { throw 'unsupported_host'; });
-  findButton().click();
-  await settle();
   const sent: unknown[] = [];
   mockIPC((cmd, payload) => { sent.push(cmd, payload); });
   choose(new File(['synthetic'], 'data_2'));
@@ -112,7 +109,6 @@ test('choosing a cache file extracts from it, and each file failure is explained
   expect(sent[0]).toBe('extract_from_file');
   expect(extractionStatus()).toContain('Found your warp history request.');
   expect(fileInput().disabled).toBe(false);
-  expect(fileInput().value).toBe('');
   for (const [failure, message] of [
     ['no_request', 'doesn’t contain a warp history request'],
     ['file_too_large', 'larger than 16 MiB'],
@@ -129,6 +125,22 @@ test('choosing a cache file extracts from it, and each file failure is explained
   fileInput().dispatchEvent(new Event('change'));
   expect(extractionStatus()).toContain('Something went wrong');
   expect(fileInput().disabled).toBe(false);
+});
+
+test('the chosen file stays shown after extraction and is cleared only to choose again', async () => {
+  selectStarRail();
+  mockIPC(() => undefined);
+  const writes: string[] = [];
+  Object.defineProperty(fileInput(), 'value', {
+    configurable: true, get: () => 'data_2', set: (value: string) => { writes.push(value); },
+  });
+  choose(new File(['synthetic'], 'data_2'));
+  await settle();
+  expect(extractionStatus()).toContain('Found your warp history request.');
+  expect(writes).toEqual([]);
+  // Clearing before the dialog opens lets the same file be chosen again.
+  fileInput().click();
+  expect(writes).toEqual(['']);
 });
 
 test('switching back to Genshin Impact hides the Star Rail controls', () => {

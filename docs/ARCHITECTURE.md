@@ -118,7 +118,7 @@ file fallback does pass cache bytes through webview memory; see
 In the webview, `src/commands.ts` wraps both commands through `@tauri-apps/api`,
 maps unknown rejections to `unavailable`, and rejects files over 16 MiB before
 reading them. `src/main.ts` shows the Star Rail extraction panel: automatic
-search first, then the file chooser as the fallback after any automatic failure.
+search first, with the file chooser always available below it as the fallback.
 Both actions are disabled while either runs, so results cannot arrive out of
 order. Success only confirms a request was found; nothing is fetched yet.
 
