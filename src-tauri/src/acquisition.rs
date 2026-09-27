@@ -32,15 +32,19 @@ pub enum CacheError {
 }
 
 /// Resolve documented layouts only beneath a selected Windows game-data directory.
+/// Auth keys last about a day, so only the latest and previous game versions can
+/// hold a valid key; the previous one only just after an update. Only versioned
+/// `webCaches/<version>` folders are supported.
 pub fn discover_cache_files(game_data: &Path) -> Result<Vec<std::path::PathBuf>, CacheError> {
     let root = game_data.join("webCaches");
     let mut entries = fs::read_dir(&root).map_err(unreadable)?;
-    resolve_cache_entries(&root, &mut entries)
+    resolve_cache_entries(&mut entries)
 }
+
+const CACHE_VERSIONS: usize = 2;
 
 // Separate enumeration to exercise mid-directory I/O failures without OS races.
 fn resolve_cache_entries(
-    root: &Path,
     entries: &mut dyn Iterator<Item = std::io::Result<fs::DirEntry>>,
 ) -> Result<Vec<std::path::PathBuf>, CacheError> {
     let mut versions = Vec::new();
@@ -53,19 +57,22 @@ fn resolve_cache_entries(
             continue;
         }
         let version: Result<Vec<u32>, _> = parts.iter().map(|part| part.parse()).collect();
+        // Version folders count even without a cache, so a missing latest cache
+        // cannot promote an older version into the window.
         if let Ok(version) = version {
-            let path = entry.path().join("Cache/Cache_Data/data_2");
-            if fs::metadata(&path).is_ok_and(|metadata| metadata.is_file()) {
+            let path = entry.path();
+            if !fs::metadata(&path).is_ok_and(|metadata| metadata.is_file()) {
                 versions.push((version, path));
             }
         }
     }
     versions.sort_by(|a, b| b.cmp(a));
-    let mut paths: Vec<_> = versions.into_iter().map(|(_, path)| path).collect();
-    let legacy = root.join("Cache/Cache_Data/data_2");
-    if fs::metadata(&legacy).is_ok_and(|metadata| metadata.is_file()) {
-        paths.push(legacy);
-    }
+    let paths: Vec<_> = versions
+        .into_iter()
+        .take(CACHE_VERSIONS)
+        .map(|(_, path)| path.join("Cache/Cache_Data/data_2"))
+        .filter(|path| fs::metadata(path).is_ok_and(|metadata| metadata.is_file()))
+        .collect();
     if paths.is_empty() {
         return Err(CacheError::NoCacheFound);
     }
@@ -289,10 +296,7 @@ pub(crate) mod tests {
     #[test]
     fn directory_enumeration_failure_never_returns_partial_candidates() {
         assert_eq!(
-            resolve_cache_entries(
-                Path::new("synthetic"),
-                &mut [Err(io::Error::other("private path"))].into_iter()
-            ),
+            resolve_cache_entries(&mut [Err(io::Error::other("private path"))].into_iter()),
             Err(CacheError::Unreadable)
         );
     }
@@ -337,7 +341,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn discovery_checks_only_documented_paths_and_sorts_numeric_versions() {
+    fn discovery_checks_only_the_two_newest_version_folders() {
         let directory = Path::new("selected");
         let root = directory.join("webCaches");
         filesystem::install(Default::default());
@@ -351,33 +355,74 @@ pub(crate) mod tests {
             Err(CacheError::NoCacheFound)
         );
         let legacy = root.join("Cache/Cache_Data/data_2");
-        let old = root.join("2.9.0.0/Cache/Cache_Data/data_2");
-        let new = root.join("2.10.0.0/Cache/Cache_Data/data_2");
+        let oldest = root.join("2.9.0.0/Cache/Cache_Data/data_2");
+        let previous = root.join("2.10.0.0/Cache/Cache_Data/data_2");
+        let latest = root.join("3.0.0.0/Cache/Cache_Data/data_2");
+        let entries = |names: &[&str]| {
+            Some(
+                names
+                    .iter()
+                    .map(|name| Ok(filesystem::DirEntry(root.join(name))))
+                    .collect(),
+            )
+        };
+        // A file with a version-like name is not a version folder.
         filesystem::install(filesystem::Fixture {
-            entries: Some(
-                [
-                    "Cache",
-                    "2.9.0.0",
-                    "2.10.0.0",
-                    "3.0.0.0",
-                    "4.x.0.0",
-                    "9999999999999999999.0.0.0",
-                ]
-                .into_iter()
-                .map(|name| Ok(filesystem::DirEntry(root.join(name))))
-                .collect(),
-            ),
+            entries: entries(&[
+                "Cache",
+                "2.9.0.0",
+                "3.0.0.0",
+                "2.10.0.0",
+                "4.x.0.0",
+                "5.0.0.0",
+                "9999999999999999999.0.0.0",
+            ]),
             files: [
                 (legacy.clone(), vec![]),
-                (old.clone(), vec![]),
-                (new.clone(), vec![]),
+                (oldest.clone(), vec![]),
+                (previous.clone(), vec![]),
+                (latest.clone(), vec![]),
+                (root.join("5.0.0.0"), vec![]),
             ]
             .into(),
             ..Default::default()
         });
-        assert_eq!(discover_cache_files(directory).unwrap(), [new, old, legacy]);
+        assert_eq!(
+            discover_cache_files(directory).unwrap(),
+            [latest.clone(), previous.clone()]
+        );
         filesystem::inspect(|state| {
-            assert!(state.accessed.iter().all(|path| path.starts_with(&root)))
+            assert!(state.accessed.iter().all(|path| path.starts_with(&root)));
+            assert!(!state.accessed.contains(&oldest));
+            assert!(!state.accessed.contains(&legacy));
         });
+        // Without the latest file, the previous version is the only candidate.
+        filesystem::install(filesystem::Fixture {
+            entries: entries(&["2.9.0.0", "3.0.0.0", "2.10.0.0"]),
+            files: [(oldest.clone(), vec![]), (previous.clone(), vec![])].into(),
+            ..Default::default()
+        });
+        assert_eq!(discover_cache_files(directory).unwrap(), [previous]);
+        // Caches older than the previous version are never used, nor is legacy.
+        filesystem::install(filesystem::Fixture {
+            entries: entries(&["2.9.0.0", "3.0.0.0", "2.10.0.0"]),
+            files: [(legacy.clone(), vec![]), (oldest, vec![])].into(),
+            ..Default::default()
+        });
+        assert_eq!(
+            discover_cache_files(directory),
+            Err(CacheError::NoCacheFound)
+        );
+        // The unversioned layout is unsupported, even without version folders.
+        filesystem::install(filesystem::Fixture {
+            entries: entries(&["Cache", "4.x.0.0"]),
+            files: [(legacy.clone(), vec![])].into(),
+            ..Default::default()
+        });
+        assert_eq!(
+            discover_cache_files(directory),
+            Err(CacheError::NoCacheFound)
+        );
+        filesystem::inspect(|state| assert!(!state.accessed.contains(&legacy)));
     }
 }

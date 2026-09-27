@@ -391,10 +391,10 @@ mod tests {
             }
             bytes
         }
-        fn data_2(game: &str, version: Option<&str>) -> PathBuf {
-            let root = Path::new(game).join("webCaches");
-            version
-                .map_or(root.clone(), |version| root.join(version))
+        fn data_2(game: &str, version: &str) -> PathBuf {
+            Path::new(game)
+                .join("webCaches")
+                .join(version)
                 .join("Cache/Cache_Data/data_2")
         }
         fn listing(game: &str, versions: &[&str]) -> (PathBuf, Vec<PathBuf>) {
@@ -427,19 +427,12 @@ mod tests {
             filesystem::install(Fixture {
                 listings: BTreeMap::from([
                     listing("D:/Current", &["2.10.0.0", "2.9.0.0"]),
-                    listing("E:/Previous", &[]),
+                    listing("E:/Previous", &["1.0.0.0"]),
                 ]),
                 files: BTreeMap::from([
-                    (
-                        data_2("D:/Current", Some("2.10.0.0")),
-                        b"no request".to_vec(),
-                    ),
-                    (
-                        data_2("D:/Current", Some("2.9.0.0")),
-                        cache(&["older", "newer"]),
-                    ),
-                    (data_2("D:/Current", None), cache(&["legacy"])),
-                    (data_2("E:/Previous", None), cache(&["other-install"])),
+                    (data_2("D:/Current", "2.10.0.0"), b"no request".to_vec()),
+                    (data_2("D:/Current", "2.9.0.0"), cache(&["older", "newer"])),
+                    (data_2("E:/Previous", "1.0.0.0"), cache(&["other-install"])),
                 ]),
                 ..Default::default()
             });
@@ -458,8 +451,8 @@ mod tests {
         #[test]
         fn falls_back_to_the_previous_log_and_skips_repeated_directories() {
             filesystem::install(Fixture {
-                listings: BTreeMap::from([listing("D:/Game", &[])]),
-                files: BTreeMap::from([(data_2("D:/Game", None), cache(&["previous"]))]),
+                listings: BTreeMap::from([listing("D:/Game", &["1.0.0.0"])]),
+                files: BTreeMap::from([(data_2("D:/Game", "1.0.0.0"), cache(&["previous"]))]),
                 ..Default::default()
             });
             assert_eq!(
@@ -496,17 +489,17 @@ mod tests {
             );
             filesystem::install(Fixture {
                 listings: BTreeMap::from([
-                    listing("D:/Game", &["3.0.0.0"]),
-                    listing("E:/Game", &[]),
+                    listing("D:/Game", &["3.0.0.0", "2.0.0.0"]),
+                    listing("E:/Game", &["1.0.0.0"]),
                 ]),
                 files: BTreeMap::from([
                     (
-                        data_2("D:/Game", Some("3.0.0.0")),
+                        data_2("D:/Game", "3.0.0.0"),
                         vec![0; crate::acquisition::MAX_CACHE_BYTES + 1],
                     ),
-                    (data_2("D:/Game", None), b"no request".to_vec()),
+                    (data_2("D:/Game", "2.0.0.0"), b"no request".to_vec()),
                 ]),
-                directories: vec![data_2("E:/Game", None)],
+                directories: vec![data_2("E:/Game", "1.0.0.0")],
                 ..Default::default()
             });
             assert_eq!(
@@ -515,8 +508,8 @@ mod tests {
             );
             // A later directory without caches must not mask a cache already found.
             filesystem::install(Fixture {
-                listings: BTreeMap::from([listing("D:/Game", &[])]),
-                files: BTreeMap::from([(data_2("D:/Game", None), b"no request".to_vec())]),
+                listings: BTreeMap::from([listing("D:/Game", &["1.0.0.0"])]),
+                files: BTreeMap::from([(data_2("D:/Game", "1.0.0.0"), b"no request".to_vec())]),
                 ..Default::default()
             });
             assert_eq!(

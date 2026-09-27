@@ -130,7 +130,7 @@ fn selected_file_is_read_only_and_bounded() {
 }
 
 #[test]
-fn discovers_windows_cache_layouts_in_numeric_version_order() {
+fn discovers_only_the_two_newest_windows_cache_versions() {
     let directory =
         std::env::temp_dir().join(format!("roll-tracker-discovery-{}", std::process::id()));
     fs::create_dir_all(&directory).unwrap();
@@ -164,15 +164,14 @@ fn discovers_windows_cache_layouts_in_numeric_version_order() {
         fs::create_dir(root.join(invalid)).unwrap();
     }
     fs::write(root.join("7.0.0.0"), b"not a directory").unwrap();
+    // 6.0.0.0 and 2.10.0.0 are the two newest version folders; 6.0.0.0 has no cache.
     let paths = discover_cache_files(&directory).unwrap();
-    assert_eq!(
-        paths,
-        [
-            root.join(layouts[2]),
-            root.join(layouts[1]),
-            root.join(layouts[0])
-        ]
-    );
+    assert_eq!(paths, [root.join(layouts[2])]);
     assert_eq!(read_selected_cache(&paths[0]).unwrap().len(), 1);
+    fs::remove_dir(root.join("6.0.0.0")).unwrap();
+    assert_eq!(
+        discover_cache_files(&directory).unwrap(),
+        [root.join(layouts[2]), root.join(layouts[1])]
+    );
     fs::remove_dir_all(directory).unwrap();
 }

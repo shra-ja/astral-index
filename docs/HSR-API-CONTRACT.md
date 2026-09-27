@@ -232,7 +232,9 @@ or silently commit chunks. The client must enforce bounds while receiving data.
 ## Errors and completeness
 
 Authentication expiry cannot be predicted. Do not schedule expiry checks or refresh
-attempts; the user updates the key when necessary. An expired cached key produced
+attempts; the user updates the key when necessary. The user reports that keys
+last about 24 hours, so extraction considers only the latest and previous game
+versions' caches. This is a stated assumption, not a measured lifetime. An expired cached key produced
 this response in the user-authorized 2026-09-24 check:
 
 | Field | Observed value |

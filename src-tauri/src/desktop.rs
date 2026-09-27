@@ -258,12 +258,16 @@ mod tests {
                     b"Loading player data from D:/Games/Star Rail/data.unity3d\n".to_vec(),
                 ),
                 (
-                    PathBuf::from("/volumes/games/Star Rail/webCaches/Cache/Cache_Data/data_2"),
+                    PathBuf::from("/volumes/games/Star Rail/webCaches/3.0.0.0/Cache/Cache_Data/data_2"),
                     cache("discovered"),
                 ),
             ]
             .into(),
-            entries: Some(vec![]),
+            listings: [(
+                PathBuf::from("/volumes/games/Star Rail/webCaches"),
+                vec![PathBuf::from("/volumes/games/Star Rail/webCaches/3.0.0.0")],
+            )]
+            .into(),
             ..Default::default()
         });
         let session = Session::default();

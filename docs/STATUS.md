@@ -257,6 +257,31 @@ All required per-file metrics are 100%, with no new exclusions.
 `npm run tauri -- build --no-bundle` passed on Linux. Real Windows/WSL
 verification remains pending.
 
+## Cache version window (2026-09-27)
+
+Work is on `fix/cache-version-window`, branched from `main` at `09f2ba3` (PR #9).
+In the user's WSL run, renaming the latest version's `data_2` still produced a
+success, from an older version's cache. The user reports auth keys last about 24
+hours, so only the latest and previous game versions can hold a valid key; the
+previous one only just after an update. Cache discovery now considers only the
+two newest version folders, latest first. A version folder counts even without
+a cache, so a missing latest cache cannot bring an older version into the window;
+a file with a version-like name is not a folder. At the user's direction, the
+unversioned `webCaches/Cache` layout is no longer supported.
+
+TDD: the updated resolver test failed while every version plus the unversioned
+layout were returned, and again while an unversioned-only cache was accepted;
+both then passed. Synthetic fixtures elsewhere moved to versioned caches. A
+test case of mine wrongly expected an in-window older version to be rejected
+and was corrected. The first full run then failed only on Clippy; binding the
+path once fixed it.
+
+`npm run check` then passed: 65 backend unit tests, 33 integration tests, 27
+frontend/tooling tests, native offline execution, eight enforcement probes, both
+report guards, TypeScript/build, formatting and Clippy. All required per-file
+metrics remain 100%, with no new exclusions. `npm run tauri -- build --no-bundle`
+passed on Linux. The WSL verification evidence itself is recorded separately.
+
 ## Next
 
 Verify automatic extraction against a real installation from native Windows and
