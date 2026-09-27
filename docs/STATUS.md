@@ -231,16 +231,41 @@ All required per-file metrics are 100%, including the isolated backend unit gate
 with no new exclusions. `npm run tauri -- build --no-bundle` passed on Linux.
 Real Windows/WSL verification remains pending.
 
+## HSR extraction controls (2026-09-27)
+
+Work is on `feat/extraction-controls`, branched from `main` at `4ff6d69` (PR #8).
+Selecting Honkai: Star Rail shows an extraction panel: "Find automatically"
+first, then a `data_2` file chooser as the fallback after any automatic failure.
+Each failure category has its own message saying what to try next; unexpected
+rejections show a generic retry message. Both actions are disabled and the panel
+is marked busy while either runs. Success only confirms a request was found.
+`src/commands.ts` is the typed client, through exactly pinned `@tauri-apps/api`
+2.11.1 (recorded in decision 0006). It rejects files over 16 MiB before reading
+them and maps unknown rejections to `unavailable`.
+
+TDD: five client tests and five UI tests failed against stubs or the old UI,
+then passed. The native test now presses the button with the keyboard in the
+real app, checks the unsupported-host message and the revealed fallback, then
+uploads a synthetic cache through the real file input and checks the success
+message. The app is started with an empty `WSL_DISTRO_NAME`, so it never launches
+Windows helpers from a WSL test host.
+
+`npm run check` passed: 65 backend unit tests, 33 integration tests, 27
+frontend/tooling tests, native offline execution with the new UI flow, eight
+enforcement probes, both report guards, TypeScript/build, formatting and Clippy.
+All required per-file metrics are 100%, with no new exclusions.
+`npm run tauri -- build --no-bundle` passed on Linux. Real Windows/WSL
+verification remains pending.
+
 ## Next
 
-Add accessible HSR controls for automatic extraction and the file fallback, with
-readable empty, failure and fallback states and a typed frontend command client.
-Check the file size before reading it in the webview. Then verify real Windows
-cache/log layouts from native Windows and WSL; synthetic tests do not establish
-installed-game compatibility. Then implement the contract's auth-key validation,
-cancellable HTTP client, bounded pagination/retries, review DTO, atomic commit
-and history display, clearing auth keys when an import ends. Account/server
-verification remains a milestone-closing requirement.
+Verify automatic extraction against a real installation from native Windows and
+from WSL, and record supported and unsupported sources with evidence. Synthetic
+tests do not establish installed-game compatibility. Then implement the
+contract's request building, transport, outcome classification, auth-key
+validation, pagination, retries and cancellation, followed by the review DTO,
+atomic commit and history display, clearing auth keys when an import ends.
+Account/server verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

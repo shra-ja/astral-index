@@ -1,10 +1,30 @@
-import { beforeEach, expect, test, vi } from 'vitest';
+import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 beforeEach(async () => {
   document.body.innerHTML = '<main></main>';
   vi.resetModules();
   await import('../main');
 });
+afterEach(clearMocks);
+
+const panel = () => document.querySelector<HTMLElement>('.retrieval')!;
+const findButton = () => panel().querySelector('button')!;
+const fallback = () => panel().querySelector<HTMLElement>('.fallback')!;
+const fileInput = () => fallback().querySelector<HTMLInputElement>('input[type="file"]')!;
+const extractionStatus = () => panel().querySelector('[role="status"]')!.textContent;
+
+function selectStarRail() {
+  const select = document.querySelector('select')!;
+  select.value = 'honkai-star-rail';
+  select.dispatchEvent(new Event('change'));
+}
+function choose(file: File) {
+  Object.defineProperty(fileInput(), 'files', { value: [file], configurable: true });
+  fileInput().dispatchEvent(new Event('change'));
+}
+// Resolve the mocked IPC and the UI's follow-up rendering.
+const settle = () => new Promise(resolve => setTimeout(resolve));
 
 test('starts with accessible game selection and a local-app empty state', () => {
   expect(document.querySelector('h1')?.textContent).toBe('Your rolls, kept local.');
@@ -18,7 +38,7 @@ test('starts with accessible game selection and a local-app empty state', () => 
   expect(document.body.textContent).toContain('History retrieval is coming next.');
   expect(document.body.textContent).toContain('Local app');
   expect(document.body.textContent).not.toContain('Offline');
-  expect(document.querySelector('button')).toBeNull();
+  expect(panel().hidden).toBe(true);
 });
 
 test('switches games and switches back without inventing history or statistics', () => {
@@ -30,4 +50,92 @@ test('switches games and switches back without inventing history or statistics',
   select.dispatchEvent(new Event('change'));
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Genshin Impact rolls yet');
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i);
+});
+
+test('Star Rail offers automatic extraction first, with the file fallback hidden', () => {
+  selectStarRail();
+  expect(panel().hidden).toBe(false);
+  expect(findButton().textContent).toBe('Find automatically');
+  expect(findButton().type).toBe('button');
+  expect(fallback().hidden).toBe(true);
+  expect(document.querySelector<HTMLLabelElement>('.fallback label')?.htmlFor).toBe(fileInput().id);
+  expect(extractionStatus()).toBe('');
+  expect(panel().textContent).toContain('Nothing is sent anywhere');
+});
+
+test('automatic extraction shows progress, then success without revealing details', async () => {
+  let resolve!: () => void;
+  mockIPC(() => new Promise<void>(done => { resolve = done; }));
+  selectStarRail();
+  findButton().click();
+  expect(findButton().disabled).toBe(true);
+  expect(panel().getAttribute('aria-busy')).toBe('true');
+  expect(extractionStatus()).toBe('Searching this device…');
+  resolve();
+  await settle();
+  expect(findButton().disabled).toBe(false);
+  expect(panel().getAttribute('aria-busy')).toBe('false');
+  expect(extractionStatus()).toContain('Found your warp history request.');
+  expect(fallback().hidden).toBe(true);
+});
+
+test('each automatic failure explains what to do and offers the file fallback', async () => {
+  selectStarRail();
+  for (const [failure, message] of [
+    ['unsupported_host', 'Automatic search needs Windows'],
+    ['discovery_failed', 'couldn’t look up your Windows user folder'],
+    ['no_game_data', 'couldn’t find Honkai: Star Rail’s game logs'],
+    ['no_cache', 'found the game, but not its web cache'],
+    ['no_request', 'couldn’t find a warp history request'],
+    ['something_new', 'Something went wrong'],
+  ]) {
+    mockIPC(() => { throw failure; });
+    findButton().click();
+    await settle();
+    expect(extractionStatus()).toContain(message);
+    expect(fallback().hidden).toBe(false);
+    expect(findButton().disabled).toBe(false);
+  }
+});
+
+test('choosing a cache file extracts from it, and each file failure is explained', async () => {
+  selectStarRail();
+  mockIPC(() => { throw 'unsupported_host'; });
+  findButton().click();
+  await settle();
+  const sent: unknown[] = [];
+  mockIPC((cmd, payload) => { sent.push(cmd, payload); });
+  choose(new File(['synthetic'], 'data_2'));
+  expect(extractionStatus()).toBe('Reading the file…');
+  expect(fileInput().disabled).toBe(true);
+  await settle();
+  expect(sent[0]).toBe('extract_from_file');
+  expect(extractionStatus()).toContain('Found your warp history request.');
+  expect(fileInput().disabled).toBe(false);
+  expect(fileInput().value).toBe('');
+  for (const [failure, message] of [
+    ['no_request', 'doesn’t contain a warp history request'],
+    ['file_too_large', 'larger than 16 MiB'],
+    ['invalid_file', 'couldn’t be read'],
+    ['something_new', 'Something went wrong'],
+  ]) {
+    mockIPC(() => { throw failure; });
+    choose(new File(['synthetic'], 'data_2'));
+    await settle();
+    expect(extractionStatus()).toContain(message);
+  }
+  // A change without a file, such as a cleared selection, leaves the last result.
+  Object.defineProperty(fileInput(), 'files', { value: [], configurable: true });
+  fileInput().dispatchEvent(new Event('change'));
+  expect(extractionStatus()).toContain('Something went wrong');
+  expect(fileInput().disabled).toBe(false);
+});
+
+test('switching back to Genshin Impact hides the Star Rail controls', () => {
+  selectStarRail();
+  const select = document.querySelector('select')!;
+  select.value = 'genshin-impact';
+  select.dispatchEvent(new Event('change'));
+  expect(panel().hidden).toBe(true);
+  expect(document.body.textContent).toContain('History retrieval is coming next.');
 });

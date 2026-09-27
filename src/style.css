@@ -27,6 +27,16 @@ select { font: inherit; color: inherit; background: #131a19; border: 1px solid #
 h2 { font-size: 21px; font-weight: 550; margin-top: 24px; }
 .empty p { color: #c6cfc7; line-height: 1.5; }
 .empty .detail { color: #adb7af; font-size: 14px; }
+.retrieval { border-top: 1px solid #37433d; padding: 28px 24px 32px; text-align: center; }
+.retrieval > p:first-child { color: #c6cfc7; line-height: 1.5; margin: 0 auto 20px; max-width: 460px; }
+button { font: inherit; font-weight: 600; color: #131a19; background: #d3c48e; border: 0; border-radius: 8px; padding: 11px 20px; cursor: pointer; }
+button:disabled { opacity: .6; cursor: progress; }
+.fallback { margin: 28px auto 0; max-width: 460px; text-align: left; }
+.fallback .detail { color: #adb7af; font-size: 13px; line-height: 1.5; margin: 0 0 12px; }
+input[type="file"] { font: inherit; color: #c6cfc7; max-width: 100%; }
+code { font-family: ui-monospace, monospace; font-size: .92em; color: #ecece7; }
+.extraction-status { color: #c6cfc7; line-height: 1.5; margin: 20px auto 0; max-width: 460px; }
+.extraction-status:empty { display: none; }
 footer { color: #adb7af; font-size: 12px; margin: 24px 0; }
 @media (max-width: 600px) {
   main { padding: 24px 20px; }

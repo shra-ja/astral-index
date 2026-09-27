@@ -54,6 +54,13 @@ documentation shows. Every network origin stays blocked: the native test still
 requires an enforced `connect-src` violation for a loopback fetch, and the
 mutation probe still fails a permissive `connect-src *` policy.
 
+## Frontend client
+
+The webview calls the commands through the official `@tauri-apps/api` package,
+pinned exactly to 2.11.1 to match the Rust `tauri` 2.11 line. It has no
+dependencies and replaces the undocumented `__TAURI_INTERNALS__` object; its
+`mockIPC` helper lets frontend tests script native results.
+
 ## Consequences
 
 Automatic extraction runs bounded synchronous log and cache reads on the async
