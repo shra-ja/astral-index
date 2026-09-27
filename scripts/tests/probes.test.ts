@@ -99,3 +99,65 @@ test('the native CSP test rejects a permissive connection policy', () => {
     execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
   }
 }, 180000);
+
+// Integration execution must never fill a unit-test coverage gap.
+test('backend coverage requires unit execution even when integration tests cover the code', () => {
+  const library = 'src-tauri/src/lib.rs';
+  const integration = 'src-tauri/tests/unit_coverage_probe.rs';
+  const original = readFileSync(library, 'utf8');
+  expect(existsSync(integration)).toBe(false);
+  try {
+    writeFileSync(library, `${original}\npub fn unit_coverage_probe(value: bool) -> u8 { if value { 1 } else { 0 } }\n`);
+    writeFileSync(integration, '#[test]\nfn covers_only_in_integration() { assert_eq!(roll_tracker::unit_coverage_probe(true), 1); assert_eq!(roll_tracker::unit_coverage_probe(false), 0); }\n');
+    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
+    const unit = JSON.parse(readFileSync('coverage/native-unit/coverage.json', 'utf8'));
+    const combined = JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8'));
+    const metric = (report: typeof unit) => report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/lib.rs')).summary.functions;
+    expect(metric(unit).covered).toBeLessThan(metric(unit).count);
+    expect(metric(combined).covered).toBe(metric(combined).count);
+    const result = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain('Uncovered');
+  } finally {
+    writeFileSync(library, original);
+    unlinkSync(integration);
+    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
+  }
+}, 180000);
+
+test('the unit-only report is mandatory and cannot be replaced by boundary coverage', () => {
+  const path = 'coverage/native-unit/coverage.json';
+  const backup = `${path}.probe-backup`;
+  const original = readFileSync(path, 'utf8');
+  expect(existsSync(backup)).toBe(false);
+  try {
+    renameSync(path, backup);
+    const missing = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    expect(missing.status).not.toBe(0);
+    expect(missing.stdout + missing.stderr).toContain('ENOENT');
+    const incomplete = JSON.parse(original);
+    incomplete.data[0].files = [];
+    writeFileSync(path, JSON.stringify(incomplete));
+    const result = spawnSync('npm', ['run', 'coverage:verify'], { encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain('Missing coverage');
+  } finally {
+    if (existsSync(backup)) unlinkSync(backup);
+    writeFileSync(path, original);
+  }
+}, 30000);
+
+test('the wrapper exception guard rejects added startup behavior', () => {
+  const path = 'src-tauri/src/main.rs';
+  const original = readFileSync(path, 'utf8');
+  try {
+    writeFileSync(path, original.replace('fn main() {', 'fn main() {\n    println!("unexpected extra startup behavior");'));
+    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', 'startup/build exceptions'], { encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain('startup/build exceptions');
+  } finally {
+    writeFileSync(path, original);
+    // Refresh the boundary report after restoring the source timestamp.
+    execFileSync('npm', ['run', 'test:offline'], { stdio: 'pipe' });
+  }
+}, 120000);

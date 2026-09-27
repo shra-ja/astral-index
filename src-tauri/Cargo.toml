@@ -12,6 +12,11 @@ serde_json = { version = "=1.0.151", features = ["arbitrary_precision", "raw_val
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 tauri = { version = "=2.11.5", features = [] }
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
+dirs = "=6.0.0"
+tokio = { version = "=1.53.1", features = ["process", "io-util", "time", "rt"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.189"
 
 [features]
 default = ["custom-protocol"]
@@ -22,3 +27,4 @@ path = "src/lib.rs"
 
 [dev-dependencies]
 rusqlite = { version = "=0.40.2", features = ["hooks", "limits"] }
+tokio = { version = "=1.53.1", features = ["test-util"] }

@@ -34,3 +34,5 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 
 - [0001 — Minimal offline shell and test stack](0001-shell-and-test-stack.md)
 - [0002 — User-requested HoYoverse history acquisition](0002-user-requested-history-acquisition.md)
+
+- [0005 — Current-user Windows discovery](0005-current-user-windows-discovery.md)

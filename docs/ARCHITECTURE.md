@@ -105,8 +105,7 @@ as a known starting state; report observed counts or unknown values explicitly.
 ## Implemented HSR response adapter
 
 `src-tauri/src/lib.rs` owns the shared native library, with sibling `hsr` and
-`storage` modules. `src-tauri/src/hsr.rs` contains the HSR adapter; integration tests live
-in `src-tauri/tests/hsr.rs` and run within the existing native coverage harness. It parses
+`storage` modules. `src-tauri/src/hsr.rs` contains the HSR adapter; unit tests live beside it in a `cfg(test)` module and run within the existing native coverage harness. It parses
 bounded bytes into a page with optional server/timezone evidence and string roll
 fields. It neither deduplicates nor persists. Mixed-account pages and invalid
 records reject the entire page. Structured errors omit source messages and data.
@@ -176,3 +175,120 @@ Retries are limited to one per transiently failed request and two extra attempts
 per acquisition. Authentication, validation and identity failures abort with an
 actionable UI error. Complete retained history and manageable volume are accepted
 assumptions; byte/request limits never justify silently incomplete commits.
+
+## Extraction workflow
+
+The user requests automatic discovery and extraction. Native code resolves the
+current user's game location, locates the known `data_2` filename within supported
+cache layouts, and extracts request context. If discovery fails, the user can
+provide a file for local extraction. There is no discovered-cache chooser,
+game-directory picker or source-selection session. These are the two intended
+desktop actions; the existing helpers still need end-to-end wiring.
+
+## Initial native cache extraction
+
+`src-tauri/src/acquisition.rs` reads one supplied regular cache file
+without writing to it or initiating network activity. Reads stop at 16 MiB plus
+one overflow-detection byte; oversize inputs fail rather than yield partial
+contexts. On Unix, the read-only open uses `O_NONBLOCK` before checking the opened
+handle's type, so opening a FIFO cannot wait indefinitely for a writer. The flag
+comes from pinned `libc`, already present transitively; regular-file reads are
+unchanged. This is an initial application limit, not a verified maximum cache size.
+The extractor tolerates binary data around NUL-terminated `1/0/` request entries.
+It accepts the exact researched HTTPS endpoint spelling and five required query
+fields, retaining their encoded bytes. Empty/malformed fields, duplicate required
+fields, other game contexts, fragments and alternate endpoint spellings fail
+candidate validation. Unrelated/unsupported entries are skipped; no valid candidate
+produces a safe error. Distinct contexts retain first-seen order without implying
+age, validity or current account. Hash-set membership avoids scanning every prior
+context for each candidate. Callers must not silently choose an account from
+cache order.
+
+Request contexts are opaque native values with redacted debug output and no
+serialization implementation. Errors contain neither paths nor source text.
+A discovered game-data directory can also be resolved through its immediate
+`webCaches` directory: existing four-component numeric version paths are returned
+in descending version order, followed by the legacy cache path. All candidates
+remain available; version order does not establish credential age. The same
+relative layouts work with native Windows paths and WSL-mounted Windows paths.
+There is no desktop extraction command, file-upload fallback, HTTP transport or
+credential persistence yet. The future client must use only the validated fields,
+construct fresh pagination parameters and resolve account identity from responses.
+
+## Windows player-log discovery
+
+`src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming
+AppData location. It reads only sibling
+`LocalLow/Cognosphere/Star Rail/Player.log` and `Player-prev.log`, preserving
+each result independently. A missing or malformed current log cannot suppress
+the previous log's candidates. The caller can also supply an individual log.
+
+The shared read-only regular-file boundary retains the cache reader's nonblocking
+Unix open and opened-handle validation. Log parsing is limited to the first
+11 lines and 64 KiB, plus one overflow-detection byte. Later gameplay content,
+including invalid text, is irrelevant; malformed UTF-8 within the header fails.
+Exact startup markers yield distinct game-data directories in first-seen order.
+Malformed recognized paths fail that log instead of returning a partial result.
+
+Only drive-absolute Windows paths are accepted; UNC/device paths, traversal,
+empty components and invalid Windows component characters are rejected.
+WSL mapping requires an explicit absolute POSIX mount root and uses lowercase
+drive names. It never assumes `/mnt`, probes drives, invokes a shell or scans
+profiles. The returned paths remain native-only candidates for internal cache
+resolution and reading, not user choices. Neither log discovery nor cache
+extraction fetches history.
+
+### Current-user system discovery
+
+See [decision 0005](decisions/0005-current-user-windows-discovery.md) for the
+OS lookup, helper and dependency choices.
+
+`src-tauri/src/discovery/system.rs` adds the explicitly invoked asynchronous
+`discover_current_user_logs` service. On Windows, pinned `dirs` resolves roaming
+AppData through the Known Folder API. On Linux, a nonempty `WSL_DISTRO_NAME`
+enables WSL discovery; other hosts fail with `UnsupportedHost`. This conservative
+check avoids running Windows tools on ordinary Linux. Environments without that
+marker can use the planned file-upload fallback through the existing cache reader.
+
+WSL discovery runs a fixed, noninteractive, profile-free `powershell.exe`
+expression to query Windows' `ApplicationData` folder with UTF-8 output.
+It then uses `wslpath -a -u` for AppData and each game-directory candidate.
+Each path is a separate argument, never PowerShell source. This respects the
+active drive mappings without scanning profiles or assuming a shared username,
+`/mnt`, or one common mount root. Both Windows and WSL folder results must be
+valid Unicode drive-absolute Windows paths; UNC/device, relative and traversal
+paths fail before game-log I/O. Translated paths must be absolute Linux paths.
+
+Pinned Tokio supplies asynchronous pipes and deadlines. Each helper has a
+five-second execution limit and a 32 KiB stdout limit plus one detection byte.
+Stdin and stderr are discarded. Failed helpers are killed and reaped with a
+separate five-second cleanup limit; cleanup failure does not mask the original
+error. Dropping the discovery future uses Tokio's kill-on-drop behavior, whose
+reaping is best-effort. These are per-helper deadlines, not a deadline for the
+whole discovery operation or synchronous log-file I/O.
+
+Log errors and translation failures remain separate for current and previous
+logs. A failed log returns no partial candidate list and cannot suppress the
+other log. Successful translated duplicates collapse in first-seen order.
+Errors contain only safe categories; source paths and helper diagnostics stay
+out of errors/logs. No game directories or caches are opened automatically by
+this log-discovery service; connecting it to cache resolution and extraction is
+still pending. Explicit path inputs remain internal service APIs.
+
+Desktop extraction controls and real Windows/WSL installation validation remain pending.
+These services add no Tauri command, permission, startup task or history request.
+
+## Unit and boundary test separation
+
+Backend unit tests execute the same service bodies against test-only replacements
+for the filesystem and SQLite APIs. Compile-time imports select std/rusqlite in
+normal builds and strict doubles in library unit tests; no mock or test-only API
+is exposed in the desktop binary. The doubles verify boundary contracts rather
+than simulate a full filesystem or SQL engine. Public integration tests continue
+to validate real file behavior, persistence, constraints and rollback.
+
+The test harness records backend coverage immediately after `cargo test --lib`,
+before integration execution. Every backend source file defaults to the 100%
+unit gate. Only the existing minimal `main.rs` and `build.rs` delegates use the
+separate 100% native gate, with a source-body guard preventing unnoticed expansion.
+No I/O/database functionality is exempted. See CONTRIBUTING for the mandatory policy.

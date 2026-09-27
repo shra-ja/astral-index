@@ -1,11 +1,11 @@
-use crate::storage::{Error, Store, Summary};
+use roll_tracker::storage::{Error, Store, Summary};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
-const PAGE: &[u8] = include_bytes!("../fixtures/hsr-api/page.json");
+const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
 const UID: &str = "100000002";
 const SERVER: &str = "synthetic-server";
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -67,7 +67,7 @@ fn preview_does_not_write_and_commit_survives_restart_with_exact_fields() {
     assert_eq!(store.commit(preview, 1234).unwrap(), summary(2, 0, 0));
     drop(store);
     let stored = db.store().history(UID, SERVER).unwrap();
-    let expected = crate::parse_response(&bytes).unwrap();
+    let expected = roll_tracker::parse_response(&bytes).unwrap();
     assert_eq!(stored.len(), 2);
     assert!(expected.list.iter().all(|r| stored.contains(r)));
     let conn = db.connection();
@@ -172,7 +172,7 @@ fn validates_all_pages_and_explicit_account_context_before_writes() {
         store.preview(
             UID,
             SERVER,
-            &[include_bytes!("../fixtures/hsr-api/empty.json")]
+            &[include_bytes!("fixtures/hsr-api/empty.json")]
         ),
         Err(Error::Empty)
     ));
@@ -506,7 +506,7 @@ fn duplicate_imports_only_add_summaries_and_keep_first_provenance() {
 fn initial_schema_creates_compact_storage_directly() {
     let db = Database::new();
     let conn = db.connection();
-    conn.execute_batch(include_str!("../../migrations/001_initial.sql"))
+    conn.execute_batch(include_str!("../migrations/001_initial.sql"))
         .unwrap();
     assert_eq!(scalar(&conn, "PRAGMA user_version"), 2);
     assert_eq!(
@@ -628,8 +628,8 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
 #[test]
 fn precise_extensions_survive_restart_and_conflict_on_changed_values() {
     let db = Database::new();
-    let a = include_bytes!("../fixtures/hsr-api/numeric-extensions-a.json");
-    let b = include_bytes!("../fixtures/hsr-api/numeric-extensions-b.json");
+    let a = include_bytes!("fixtures/hsr-api/numeric-extensions-a.json");
+    let b = include_bytes!("fixtures/hsr-api/numeric-extensions-b.json");
     assert_eq!(import(&mut db.store(), a), summary(2, 0, 0));
     let mut store = db.store();
     let stored = serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap();

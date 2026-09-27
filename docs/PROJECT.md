@@ -14,6 +14,9 @@ Users own their data and can inspect, back up, and export it without a hosted se
 - Multiple games, initially Genshin Impact and Honkai: Star Rail.
 - Ingestion from user-provided files and user-requested HoYoverse API responses.
   Local installation files may supply request/authentication context.
+- HSR extraction uses user-requested automatic discovery of `data_2`, with a
+  user-provided file as the fallback if discovery fails. No discovered-cache
+  selection or game-directory picker is required.
 - Test-driven development with a mandatory 100% first-party code coverage gate.
 - Trunk-based development: all code changes on separate short-lived branches.
 
@@ -27,15 +30,17 @@ Users own their data and can inspect, back up, and export it without a hosted se
 4. View roll totals, rarity breakdowns, and game-specific pity information only
    where the imported evidence and verified rules support it.
 5. Export a versioned portable backup and restore it into a fresh local profile.
-6. Discover a supported local installation source or accept a user-selected
-   cache, extract request context, and fetch history only when requested. Route
-   responses through the same import pipeline; explain unsupported sources.
+6. Automatically discover and extract request context from `data_2` when requested,
+   with a user-provided cache file as the fallback. Fetch history only when
+   requested. Route responses through the same import pipeline; explain
+   unsupported sources.
 
 The first implemented feature after the shell is Honkai: Star Rail API history
 import. Milestone 2 builds response parsing and transactional storage services;
-milestone 3 connects cache/request selection, API fetching, preview, commit, and
-history display. Standalone history-file import follows in milestone 4 alongside
-the second adapter, before calling the multi-game milestone complete.
+milestone 3 connects automatic extraction and its file fallback, API fetching,
+preview, commit, and history display. Standalone history-file import follows in
+milestone 4 alongside the second adapter, before calling the multi-game milestone
+complete.
 
 ## Acceptance criteria
 
@@ -60,8 +65,9 @@ User-requested HoYoverse history acquisition is in scope; see
 
 ## Open decisions
 
-- Release OS and packaging targets; Ubuntu 24.04 is the first development/CI
-  target and does not establish broader release support.
+- Windows is the initial supported game-installation OS, with cache discovery
+  intended from both Windows and WSL. Ubuntu/WSL remains the development/CI
+  environment; native Windows validation and installer packaging remain pending.
 - Account reconciliation UX and future schema upgrades; SQLite/rusqlite is now
   selected for storage (decision 0003). The frontend remains vanilla
   TypeScript/Vite with npm and bundled CSS (decision 0001).

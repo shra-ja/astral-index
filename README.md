@@ -9,7 +9,8 @@ and SQLite preview/import services exist independently of the shell.
 
 ## Development setup
 
-The initial development/test target is **Ubuntu 24.04 x86_64**. Windows and macOS
+The initial game-installation target is **Windows**, with cache discovery intended
+from Windows and WSL. The development/test environment is **Ubuntu 24.04 x86_64**. Windows and macOS
 are not yet validated release targets. Use asdf 0.20.0 with its shims on `PATH`.
 Node.js and Rust are pinned in [.tool-versions](.tool-versions).
 
@@ -60,14 +61,23 @@ internet access; stored-history operations remain local. See
 | `npm run test:native` | Instrumented Rust build/tests, native UI/keyboard/close tests, LLVM reports |
 | `npm run test:offline` | Native test in a namespace with no external network route |
 | `npm run test:probes` | Deliberate missing-report, uncovered-file and Rust branch failures |
-| `npm run coverage:verify` | Validate both reports against source inventory and modification times |
+| `npm run coverage:verify` | Validate frontend, Rust unit-only and startup/build coverage against source inventories and modification times |
 | `npm run check` | All coverage, build/type, offline native, probe, format and lint gates |
 | `npm run tauri -- build --no-bundle` | Production executable; installer packaging is deferred |
 
-Frontend tests live in `src/tests/`, backend Rust tests and fixtures in
-`src-tauri/tests/`, and tooling tests in `scripts/tests/`. Root `tests/` is reserved
+Frontend tests live in `src/tests/`, Rust unit tests beside their implementation
+in `src-tauri/src/`, backend integration tests and fixtures in `src-tauri/tests/`,
+and tooling tests in `scripts/tests/`. Root `tests/` is reserved
 for application end-to-end tests spanning the frontend and backend. See
 [contributor test layout](CONTRIBUTING.md#test-layout).
+
+Rust backend coverage is enforced at 100% from unit tests using mocked filesystem
+and SQLite APIs, before integration tests run. `coverage/native-unit/` contains
+that independent report. Only the minimal Tauri `main.rs` and `build.rs` delegates
+use the separate native gate in `coverage/native/`; a source-body guard requires
+review if either wrapper changes. Real-file, SQLite and desktop integration tests
+remain mandatory additional checks and cannot compensate for unit-test gaps.
+
 
 The [overlap workload](docs/TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
 includes commands for import timings, peak memory and database-growth measurements.
@@ -104,3 +114,32 @@ GitHub Actions runs **Tests and 100% coverage** for pull requests, `main` pushes
 and merge queues. The user has configured this job as a required check on
 protected `main`. Hosted results are available on
 [PR #1](https://github.com/shra-ja/roll-tracker/pull/1).
+
+For focused native cache-extraction tests (synthetic data, no network requests):
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --offline --lib acquisition
+cargo test --manifest-path src-tauri/Cargo.toml --offline --test acquisition
+```
+
+This service is not yet connected to the desktop file picker or a history client.
+
+
+For focused discovery tests (mocked OS APIs and synthetic files/processes):
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib discovery
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test discovery --test system_discovery
+```
+
+Current-user discovery is a native service; desktop controls are still pending.
+On Windows it uses the Known Folder API. On WSL it requires a nonempty
+`WSL_DISTRO_NAME` and working `powershell.exe` and `wslpath` on PATH. Helpers run
+only when discovery is explicitly invoked, with time/output limits and safe
+failure categories. The intended desktop flow automatically locates `data_2`
+and extracts request context, with a user-provided file as the fallback if
+discovery fails. No discovered-cache or game-directory selection is required.
+Connecting the native helpers into this flow remains pending.
+The automated suites substitute synthetic helpers and require neither Windows
+interop nor installed games. Native Windows/real-installation verification is
+still pending; see [discovery architecture](docs/ARCHITECTURE.md#current-user-system-discovery).

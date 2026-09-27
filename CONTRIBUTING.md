@@ -20,6 +20,12 @@ Documentation-only edits require document checks, not artificial unit tests.
 For initial scaffolding, establish the test harness before adding app behavior;
 prove a behavior assertion fails before implementing that behavior.
 
+Use unit tests as the primary coverage layer for all backend functionality. Mock
+filesystem and database APIs in unit tests; do not substitute real temporary files
+or in-memory SQLite for those mocks. Keep real I/O/database checks in integration
+tests. A unit test must assert observable results or boundary interactions, not
+merely execute code to reach a coverage threshold.
+
 Use unit tests for rules and parsing, integration tests for database transactions,
 migrations and native boundaries, and UI/end-to-end tests for user workflows.
 Automated tests must remain local and self-contained. When adding request
@@ -35,10 +41,12 @@ Use synthetic fixtures and deterministic clocks/data; never real player historie
 Keep tests with the layer they exercise:
 
 - `src/tests/`: frontend tests and frontend-only fixtures/helpers.
-- `src-tauri/tests/`: backend Rust tests and backend-only fixtures/helpers.
-  Use Cargo's automatic discovery for integration-test entry points. Tests that
-  require private implementation access may be included as test-only modules
-  from subdirectories here; do not expose production internals just for tests.
+- Rust backend unit tests: use `#[cfg(test)] mod tests` beside the implementation
+  in `src-tauri/src/`, following Rust conventions. Keep private implementation
+  tests here; do not expose internals just for testing.
+- `src-tauri/tests/`: Cargo integration tests exercising the backend public API,
+  with backend-only fixtures/helpers. Use Cargo's automatic test discovery.
+  Keep helpers in subdirectories so they do not become empty test targets.
 - `scripts/tests/unit/`: development-tooling unit tests, discovered together with
   `src/tests/` by both `npm test` and `npm run coverage`.
 - `scripts/tests/`: explicit coverage-report and mutation-probe suites; keep these
@@ -69,6 +77,20 @@ constraint and rollback tests. After release, use versioned migrations with data
 preservation and recovery tests for changes to persisted data.
 
 ## Coverage is a blocking gate
+
+Rust backend source must meet 100% coverage from `cargo test --lib` **alone**.
+Generate and retain its isolated report before running any integration or native
+tests; their execution must never fill unit-test gaps. Use test doubles for
+filesystem and SQLite APIs while running the same service implementation.
+
+The only exceptions are `src-tauri/src/main.rs` and `src-tauri/build.rs`, currently
+minimal delegates to Tauri runtime/build tooling. They retain their own 100%
+native boundary gate. This is an explicit, user-approved exception, not a general
+exception for I/O, databases, new commands or platform code. The report gate pins
+both wrappers' current bodies: adding logic fails a guard and requires review of
+this exception. Move new functionality into unit-tested code rather than silently
+expanding the boundary-only coverage scope. `scripts/tests/reports.test.ts` is the
+single enforcement point for that allowlist and guard.
 
 - Require exactly 100% of executable lines, statements, functions, and branches
   for every first-party source file where those metrics apply. Enforce frontend
