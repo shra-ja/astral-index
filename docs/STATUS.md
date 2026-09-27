@@ -337,8 +337,8 @@ cross-built release executable changed from `PE32+ executable (console)` to
 integration tests, 28 frontend/tooling tests, native offline execution, eight
 enforcement probes, both report guards, TypeScript/build, formatting and Clippy;
 `main.rs` and `build.rs` remain at 100% in the native gate.
-`npm run tauri -- build --no-bundle` passed on Linux. The user has not yet run
-the updated Windows executable.
+`npm run tauri -- build --no-bundle` passed on Linux. The user ran the updated
+Windows executable, and no console window appeared.
 
 ## Next
 
