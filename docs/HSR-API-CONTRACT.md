@@ -29,18 +29,24 @@ been isolated.
 
 ### Auth-key validation
 
-Before building paged requests, validate each extracted context in the order
-extraction returns it. Send its cached request unchanged, after the same URL and
+Before building paged requests, validate extracted contexts in reverse file
+order, matching the researched extraction method. Newer cache entries often sit
+later in the file, but byte position is not chronological, so reverse order only
+reduces expected requests; it does not establish key age or validity. Validate
+at most five distinct contexts per acquisition.
+
+Send each context's cached request unchanged, after the same URL and
 endpoint validation as every other request. Use the first context whose request
 returns `retcode: 0` with a valid response page. Assume one cache file holds
 requests for a single account. Do not import records from the validation
 response; pagination retrieves them.
 
 An expired key (`-101`) or any other nonzero `retcode` rejects that context, and
-validation moves to the next one. If no context works, stop with an actionable
-error without writing history, reporting an expired key if any context returned
-`-101`. Transient failures use the retry policy below and count toward the
-acquisition's retry budget. A rate-limit error or an exhausted budget stops
+validation moves to the next one. If no validated context works, or the
+five-context limit is reached, stop with an actionable error without writing
+history. Report an expired key if any context returned `-101`, and ask the user
+to refresh the key by opening the in-game warp history. Transient failures use
+the retry policy below and count toward the acquisition's retry budget. A rate-limit error or an exhausted budget stops
 acquisition. Validation makes one request per context, and it is the only
 request made before pagination.
 

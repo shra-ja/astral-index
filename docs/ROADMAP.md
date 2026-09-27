@@ -130,7 +130,7 @@ the order listed.
   - [ ] Compose current-user discovery, `data_2` resolution and extraction into
     one native automatic-extraction service, tested with mocked OS and file APIs.
     Assume a single cache file holds requests for one account, and return its
-    contexts in first-seen order.
+    contexts in reverse file order.
   - [ ] Expose automatic extraction and the user-provided cache file fallback
     through narrow Tauri commands and permissions. Keep paths native-only. Hold
     extracted auth keys only in short-lived native memory, never persisted or
@@ -156,9 +156,9 @@ the order listed.
   - [ ] Classify outcomes as actionable failures: `-101` expired key, other
     nonzero codes, rate limits, malformed responses, and transient connection
     failures or HTTP 5xx. Do not expose raw messages or payloads.
-  - [ ] Validate extracted contexts in first-seen order by sending each cached
-    request unchanged, and use the first whose auth key works. If none works,
-    stop with an actionable error
+  - [ ] Validate at most five extracted contexts, in reverse file order, by
+    sending each cached request unchanged, and use the first whose auth key
+    works. If none works, stop with an actionable error
     ([auth-key validation](HSR-API-CONTRACT.md#auth-key-validation)).
   - [ ] Paginate each category by cursor. Stop on a short page, advance on a full
     page, reject repeated cursors and cycles, and enforce the 16 MiB batch bound.
