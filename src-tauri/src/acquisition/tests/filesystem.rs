@@ -10,6 +10,8 @@ use std::{
 #[derive(Default)]
 pub struct Fixture {
     pub entries: Option<Vec<io::Result<DirEntry>>>,
+    /// Repeatable per-directory listings, checked before the single-use `entries`.
+    pub listings: BTreeMap<PathBuf, Vec<PathBuf>>,
     pub files: BTreeMap<PathBuf, Vec<u8>>,
     pub directories: Vec<PathBuf>,
     pub metadata_failure: bool,
@@ -41,12 +43,12 @@ impl DirEntry {
 pub fn read_dir(path: &Path) -> io::Result<std::vec::IntoIter<io::Result<DirEntry>>> {
     access(path);
     FIXTURE.with(|state| {
-        state
-            .borrow_mut()
-            .entries
-            .take()
-            .map(Vec::into_iter)
-            .ok_or_else(missing)
+        let mut state = state.borrow_mut();
+        if let Some(children) = state.listings.get(path) {
+            let entries: Vec<_> = children.iter().cloned().map(DirEntry).map(Ok).collect();
+            return Ok(entries.into_iter());
+        }
+        state.entries.take().map(Vec::into_iter).ok_or_else(missing)
     })
 }
 pub struct Metadata(bool);

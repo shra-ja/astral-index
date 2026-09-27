@@ -105,15 +105,18 @@ fn read_cache(reader: &mut dyn Read) -> Result<Vec<RequestContext>, CacheError> 
     extract_request_contexts(&bytes)
 }
 
-/// Cache order is not chronology: return distinct contexts in first-seen order.
+/// Return distinct contexts in reverse file order, keeping each one's last position.
+/// Newer entries tend to sit later, but cache order is not chronology or key validity.
 pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<RequestContext>, CacheError> {
     if bytes.len() > MAX_CACHE_BYTES {
         return Err(CacheError::TooLarge);
     }
     let text = String::from_utf8_lossy(bytes);
+    // Split forwards so segment boundaries match the researched method, then reverse.
+    let segments: Vec<_> = text.split("1/0/").skip(1).collect();
     let mut contexts = Vec::new();
     let mut seen = HashSet::new();
-    for segment in text.split("1/0/").skip(1) {
+    for segment in segments.into_iter().rev() {
         if let Some(context) = parse_candidate(segment)
             && seen.insert(context.fields.clone())
         {
@@ -191,13 +194,22 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn extracts_distinct_contexts_without_guessing_credential_age() {
+    fn extracts_distinct_contexts_in_reverse_file_order() {
         let a = url("synthetic%2Bkey%3D");
         let b = url("another+synthetic");
-        let contexts = extract_request_contexts(&cache(&[a.clone(), b, a])).unwrap();
-        assert_eq!(contexts.len(), 2);
+        let c = url("third");
+        let contexts = extract_request_contexts(&cache(&[b.clone(), a.clone(), b, c])).unwrap();
+        let keys: Vec<_> = contexts.iter().map(|context| &context.fields[0]).collect();
         assert_eq!(
-            contexts[0].fields,
+            keys,
+            [
+                "authkey=third",
+                "authkey=another+synthetic",
+                "authkey=synthetic%2Bkey%3D"
+            ]
+        );
+        assert_eq!(
+            contexts[2].fields,
             [
                 "authkey=synthetic%2Bkey%3D",
                 "authkey_ver=1",
@@ -206,7 +218,6 @@ pub(crate) mod tests {
                 "lang=en"
             ]
         );
-        assert_eq!(contexts[1].fields[0], "authkey=another+synthetic");
         assert_eq!(format!("{:?}", contexts[0]), "RequestContext([redacted])");
     }
 

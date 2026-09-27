@@ -1,5 +1,9 @@
 //! Explicit current-user discovery; no startup hooks or history requests.
-use super::{LogDiscovery, LogError, PathMapping, discover_appdata_logs, map_windows_directory};
+use super::{
+    ExtractionError, LogDiscovery, LogError, PathMapping, discover_appdata_logs, extract_from_logs,
+    map_windows_directory,
+};
+use crate::acquisition::RequestContext;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -32,6 +36,14 @@ pub enum DiscoveryError {
 /// Call only in response to source discovery. Requires a Tokio runtime with I/O and time.
 pub async fn discover_current_user_logs() -> Result<LogDiscovery<DiscoveryError>, DiscoveryError> {
     discover_for_os(env::consts::OS).await
+}
+
+/// Call only on an explicit user request. Reads local files; makes no history request.
+pub async fn extract_current_user_contexts() -> Result<Vec<RequestContext>, ExtractionError> {
+    let logs = discover_current_user_logs()
+        .await
+        .map_err(ExtractionError::Discovery)?;
+    extract_from_logs(logs)
 }
 
 async fn discover_for_os(os: &str) -> Result<LogDiscovery<DiscoveryError>, DiscoveryError> {
@@ -179,6 +191,45 @@ mod tests {
             .into(),
             ..Default::default()
         });
+    }
+
+    #[test]
+    fn current_user_extraction_reads_the_discovered_cache_or_reports_discovery_failure() {
+        os::install(os::Fixture::default());
+        assert_eq!(
+            run(extract_current_user_contexts()),
+            Err(ExtractionError::Discovery(DiscoveryError::UnsupportedHost))
+        );
+        os::install(os::Fixture {
+            distro: Some("Synthetic".into()),
+            plans: [
+                os::Plan::output("C:\\Users\\Example\\AppData\\Roaming"),
+                os::Plan::output("/windows/c/Users/Example/AppData/Roaming\n"),
+                os::Plan::output("/volumes/games/Star Rail\n"),
+            ]
+            .into(),
+            ..Default::default()
+        });
+        let cache = "1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0";
+        filesystem::install(Fixture {
+            files: [
+                (
+                    PathBuf::from("/windows/c/Users/Example/AppData/LocalLow/Cognosphere/Star Rail/Player.log"),
+                    b"Loading player data from D:/Games/Star Rail/data.unity3d\n".to_vec(),
+                ),
+                (
+                    PathBuf::from("/volumes/games/Star Rail/webCaches/Cache/Cache_Data/data_2"),
+                    cache.as_bytes().to_vec(),
+                ),
+            ]
+            .into(),
+            entries: Some(vec![]),
+            ..Default::default()
+        });
+        assert_eq!(
+            run(extract_current_user_contexts()).unwrap(),
+            crate::acquisition::extract_request_contexts(cache.as_bytes()).unwrap()
+        );
     }
 
     #[test]

@@ -30,7 +30,9 @@ roaming AppData or a selected log, with explicit WSL drive mapping.
 Known Folder API or fixed Windows/WSL helpers. Invoke its asynchronous service
 explicitly on a Tokio runtime with I/O and time enabled; it is not a startup task.
 `src/acquisition.rs` resolves `data_2` in discovered game-data cache layouts and
-extracts opaque request contexts. These native services do not fetch history or expose credentials
+extracts opaque request contexts in reverse file order.
+`discovery::system::extract_current_user_contexts` connects these into automatic
+extraction. These native services do not fetch history or expose credentials
 to the webview. Automatic extraction and a user-provided file fallback still
 need desktop wiring; there is no discovered-cache or game-directory chooser.
 

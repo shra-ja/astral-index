@@ -127,7 +127,7 @@ the order listed.
   - [x] Resolve the current user's roaming AppData on native Windows and on WSL
     through bounded, killable helpers, without profile scans
     ([decision 0005](decisions/0005-current-user-windows-discovery.md), `4b360f2`).
-  - [ ] Compose current-user discovery, `data_2` resolution and extraction into
+  - [x] Compose current-user discovery, `data_2` resolution and extraction into
     one native automatic-extraction service, tested with mocked OS and file APIs.
     Assume a single cache file holds requests for one account, and return its
     contexts in reverse file order.
