@@ -38,3 +38,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0005 — Current-user Windows discovery](0005-current-user-windows-discovery.md)
 - [0006 — Desktop extraction commands](0006-desktop-extraction-commands.md)
 - [0007 — Validate during extraction](0007-validate-during-extraction.md)
+- [0008 — HTTPS transport](0008-https-transport.md)

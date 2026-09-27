@@ -269,6 +269,16 @@ so an unexpected value cannot escape the query. `PageRequest` keeps the requeste
 size for the short-page rule and redacts its credential-bearing URL in debug
 output. Building a request makes no network call.
 
+`src-tauri/src/acquisition/transport.rs` defines the `Transport` trait, one async
+`get` returning the response body or a safe `TransportError`, so validation and
+pagination can be tested against scripted transports. `HttpTransport` implements
+it with `reqwest` and rustls using `ring` and the OS trust store. It refuses any
+URL other than the exact endpoint before sending, never follows redirects,
+treats any status other than 200 as an error, uses no system proxy, applies
+10-second connect and 30-second request timeouts, and stops reading once a body
+exceeds 2 MiB. No command uses it yet. See
+[decision 0008](decisions/0008-https-transport.md).
+
 ## Windows player-log discovery
 
 `src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming

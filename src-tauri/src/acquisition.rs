@@ -8,7 +8,9 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::{collections::HashSet, fmt, io::Read, path::Path};
 
 mod request;
+mod transport;
 pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
+pub use transport::{CONNECT_TIMEOUT, HttpTransport, REQUEST_TIMEOUT, Transport, TransportError};
 
 pub const MAX_CACHE_BYTES: usize = 16 * 1024 * 1024;
 const ENDPOINT: &str =

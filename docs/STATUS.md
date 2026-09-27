@@ -361,16 +361,39 @@ frontend/tooling tests, native offline execution, eight enforcement probes, both
 report guards, TypeScript/build, formatting and Clippy, all at 100% per file.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## HTTPS transport (2026-09-27)
+
+Work is on `feat/https-transport`, branched from `main` at `8ced225` (PR #17).
+The `Transport` trait fetches one history response; `HttpTransport` implements it
+with exactly pinned `reqwest` 0.13.5 and `rustls` 0.23.45 using `ring` and the OS
+trust store, as the user chose (see
+[decision 0008](decisions/0008-https-transport.md)). It refuses any URL other
+than the exact endpoint before sending, follows no redirects, treats any status
+other than 200 as an error, uses no system proxy, has 10-second connect and
+30-second request timeouts, and stops reading once a body exceeds 2 MiB. No
+command uses it yet, and no automated test requests the real endpoint.
+
+TDD: six unit tests, against a scripted `reqwest` double, failed against a stub,
+then passed. An integration test builds the real client twice and checks that a
+non-endpoint URL is refused before any connection. The dependency tree has `ring`
+and no aws-lc, OpenSSL or native-tls. The `cargo-xwin` Windows build still
+succeeds, producing a GUI executable.
+
+`npm run check` passed: 75 backend unit tests, 34 integration tests, 28
+frontend/tooling tests, native offline execution, eight enforcement probes, both
+report guards, TypeScript/build, formatting and Clippy, all at 100% per file.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Add the mockable transport with finite timeouts and a 2 MiB receive bound, then
-outcome classification, auth-key validation, pagination, retries and
-cancellation. Auth-key validation must send each cached request unchanged, but
-`RequestContext` keeps only the five credential fields: extraction will need to
-retain a cached URL per context, and deduplication currently merges cached URLs
-that differ only in paging fields. Then the review DTO, atomic commit and history
-display, clearing auth keys when an import ends. Account/server verification
-remains a milestone-closing requirement.
+Classify outcomes as actionable failures: `-101` expired key, other nonzero API
+codes, rate limits, malformed responses, and transient connection failures or
+HTTP 5xx, without exposing raw messages. Then validate contexts during extraction
+([decision 0007](decisions/0007-validate-during-extraction.md)), which requires
+extraction to keep one cached URL per context until validation ends. Then
+pagination, retries and cancellation, followed by the review DTO, atomic commit
+and history display, clearing auth keys when an import ends. Account/server
+verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
