@@ -22,6 +22,7 @@ playwright-report/
 /private-imports/
 /backups/
 /.codex-log/
+/.claude/settings.local.json
 
 # OS/editor files
 .DS_Store
