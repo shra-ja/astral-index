@@ -46,9 +46,17 @@ validation moves to the next one. If no validated context works, or the
 five-context limit is reached, stop with an actionable error without writing
 history. Report an expired key if any context returned `-101`, and ask the user
 to refresh the key by opening the in-game warp history. Transient failures use
-the retry policy below and count toward the acquisition's retry budget. A rate-limit error or an exhausted budget stops
-acquisition. Validation makes one request per context, and it is the only
-request made before pagination.
+the retry policy below and count toward the acquisition's retry budget. A
+rate-limit error or an exhausted budget stops acquisition. Validation makes one
+request per context, and it is the only request made before pagination.
+
+Validation runs in the same user action as extraction, not as a later step.
+Extraction stays a local function and validation a network function, composed by
+the command. Only the first working context is kept, for pagination; every other
+extracted context and cached URL is dropped as soon as validation ends, whether it
+succeeds or fails. The action therefore contacts HoYoverse, so the interface must
+present it as starting history retrieval, not as a local-only search. See
+[decision 0007](decisions/0007-validate-during-extraction.md).
 
 ## Observed response fields
 
