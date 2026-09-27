@@ -1,7 +1,9 @@
 //! Bounded discovery from explicitly selected Windows player logs; no environment scans.
 pub mod system;
 
-use crate::acquisition::{CacheError, open_selected_file};
+use crate::acquisition::{
+    CacheError, RequestContext, discover_cache_files, open_selected_file, read_selected_cache,
+};
 use std::path::{Path, PathBuf};
 use std::{
     collections::HashSet,
@@ -45,6 +47,46 @@ pub fn discover_appdata_logs(
         current: read_selected_log(&root.join("Player.log"), mapping),
         previous: read_selected_log(&root.join("Player-prev.log"), mapping),
     })
+}
+
+/// Safe categories for the user's fallback choice; paths and source text stay native.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExtractionError {
+    Discovery(system::DiscoveryError),
+    NoGameData,
+    NoCache,
+    NoRequest,
+}
+
+/// Use the first cache yielding a request: current log before previous, then newest
+/// version first. Caches are never merged, as each is assumed to hold one account.
+pub fn extract_from_logs<E>(logs: LogDiscovery<E>) -> Result<Vec<RequestContext>, ExtractionError> {
+    let mut directories = Vec::new();
+    for directory in [logs.current, logs.previous]
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        if !directories.contains(&directory) {
+            directories.push(directory);
+        }
+    }
+    if directories.is_empty() {
+        return Err(ExtractionError::NoGameData);
+    }
+    let mut error = ExtractionError::NoCache;
+    for directory in directories {
+        let Ok(caches) = discover_cache_files(&directory) else {
+            continue;
+        };
+        error = ExtractionError::NoRequest;
+        for cache in caches {
+            if let Ok(contexts) = read_selected_cache(&cache) {
+                return Ok(contexts);
+            }
+        }
+    }
+    Err(error)
 }
 
 /// Only inspect the startup header; large later gameplay logs are irrelevant.
@@ -331,5 +373,156 @@ mod tests {
             read_header(&mut &b""[..], PathMapping::Windows),
             Err(LogError::NoGameDataPath)
         );
+    }
+
+    mod extraction {
+        use super::super::*;
+        use crate::acquisition::tests::filesystem::{self, Fixture};
+        use std::collections::BTreeMap;
+
+        const ENDPOINT: &str = "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?";
+
+        fn cache(keys: &[&str]) -> Vec<u8> {
+            let mut bytes = Vec::new();
+            for key in keys {
+                bytes.extend_from_slice(
+                    format!("1/0/{ENDPOINT}authkey={key}&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0").as_bytes(),
+                );
+            }
+            bytes
+        }
+        fn data_2(game: &str, version: Option<&str>) -> PathBuf {
+            let root = Path::new(game).join("webCaches");
+            version
+                .map_or(root.clone(), |version| root.join(version))
+                .join("Cache/Cache_Data/data_2")
+        }
+        fn listing(game: &str, versions: &[&str]) -> (PathBuf, Vec<PathBuf>) {
+            let root = Path::new(game).join("webCaches");
+            let children = versions.iter().map(|version| root.join(version)).collect();
+            (root, children)
+        }
+        fn logs(current: &[&str], previous: &[&str]) -> LogDiscovery<()> {
+            let paths = |dirs: &[&str]| dirs.iter().map(PathBuf::from).collect::<Vec<_>>();
+            LogDiscovery {
+                current: if current.is_empty() {
+                    Err(())
+                } else {
+                    Ok(paths(current))
+                },
+                previous: if previous.is_empty() {
+                    Err(())
+                } else {
+                    Ok(paths(previous))
+                },
+            }
+        }
+        // Redacted Debug hides keys, so compare against contexts extracted directly.
+        fn expected(keys_in_file_order: &[&str]) -> Vec<RequestContext> {
+            crate::acquisition::extract_request_contexts(&cache(keys_in_file_order)).unwrap()
+        }
+
+        #[test]
+        fn uses_the_first_cache_with_a_request_newest_version_first_without_merging() {
+            filesystem::install(Fixture {
+                listings: BTreeMap::from([
+                    listing("D:/Current", &["2.10.0.0", "2.9.0.0"]),
+                    listing("E:/Previous", &[]),
+                ]),
+                files: BTreeMap::from([
+                    (
+                        data_2("D:/Current", Some("2.10.0.0")),
+                        b"no request".to_vec(),
+                    ),
+                    (
+                        data_2("D:/Current", Some("2.9.0.0")),
+                        cache(&["older", "newer"]),
+                    ),
+                    (data_2("D:/Current", None), cache(&["legacy"])),
+                    (data_2("E:/Previous", None), cache(&["other-install"])),
+                ]),
+                ..Default::default()
+            });
+            let contexts = extract_from_logs(logs(&["D:/Current"], &["E:/Previous"])).unwrap();
+            assert_eq!(contexts, expected(&["older", "newer"]));
+            filesystem::inspect(|state| {
+                assert!(
+                    state
+                        .accessed
+                        .iter()
+                        .all(|path| path.starts_with("D:/Current"))
+                );
+            });
+        }
+
+        #[test]
+        fn falls_back_to_the_previous_log_and_skips_repeated_directories() {
+            filesystem::install(Fixture {
+                listings: BTreeMap::from([listing("D:/Game", &[])]),
+                files: BTreeMap::from([(data_2("D:/Game", None), cache(&["previous"]))]),
+                ..Default::default()
+            });
+            assert_eq!(
+                extract_from_logs(logs(&[], &["D:/Game", "D:/Game"])).unwrap(),
+                expected(&["previous"])
+            );
+            filesystem::install(Fixture {
+                listings: BTreeMap::from([listing("D:/Game", &[])]),
+                ..Default::default()
+            });
+            assert_eq!(
+                extract_from_logs(logs(&["D:/Game"], &["D:/Game"])),
+                Err(ExtractionError::NoCache)
+            );
+            filesystem::inspect(|state| {
+                let listed = state
+                    .accessed
+                    .iter()
+                    .filter(|path| path.ends_with("webCaches"));
+                assert_eq!(listed.count(), 1);
+            });
+        }
+
+        #[test]
+        fn reports_the_furthest_stage_reached_without_source_details() {
+            filesystem::install(Fixture::default());
+            assert_eq!(
+                extract_from_logs(logs(&[], &[])),
+                Err(ExtractionError::NoGameData)
+            );
+            assert_eq!(
+                extract_from_logs(logs(&["D:/Missing"], &["E:/Missing"])),
+                Err(ExtractionError::NoCache)
+            );
+            filesystem::install(Fixture {
+                listings: BTreeMap::from([
+                    listing("D:/Game", &["3.0.0.0"]),
+                    listing("E:/Game", &[]),
+                ]),
+                files: BTreeMap::from([
+                    (
+                        data_2("D:/Game", Some("3.0.0.0")),
+                        vec![0; crate::acquisition::MAX_CACHE_BYTES + 1],
+                    ),
+                    (data_2("D:/Game", None), b"no request".to_vec()),
+                ]),
+                directories: vec![data_2("E:/Game", None)],
+                ..Default::default()
+            });
+            assert_eq!(
+                extract_from_logs(logs(&["D:/Game"], &["E:/Game"])),
+                Err(ExtractionError::NoRequest)
+            );
+            // A later directory without caches must not mask a cache already found.
+            filesystem::install(Fixture {
+                listings: BTreeMap::from([listing("D:/Game", &[])]),
+                files: BTreeMap::from([(data_2("D:/Game", None), b"no request".to_vec())]),
+                ..Default::default()
+            });
+            assert_eq!(
+                extract_from_logs(logs(&["D:/Game"], &["E:/Missing"])),
+                Err(ExtractionError::NoRequest)
+            );
+        }
     }
 }

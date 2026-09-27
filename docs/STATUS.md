@@ -175,18 +175,41 @@ Verification after removal: `npm run check` passed with 56 backend unit tests,
 The final diff is documentation-only; no new behavior or TDD cycle was introduced.
 Native Windows/real WSL installation verification remains pending.
 
+## Automatic extraction service (2026-09-27)
+
+Work is on `feat/automatic-extraction`, branched from `main` at `1a7a74d` (PR #6).
+`discovery::system::extract_current_user_contexts` now composes current-user log
+discovery, `webCaches` resolution and cache extraction. Directories from the
+current log are tried before the previous log; caches newest version first, then
+legacy. The first cache yielding a context is returned whole and caches are never
+merged. Failures report discovery failure, no game data, no cache or no usable
+request. The extractor now returns contexts in reverse file order, each at its
+last position, as the contract's auth-key validation requires. No Tauri command,
+permission, network request or credential persistence was added.
+
+TDD: the reverse-order unit test failed on first-seen output before the change.
+Three composition tests and one entry-point test failed against stubs, then passed.
+The in-memory filesystem double gained repeatable per-directory listings. The
+large-cache integration test's position checks were updated for reverse order.
+
+`npm run check` passed: 60 backend unit tests, 33 integration tests, 17
+frontend/tooling tests, native offline execution, eight enforcement probes, both
+report guards, TypeScript/build, formatting and Clippy. All required per-file
+metrics remain 100%, including the isolated backend unit gate, with no new
+exclusions. `npm run tauri -- build --no-bundle` passed for the Linux host.
+Real Windows/WSL installation verification remains pending.
+
 ## Next
 
-Connect current-user discovery, internal `data_2` resolution and extraction, then
-expose automatic extraction and a file-upload fallback through narrow Tauri
-commands and accessible HSR controls. Keep paths and credentials native-only.
+Expose automatic extraction and the user-provided cache file fallback through
+narrow Tauri commands and permissions, holding extracted auth keys only in
+short-lived native memory. Then add accessible HSR controls for both actions.
 Keep the wrapper coverage exception explicit when adding runtime registration.
 Verify real Windows cache/log layouts from native Windows and WSL; synthetic
-tests and script inspection do not establish installed-game compatibility.
-Then implement the contract's cancellable HTTP client, bounded pagination/retries,
-review DTO, atomic commit and history display. Account/server verification remains
-a milestone-closing requirement. The roadmap's discovery/extraction checkboxes stay
-open until their remaining verification and desktop integration criteria pass.
+tests do not establish installed-game compatibility. Then implement the
+contract's auth-key validation, cancellable HTTP client, bounded
+pagination/retries, review DTO, atomic commit and history display. Account/server
+verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

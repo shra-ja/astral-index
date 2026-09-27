@@ -81,9 +81,10 @@ fn large_cache_deduplicates_within_processing_budget() {
     assert!(bytes.len() < MAX_CACHE_BYTES);
     let contexts = extract_request_contexts(&bytes).unwrap();
     assert_eq!(contexts.len(), urls.len());
-    for index in [0, 40_000, 79_999] {
+    // Reverse order places the repeated tail first, then the remaining originals.
+    for (position, index) in [(0, 79_999), (1, 0), (2, 79_998), (79_999, 1)] {
         let expected = extract_request_contexts(&cache(&[urls[index].clone()])).unwrap();
-        assert_eq!(contexts[index], expected[0]);
+        assert_eq!(contexts[position], expected[0]);
     }
 }
 

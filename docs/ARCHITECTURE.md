@@ -183,7 +183,18 @@ current user's game location, locates the known `data_2` filename within support
 cache layouts, and extracts request context. If discovery fails, the user can
 provide a file for local extraction. There is no discovered-cache chooser,
 game-directory picker or source-selection session. These are the two intended
-desktop actions; the existing helpers still need end-to-end wiring.
+desktop actions. The native automatic-extraction service below is connected;
+Tauri commands and desktop controls are not yet.
+
+`discovery::system::extract_current_user_contexts` runs current-user log
+discovery, then `discovery::extract_from_logs`. Game-data directories come from
+the current log before the previous log, without repeats. Each directory's caches
+are tried newest version first, then the legacy layout. The first cache that yields
+any request context is returned whole; later caches are not read, and caches are
+never merged, as each cache is assumed to hold one account's requests. Failures
+report the furthest stage reached as a safe category: discovery failure, no game
+data, no cache, or no usable request. Cache reads are synchronous within the
+asynchronous service.
 
 ## Initial native cache extraction
 
@@ -199,10 +210,10 @@ It accepts the exact researched HTTPS endpoint spelling and five required query
 fields, retaining their encoded bytes. Empty/malformed fields, duplicate required
 fields, other game contexts, fragments and alternate endpoint spellings fail
 candidate validation. Unrelated/unsupported entries are skipped; no valid candidate
-produces a safe error. Distinct contexts retain first-seen order without implying
-age, validity or current account. Hash-set membership avoids scanning every prior
-context for each candidate. Callers must not silently choose an account from
-cache order.
+produces a safe error. Distinct contexts are returned in reverse file order, each
+at its last position, matching the researched method and the contract's
+validation order. This order does not imply age, validity or current account.
+Hash-set membership avoids scanning every prior context for each candidate.
 
 Request contexts are opaque native values with redacted debug output and no
 serialization implementation. Errors contain neither paths nor source text.
@@ -272,8 +283,9 @@ logs. A failed log returns no partial candidate list and cannot suppress the
 other log. Successful translated duplicates collapse in first-seen order.
 Errors contain only safe categories; source paths and helper diagnostics stay
 out of errors/logs. No game directories or caches are opened automatically by
-this log-discovery service; connecting it to cache resolution and extraction is
-still pending. Explicit path inputs remain internal service APIs.
+this log-discovery service; the separate automatic-extraction service above
+connects it to cache resolution and extraction. Explicit path inputs remain
+internal service APIs.
 
 Desktop extraction controls and real Windows/WSL installation validation remain pending.
 These services add no Tauri command, permission, startup task or history request.
