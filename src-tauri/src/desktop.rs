@@ -1,5 +1,5 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
-use crate::acquisition::{CacheError, RequestContext, extract_request_contexts};
+use crate::acquisition::{CacheError, CachedRequest, RequestContext, extract_request_contexts};
 use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
@@ -34,10 +34,16 @@ pub struct Session {
     contexts: Mutex<Option<Vec<RequestContext>>>,
 }
 impl Session {
-    fn store(&self, result: Result<Vec<RequestContext>, Failure>) -> Result<(), Failure> {
+    /// Cached URLs are dropped here; only the contexts are kept.
+    fn store(&self, result: Result<Vec<CachedRequest>, Failure>) -> Result<(), Failure> {
         let mut contexts = self.contexts.lock().unwrap_or_else(PoisonError::into_inner);
         *contexts = None;
-        *contexts = Some(result?);
+        *contexts = Some(
+            result?
+                .into_iter()
+                .map(CachedRequest::into_context)
+                .collect(),
+        );
         Ok(())
     }
 }
@@ -155,6 +161,13 @@ mod tests {
         .map(|_| ())
         .map_err(|error| error.to_string())
     }
+    fn contexts(cache: &[u8]) -> Vec<RequestContext> {
+        extract_request_contexts(cache)
+            .unwrap()
+            .into_iter()
+            .map(CachedRequest::into_context)
+            .collect()
+    }
     fn stored(window: &WebviewWindow<MockRuntime>) -> Option<Vec<RequestContext>> {
         window.state::<Session>().contexts.lock().unwrap().take()
     }
@@ -201,10 +214,7 @@ mod tests {
             ),
             Ok(())
         );
-        assert_eq!(
-            stored(&window).unwrap(),
-            crate::acquisition::extract_request_contexts(&cache("synthetic")).unwrap()
-        );
+        assert_eq!(stored(&window).unwrap(), contexts(&cache("synthetic")));
         invoke(
             &window,
             "extract_from_file",
@@ -274,7 +284,7 @@ mod tests {
         assert_eq!(run(extract_into(&session)), Ok(()));
         assert_eq!(
             session.contexts.lock().unwrap().take().unwrap(),
-            crate::acquisition::extract_request_contexts(&cache("discovered")).unwrap()
+            contexts(&cache("discovered"))
         );
     }
 

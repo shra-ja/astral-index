@@ -3,7 +3,7 @@ use super::{
     ExtractionError, LogDiscovery, LogError, PathMapping, discover_appdata_logs, extract_from_logs,
     map_windows_directory,
 };
-use crate::acquisition::RequestContext;
+use crate::acquisition::CachedRequest;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -39,7 +39,7 @@ pub async fn discover_current_user_logs() -> Result<LogDiscovery<DiscoveryError>
 }
 
 /// Call only on an explicit user request. Reads local files; makes no history request.
-pub async fn extract_current_user_contexts() -> Result<Vec<RequestContext>, ExtractionError> {
+pub async fn extract_current_user_contexts() -> Result<Vec<CachedRequest>, ExtractionError> {
     let logs = discover_current_user_logs()
         .await
         .map_err(ExtractionError::Discovery)?;

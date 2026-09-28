@@ -241,9 +241,15 @@ produces a safe error. Distinct contexts are returned in reverse file order, eac
 at its last position, matching the researched method and the contract's
 validation order. This order does not imply age, validity or current account.
 Hash-set membership avoids scanning every prior context for each candidate.
+Each context comes back as a `CachedRequest` with its cached URL: the exact
+endpoint-checked text up to the entry's NUL, taken from the context's last
+occurrence, for validation to send unchanged
+([decision 0007](decisions/0007-validate-during-extraction.md)).
+`CachedRequest::into_context` drops the URL. The desktop session currently keeps
+only the contexts, so no cached URL outlives an extraction command.
 
-Request contexts are opaque native values with redacted debug output and no
-serialization implementation. Errors contain neither paths nor source text.
+Request contexts and cached requests are opaque native values with redacted
+debug output and no serialization implementation. Errors contain neither paths nor source text.
 A discovered game-data directory can also be resolved through its immediate
 `webCaches` directory. Only the two newest four-component numeric version folders
 are considered, latest first, because the user reports auth keys last about 24

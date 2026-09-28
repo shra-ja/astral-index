@@ -2,7 +2,7 @@
 pub mod system;
 
 use crate::acquisition::{
-    CacheError, RequestContext, discover_cache_files, open_selected_file, read_selected_cache,
+    CacheError, CachedRequest, discover_cache_files, open_selected_file, read_selected_cache,
 };
 use std::path::{Path, PathBuf};
 use std::{
@@ -60,7 +60,7 @@ pub enum ExtractionError {
 
 /// Use the first cache yielding a request: current log before previous, then newest
 /// version first. Caches are never merged, as each is assumed to hold one account.
-pub fn extract_from_logs<E>(logs: LogDiscovery<E>) -> Result<Vec<RequestContext>, ExtractionError> {
+pub fn extract_from_logs<E>(logs: LogDiscovery<E>) -> Result<Vec<CachedRequest>, ExtractionError> {
     let mut directories = Vec::new();
     for directory in [logs.current, logs.previous]
         .into_iter()
@@ -418,7 +418,7 @@ mod tests {
             }
         }
         // Redacted Debug hides keys, so compare against contexts extracted directly.
-        fn expected(keys_in_file_order: &[&str]) -> Vec<RequestContext> {
+        fn expected(keys_in_file_order: &[&str]) -> Vec<CachedRequest> {
             crate::acquisition::extract_request_contexts(&cache(keys_in_file_order)).unwrap()
         }
 
