@@ -1,8 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Local extraction commands for the main window only.",
+  "description": "Extraction and acquisition commands for the main window only.",
   "local": true,
   "windows": ["main"],
-  "permissions": ["allow-extract-automatically", "allow-extract-from-file"]
+  "permissions": [
+    "allow-extract-automatically",
+    "allow-extract-from-file",
+    "allow-cancel-acquisition"
+  ]
 }

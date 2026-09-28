@@ -704,7 +704,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 
 ## Review DTO (2026-09-28)
 
-Work is on `feat/review-dto`, branched from `main` at `4e6fd32`. Each storage
+Integrated through PR #30 (`0d8cdad`), branched from `main` at `4e6fd32`. Each storage
 preview now carries a serializable `Review`: UID, server, timezone offset,
 overall counts, counts for all six categories in fetch order (including empty
 ones), the earliest and latest record times, and each conflict's ID, category
@@ -729,15 +729,50 @@ frontend/tooling tests, offline native execution, nine probes and five report
 checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Acquisition session and cancel command (2026-09-28)
+
+Work is on `feat/acquisition-session`, branched from `main` at `0d8cdad`: PR A of
+four for the acquisition commands, as agreed with the user. The session now
+holds the validated context with the retry budget validation started, which
+retrieval will continue with, and a cancellation token for the running
+operation. Starting an operation cancels any earlier one's token, and a
+validated context is kept only if its operation's token was not cancelled,
+checked under the session lock, so a cancelled or superseded operation keeps no
+late result. Validation runs through `Cancellable`. The new `cancel_acquisition`
+command cancels the running operation and drops the context; it is registered
+in the command manifest and granted to the main window. The typed client gains
+`cancelAcquisition()` and the `cancelled` kind. No UI changed.
+
+Agreed with the user for the remaining PRs: clear the auth key as soon as
+retrieval ends rather than at commit; put all acquisition UI (progress, Cancel,
+review, messages) in the controls step rather than in each command PR; and
+report the failing category and page on retrieval failures instead of preview
+indices, since retrieval already validates every page. The roadmap now lists
+the commands step as four sub-steps with those requirements.
+
+TDD: three session tests (cancel, late and superseded results, cancelling
+mid-validation) failed against stubs, then passed; the mid-validation test uses
+a transport that cancels the session after serving a response. The registration
+and carried-budget assertions passed at once, as those parts were not stubbed.
+Two client tests failed on the missing function and kind, then passed. The
+native smoke test now calls `cancel_acquisition` from the real webview.
+
+The first full run failed the backend unit branch gate on one of my test
+assertions, `earlier.is_cancelled() && !later.is_cancelled()`, whose
+short-circuit paths never ran; it is now two assertions. `npm run check` then
+passed: 114 Rust unit tests, 35 integration tests, 44 frontend/tooling tests,
+offline native execution including the new IPC call, nine probes and five
+report checks, all at 100% per file, plus TypeScript/build, formatting and
+Clippy. `npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-The acquisition-to-preview, commit and cancel commands: carry the extraction's
-retry budget into pagination, let cancel stop validation as well as retrieval,
-forward progress to the webview, show "no history found" for an empty
-retrieval, map preview failures to safe categories, send the review to the
-webview, and clear the auth key when an import ends. Then the review controls
-and history display. Account/server verification remains a milestone-closing
-requirement.
+PR B: open the local database in the app data folder on first use, with SQLite
+calls off the async workers, recorded in a decision, plus a deferred roadmap
+item for a portable mode that keeps the database beside the executable. Then
+`retrieve_history`, then `commit_import` and `discard_import`, then the review
+and commit controls and history display. Account/server verification remains a
+milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

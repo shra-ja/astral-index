@@ -1,6 +1,6 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, expect, test } from 'vitest';
-import { extractAutomatically, extractFromFile, MAX_CACHE_BYTES } from '../commands';
+import { cancelAcquisition, extractAutomatically, extractFromFile, MAX_CACHE_BYTES } from '../commands';
 
 afterEach(clearMocks);
 
@@ -14,7 +14,7 @@ test('automatic extraction resolves without detail on success', async () => {
 test('known native kinds pass through and anything else becomes unavailable', async () => {
   for (const kind of [
     'unsupported_host', 'discovery_failed', 'no_game_data', 'no_cache', 'no_request',
-    'expired_key', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal',
+    'expired_key', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal', 'cancelled',
   ]) {
     mockIPC(() => { throw { kind }; });
     expect(await extractAutomatically()).toEqual({ kind });
@@ -60,4 +60,13 @@ test('a file that cannot be read in the webview is reported as invalid', async (
   const file = new File(['x'], 'data_2');
   Object.defineProperty(file, 'arrayBuffer', { value: () => Promise.reject(new Error('private')) });
   expect(await extractFromFile(file)).toEqual({ kind: 'invalid_file' });
+});
+
+test('cancelling asks the native side to stop and reports only unexpected failures', async () => {
+  const calls: string[] = [];
+  mockIPC(cmd => { calls.push(cmd); });
+  expect(await cancelAcquisition()).toBeUndefined();
+  expect(calls).toEqual(['cancel_acquisition']);
+  mockIPC(() => { throw 'cancel_acquisition not allowed'; });
+  expect(await cancelAcquisition()).toEqual({ kind: 'unavailable' });
 });

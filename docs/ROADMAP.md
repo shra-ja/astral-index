@@ -179,8 +179,9 @@ the order listed.
     user can make an informed choice to stop. Native events only; the webview
     receives them with the acquisition commands below.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
-  Expose a narrow native review DTO with validated account/server/context, records
-  and conflict locations, plus safe page/record indices for validation failures.
+  Expose a narrow native review DTO with validated account/server/context, counts
+  and conflict locations, plus the failing category and page for retrieval
+  failures.
   Do not reparse private source bytes in the frontend or expose credentials/raw
   payloads in diagnostics.
   - [x] Resolve the account UID and server from the retrieved responses, per
@@ -191,15 +192,22 @@ the order listed.
   - [x] Build the native review DTO from an acquisition preview. Besides counts,
     account and server, include per-category counts and the covered time range,
     so the user can judge whether the retrieval looks complete.
-  - [ ] Expose acquisition-to-preview, commit and cancel through narrow Tauri
-    commands. Clear the auth key from memory when the import completes, fails
-    or is cancelled. Continue with the retry budget the extraction started.
-    Let the cancel command stop validation during extraction as well as
-    retrieval, and give the `cancelled` failure a message in the webview.
-    Forward retrieval progress to the webview and show it beside a cancel
-    control while retrieval runs. Map preview failures to safe categories with
-    page and record indices where they help.
-  - [ ] Add accessible review and commit controls for the preview.
+  - [x] Hold the validated context with the retry budget its extraction started,
+    and add a `cancel_acquisition` command that stops the running operation
+    (validation now, retrieval later) and drops the context. A cancelled or
+    superseded operation keeps no late result.
+  - [ ] Open the local database in the app data folder on first use, running
+    SQLite calls off the async workers; record the location in a decision.
+  - [ ] Add a `retrieve_history` command: retrieve from the held context with
+    its budget, cancellably, stream progress over a Tauri channel, resolve the
+    account and preview it. Return the review or "no history found", with the
+    failing category and page for retrieval failures. Clear the auth key as
+    soon as retrieval ends, whether it succeeds, fails or is cancelled.
+  - [ ] Add `commit_import` and `discard_import` commands for the held preview.
+  - [ ] Add accessible review and commit controls for the preview: chain "Start
+    retrieval" into retrieval, show progress beside a Cancel control, then the
+    review with Commit and Discard. Give every failure, `cancelled` and "no
+    history found" a readable message.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.
