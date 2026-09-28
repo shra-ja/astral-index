@@ -19,6 +19,8 @@ pub enum FetchFailure {
     InvalidResponse,
     /// Nothing was sent: an unsupported URL, no HTTPS client or no context to validate.
     Internal,
+    /// The user cancelled; no further request is sent.
+    Cancelled,
 }
 impl FetchFailure {
     /// Whether one retry may help, within the acquisition's retry budget.
@@ -43,6 +45,7 @@ pub fn transport_failure(error: TransportError) -> FetchFailure {
         TransportError::Status(status) => FetchFailure::Rejected(status),
         TransportError::TooLarge => FetchFailure::InvalidResponse,
         TransportError::UnsupportedUrl | TransportError::Unavailable => FetchFailure::Internal,
+        TransportError::Cancelled => FetchFailure::Cancelled,
     }
 }
 
@@ -98,6 +101,7 @@ mod tests {
             (TransportError::TooLarge, FetchFailure::InvalidResponse),
             (TransportError::UnsupportedUrl, FetchFailure::Internal),
             (TransportError::Unavailable, FetchFailure::Internal),
+            (TransportError::Cancelled, FetchFailure::Cancelled),
         ] {
             assert_eq!(classify(Err(error)), Err(failure), "{error:?}");
         }
@@ -134,6 +138,7 @@ mod tests {
             FetchFailure::Rejected(302),
             FetchFailure::InvalidResponse,
             FetchFailure::Internal,
+            FetchFailure::Cancelled,
         ] {
             assert!(!failure.is_transient(), "{failure:?}");
         }

@@ -173,7 +173,7 @@ the order listed.
   - [x] Apply the retry budget: one retry per transiently failed request after a
     short bounded delay, and at most two extra attempts per acquisition,
     including validation requests.
-  - [ ] Support cancellation that stops further requests and writes nothing.
+  - [x] Support cancellation that stops further requests and writes nothing.
   - [ ] Optional, not blocking the milestone: report retrieval progress (the
     current category, pages and records so far, and any pending retry) so the
     user can make an informed choice to stop.
@@ -193,6 +193,8 @@ the order listed.
   - [ ] Expose acquisition-to-preview, commit and cancel through narrow Tauri
     commands. Clear the auth key from memory when the import completes, fails
     or is cancelled. Continue with the retry budget the extraction started.
+    Let the cancel command stop validation during extraction as well as
+    retrieval, and give the `cancelled` failure a message in the webview.
   - [ ] Add accessible review and commit controls for the preview.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,

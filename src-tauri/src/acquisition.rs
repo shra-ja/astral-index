@@ -7,12 +7,14 @@ use std::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::{collections::HashSet, fmt, io::Read, path::Path};
 
+mod cancel;
 mod outcome;
 mod pagination;
 mod request;
 mod retry;
 mod transport;
 mod validation;
+pub use cancel::Cancellable;
 pub use outcome::{FetchFailure, classify, parse_body, transport_failure};
 pub use pagination::{AcquisitionError, History, fetch_history};
 pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
