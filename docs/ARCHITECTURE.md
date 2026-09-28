@@ -332,6 +332,18 @@ response bodies in request order, with redacted debug output, in the form
 split into `transport_failure` and `parse_body`, so pagination keeps each body
 without copying it. No command calls `fetch_history` yet.
 
+`fetch_history` also resolves the account the history belongs to, per the
+[contract](HSR-API-CONTRACT.md#account-server-and-timestamps). The UID comes
+from records (the parser already requires one UID per page) and the server from
+each page's `region`; a page without a region, or without records, adds no
+evidence, but every value present must match the first, or retrieval stops at
+once with `MixedAccounts` or `MixedServers`. `History::account()` returns an
+`Account` (UID and server, with redacted debug output) to preview under. With no
+records it returns `None`: no history was found, which is not an error, and no
+account is created. Records with no named server anywhere fail with
+`MissingServer`; nothing is fabricated. Storage preview still checks every page
+against the account, server and timezone independently.
+
 Both `fetch_history` and `Retrying` take a `Report`, a `&(dyn Fn(Progress) +
 Sync)` that must return quickly. Before each page request, `fetch_history`
 reports `Progress::Requesting` with the category, page number, and the pages and

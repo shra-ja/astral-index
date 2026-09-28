@@ -657,7 +657,7 @@ passed on Linux.
 
 ## Retrieval progress (2026-09-28)
 
-Work is on `feat/retrieval-progress`, branched from `main` at `6fbd17a`, for the
+Integrated through PR #28 (`e3d6558`), branched from `main` at `6fbd17a`, for the
 optional roadmap step the user chose to do first. `fetch_history` reports
 `Progress::Requesting` before each page request, with the category, page number,
 and pages and records received so far. `Retrying` reports
@@ -677,15 +677,41 @@ frontend/tooling tests, offline native execution, nine probes and five report
 checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Account and server resolution (2026-09-28)
+
+Work is on `feat/account-resolution`, branched from `main` at `e3d6558`.
+`fetch_history` now resolves the account while retrieving: the UID from
+records and the server from each page's `region`. Values absent from a page add
+no evidence; every value present must match the first, so another account or
+server stops retrieval at once (`MixedAccounts`, `MixedServers`).
+`History::account()` gives the `Account` to preview under, with redacted debug
+output, or `None` when no records were retrieved, a normal "no history found"
+outcome that creates no account. Records with no named server anywhere fail
+with `MissingServer`. The synthetic `empty.json` fixture has no region, so
+empty pages without one are accepted; the researched real responses did carry
+region and offset on an empty page. The integration test now previews and
+commits under the resolved account.
+
+TDD: three tests (resolution across pages, mismatch stopping retrieval, missing
+server) failed against a stub that never resolved an account, then passed. A
+fourth, that no records gives no account, passed against the stub, as expected
+of one returning none.
+
+`npm run check` passed: 110 Rust unit tests, 35 integration tests, 43
+frontend/tooling tests, offline native execution, nine probes and five report
+checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Resolve the account and server from the retrieved responses and build the
-review DTO. After that come the acquisition-to-preview, commit and cancel
-commands, which must carry the extraction's retry budget into pagination, let
-cancel stop validation as well as retrieval, forward progress to the webview,
-and clear the auth key when an import ends; then the review controls and
-history display. Account/server verification remains a milestone-closing
-requirement.
+Build the review DTO from an acquisition preview, with counts, account and
+server, per-category counts and the covered time range. Then the
+acquisition-to-preview, commit and cancel commands, which must carry the
+extraction's retry budget into pagination, let cancel stop validation as well
+as retrieval, forward progress to the webview, show "no history found" for an
+empty retrieval, and clear the auth key when an import ends; then the review
+controls and history display. Account/server verification remains a
+milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

@@ -33,6 +33,12 @@ pub enum AcquisitionError {
     CursorCycle,
     /// The responses together exceeded the 16 MiB batch bound; fetching stopped.
     TooLarge,
+    /// Records from a later page belong to a different account.
+    MixedAccounts,
+    /// A later page names a different server.
+    MixedServers,
+    /// Records were retrieved, but no page named their server.
+    MissingServer,
 }
 impl From<FetchFailure> for AcquisitionError {
     fn from(failure: FetchFailure) -> Self {
@@ -40,10 +46,32 @@ impl From<FetchFailure> for AcquisitionError {
     }
 }
 
+/// The account and server retrieved history belongs to, from the responses.
+/// Holds a player identifier: never log it.
+#[derive(PartialEq, Eq)]
+pub struct Account {
+    uid: String,
+    server: String,
+}
+impl fmt::Debug for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Account([redacted])")
+    }
+}
+impl Account {
+    pub fn uid(&self) -> &str {
+        &self.uid
+    }
+    pub fn server(&self) -> &str {
+        &self.server
+    }
+}
+
 /// Every response body retrieved, in request order, for an import preview.
 /// Holds player data: never log or display it.
 pub struct History {
     responses: Vec<Vec<u8>>,
+    account: Option<Account>,
 }
 impl fmt::Debug for History {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,6 +82,11 @@ impl History {
     /// The bodies in the form `Store::preview` takes.
     pub fn responses(&self) -> Vec<&[u8]> {
         self.responses.iter().map(Vec::as_slice).collect()
+    }
+    /// The account to preview under, or `None` when no records were retrieved:
+    /// no history was found, which is not an error.
+    pub fn account(&self) -> Option<&Account> {
+        self.account.as_ref()
     }
 }
 
@@ -73,6 +106,7 @@ pub async fn fetch_history(
     let mut responses = Vec::new();
     let mut total = 0;
     let mut records_received = 0;
+    let (mut uid, mut server) = (None, None);
     for category in Category::ALL {
         let mut cursors = HashSet::new();
         let mut last = None;
@@ -90,7 +124,18 @@ pub async fn fetch_history(
                 .get(request.url())
                 .await
                 .map_err(transport_failure)?;
-            let mut records = parse_body(&body)?.list;
+            let page_data = parse_body(&body)?;
+            // The parser already requires one UID within a page.
+            if !agrees(
+                &mut uid,
+                page_data.list.first().map(|roll| roll.uid.as_str()),
+            ) {
+                return Err(AcquisitionError::MixedAccounts);
+            }
+            if !agrees(&mut server, page_data.region.as_deref()) {
+                return Err(AcquisitionError::MixedServers);
+            }
+            let mut records = page_data.list;
             total += body.len();
             if total > MAX_BATCH_BYTES {
                 return Err(AcquisitionError::TooLarge);
@@ -111,7 +156,21 @@ pub async fn fetch_history(
             }
         }
     }
-    Ok(History { responses })
+    let account = match (uid, server) {
+        (None, _) => None,
+        (Some(uid), Some(server)) => Some(Account { uid, server }),
+        (Some(_), None) => return Err(AcquisitionError::MissingServer),
+    };
+    Ok(History { responses, account })
+}
+
+/// Keep the first value seen; a later, different one is a mismatch. Absent values
+/// are unknown, never a mismatch.
+fn agrees(known: &mut Option<String>, value: Option<&str>) -> bool {
+    match value {
+        None => true,
+        Some(value) => known.get_or_insert_with(|| value.to_owned()) == value,
+    }
 }
 
 #[cfg(test)]
@@ -240,6 +299,90 @@ mod tests {
         assert_eq!(
             events[6..],
             [requesting(Category::LightConeCollaboration, 1, 6, 1002)]
+        );
+    }
+
+    /// Change a page's `data` object.
+    fn edit(bytes: Vec<u8>, change: impl FnOnce(&mut serde_json::Value)) -> Vec<u8> {
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        change(&mut value["data"]);
+        serde_json::to_vec(&value).unwrap()
+    }
+    fn with_uid(bytes: Vec<u8>, uid: &str) -> Vec<u8> {
+        edit(bytes, |data| {
+            for record in data["list"].as_array_mut().unwrap() {
+                record["uid"] = json!(uid);
+            }
+        })
+    }
+    fn with_region(bytes: Vec<u8>, region: serde_json::Value) -> Vec<u8> {
+        edit(bytes, |data| data["region"] = region)
+    }
+
+    #[test]
+    fn the_account_comes_from_records_and_the_server_from_any_page() {
+        // Only an empty page names the server; the others omit it.
+        let mut bodies = vec![
+            with_region(body(Category::Stellar, 1..3, None), json!(null)),
+            empty(Category::Departure),
+        ];
+        bodies.extend(
+            empty_after(Category::Departure)
+                .into_iter()
+                .map(|page| with_region(page, json!(null))),
+        );
+        let history = run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap();
+        let account = history.account().unwrap();
+        assert_eq!(
+            (account.uid(), account.server()),
+            ("100000001", "synthetic-server")
+        );
+        assert_eq!(format!("{account:?}"), "Account([redacted])");
+    }
+
+    #[test]
+    fn no_records_means_no_history_rather_than_an_error() {
+        let named = Category::ALL.map(empty).to_vec();
+        let unnamed = Category::ALL.map(|category| with_region(empty(category), json!(null)));
+        for bodies in [named, unnamed.to_vec()] {
+            let history = run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap();
+            assert_eq!(history.account(), None);
+            assert_eq!(history.responses().len(), 6);
+        }
+    }
+
+    #[test]
+    fn another_account_or_server_stops_retrieval() {
+        let first = body(Category::Stellar, 1..3, None);
+        for (second, error) in [
+            (
+                with_uid(body(Category::Departure, 4..6, None), "100000009"),
+                AcquisitionError::MixedAccounts,
+            ),
+            (
+                with_region(empty(Category::Departure), json!("other-server")),
+                AcquisitionError::MixedServers,
+            ),
+        ] {
+            let transport = scripted(&[first.clone(), second]);
+            assert_eq!(
+                run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
+                error
+            );
+            assert_eq!(transport.requested().len(), 2);
+        }
+    }
+
+    #[test]
+    fn records_without_a_named_server_are_rejected() {
+        let bodies = [body(Category::Stellar, 1..3, None)]
+            .into_iter()
+            .chain(empty_after(Category::Stellar))
+            .map(|page| with_region(page, json!(null)))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap_err(),
+            AcquisitionError::MissingServer
         );
     }
 
