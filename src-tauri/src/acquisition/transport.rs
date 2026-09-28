@@ -24,6 +24,8 @@ pub enum TransportError {
     Status(u16),
     /// The body exceeded the response bound; reading stopped.
     TooLarge,
+    /// Stopped at the user's request; a request in flight was abandoned.
+    Cancelled,
 }
 
 /// Fetch one history response. Implemented over HTTPS and by scripted test doubles.

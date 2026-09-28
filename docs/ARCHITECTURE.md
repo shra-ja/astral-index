@@ -330,8 +330,7 @@ request. Any fetch failure also stops it. The result is a `History` of raw
 response bodies in request order, with redacted debug output, in the form
 `Store::preview` takes; storage re-parses and validates them. The classifier is
 split into `transport_failure` and `parse_body`, so pagination keeps each body
-without copying it. No command calls `fetch_history` yet, and there is no
-cancellation.
+without copying it. No command calls `fetch_history` yet.
 
 `src-tauri/src/acquisition/retry.rs` applies the retry budget. `Retrying` wraps
 any `Transport`: a transient failure (timeout, connection failure or HTTP 5xx)
@@ -342,6 +341,19 @@ once without spending the budget. `validate` and `fetch_history` take the
 wrapped transport unchanged. The extraction commands create a budget per
 extraction and validate through it; the future acquisition command must carry
 that same budget into pagination, since the budget covers the whole acquisition.
+
+`src-tauri/src/acquisition/cancel.rs` applies user cancellation. `Cancellable`
+wraps a transport with a `CancellationToken` from exactly pinned `tokio-util`
+0.7.19, without default features; it was already resolved through existing
+dependencies, so no new crate was added. Once the token is cancelled, a request
+in flight is dropped, and every later request returns
+`TransportError::Cancelled` without being sent. That becomes
+`FetchFailure::Cancelled`, which is not retried and stops `validate` and
+`fetch_history`, so no context or history is returned. Wrap it outside
+`Retrying`, so cancelling also interrupts a retry delay. Retrieval never writes
+storage; only an explicit commit does. No command creates or cancels a token
+yet: the cancel command and its control arrive with the acquisition commands,
+and the native `cancelled` failure kind has no webview message until then.
 
 ## Windows player-log discovery
 

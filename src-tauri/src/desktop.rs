@@ -40,6 +40,8 @@ pub enum Failure {
     InvalidResponse,
     /// Nothing was sent, for example because no HTTPS client could be created.
     Internal,
+    /// The user stopped the acquisition; nothing further was sent or kept.
+    Cancelled,
 }
 
 /// The validated context from the latest extraction, held only in memory for the
@@ -89,6 +91,7 @@ impl From<FetchFailure> for Failure {
             FetchFailure::Rejected(_) => Self::Rejected,
             FetchFailure::InvalidResponse => Self::InvalidResponse,
             FetchFailure::Internal => Self::Internal,
+            FetchFailure::Cancelled => Self::Cancelled,
         }
     }
 }
@@ -440,6 +443,7 @@ mod tests {
             (FetchFailure::Rejected(302), Failure::Rejected),
             (FetchFailure::InvalidResponse, Failure::InvalidResponse),
             (FetchFailure::Internal, Failure::Internal),
+            (FetchFailure::Cancelled, Failure::Cancelled),
         ] {
             assert_eq!(Failure::from(fetch), failure);
         }

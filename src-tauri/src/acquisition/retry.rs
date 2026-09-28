@@ -128,6 +128,7 @@ mod tests {
             Err(TransportError::TooLarge),
             Err(TransportError::UnsupportedUrl),
             Err(TransportError::Unavailable),
+            Err(TransportError::Cancelled),
         ] {
             let transport = Scripted::new(vec![response.clone()]);
             let budget = RetryBudget::default();

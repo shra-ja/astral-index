@@ -610,7 +610,7 @@ passed on Linux.
 
 ## Acquisition planning gaps (2026-09-28)
 
-Work is on `docs/acquisition-gaps`, branched from `main` at `eb75010`. Reviewing
+Integrated through PR #26 (`8ab916f`), branched from `main` at `eb75010`. Reviewing
 what a user knows when cancelling showed three unrecorded gaps, now in the
 roadmap. Stopping retrieval while it runs is a different decision from
 discarding a preview. It needs no data but has no progress to go on, so live
@@ -621,15 +621,49 @@ and treats a retrieval with no records as "no history found" rather than an
 error. The review DTO step now asks for per-category counts and the covered
 time range. Documentation-only change; no TDD cycle or gate run applies.
 
+## Cancellation (2026-09-28)
+
+Work is on `feat/cancellation`, branched from `main` at `8ab916f`. `Cancellable`
+wraps a transport with a `CancellationToken`. Once the token is cancelled, it
+drops a request in flight or a pending retry delay and refuses every later
+request without sending it. The new `TransportError::Cancelled` classifies as
+`FetchFailure::Cancelled`, which is never retried and stops `validate` and
+`fetch_history` unchanged, so no context or history comes back; retrieval never
+writes storage in any case. Desktop gains a native `cancelled` failure kind for
+the exhaustive mapping. No command creates or cancels a token yet; the cancel
+command, its control and the webview message are added to the acquisition
+commands step.
+
+`tokio-util` 0.7.19 is now a direct, exactly pinned dependency without default
+features, for `CancellationToken::run_until_cancelled`. It was already resolved
+through existing dependencies, so the lockfile gains only the dependency edge.
+Its source was checked: an already-cancelled token returns without polling the
+request.
+
+TDD: against a pass-through stub, the already-cancelled and
+validation/pagination tests failed, and the in-flight and retry-delay tests hung
+(the stub ignored the token), then all passed. A pass-through test passed
+against the stub, as expected. The mapping variants were added with their
+table tests. Timing is measured on a paused Tokio clock.
+
+The first full run failed the backend unit gate on one line of `cancel.rs`:
+the closing brace of the hanging test double after `pending().await`, which can
+never run. The double now returns `std::future::pending()` as its future, with
+no unreachable code; nothing was excluded. `npm run check` then passed: 104 Rust
+unit tests, 35 integration tests, 43 frontend/tooling tests, offline native
+execution, nine probes and five report checks, all at 100% per file, plus
+TypeScript/build, formatting and Clippy. `npm run tauri -- build --no-bundle`
+passed on Linux.
+
 ## Next
 
-Support cancellation that stops further requests and writes nothing, and
-optionally report retrieval progress. Then resolve the account and server from
+Optionally, report retrieval progress. Then resolve the account and server from
 the retrieved responses and build the review DTO. After that come the
 acquisition-to-preview, commit and cancel commands, which must carry the
-extraction's retry budget into pagination and clear the auth key when an import
-ends; then the review controls and history display. Account/server verification
-remains a milestone-closing requirement.
+extraction's retry budget into pagination, let cancel stop validation as well
+as retrieval, and clear the auth key when an import ends; then the review
+controls and history display. Account/server verification remains a
+milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
