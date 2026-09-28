@@ -51,6 +51,21 @@ pub fn read_dir(path: &Path) -> io::Result<std::vec::IntoIter<io::Result<DirEntr
         state.entries.take().map(Vec::into_iter).ok_or_else(missing)
     })
 }
+/// Creates the folder, unless a file already occupies its path.
+pub fn create_dir_all(path: &Path) -> io::Result<()> {
+    access(path);
+    FIXTURE.with(|state| {
+        let mut state = state.borrow_mut();
+        if state.files.contains_key(path) {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "synthetic file",
+            ));
+        }
+        state.directories.push(path.to_owned());
+        Ok(())
+    })
+}
 pub struct Metadata(bool);
 impl Metadata {
     pub fn is_file(&self) -> bool {

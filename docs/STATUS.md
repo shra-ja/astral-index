@@ -731,7 +731,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 
 ## Acquisition session and cancel command (2026-09-28)
 
-Work is on `feat/acquisition-session`, branched from `main` at `0d8cdad`: PR A of
+Integrated through PR #31 (`3479fbe`), branched from `main` at `0d8cdad`: PR A of
 four for the acquisition commands, as agreed with the user. The session now
 holds the validated context with the retry budget validation started, which
 retrieval will continue with, and a cancellation token for the running
@@ -765,14 +765,69 @@ offline native execution including the new IPC call, nine probes and five
 report checks, all at 100% per file, plus TypeScript/build, formatting and
 Clippy. `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Local database (2026-09-28)
+
+Work is on `feat/local-database`, branched from `main` at `3479fbe`: PR B of four
+for the acquisition commands. `desktop::register` resolves Tauri's local app data
+folder in its setup hook and manages a `Database` for `history.sqlite` there.
+Nothing is created or opened until the first `Database::run`, which creates the
+folder, opens the store and then reuses it. `run` executes on Tokio's blocking
+pool. A missing or occupied folder, a failed open or a panic in the work gives
+the safe storage `Database` error, and a panic drops the store so it reopens.
+[Decision 0009](decisions/0009-local-database-location.md) records the location
+(`%LOCALAPPDATA%\com.shra-ja.roll-tracker` on Windows, the XDG data folder on
+Linux and WSL) and alternatives. The user chose the local folder over the first
+proposed roaming `%APPDATA%`, so history never roams with a Windows profile. On
+Linux the two folders coincide, so the registration test cannot tell them apart
+here; the Windows location needs checking on Windows after the first import.
+The roadmap gains the portable-mode item the user asked for, next in milestone 3.
+No command uses the database yet.
+
+Test support: the filesystem double gains `create_dir_all`, and the storage
+tests' SQL-script helpers are crate-visible so desktop tests can script an open.
+The registration test runs Tauri's setup hook through the deprecated
+`App::run_iteration`, the only way under the mock runtime, with a
+statement-level `#[allow(deprecated)]`.
+
+TDD: three database tests failed against stubs, then passed; the thread test
+opens the store on the test thread first, since the blocking thread cannot see
+the thread-local doubles. The registration test failed while nothing managed
+the database, then passed. A new integration test opens real SQLite in a new
+nested temporary folder and passed on its first run, checking nothing exists
+before first use.
+
+The first full run failed the backend unit gate twice over. The no-op callback
+passed to `run_iteration` never runs under the mock runtime, so it is now a named
+function in `src/desktop/tests/events.rs`. And LLVM scores a generic function by
+its best single instantiation: each test closure made a new `with_store`
+instantiation, none covering every path, though together they did. `with_store`
+now takes a boxed closure and its tests share one result type.
+
+Two later full runs were cut short when the WSL VM crashed. Windows' event log
+showed it running out of virtual memory, with `vmmemWSL` at 11.7 GB beside other
+applications; the Linux journal had no out-of-memory kill or fault. The user
+capped WSL at 8 GB with automatic memory reclaim. The check was then run stage by
+stage with `CARGO_BUILD_JOBS=8`: every stage of `npm run check` passed (118 Rust
+unit tests, 36 integration tests, 44 frontend/tooling tests, offline native
+execution, nine probes and five report checks, all at 100% per file, plus
+TypeScript/build, formatting and Clippy). Across the staged runs, use peaked at
+about 3.4 GB, with at least 4.5 GB available; the final run followed the switch
+to the local app data folder. An earlier staged attempt failed only the source-inventory
+gate, which correctly flagged the staging script placed under `test-results/`; it
+now lives outside the repository. `npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-PR B: open the local database in the app data folder on first use, with SQLite
-calls off the async workers, recorded in a decision, plus a deferred roadmap
-item for a portable mode that keeps the database beside the executable. Then
-`retrieve_history`, then `commit_import` and `discard_import`, then the review
-and commit controls and history display. Account/server verification remains a
-milestone-closing requirement.
+Portable mode, moved up from the deferred list at the user's request: keep the
+database next to the executable when the app is used portably, switch between
+that and the local app data folder seamlessly, and move existing history safely
+between the two. Then PR C, `retrieve_history`: retrieve from the held context
+with its budget, cancellably, stream progress over a Tauri channel, resolve the
+account, preview it through the database, and return the review or "no history
+found", with the failing category and page for retrieval failures; clear the
+auth key when retrieval ends. Then `commit_import` and `discard_import`, the
+review and commit controls and history display. Account/server verification
+remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

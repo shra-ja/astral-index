@@ -39,3 +39,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0006 — Desktop extraction commands](0006-desktop-extraction-commands.md)
 - [0007 — Validate during extraction](0007-validate-during-extraction.md)
 - [0008 — HTTPS transport](0008-https-transport.md)
+- [0009 — Local database location](0009-local-database-location.md)

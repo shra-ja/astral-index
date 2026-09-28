@@ -10,10 +10,13 @@ use crate::discovery::{
 use serde::Serialize;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
-    Builder, Runtime, State,
+    Builder, Manager, Runtime, State,
     ipc::{InvokeBody, Request},
 };
 use tokio_util::sync::CancellationToken;
+
+mod database;
+pub use database::Database;
 
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
 pub const COMMANDS: &[&str] = include!("desktop/commands.in");
@@ -104,9 +107,15 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     ])
 }
 
-/// Register the desktop commands and their in-memory session.
+/// Register the desktop commands, their in-memory session and the local database,
+/// which stays unopened until first used.
 pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
-    handle_commands(builder.manage(Session::default()))
+    handle_commands(builder.manage(Session::default())).setup(|app| {
+        // Local, not roaming, app data: history never leaves the machine with a
+        // roaming Windows profile.
+        app.manage(Database::new(app.path().app_local_data_dir().ok()));
+        Ok(())
+    })
 }
 
 impl From<ExtractionError> for Failure {
@@ -212,6 +221,7 @@ async fn extract_from_file(
 
 #[cfg(test)]
 mod tests {
+    mod events;
     use super::*;
     use crate::acquisition::MAX_CACHE_BYTES;
     use crate::acquisition::TransportError;
@@ -340,6 +350,22 @@ mod tests {
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
         assert_eq!(stored(&window.state::<Session>()), None);
+    }
+
+    #[test]
+    fn registration_keeps_the_database_in_the_local_app_data_folder() {
+        let mut app = register(mock_builder())
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        // Tauri runs setup hooks on the event loop's first event; with the mock
+        // runtime, only this deprecated call runs them. It is called once here.
+        #[allow(deprecated)]
+        app.run_iteration(events::ignore);
+        let folder = app.path().app_local_data_dir().unwrap();
+        assert_eq!(
+            app.state::<Database>().path(),
+            Some(folder.join(database::FILE_NAME))
+        );
     }
 
     #[test]
