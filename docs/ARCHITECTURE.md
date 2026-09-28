@@ -315,8 +315,8 @@ failure stops at once. If every key is rejected, it reports an expired key if
 any expired, otherwise the first code. It consumes the cached requests, so every
 URL is dropped when it returns. With no contexts it sends nothing and reports an
 internal failure. `CachedRequest::url` is crate-private, so only native
-acquisition code can read a cached URL. Both extraction commands call it. There
-are no retries yet: a transient failure stops validation.
+acquisition code can read a cached URL. Both extraction commands call it through
+the retrying transport described below.
 
 `src-tauri/src/acquisition/pagination.rs` retrieves history from a validated
 context. `fetch_history` requests the six categories in `Category::ALL` order,
@@ -330,8 +330,18 @@ request. Any fetch failure also stops it. The result is a `History` of raw
 response bodies in request order, with redacted debug output, in the form
 `Store::preview` takes; storage re-parses and validates them. The classifier is
 split into `transport_failure` and `parse_body`, so pagination keeps each body
-without copying it. No command calls `fetch_history` yet, and there are no
-retries or cancellation.
+without copying it. No command calls `fetch_history` yet, and there is no
+cancellation.
+
+`src-tauri/src/acquisition/retry.rs` applies the retry budget. `Retrying` wraps
+any `Transport`: a transient failure (timeout, connection failure or HTTP 5xx)
+is retried once for the same URL after `RETRY_DELAY` (one second), if the shared
+`RetryBudget` still has one of its `MAX_RETRIES` (two) extra attempts. A failed
+retry is returned, not retried again, and every other outcome is returned at
+once without spending the budget. `validate` and `fetch_history` take the
+wrapped transport unchanged. The extraction commands create a budget per
+extraction and validate through it; the future acquisition command must carry
+that same budget into pagination, since the budget covers the whole acquisition.
 
 ## Windows player-log discovery
 

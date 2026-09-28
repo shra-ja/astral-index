@@ -1,6 +1,6 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
 use crate::acquisition::{
-    CacheError, CachedRequest, FetchFailure, HttpTransport, RequestContext,
+    CacheError, CachedRequest, FetchFailure, HttpTransport, RequestContext, RetryBudget, Retrying,
     extract_request_contexts, validate,
 };
 use crate::discovery::{
@@ -96,7 +96,8 @@ impl From<FetchFailure> for Failure {
 /// Validate the extracted requests and keep only the first working context
 /// ([decision 0007](../../docs/decisions/0007-validate-during-extraction.md)).
 /// The session is emptied first, so a failure at any step leaves no context, and
-/// every cached URL is dropped when this returns.
+/// every cached URL is dropped when this returns. Transient failures are retried
+/// within a new acquisition's budget.
 async fn acquire(
     session: &Session,
     extracted: Result<Vec<CachedRequest>, Failure>,
@@ -104,6 +105,9 @@ async fn acquire(
     session.set(None);
     let requests = extracted?;
     let transport = HttpTransport::new().map_err(|_| Failure::Internal)?;
+    // Pagination must continue with this budget once a command connects it.
+    let budget = RetryBudget::default();
+    let transport = Retrying::new(&transport, &budget);
     session.set(Some(validate(&transport, requests).await?));
     Ok(())
 }
@@ -305,6 +309,34 @@ mod tests {
         let body = raw(cache(&["untried", "valid", "expired"]));
         assert_eq!(run(extract_file_into(&session, &body)), Ok(()));
         assert_eq!(requested(), [url("expired"), url("valid")]);
+        assert_eq!(stored(&session), Some(context("valid")));
+    }
+
+    #[test]
+    fn validation_retries_transient_failures_within_the_budget() {
+        let status = |status: u16, body: &[u8]| {
+            Ok(http::Plan {
+                status,
+                chunks: vec![Ok(body.to_vec())],
+            })
+        };
+        http::install(http::Fixture {
+            responses: [
+                status(503, b""),
+                status(200, EXPIRED),
+                status(503, b""),
+                status(200, PAGE),
+            ]
+            .into(),
+            ..Default::default()
+        });
+        let session = Session::default();
+        let body = raw(cache(&["valid", "expired"]));
+        assert_eq!(run(extract_file_into(&session, &body)), Ok(()));
+        assert_eq!(
+            requested(),
+            [url("expired"), url("expired"), url("valid"), url("valid")]
+        );
         assert_eq!(stored(&session), Some(context("valid")));
     }
 

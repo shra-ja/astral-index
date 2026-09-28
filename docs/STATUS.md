@@ -549,7 +549,7 @@ your warp history link". The expired-key path has not been exercised live.
 
 ## Cursor pagination (2026-09-28)
 
-Work is on `feat/cursor-pagination`, branched from `main` at `207d61e`.
+Integrated through PR #24 (`0e4f153`), branched from `main` at `207d61e`.
 `acquisition::fetch_history` retrieves all six categories in order from a
 validated context. Each starts at page 1 with `end_id=0`; a short page, including
 an empty one, ends the category; a full page advances the page number and uses
@@ -579,14 +579,42 @@ frontend/tooling tests, offline native execution, nine probes and five report
 checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Retry budget (2026-09-28)
+
+Work is on `feat/retry-budget`, branched from `main` at `0e4f153`. `Retrying`
+wraps any `Transport`. It retries a transient failure (timeout, connection
+failure or HTTP 5xx) once for the same URL after a one-second delay, while the
+shared `RetryBudget` has one of its two extra attempts left. A failed retry is
+returned as it is, and rate limits, other statuses, oversized bodies and internal
+failures are never retried. `validate` and `fetch_history` are unchanged; they
+take the wrapped transport. Both extraction commands now validate through it,
+with a new budget per extraction. The delay value is recorded in the contract.
+
+Open requirement: the budget covers the whole acquisition, so the command that
+connects pagination must reuse the extraction's budget rather than start a new
+one. The session does not hold the budget yet, because nothing would read it.
+
+TDD: three retry tests failed against a pass-through stub, then passed. A fourth,
+that non-transient outcomes return at once without spending the budget, passed
+against the stub, as expected of a pass-through. A desktop test with a 503 before
+each of two validation responses failed with `network`, then passed after the
+command wrapped its transport. Delays are measured on a paused Tokio clock.
+The pinned nightly deprecates `AtomicU32::fetch_update`, so the budget uses
+`try_update`.
+
+`npm run check` passed: 99 Rust unit tests, 35 integration tests, 43
+frontend/tooling tests, offline native execution (its network failure now waits
+for one retry), nine probes and five report checks, all at 100% per file, plus
+TypeScript/build, formatting and Clippy. `npm run tauri -- build --no-bundle`
+passed on Linux.
+
 ## Next
 
-Apply the retry budget to validation and pagination: one retry per transiently
-failed request after a short bounded delay, and at most two extra attempts per
-acquisition. Then cancellation that stops further requests and writes nothing,
-followed by the review DTO, the acquisition-to-preview, commit and cancel
-commands, the review controls and history display, clearing auth keys when an
-import ends. Account/server verification remains a milestone-closing requirement.
+Support cancellation that stops further requests and writes nothing. Then the
+review DTO; the acquisition-to-preview, commit and cancel commands, which must
+carry the extraction's retry budget into pagination; the review controls; and
+history display, clearing auth keys when an import ends. Account/server
+verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

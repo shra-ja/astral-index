@@ -170,7 +170,7 @@ the order listed.
   - [x] Paginate each category by cursor. Stop on a short page, advance on a full
     page, reject repeated cursors and cycles, and enforce the 16 MiB batch bound.
     Fetch all six known categories sequentially.
-  - [ ] Apply the retry budget: one retry per transiently failed request after a
+  - [x] Apply the retry budget: one retry per transiently failed request after a
     short bounded delay, and at most two extra attempts per acquisition,
     including validation requests.
   - [ ] Support cancellation that stops further requests and writes nothing.
@@ -182,7 +182,7 @@ the order listed.
   - [ ] Build the native review DTO from an acquisition preview.
   - [ ] Expose acquisition-to-preview, commit and cancel through narrow Tauri
     commands. Clear the auth key from memory when the import completes, fails
-    or is cancelled.
+    or is cancelled. Continue with the retry budget the extraction started.
   - [ ] Add accessible review and commit controls for the preview.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
