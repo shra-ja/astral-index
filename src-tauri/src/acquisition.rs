@@ -10,11 +10,13 @@ use std::{collections::HashSet, fmt, io::Read, path::Path};
 mod outcome;
 mod pagination;
 mod request;
+mod retry;
 mod transport;
 mod validation;
 pub use outcome::{FetchFailure, classify, parse_body, transport_failure};
 pub use pagination::{AcquisitionError, History, fetch_history};
 pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
+pub use retry::{MAX_RETRIES, RETRY_DELAY, RetryBudget, Retrying};
 pub use transport::{CONNECT_TIMEOUT, HttpTransport, REQUEST_TIMEOUT, Transport, TransportError};
 pub use validation::{MAX_VALIDATED_CONTEXTS, validate};
 

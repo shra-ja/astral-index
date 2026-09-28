@@ -270,6 +270,7 @@ Nevertheless, a received rate-limit error stops the operation and informs the
 user rather than initiating a retry loop. For transient connection/timeouts or
 HTTP 5xx only, initial policy is **one retry for the same request**, with a short
 bounded delay and **at most two extra attempts across the entire acquisition**.
+The delay is one second. The budget spans validation and pagination.
 Never restart already completed pages automatically. No retries for authentication,
 other API errors, malformed responses, unsupported data or identity conflicts.
 If retry fails or its budget is exhausted, report the failure and leave stored
