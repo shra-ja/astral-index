@@ -30,7 +30,12 @@ impl FetchFailure {
 /// Classify one attempt. HTTP success is not API success: a 200 body can still
 /// carry a nonzero `retcode`, which the parser reports as `ParseError::Api`.
 pub fn classify(response: Result<Vec<u8>, TransportError>) -> Result<Page, FetchFailure> {
-    let body = response.map_err(|error| match error {
+    parse_body(&response.map_err(transport_failure)?)
+}
+
+/// Classify a failed transport attempt.
+pub fn transport_failure(error: TransportError) -> FetchFailure {
+    match error {
         TransportError::Status(429) => FetchFailure::RateLimited,
         TransportError::Status(500..=599)
         | TransportError::Timeout
@@ -38,8 +43,12 @@ pub fn classify(response: Result<Vec<u8>, TransportError>) -> Result<Page, Fetch
         TransportError::Status(status) => FetchFailure::Rejected(status),
         TransportError::TooLarge => FetchFailure::InvalidResponse,
         TransportError::UnsupportedUrl | TransportError::Unavailable => FetchFailure::Internal,
-    })?;
-    parse_response(&body).map_err(|error| match error {
+    }
+}
+
+/// Classify a received body, which callers may keep for an import preview.
+pub fn parse_body(body: &[u8]) -> Result<Page, FetchFailure> {
+    parse_response(body).map_err(|error| match error {
         ParseError::Api(-101) => FetchFailure::ExpiredKey,
         ParseError::Api(code) => FetchFailure::Api(code),
         ParseError::TooLarge

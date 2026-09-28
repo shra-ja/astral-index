@@ -1,7 +1,7 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
 #[cfg(test)]
 use self::tests::database::Connection;
-use crate::{ParseError, Roll, parse_response};
+use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
 #[cfg(not(test))]
 use rusqlite::Connection;
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
@@ -9,7 +9,6 @@ use std::{collections::BTreeMap, path::Path};
 
 const GAME: &str = "honkai-star-rail";
 const APPLICATION_ID: i32 = 1381257795;
-const MAX_BATCH_BYTES: usize = 16 * 1024 * 1024;
 
 /// Safe categories only: SQLite, JSON and source messages never cross the boundary.
 #[derive(Debug, PartialEq, Eq)]

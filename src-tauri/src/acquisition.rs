@@ -8,10 +8,12 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::{collections::HashSet, fmt, io::Read, path::Path};
 
 mod outcome;
+mod pagination;
 mod request;
 mod transport;
 mod validation;
-pub use outcome::{FetchFailure, classify};
+pub use outcome::{FetchFailure, classify, parse_body, transport_failure};
+pub use pagination::{AcquisitionError, History, fetch_history};
 pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
 pub use transport::{CONNECT_TIMEOUT, HttpTransport, REQUEST_TIMEOUT, Transport, TransportError};
 pub use validation::{MAX_VALIDATED_CONTEXTS, validate};
@@ -221,6 +223,7 @@ fn encoded_value(value: &str) -> bool {
 #[cfg(test)]
 pub(crate) mod tests {
     pub(crate) mod filesystem;
+    pub(crate) mod scripted;
     pub(crate) use super::transport::tests::http;
     use super::*;
     use std::io::{self, Read};

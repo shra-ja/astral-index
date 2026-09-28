@@ -318,6 +318,21 @@ internal failure. `CachedRequest::url` is crate-private, so only native
 acquisition code can read a cached URL. Both extraction commands call it. There
 are no retries yet: a transient failure stops validation.
 
+`src-tauri/src/acquisition/pagination.rs` retrieves history from a validated
+context. `fetch_history` requests the six categories in `Category::ALL` order,
+each from page 1 with `end_id=0`. A page with fewer than 1000 records, including
+none, ends its category. A full page advances the page number and sets the
+cursor to its last record's ID; a cursor already seen in that category is a
+cycle, and a page with more records than requested is invalid. Response sizes
+are summed as they arrive, and retrieval stops once the total passes the 16 MiB
+batch bound (`MAX_BATCH_BYTES`, shared with storage), before any further
+request. Any fetch failure also stops it. The result is a `History` of raw
+response bodies in request order, with redacted debug output, in the form
+`Store::preview` takes; storage re-parses and validates them. The classifier is
+split into `transport_failure` and `parse_body`, so pagination keeps each body
+without copying it. No command calls `fetch_history` yet, and there are no
+retries or cancellation.
+
 ## Windows player-log discovery
 
 `src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming
