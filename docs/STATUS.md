@@ -581,7 +581,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 
 ## Retry budget (2026-09-28)
 
-Work is on `feat/retry-budget`, branched from `main` at `0e4f153`. `Retrying`
+Integrated through PR #25 (`eb75010`), branched from `main` at `0e4f153`. `Retrying`
 wraps any `Transport`. It retries a transient failure (timeout, connection
 failure or HTTP 5xx) once for the same URL after a one-second delay, while the
 shared `RetryBudget` has one of its two extra attempts left. A failed retry is
@@ -608,13 +608,28 @@ for one retry), nine probes and five report checks, all at 100% per file, plus
 TypeScript/build, formatting and Clippy. `npm run tauri -- build --no-bundle`
 passed on Linux.
 
+## Acquisition planning gaps (2026-09-28)
+
+Work is on `docs/acquisition-gaps`, branched from `main` at `eb75010`. Reviewing
+what a user knows when cancelling showed three unrecorded gaps, now in the
+roadmap. Stopping retrieval while it runs is a different decision from
+discarding a preview. It needs no data but has no progress to go on, so live
+progress is added as an optional step after cancellation. `Store::preview`
+needs a UID and server, and nothing yet takes them from the retrieved pages;
+a step before the review DTO now does, following the existing contract rule,
+and treats a retrieval with no records as "no history found" rather than an
+error. The review DTO step now asks for per-category counts and the covered
+time range. Documentation-only change; no TDD cycle or gate run applies.
+
 ## Next
 
-Support cancellation that stops further requests and writes nothing. Then the
-review DTO; the acquisition-to-preview, commit and cancel commands, which must
-carry the extraction's retry budget into pagination; the review controls; and
-history display, clearing auth keys when an import ends. Account/server
-verification remains a milestone-closing requirement.
+Support cancellation that stops further requests and writes nothing, and
+optionally report retrieval progress. Then resolve the account and server from
+the retrieved responses and build the review DTO. After that come the
+acquisition-to-preview, commit and cancel commands, which must carry the
+extraction's retry budget into pagination and clear the auth key when an import
+ends; then the review controls and history display. Account/server verification
+remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

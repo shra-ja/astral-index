@@ -174,12 +174,22 @@ the order listed.
     short bounded delay, and at most two extra attempts per acquisition,
     including validation requests.
   - [ ] Support cancellation that stops further requests and writes nothing.
+  - [ ] Optional, not blocking the milestone: report retrieval progress (the
+    current category, pages and records so far, and any pending retry) so the
+    user can make an informed choice to stop.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
   Expose a narrow native review DTO with validated account/server/context, records
   and conflict locations, plus safe page/record indices for validation failures.
   Do not reparse private source bytes in the frontend or expose credentials/raw
   payloads in diagnostics.
-  - [ ] Build the native review DTO from an acquisition preview.
+  - [ ] Resolve the account UID and server from the retrieved responses, per
+    the [contract](HSR-API-CONTRACT.md#account-server-and-timestamps): every
+    record's `uid` and every page's `region` must agree, and neither is ever
+    fabricated. A retrieval with no records is a normal outcome, not an import
+    error: report readably that no history was found, and create no account.
+  - [ ] Build the native review DTO from an acquisition preview. Besides counts,
+    account and server, include per-category counts and the covered time range,
+    so the user can judge whether the retrieval looks complete.
   - [ ] Expose acquisition-to-preview, commit and cancel through narrow Tauri
     commands. Clear the auth key from memory when the import completes, fails
     or is cancelled. Continue with the retry budget the extraction started.
