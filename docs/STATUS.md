@@ -458,15 +458,39 @@ crates recompiled (5 and 1 units, against 451 and 311 cold). All gates still ran
 The Rust cache is about 822 MiB. Lockfile, toolchain or workflow changes start a
 new key; rust-cache then restores its closest earlier entry.
 
+## Cached request URLs (2026-09-28)
+
+Work is on `feat/cached-request-urls`, branched from `main` at `deee662`. This is
+the first of three PRs for validating during extraction
+([decision 0007](decisions/0007-validate-during-extraction.md)): (A) keep cached
+URLs, (B) a validation service, (C) commands and controls that validate and so
+contact HoYoverse. Extraction now returns a `CachedRequest` per distinct context,
+holding the context and its endpoint-checked cached URL from the context's last
+occurrence in the file. Debug output is redacted. The desktop session still
+stores contexts only, dropping every URL when the command returns. No network
+request, command, permission or UI change was added.
+
+TDD: the new test failed against a stub that kept empty URLs, then passed.
+Existing tests changed only to unwrap the context from each cached request.
+
+The first full run failed only on `cargo fmt`; after formatting, `npm run check`
+passed: 81 Rust unit tests, 34 integration tests, 42 frontend/tooling tests,
+native offline execution, nine probes and five report checks, all at 100% per
+file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
 Validate contexts during extraction
-([decision 0007](decisions/0007-validate-during-extraction.md)): extraction must
-keep one cached URL per context until validation ends, validation sends each
-unchanged through the transport and classifier, and only the first working
-context stays in the session. Update the controls, which will then contact
-HoYoverse, and their failure messages. Then pagination, retries and cancellation,
-followed by the review DTO, atomic commit and history display, clearing auth
+([decision 0007](decisions/0007-validate-during-extraction.md)). Next is PR B:
+a validation service that sends at most five cached URLs unchanged, in reverse
+file order, through the transport and classifier, and returns the first working
+context. `-101` and other API codes move on to the next context; other failures
+stop. Until the retry step lands, a transient failure stops validation. PR B
+also makes `CachedRequest::url` crate-private, so only native acquisition code
+can read a cached URL. Then PR C: both commands validate, the session holds only
+the validated context, and the controls say they contact HoYoverse, with new
+failure messages. Then pagination, retries and cancellation, followed by the review DTO, atomic commit and history display, clearing auth
 keys when an import ends. Account/server verification remains a
 milestone-closing requirement.
 

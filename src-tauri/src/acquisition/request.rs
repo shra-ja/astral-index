@@ -113,6 +113,7 @@ mod tests {
         extract_request_contexts(format!("1/0/{url}\0").as_bytes())
             .unwrap()
             .remove(0)
+            .into_context()
     }
     fn roll(id: &str) -> Roll {
         serde_json::from_value(serde_json::json!({

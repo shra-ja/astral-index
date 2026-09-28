@@ -29,6 +29,30 @@ impl fmt::Debug for RequestContext {
     }
 }
 
+/// An extracted context with its cached request URL, which validation sends unchanged.
+/// Hold it only until validation ends; afterwards keep at most the validated context.
+#[derive(PartialEq, Eq)]
+pub struct CachedRequest {
+    context: RequestContext,
+    url: String,
+}
+impl fmt::Debug for CachedRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("CachedRequest([redacted])")
+    }
+}
+impl CachedRequest {
+    /// The credential-bearing cached URL, already checked against the endpoint.
+    /// Never log or display it.
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+    /// Drop the cached URL, keeping only the credentials for new page requests.
+    pub fn into_context(self) -> RequestContext {
+        self.context
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum CacheError {
     Unreadable,
@@ -91,7 +115,7 @@ fn unreadable(_: std::io::Error) -> CacheError {
 }
 
 /// Read only the explicitly selected regular file, bounding allocation even if it grows.
-pub fn read_selected_cache(path: &Path) -> Result<Vec<RequestContext>, CacheError> {
+pub fn read_selected_cache(path: &Path) -> Result<Vec<CachedRequest>, CacheError> {
     read_cache(&mut open_selected_file(path)?)
 }
 
@@ -110,7 +134,7 @@ pub(crate) fn open_selected_file(path: &Path) -> Result<fs::File, CacheError> {
     Ok(file)
 }
 
-fn read_cache(reader: &mut dyn Read) -> Result<Vec<RequestContext>, CacheError> {
+fn read_cache(reader: &mut dyn Read) -> Result<Vec<CachedRequest>, CacheError> {
     let mut bytes = Vec::new();
     reader
         .take((MAX_CACHE_BYTES + 1) as u64)
@@ -119,9 +143,10 @@ fn read_cache(reader: &mut dyn Read) -> Result<Vec<RequestContext>, CacheError> 
     extract_request_contexts(&bytes)
 }
 
-/// Return distinct contexts in reverse file order, keeping each one's last position.
-/// Newer entries tend to sit later, but cache order is not chronology or key validity.
-pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<RequestContext>, CacheError> {
+/// Return distinct contexts in reverse file order, keeping each one's last position
+/// and cached URL. Newer entries tend to sit later, but cache order is not
+/// chronology or key validity.
+pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<CachedRequest>, CacheError> {
     if bytes.len() > MAX_CACHE_BYTES {
         return Err(CacheError::TooLarge);
     }
@@ -131,10 +156,10 @@ pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<RequestContext>, Cac
     let mut contexts = Vec::new();
     let mut seen = HashSet::new();
     for segment in segments.into_iter().rev() {
-        if let Some(context) = parse_candidate(segment)
-            && seen.insert(context.fields.clone())
+        if let Some(request) = parse_candidate(segment)
+            && seen.insert(request.context.fields.clone())
         {
-            contexts.push(context);
+            contexts.push(request);
         }
     }
     if contexts.is_empty() {
@@ -143,7 +168,7 @@ pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<RequestContext>, Cac
     Ok(contexts)
 }
 
-fn parse_candidate(segment: &str) -> Option<RequestContext> {
+fn parse_candidate(segment: &str) -> Option<CachedRequest> {
     let (url, _) = segment.split_once('\0')?;
     // Exact wire spelling deliberately rejects userinfo, ports, fragments and path aliases.
     let query = url.strip_prefix(ENDPOINT)?;
@@ -164,7 +189,10 @@ fn parse_candidate(segment: &str) -> Option<RequestContext> {
         }
         fields.push(format!("{prefix}{value}"));
     }
-    Some(RequestContext { fields })
+    Some(CachedRequest {
+        context: RequestContext { fields },
+        url: url.to_owned(),
+    })
 }
 
 /// Keep original query encoding; accept only unreserved/form bytes and complete escapes.
@@ -213,7 +241,10 @@ pub(crate) mod tests {
         let b = url("another+synthetic");
         let c = url("third");
         let contexts = extract_request_contexts(&cache(&[b.clone(), a.clone(), b, c])).unwrap();
-        let keys: Vec<_> = contexts.iter().map(|context| &context.fields[0]).collect();
+        let keys: Vec<_> = contexts
+            .iter()
+            .map(|request| &request.context.fields[0])
+            .collect();
         assert_eq!(
             keys,
             [
@@ -223,7 +254,7 @@ pub(crate) mod tests {
             ]
         );
         assert_eq!(
-            contexts[2].fields,
+            contexts[2].context.fields,
             [
                 "authkey=synthetic%2Bkey%3D",
                 "authkey_ver=1",
@@ -232,7 +263,24 @@ pub(crate) mod tests {
                 "lang=en"
             ]
         );
-        assert_eq!(format!("{:?}", contexts[0]), "RequestContext([redacted])");
+        assert_eq!(
+            format!("{:?}", contexts[0].context),
+            "RequestContext([redacted])"
+        );
+    }
+
+    #[test]
+    fn keeps_each_contexts_cached_url_from_its_last_occurrence() {
+        let first = format!("{}&gacha_type=11&page=1&end_id=0", url("synthetic"));
+        let last = format!("{}&gacha_type=11&page=2&end_id=17", url("synthetic"));
+        let other = url("other");
+        let mut requests =
+            extract_request_contexts(&cache(&[first, other.clone(), last.clone()])).unwrap();
+        let urls: Vec<_> = requests.iter().map(CachedRequest::url).collect();
+        assert_eq!(urls, [last.as_str(), other.as_str()]);
+        assert_eq!(format!("{:?}", requests[0]), "CachedRequest([redacted])");
+        let context = requests.remove(1).into_context();
+        assert_eq!(context.fields[0], "authkey=other");
     }
 
     #[test]
