@@ -4,7 +4,7 @@ pub mod desktop;
 pub mod discovery;
 pub mod hsr;
 pub mod storage;
-pub use hsr::{MAX_RESPONSE_BYTES, Page, ParseError, Roll, parse_response};
+pub use hsr::{MAX_BATCH_BYTES, MAX_RESPONSE_BYTES, Page, ParseError, Roll, parse_response};
 
 use serde::Deserializer;
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};

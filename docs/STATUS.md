@@ -505,7 +505,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 
 ## Validation during extraction (2026-09-28)
 
-Work is on `feat/validate-on-extraction`, branched from `main` at `81b4c28`, the
+Integrated through PR #23 (`207d61e`), branched from `main` at `81b4c28`, the
 last of three PRs for [decision 0007](decisions/0007-validate-during-extraction.md).
 Both commands now extract, then validate with HoYoverse through `HttpTransport`
 and `validate` in the same user action. The session holds only the validated
@@ -543,15 +543,49 @@ tests, 43 frontend/tooling tests, offline native execution including the network
 failure message, nine probes and five report checks, all at 100% per file, plus
 TypeScript/build, formatting and Clippy. `npm run tauri -- build --no-bundle`
 passed on Linux. Real validation against HoYoverse with a live key has not been
-run; no automated test contacts the endpoint.
+run; no automated test contacts the endpoint. After integration, the user ran
+the app with a real installation and a current key, and saw "HoYoverse accepted
+your warp history link". The expired-key path has not been exercised live.
+
+## Cursor pagination (2026-09-28)
+
+Work is on `feat/cursor-pagination`, branched from `main` at `207d61e`.
+`acquisition::fetch_history` retrieves all six categories in order from a
+validated context. Each starts at page 1 with `end_id=0`; a short page, including
+an empty one, ends the category; a full page advances the page number and uses
+its last record's ID as the cursor. A cursor repeated within a category is a
+cycle. A page with more than 1000 records is invalid, a rule now in the contract.
+Retrieval stops at the first fetch failure, or once the summed response sizes
+pass 16 MiB, before any further request. The result is a `History` of raw
+bodies, with redacted debug output, for `Store::preview`. No command calls it
+yet; retries and cancellation are separate steps.
+
+Supporting refactors, with existing tests unchanged: `MAX_BATCH_BYTES` moved from
+storage to `hsr.rs` so both share it; `classify` now composes new
+`transport_failure` and `parse_body` functions; the validation tests' scripted
+transport moved to a shared test double.
+
+TDD: six pagination tests failed against a stub that returned an internal
+failure, then passed. They cover category order, cursor and page advancement,
+a full final page followed by an empty one, repeated cursors, a two-cursor
+cycle, the same ID in another category, over-full pages, four failure kinds,
+and the batch bound both exactly reached and passed with later requests
+skipped. A new integration test passed on its first run, since it composes
+tested pieces: scripted responses go through `fetch_history` into a real
+SQLite preview and commit.
+
+`npm run check` passed: 94 Rust unit tests, 35 integration tests, 43
+frontend/tooling tests, offline native execution, nine probes and five report
+checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux.
 
 ## Next
 
-Paginate each category by cursor from the validated context: stop on a short
-page, advance on a full page, reject repeated cursors and cycles, enforce the
-16 MiB batch bound, and fetch all six categories sequentially. Then the retry
-budget, which also covers validation requests, and cancellation, followed by
-the review DTO, atomic commit and history display, clearing auth keys when an
+Apply the retry budget to validation and pagination: one retry per transiently
+failed request after a short bounded delay, and at most two extra attempts per
+acquisition. Then cancellation that stops further requests and writes nothing,
+followed by the review DTO, the acquisition-to-preview, commit and cancel
+commands, the review controls and history display, clearing auth keys when an
 import ends. Account/server verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are

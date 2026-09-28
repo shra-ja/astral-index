@@ -4,6 +4,8 @@ use crate::acquisition::Category;
 use serde::{Deserialize, Serialize};
 
 pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+/// Bound for all responses in one acquisition or import batch.
+pub const MAX_BATCH_BYTES: usize = 16 * 1024 * 1024;
 
 /// Distinguish actionable failures without exposing response contents.
 #[derive(Debug, PartialEq, Eq)]

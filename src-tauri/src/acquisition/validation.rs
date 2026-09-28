@@ -32,28 +32,14 @@ pub async fn validate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::acquisition::tests::scripted::Scripted;
     use crate::acquisition::{ENDPOINT, TransportError, extract_request_contexts};
-    use std::{collections::VecDeque, future::Future, sync::Mutex};
+    use std::future::Future;
 
     const PAGE: &[u8] = include_bytes!("../../tests/fixtures/hsr-api/page.json");
 
-    /// Replays scripted responses and records every URL it is asked for.
-    #[derive(Default)]
-    struct Scripted {
-        responses: Mutex<VecDeque<Result<Vec<u8>, TransportError>>>,
-        requested: Mutex<Vec<String>>,
-    }
-    impl Transport for Scripted {
-        async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
-            self.requested.lock().unwrap().push(url.to_owned());
-            self.responses.lock().unwrap().pop_front().unwrap()
-        }
-    }
     fn scripted(responses: Vec<Result<Vec<u8>, TransportError>>) -> Scripted {
-        Scripted {
-            responses: Mutex::new(responses.into()),
-            ..Default::default()
-        }
+        Scripted::new(responses)
     }
 
     fn run<T>(future: impl Future<Output = T>) -> T {
@@ -91,10 +77,7 @@ mod tests {
         let transport = scripted(vec![api(-101), api(-100), page()]);
         let validated = run(validate(&transport, requests(&["a", "b", "c", "d"])));
         assert_eq!(validated, Ok(context("c")));
-        assert_eq!(
-            *transport.requested.lock().unwrap(),
-            [url("a"), url("b"), url("c")]
-        );
+        assert_eq!(transport.requested(), [url("a"), url("b"), url("c")]);
     }
 
     #[test]
@@ -106,7 +89,7 @@ mod tests {
             Err(FetchFailure::ExpiredKey)
         );
         assert_eq!(
-            *transport.requested.lock().unwrap(),
+            transport.requested(),
             keys[..MAX_VALIDATED_CONTEXTS]
                 .iter()
                 .map(|key| url(key))
@@ -145,7 +128,7 @@ mod tests {
                 run(validate(&transport, requests(&["a", "b", "c"]))),
                 Err(failure)
             );
-            assert_eq!(transport.requested.lock().unwrap().len(), 2);
+            assert_eq!(transport.requested().len(), 2);
         }
     }
 
@@ -156,6 +139,6 @@ mod tests {
             run(validate(&transport, vec![])),
             Err(FetchFailure::Internal)
         );
-        assert!(transport.requested.lock().unwrap().is_empty());
+        assert!(transport.requested().is_empty());
     }
 }

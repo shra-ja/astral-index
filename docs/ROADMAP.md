@@ -167,7 +167,7 @@ the order listed.
     ([decision 0007](decisions/0007-validate-during-extraction.md)). Update the
     controls, which will then contact HoYoverse, and their failure messages.
     Retries during validation arrive with the retry-budget step.
-  - [ ] Paginate each category by cursor. Stop on a short page, advance on a full
+  - [x] Paginate each category by cursor. Stop on a short page, advance on a full
     page, reject repeated cursors and cycles, and enforce the 16 MiB batch bound.
     Fetch all six known categories sequentially.
   - [ ] Apply the retry budget: one retry per transiently failed request after a

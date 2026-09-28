@@ -220,10 +220,12 @@ of records in `list` with the requested `size`:
 - A full page: advance both page and cursor using the last record ID exactly as
   supplied, then request the next page. This also applies when every record on
   the full page is already stored; duplicate status is not a termination rule.
+- More records than requested: the response is invalid, and acquisition stops.
 
 IDs are opaque: no numeric ordering or timestamp extraction is needed. Missing
 or malformed data and API errors abort rather than terminate successfully.
-Reject a repeated cursor or a cursor cycle; do not loop or restart.
+Reject a repeated cursor or a cursor cycle; do not loop or restart. Cursors are
+tracked per category, so the same record ID in two categories is not a cycle.
 
 Assume the user makes no new rolls while an import is running. Handling history
 that changes during pagination is deferred; no additional requests or automatic
