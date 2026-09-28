@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-27
+Updated: 2026-09-28
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -401,6 +401,34 @@ errors must be classified explicitly. `npm run check` passed: 80 backend unit
 tests, 34 integration tests, 28 frontend/tooling tests, native offline execution,
 eight enforcement probes, both report guards, TypeScript/build, formatting and
 Clippy, all at 100% per file. `npm run tauri -- build --no-bundle` passed on Linux.
+
+## Coverage probe scope (2026-09-28)
+
+Work is on `perf/coverage-probe-scope`, rebased on `main` at `9b9dd3b`. Native
+execution is split into unit coverage, Cargo integration, desktop smoke and report
+stages; `test:native` composes them in the original order and still freezes the
+unit-only report before integration runs. Each enforcement probe now runs only the
+stage it tests, restores its files in `finally`, and selects the specific report
+check it expects to fail. The backend, wrapper and CSP probes carry an unrelated
+panicking integration test, so a regression to the full pipeline fails them. A new
+probe rejects a stale unit report. A suite-level `afterAll` then clears all
+reports and runs full frontend coverage, the complete offline native suite and
+every report gate once, including after a failed probe; its failures propagate.
+HTML is rendered only in that final step. Thresholds, inventories, freshness and
+the wrapper guard are unchanged.
+
+TDD: stage, scope, regeneration and unit-snapshot tests failed against stubs or
+the old broad commands, then passed. A temporary probe that threw after mutating
+and restoring a source still failed the command, and final validation ran.
+After the rebase, `npm run check` passed with 80 Rust unit tests, 34 integration
+tests, 39 frontend/tooling tests, nine probes and five report checks, all at 100%
+per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux. Warm local probe-suite
+time fell from 217.24 to 70.66 seconds. On hosted CI (PR #20), the `npm run check`
+step took 4 min 23 s against 8 min 53 s on the latest `main` run, well within
+the 600-second final-regeneration hook limit. A follow-up refactor shares one
+report-check helper and unrelated-test fixture across probes and groups the
+native scripts in `package.json`; no probe or gate changed.
 
 ## Next
 

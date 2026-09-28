@@ -21,6 +21,46 @@ a fallback. See [Ubuntu's namespace policy](https://discourse.ubuntu.com/t/under
 This is a native development build with production bundled assets. Installer
 packaging and other operating systems are later release work.
 
+Native execution is split into explicit stages. `coverage:rust-unit` cleans the
+workspace's instrumentation data, runs only library unit tests and freezes their
+report. `test:rust-integration` runs Cargo tests, `test:native-smoke` builds and
+launches the desktop, and `coverage:native-report` renders combined evidence.
+`test:native` composes those stages in that order; `test:offline` isolates the
+whole sequence. Individual stages are diagnostic building blocks, not substitutes
+for the complete gate. Report rendering never executes tests and cannot establish
+freshness on its own. The shared tooling in `scripts/native-coverage.ts` has
+mocked unit tests and is included in the 100% tooling coverage inventory.
+
+`test:backend-probe` is a network-isolated probe-only stage. It resets counters,
+freezes unit JSON, runs only the synthetic `unit_coverage_probe` integration
+target and writes combined JSON. An unrelated failing integration fixture proves
+that this stage does not execute the full integration suite. Report validation
+has independently selectable frontend/tooling, backend-unit and wrapper tests;
+the complete command still requires every scope, source inventory and wrapper
+body guard. The probe asserts that integration coverage cannot fill a unit gap.
+
+`test:native-probe` resets instrumentation, builds/runs the desktop in the network
+namespace and writes only JSON coverage. It never runs backend tests. The branch
+probe validates the wrapper report directly, and the CSP probe still requires the
+specific security-policy assertion failure. Both carry an unrelated failing
+integration fixture to prevent accidental regression to the full native pipeline.
+
+`test:probes` first prepares JSON-only frontend and unit evidence, then runs the
+mutation suite. Every probe restores its files immediately in `finally`;
+report-only probes select the relevant report check. A suite-level `afterAll`
+clears old reports and runs frontend/tooling coverage, the complete offline native
+sequence and all report gates once. It also runs after a failed probe assertion;
+the original failure still fails the command. HTML is rendered only during this
+final sequence. A failed final stage propagates its error and cannot reuse the
+previous reports. Unit snapshots are invalidated before unit execution begins.
+
+`check` builds bundled assets before invoking this self-contained probe pipeline.
+The final sequence still executes all backend unit/integration tests and the real
+desktop smoke test. Nine probes now include explicit stale-report rejection;
+none of the existing enforcement properties or coverage thresholds was removed.
+Run `npm run build` before standalone `test:probes`. Individual low-level Vitest
+probe selections require the JSON preparation commands first.
+
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
 | `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |

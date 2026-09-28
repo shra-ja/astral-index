@@ -1,41 +1,15 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { resolve } from 'node:path';
-import { mkdirSync, writeFileSync, rmSync, readFileSync, globSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, globSync } from 'node:fs';
 import { beforeAll, expect, test } from 'vitest';
 
-const nativeDirectory = resolve('src-tauri');
-const nativeEnv: NodeJS.ProcessEnv = {
-  ...process.env,
-  CARGO_LLVM_COV_TARGET_DIR: resolve('src-tauri/target'),
-  GDK_BACKEND: 'x11',
-};
+import { nativeCargo, nativeEnvironment } from '../scripts/native-coverage';
 
+let nativeEnv: NodeJS.ProcessEnv;
 beforeAll(() => {
-  rmSync('coverage/native', { recursive: true, force: true });
-  mkdirSync('coverage/native', { recursive: true });
-  rmSync('coverage/native-unit', { recursive: true, force: true });
-  mkdirSync('coverage/native-unit', { recursive: true });
-  mkdirSync('src-tauri/target', { recursive: true });
-  // Cargo nightly requires this standard cache tag before cleaning its artifacts.
-  writeFileSync('src-tauri/target/CACHEDIR.TAG', 'Signature: 8a477f597d28d172789f06886806bc55\n');
-  execFileSync('cargo', ['llvm-cov', 'clean', '--workspace'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
-  const exports = execFileSync('cargo', ['llvm-cov', 'show-env', '--sh'], { cwd: nativeDirectory, env: nativeEnv, encoding: 'utf8' });
-  for (const line of exports.trim().split('\n')) {
-    const [, key, value] = /^export (\w+)=(.*)$/.exec(line)!;
-    nativeEnv[key] = value.replace(/^'|'$/g, '');
-  }
-  nativeEnv.__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS += '\x1f-Zcoverage-options=branch';
-  // Freeze unit-only evidence before integration/native execution can add counters.
-  execFileSync('cargo', ['test', '--lib', '--locked', '--offline'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
-  execFileSync('cargo', ['llvm-cov', 'report', '--json', '--output-path', '../coverage/native-unit/coverage.json'], {
-    cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit',
-  });
-  execFileSync('cargo', ['llvm-cov', 'report', '--html', '--output-dir', '../coverage/native-unit'], {
-    cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit',
-  });
-  execFileSync('cargo', ['build', '--locked', '--offline'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
-  execFileSync('cargo', ['test', '--locked', '--offline'], { cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit' });
+  nativeEnv = nativeEnvironment();
+  nativeCargo(['build', '--locked', '--offline']);
 }, 600000);
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
@@ -126,13 +100,6 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     const pid = execFileSync('xdotool', ['getwindowpid', windowId], { encoding: 'utf8' }).trim();
     execFileSync('python3', ['tests/close-window.py', windowId]);
     await expect.poll(() => globSync(`src-tauri/target/src-tauri-${pid}-*.profraw`).length, { timeout: 10000 }).toBeGreaterThan(0);
-    execFileSync('cargo', ['llvm-cov', 'report', '--include-build-script', '--json', '--output-path', '../coverage/native/coverage.json'], {
-      cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit',
-    });
-    execFileSync('cargo', ['llvm-cov', 'report', '--include-build-script', '--html', '--output-dir', '../coverage/native'], {
-      cwd: nativeDirectory, env: nativeEnv, stdio: 'inherit',
-    });
-    expect(JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8')).data[0].files.length).toBeGreaterThan(0);
   } finally {
     if (session) {
       await fetch(`http://127.0.0.1:4444/session/${session}`, { method: 'DELETE' }).catch(() => {});
