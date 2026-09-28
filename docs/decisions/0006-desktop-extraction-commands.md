@@ -1,14 +1,18 @@
 # 0006 — Desktop extraction commands
 
 Date: 2026-09-27
-Status: Accepted for the extraction-commands increment; desktop controls pending.
+Status: Accepted; the session and failure categories were amended by
+[decision 0007](0007-validate-during-extraction.md).
 
 Expose request-context extraction to the webview through two Tauri commands,
 `extract_automatically` and `extract_from_file`. Both return nothing on success
 or a safe failure category. Extracted contexts, including auth keys, stay in an
 in-memory native session for the next acquisition step. They are never
 serialized, persisted or returned to the webview. Each extraction replaces the
-session's contexts, and a failed extraction leaves none.
+session's contexts, and a failed extraction leaves none. Since decision 0007,
+both commands also validate the keys with HoYoverse, the session holds only the
+validated context, and failures cross IPC as `{"kind": ...}` objects, with a
+`code` only for API errors.
 
 Commands are the Tauri 2 mechanism for webview-to-Rust calls with a typed reply.
 The webview cannot read AppData, player logs or caches, and file access belongs

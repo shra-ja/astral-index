@@ -158,7 +158,7 @@ the order listed.
   - [x] Classify outcomes as actionable failures: `-101` expired key, other
     nonzero codes, rate limits, malformed responses, and transient connection
     failures or HTTP 5xx. Do not expose raw messages or payloads.
-  - [ ] Validate at most five extracted contexts, in reverse file order, by
+  - [x] Validate at most five extracted contexts, in reverse file order, by
     sending each cached request unchanged, and use the first whose auth key
     works. If none works, stop with an actionable error
     ([auth-key validation](HSR-API-CONTRACT.md#auth-key-validation)). Run
@@ -166,11 +166,13 @@ the order listed.
     until validation ends, and hold only the validated context in the session
     ([decision 0007](decisions/0007-validate-during-extraction.md)). Update the
     controls, which will then contact HoYoverse, and their failure messages.
+    Retries during validation arrive with the retry-budget step.
   - [ ] Paginate each category by cursor. Stop on a short page, advance on a full
     page, reject repeated cursors and cycles, and enforce the 16 MiB batch bound.
     Fetch all six known categories sequentially.
   - [ ] Apply the retry budget: one retry per transiently failed request after a
-    short bounded delay, and at most two extra attempts per acquisition.
+    short bounded delay, and at most two extra attempts per acquisition,
+    including validation requests.
   - [ ] Support cancellation that stops further requests and writes nothing.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
   Expose a narrow native review DTO with validated account/server/context, records

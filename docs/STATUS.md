@@ -481,7 +481,7 @@ file, plus TypeScript/build, formatting and Clippy.
 
 ## Auth-key validation service (2026-09-28)
 
-Work is on `feat/auth-key-validation`, branched from `main` at `0cea1d1` (PR B of
+Integrated through PR #22 (`81b4c28`), branched from `main` at `0cea1d1` (PR B of
 three for [decision 0007](decisions/0007-validate-during-extraction.md)).
 `acquisition::validate` sends at most five cached URLs unchanged, in the given
 reverse file order, through a `Transport` and `classify`. It returns the first
@@ -503,18 +503,56 @@ frontend/tooling tests, native offline execution, nine probes and five report
 checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Validation during extraction (2026-09-28)
+
+Work is on `feat/validate-on-extraction`, branched from `main` at `81b4c28`, the
+last of three PRs for [decision 0007](decisions/0007-validate-during-extraction.md).
+Both commands now extract, then validate with HoYoverse through `HttpTransport`
+and `validate` in the same user action. The session holds only the validated
+context. It is emptied before each extraction, so any failure leaves none, and
+every cached URL is dropped when the command returns. Failures cross IPC as
+`{"kind": ...}`, with `code` only for `api_error`; new kinds are `expired_key`,
+`api_error`, `rate_limited`, `network`, `rejected`, `invalid_response` and
+`internal`. HTTP statuses and response text stay native. No command, permission
+or CSP change was needed; the webview still has no network origin.
+
+The panel now says the app checks the saved link with HoYoverse and needs a
+connection. The button reads "Start retrieval", progress names HoYoverse, and
+success says HoYoverse accepted the link. Each validation failure has one
+message for both actions; API errors show their code. The typed client accepts
+only the exact native shape and maps anything else to `unavailable`.
+
+The native smoke test now refuses to run unless loopback is its only network
+interface, since the synthetic key would otherwise reach the live endpoint. In
+the offline namespace its file upload shows the network failure message.
+
+TDD: three native command tests failed against a stub that stored the first
+extracted context without sending anything, then passed. The failure-mapping
+and serialization tests were written with their mappings and passed at once.
+Three typed-client tests failed on the old string shape, and six UI tests on
+the old copy, then passed. One UI assertion wrongly assumed 'Something went
+wrong' was still the last message; it now checks the actual last one. IPC-level
+tests cover only failures before any request, because Tauri runs commands on
+worker threads that cannot see the thread-local HTTP double; the validation
+paths are tested through the same functions on the test thread.
+
+Run directly on the host network, the native test fails in setup with
+`expected [ 'lo', 'eth0' ] to deeply equal [ 'lo' ]`, before building or
+launching anything. `npm run check` passed: 88 Rust unit tests, 34 integration
+tests, 43 frontend/tooling tests, offline native execution including the network
+failure message, nine probes and five report checks, all at 100% per file, plus
+TypeScript/build, formatting and Clippy. `npm run tauri -- build --no-bundle`
+passed on Linux. Real validation against HoYoverse with a live key has not been
+run; no automated test contacts the endpoint.
+
 ## Next
 
-Validate contexts during extraction
-([decision 0007](decisions/0007-validate-during-extraction.md)), PR C: both
-commands run `validate` over an `HttpTransport` after extraction, the session
-holds only the validated context, and new safe failure categories cross IPC.
-The controls must say they contact HoYoverse, with messages for each failure,
-and the offline native test must expect a readable network failure. Until the
-retry step lands, a transient failure stops validation. Then pagination, retries
-and cancellation, followed by the review DTO, atomic commit and history display,
-clearing auth keys when an import ends. Account/server verification remains a
-milestone-closing requirement.
+Paginate each category by cursor from the validated context: stop on a short
+page, advance on a full page, reject repeated cursors and cycles, enforce the
+16 MiB batch bound, and fetch all six categories sequentially. Then the retry
+budget, which also covers validation requests, and cancellation, followed by
+the review DTO, atomic commit and history display, clearing auth keys when an
+import ends. Account/server verification remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

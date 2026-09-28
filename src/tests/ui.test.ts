@@ -23,6 +23,15 @@ function choose(file: File) {
   Object.defineProperty(fileInput(), 'files', { value: [file], configurable: true });
   fileInput().dispatchEvent(new Event('change'));
 }
+// Validation failures read the same for automatic and file extraction.
+const validationFailures = [
+  ['expired_key', 'Your warp history link has expired. Open your warp history in the game to refresh it'],
+  ['rate_limited', 'HoYoverse is receiving too many requests'],
+  ['network', 'couldn’t reach HoYoverse. Check your internet connection'],
+  ['rejected', 'HoYoverse gave an unexpected response'],
+  ['invalid_response', 'HoYoverse sent a response we couldn’t read'],
+  ['internal', 'couldn’t start the connection to HoYoverse. Nothing was sent'],
+];
 // Resolve the mocked IPC and the UI's follow-up rendering.
 const settle = () => new Promise(resolve => setTimeout(resolve));
 
@@ -52,15 +61,16 @@ test('switches games and switches back without inventing history or statistics',
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i);
 });
 
-test('Star Rail offers automatic extraction and the file chooser together', () => {
+test('Star Rail offers retrieval, automatically or from a file, and says it contacts HoYoverse', () => {
   selectStarRail();
   expect(panel().hidden).toBe(false);
-  expect(findButton().textContent).toBe('Find automatically');
+  expect(findButton().textContent).toBe('Start retrieval');
   expect(findButton().type).toBe('button');
   expect(fallback().hidden).toBe(false);
   expect(document.querySelector<HTMLLabelElement>('.fallback label')?.htmlFor).toBe(fileInput().id);
   expect(extractionStatus()).toBe('');
-  expect(panel().textContent).toContain('Nothing is sent anywhere');
+  expect(panel().textContent).toContain('checks it with HoYoverse');
+  expect(panel().textContent).not.toContain('Nothing is sent anywhere');
 });
 
 test('automatic extraction shows progress, then success without revealing details', async () => {
@@ -70,12 +80,12 @@ test('automatic extraction shows progress, then success without revealing detail
   findButton().click();
   expect(findButton().disabled).toBe(true);
   expect(panel().getAttribute('aria-busy')).toBe('true');
-  expect(extractionStatus()).toBe('Searching this device…');
+  expect(extractionStatus()).toBe('Searching this device, then checking with HoYoverse…');
   resolve();
   await settle();
   expect(findButton().disabled).toBe(false);
   expect(panel().getAttribute('aria-busy')).toBe('false');
-  expect(extractionStatus()).toContain('Found your warp history request.');
+  expect(extractionStatus()).toBe('HoYoverse accepted your warp history link. Retrieving your history is coming next.');
   expect(fallback().hidden).toBe(false);
 });
 
@@ -88,8 +98,9 @@ test('each automatic failure explains what to do next', async () => {
     ['no_cache', 'found the game, but not its web cache'],
     ['no_request', 'couldn’t find a warp history request'],
     ['something_new', 'Something went wrong'],
+    ...validationFailures,
   ]) {
-    mockIPC(() => { throw failure; });
+    mockIPC(() => { throw { kind: failure }; });
     findButton().click();
     await settle();
     expect(extractionStatus()).toContain(message);
@@ -103,19 +114,20 @@ test('choosing a cache file extracts from it without an automatic search first',
   const sent: unknown[] = [];
   mockIPC((cmd, payload) => { sent.push(cmd, payload); });
   choose(new File(['synthetic'], 'data_2'));
-  expect(extractionStatus()).toBe('Reading the file…');
+  expect(extractionStatus()).toBe('Reading the file, then checking with HoYoverse…');
   expect(fileInput().disabled).toBe(true);
   await settle();
   expect(sent[0]).toBe('extract_from_file');
-  expect(extractionStatus()).toContain('Found your warp history request.');
+  expect(extractionStatus()).toContain('HoYoverse accepted your warp history link.');
   expect(fileInput().disabled).toBe(false);
   for (const [failure, message] of [
     ['no_request', 'doesn’t contain a warp history request'],
     ['file_too_large', 'larger than 16 MiB'],
     ['invalid_file', 'couldn’t be read'],
     ['something_new', 'Something went wrong'],
+    ...validationFailures,
   ]) {
-    mockIPC(() => { throw failure; });
+    mockIPC(() => { throw { kind: failure }; });
     choose(new File(['synthetic'], 'data_2'));
     await settle();
     expect(extractionStatus()).toContain(message);
@@ -123,8 +135,21 @@ test('choosing a cache file extracts from it without an automatic search first',
   // A change without a file, such as a cleared selection, leaves the last result.
   Object.defineProperty(fileInput(), 'files', { value: [], configurable: true });
   fileInput().dispatchEvent(new Event('change'));
-  expect(extractionStatus()).toContain('Something went wrong');
+  expect(extractionStatus()).toContain('Nothing was sent');
   expect(fileInput().disabled).toBe(false);
+});
+
+test('an API error shows its code with the next step', async () => {
+  selectStarRail();
+  mockIPC(() => { throw { kind: 'api_error', code: -100 }; });
+  findButton().click();
+  await settle();
+  expect(extractionStatus()).toBe(
+    'HoYoverse didn’t accept your warp history link (error -100). Open your warp history in the game, then try again.',
+  );
+  choose(new File(['synthetic'], 'data_2'));
+  await settle();
+  expect(extractionStatus()).toContain('(error -100)');
 });
 
 test('the chosen file stays shown after extraction and is cleared only to choose again', async () => {
@@ -136,7 +161,7 @@ test('the chosen file stays shown after extraction and is cleared only to choose
   });
   choose(new File(['synthetic'], 'data_2'));
   await settle();
-  expect(extractionStatus()).toContain('Found your warp history request.');
+  expect(extractionStatus()).toContain('HoYoverse accepted your warp history link.');
   expect(writes).toEqual([]);
   // Clearing before the dialog opens lets the same file be chosen again.
   fileInput().click();

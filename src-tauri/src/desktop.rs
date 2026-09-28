@@ -1,5 +1,8 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
-use crate::acquisition::{CacheError, CachedRequest, RequestContext, extract_request_contexts};
+use crate::acquisition::{
+    CacheError, CachedRequest, FetchFailure, HttpTransport, RequestContext,
+    extract_request_contexts, validate,
+};
 use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
@@ -14,9 +17,10 @@ use tauri::{
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
 pub const COMMANDS: &[&str] = include!("desktop/commands.in");
 
-/// Safe failure categories for the webview. Paths, source text and credentials never cross IPC.
+/// Safe failure categories for the webview, sent as `{"kind": ..., "code"?: ...}`.
+/// Paths, URLs, source text, credentials and response text never cross IPC.
 #[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "kind", content = "code", rename_all = "snake_case")]
 pub enum Failure {
     UnsupportedHost,
     DiscoveryFailed,
@@ -25,26 +29,28 @@ pub enum Failure {
     NoRequest,
     FileTooLarge,
     InvalidFile,
+    /// Every key was rejected and at least one had expired.
+    ExpiredKey,
+    /// Every key was rejected; the first nonzero API code.
+    ApiError(i64),
+    RateLimited,
+    /// HoYoverse could not be reached, or a timeout or server error occurred.
+    Network,
+    Rejected,
+    InvalidResponse,
+    /// Nothing was sent, for example because no HTTPS client could be created.
+    Internal,
 }
 
-/// Contexts from the latest extraction, held only in memory for the next acquisition.
-/// Each extraction replaces them, and a failed extraction leaves none.
+/// The validated context from the latest extraction, held only in memory for the
+/// next acquisition. Each extraction replaces it, and a failed one leaves none.
 #[derive(Default)]
 pub struct Session {
-    contexts: Mutex<Option<Vec<RequestContext>>>,
+    context: Mutex<Option<RequestContext>>,
 }
 impl Session {
-    /// Cached URLs are dropped here; only the contexts are kept.
-    fn store(&self, result: Result<Vec<CachedRequest>, Failure>) -> Result<(), Failure> {
-        let mut contexts = self.contexts.lock().unwrap_or_else(PoisonError::into_inner);
-        *contexts = None;
-        *contexts = Some(
-            result?
-                .into_iter()
-                .map(CachedRequest::into_context)
-                .collect(),
-        );
-        Ok(())
+    fn set(&self, context: Option<RequestContext>) {
+        *self.context.lock().unwrap_or_else(PoisonError::into_inner) = context;
     }
 }
 
@@ -73,39 +79,79 @@ impl From<ExtractionError> for Failure {
     }
 }
 
-// Bounded cache and log reads run synchronously on the async worker running this command.
-async fn extract_into(session: &Session) -> Result<(), Failure> {
-    session.store(extract_current_user_contexts().await.map_err(Failure::from))
+impl From<FetchFailure> for Failure {
+    fn from(failure: FetchFailure) -> Self {
+        match failure {
+            FetchFailure::ExpiredKey => Self::ExpiredKey,
+            FetchFailure::Api(code) => Self::ApiError(code),
+            FetchFailure::RateLimited => Self::RateLimited,
+            FetchFailure::Transient => Self::Network,
+            FetchFailure::Rejected(_) => Self::Rejected,
+            FetchFailure::InvalidResponse => Self::InvalidResponse,
+            FetchFailure::Internal => Self::Internal,
+        }
+    }
 }
 
+/// Validate the extracted requests and keep only the first working context
+/// ([decision 0007](../../docs/decisions/0007-validate-during-extraction.md)).
+/// The session is emptied first, so a failure at any step leaves no context, and
+/// every cached URL is dropped when this returns.
+async fn acquire(
+    session: &Session,
+    extracted: Result<Vec<CachedRequest>, Failure>,
+) -> Result<(), Failure> {
+    session.set(None);
+    let requests = extracted?;
+    let transport = HttpTransport::new().map_err(|_| Failure::Internal)?;
+    session.set(Some(validate(&transport, requests).await?));
+    Ok(())
+}
+
+// Bounded cache and log reads run synchronously on the async worker running this command.
+async fn extract_into(session: &Session) -> Result<(), Failure> {
+    acquire(
+        session,
+        extract_current_user_contexts().await.map_err(Failure::from),
+    )
+    .await
+}
+
+async fn extract_file_into(session: &Session, body: &InvokeBody) -> Result<(), Failure> {
+    let extracted = match body {
+        InvokeBody::Raw(bytes) => extract_request_contexts(bytes).map_err(|error| {
+            if error == CacheError::TooLarge {
+                Failure::FileTooLarge
+            } else {
+                Failure::NoRequest
+            }
+        }),
+        InvokeBody::Json(_) => Err(Failure::InvalidFile),
+    };
+    acquire(session, extracted).await
+}
+
+/// Contacts HoYoverse to validate the extracted auth keys.
 #[tauri::command]
 async fn extract_automatically(session: State<'_, Session>) -> Result<(), Failure> {
     extract_into(&session).await
 }
 
 /// The webview sends the selected file's bytes as a raw body; no path crosses IPC.
+/// Contacts HoYoverse to validate the extracted auth keys.
 #[tauri::command]
 async fn extract_from_file(
     request: Request<'_>,
     session: State<'_, Session>,
 ) -> Result<(), Failure> {
-    let InvokeBody::Raw(bytes) = request.body() else {
-        return session.store(Err(Failure::InvalidFile));
-    };
-    session.store(extract_request_contexts(bytes).map_err(|error| {
-        if error == CacheError::TooLarge {
-            Failure::FileTooLarge
-        } else {
-            Failure::NoRequest
-        }
-    }))
+    extract_file_into(&session, request.body()).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::acquisition::MAX_CACHE_BYTES;
-    use crate::acquisition::tests::filesystem;
+    use crate::acquisition::tests::{filesystem, http};
     use crate::discovery::system::tests::os;
     use std::path::PathBuf;
     use tauri::{
@@ -118,6 +164,7 @@ mod tests {
     };
 
     const ENDPOINT: &str = "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?";
+    const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
 
     fn run<T>(future: impl std::future::Future<Output = T>) -> T {
         tokio::runtime::Builder::new_current_thread()
@@ -127,11 +174,39 @@ mod tests {
             .unwrap()
             .block_on(future)
     }
-    fn cache(key: &str) -> Vec<u8> {
-        format!(
-            "1/0/{ENDPOINT}authkey={key}&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0"
-        )
-        .into_bytes()
+    fn url(key: &str) -> String {
+        format!("{ENDPOINT}authkey={key}&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en")
+    }
+    /// A cache holding `keys`; validation tries them in reverse order.
+    fn cache(keys: &[&str]) -> Vec<u8> {
+        keys.iter()
+            .flat_map(|key| format!("1/0/{}\0", url(key)).into_bytes())
+            .collect()
+    }
+    fn context(key: &str) -> RequestContext {
+        extract_request_contexts(&cache(&[key]))
+            .unwrap()
+            .remove(0)
+            .into_context()
+    }
+    /// Script HoYoverse's responses to validation requests, each an HTTP 200 body.
+    fn respond(bodies: &[&[u8]]) {
+        http::install(http::Fixture {
+            responses: bodies
+                .iter()
+                .map(|body| {
+                    Ok(http::Plan {
+                        status: 200,
+                        chunks: vec![Ok(body.to_vec())],
+                    })
+                })
+                .collect(),
+            ..Default::default()
+        });
+    }
+    const EXPIRED: &[u8] = br#"{"retcode":-101,"message":"synthetic","data":null}"#;
+    fn requested() -> Vec<String> {
+        http::inspect(|state| state.requested.clone())
     }
     fn window() -> WebviewWindow<MockRuntime> {
         let app = register(mock_builder())
@@ -141,6 +216,8 @@ mod tests {
             .build()
             .unwrap()
     }
+    // IPC commands run on Tauri's worker threads, which cannot see the thread-local
+    // doubles; IPC tests therefore cover only failures before any request.
     fn invoke(
         window: &WebviewWindow<MockRuntime>,
         cmd: &str,
@@ -161,15 +238,11 @@ mod tests {
         .map(|_| ())
         .map_err(|error| error.to_string())
     }
-    fn contexts(cache: &[u8]) -> Vec<RequestContext> {
-        extract_request_contexts(cache)
-            .unwrap()
-            .into_iter()
-            .map(CachedRequest::into_context)
-            .collect()
+    fn stored(session: &Session) -> Option<RequestContext> {
+        session.context.lock().unwrap().take()
     }
-    fn stored(window: &WebviewWindow<MockRuntime>) -> Option<Vec<RequestContext>> {
-        window.state::<Session>().contexts.lock().unwrap().take()
+    fn raw(bytes: Vec<u8>) -> InvokeBody {
+        InvokeBody::Raw(bytes)
     }
 
     #[test]
@@ -179,14 +252,22 @@ mod tests {
         // Host discovery is unsupported here: the unit-test OS double reports plain Linux.
         assert_eq!(
             invoke(&window, COMMANDS[0], InvokeBody::default()),
-            Err("\"unsupported_host\"".into())
+            Err(r#"{"kind":"unsupported_host"}"#.into())
         );
         assert_eq!(
             invoke(&window, COMMANDS[1], InvokeBody::default()),
-            Err("\"invalid_file\"".into())
+            Err(r#"{"kind":"invalid_file"}"#.into())
+        );
+        assert_eq!(
+            invoke(&window, COMMANDS[1], raw(b"no request".to_vec())),
+            Err(r#"{"kind":"no_request"}"#.into())
         );
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
+        assert_eq!(
+            window.state::<Session>().context.lock().unwrap().take(),
+            None
+        );
     }
 
     #[test]
@@ -198,57 +279,72 @@ mod tests {
             .build()
             .unwrap();
         for command in COMMANDS {
-            let error = invoke(&window, command, InvokeBody::Raw(cache("synthetic")));
+            let error = invoke(&window, command, raw(cache(&["synthetic"])));
             assert!(error.unwrap_err().contains("state not managed"));
         }
     }
 
     #[test]
-    fn file_extraction_keeps_contexts_native_and_replaces_earlier_results() {
-        let window = window();
-        assert_eq!(
-            invoke(
-                &window,
-                "extract_from_file",
-                InvokeBody::Raw(cache("synthetic"))
+    fn failures_cross_ipc_as_kinds_with_only_an_api_code() {
+        for (failure, json) in [
+            (Failure::ExpiredKey, r#"{"kind":"expired_key"}"#),
+            (
+                Failure::ApiError(-100),
+                r#"{"kind":"api_error","code":-100}"#,
             ),
-            Ok(())
-        );
-        assert_eq!(stored(&window).unwrap(), contexts(&cache("synthetic")));
-        invoke(
-            &window,
-            "extract_from_file",
-            InvokeBody::Raw(cache("earlier")),
-        )
-        .unwrap();
-        assert_eq!(
-            invoke(
-                &window,
-                "extract_from_file",
-                InvokeBody::Raw(b"no request".to_vec())
-            ),
-            Err("\"no_request\"".into())
-        );
-        assert_eq!(stored(&window), None);
-        invoke(
-            &window,
-            "extract_from_file",
-            InvokeBody::Raw(cache("earlier")),
-        )
-        .unwrap();
-        assert_eq!(
-            invoke(
-                &window,
-                "extract_from_file",
-                InvokeBody::Raw(vec![0; MAX_CACHE_BYTES + 1])
-            ),
-            Err("\"file_too_large\"".into())
-        );
-        assert_eq!(stored(&window), None);
+            (Failure::Network, r#"{"kind":"network"}"#),
+        ] {
+            assert_eq!(serde_json::to_string(&failure).unwrap(), json);
+        }
     }
 
     #[test]
-    fn automatic_extraction_stores_discovered_contexts_or_a_safe_failure() {
+    fn file_extraction_keeps_only_the_first_validated_context() {
+        respond(&[EXPIRED, PAGE]);
+        let session = Session::default();
+        let body = raw(cache(&["untried", "valid", "expired"]));
+        assert_eq!(run(extract_file_into(&session, &body)), Ok(()));
+        assert_eq!(requested(), [url("expired"), url("valid")]);
+        assert_eq!(stored(&session), Some(context("valid")));
+    }
+
+    #[test]
+    fn failed_extraction_or_validation_leaves_no_context() {
+        let session = Session::default();
+        let earlier = || session.set(Some(context("earlier")));
+        for (body, failure) in [
+            (raw(b"no request".to_vec()), Failure::NoRequest),
+            (raw(vec![0; MAX_CACHE_BYTES + 1]), Failure::FileTooLarge),
+            (InvokeBody::default(), Failure::InvalidFile),
+        ] {
+            http::install(Default::default());
+            earlier();
+            assert_eq!(run(extract_file_into(&session, &body)), Err(failure));
+            assert_eq!(stored(&session), None);
+            assert!(requested().is_empty());
+        }
+        respond(&[EXPIRED]);
+        earlier();
+        assert_eq!(
+            run(extract_file_into(&session, &raw(cache(&["synthetic"])))),
+            Err(Failure::ExpiredKey)
+        );
+        assert_eq!(stored(&session), None);
+        http::install(http::Fixture {
+            build_error: true,
+            ..Default::default()
+        });
+        earlier();
+        assert_eq!(
+            run(extract_file_into(&session, &raw(cache(&["synthetic"])))),
+            Err(Failure::Internal)
+        );
+        assert_eq!(stored(&session), None);
+        assert!(requested().is_empty());
+    }
+
+    #[test]
+    fn automatic_extraction_validates_discovered_contexts() {
         os::install(os::Fixture {
             distro: Some("Synthetic".into()),
             plans: [
@@ -269,7 +365,7 @@ mod tests {
                 ),
                 (
                     PathBuf::from("/volumes/games/Star Rail/webCaches/3.0.0.0/Cache/Cache_Data/data_2"),
-                    cache("discovered"),
+                    cache(&["discovered"]),
                 ),
             ]
             .into(),
@@ -280,16 +376,15 @@ mod tests {
             .into(),
             ..Default::default()
         });
+        respond(&[PAGE]);
         let session = Session::default();
         assert_eq!(run(extract_into(&session)), Ok(()));
-        assert_eq!(
-            session.contexts.lock().unwrap().take().unwrap(),
-            contexts(&cache("discovered"))
-        );
+        assert_eq!(requested(), [url("discovered")]);
+        assert_eq!(stored(&session), Some(context("discovered")));
     }
 
     #[test]
-    fn extraction_errors_map_to_safe_categories() {
+    fn errors_map_to_safe_categories() {
         for (error, failure) in [
             (
                 ExtractionError::Discovery(DiscoveryError::UnsupportedHost),
@@ -304,6 +399,17 @@ mod tests {
             (ExtractionError::NoRequest, Failure::NoRequest),
         ] {
             assert_eq!(Failure::from(error), failure);
+        }
+        for (fetch, failure) in [
+            (FetchFailure::ExpiredKey, Failure::ExpiredKey),
+            (FetchFailure::Api(-100), Failure::ApiError(-100)),
+            (FetchFailure::RateLimited, Failure::RateLimited),
+            (FetchFailure::Transient, Failure::Network),
+            (FetchFailure::Rejected(302), Failure::Rejected),
+            (FetchFailure::InvalidResponse, Failure::InvalidResponse),
+            (FetchFailure::Internal, Failure::Internal),
+        ] {
+            assert_eq!(Failure::from(fetch), failure);
         }
     }
 }
