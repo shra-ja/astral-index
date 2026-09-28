@@ -424,7 +424,11 @@ After the rebase, `npm run check` passed with 80 Rust unit tests, 34 integration
 tests, 39 frontend/tooling tests, nine probes and five report checks, all at 100%
 per file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux. Warm local probe-suite
-time fell from 217.24 to 70.66 seconds; hosted CI timing is not yet measured.
+time fell from 217.24 to 70.66 seconds. On hosted CI (PR #20), the `npm run check`
+step took 4 min 23 s against 8 min 53 s on the latest `main` run, well within
+the 600-second final-regeneration hook limit. A follow-up refactor shares one
+report-check helper and unrelated-test fixture across probes and groups the
+native scripts in `package.json`; no probe or gate changed.
 
 ## Next
 
