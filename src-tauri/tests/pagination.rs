@@ -43,8 +43,14 @@ fn retrieved_history_previews_and_commits_through_storage() {
         std::env::temp_dir().join(format!("roll-tracker-pagination-{}", std::process::id()));
     std::fs::create_dir(&directory).unwrap();
     let mut store = Store::open(&directory.join("history.sqlite")).unwrap();
+    // Preview under the account and server resolved from the responses.
+    let account = history.account().unwrap();
+    assert_eq!(
+        (account.uid(), account.server()),
+        ("100000002", "synthetic-server")
+    );
     let preview = store
-        .preview("100000002", "synthetic-server", &history.responses())
+        .preview(account.uid(), account.server(), &history.responses())
         .unwrap();
     let expected = Summary {
         inserted: 2,
