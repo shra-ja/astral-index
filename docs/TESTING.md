@@ -130,6 +130,28 @@ HTML/JSON reports and the native screenshot, including on failures. The required
 job is **Tests and 100% coverage**. Configure that status in branch protection
 after the first hosted run; local success does not prove remote CI ran.
 
+CI caches npm's download store, Cargo dependencies and their build artifacts,
+and installed Cargo tools with installation metadata. The cache actions are
+pinned to commits. npm's key includes the OS, architecture, `.tool-versions` and
+lockfile. Rust's key includes the compiler, manifests/lockfile and build settings;
+an additional workflow/toolchain hash invalidates it when pinned tool versions
+change. Workspace crates are not retained by the Rust cache action.
+
+asdf keeps Cargo's home inside the toolchain (`asdf where rust`), so CI exports
+it as `CARGO_HOME` before the cache step; otherwise the action saves an unused
+`~/.cargo` and tools are rebuilt every run. The pinned nightly uses Cargo's new
+build-dir layout (`target/<profile>/build/<crate>/<hash>/`). rust-cache releases
+before v2.9.2 prune hyphenated crates from that layout, which forces nearly the
+whole dependency tree to rebuild; keep v2.9.2 or later.
+
+Locked installs always run, including after cache hits. Cargo reuses installed
+tools at the requested versions; npm prefers cached downloads and skips the
+install-time audit request. Coverage reports are generated afresh by the existing
+cleaning/test sequence, never restored as evidence. All probes, coverage gates
+and the release build still run on every CI invocation. Cache misses use the
+normal installation/build path. Compare cold and warm hosted runs before claiming
+a speedup.
+
 Do not run probes concurrently with editing, coverage or native builds. They
 mutate source briefly and restore it in `finally` blocks. After interruption,
 inspect `src/coverage-probe.ts`, `src-tauri/src/coverage_probe.rs`,

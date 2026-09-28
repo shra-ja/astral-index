@@ -154,6 +154,10 @@ GitHub Actions runs **Tests and 100% coverage** for pull requests, `main` pushes
 and merge queues. The user has configured this job as a required check on
 protected `main`. Hosted results are available on
 [PR #1](https://github.com/shra-ja/roll-tracker/pull/1).
+CI reuses npm downloads, Rust dependency builds and pinned Cargo tools through
+caches; every run still executes locked installs and the complete validation
+pipeline. See [CI caching](docs/TESTING.md#ci-and-handoff) for invalidation and
+cold/warm-run verification.
 
 For focused native cache-extraction tests (synthetic data, no network requests):
 

@@ -430,6 +430,34 @@ the 600-second final-regeneration hook limit. A follow-up refactor shares one
 report-check helper and unrelated-test fixture across probes and groups the
 native scripts in `package.json`; no probe or gate changed.
 
+## CI caching (2026-09-28)
+
+Work is on `perf/ci-pipeline` (PR #5), rebased on `main` at `6d59e12`. CI caches
+npm downloads, Rust dependency builds and installed Cargo tools. Keys account for
+toolchains, dependencies and the workflow's tool-version pins. Locked installs,
+all probes, fresh coverage generation and the release build remain unconditional.
+
+The first version gave no hosted speedup. Two causes were confirmed from CI logs.
+asdf keeps Cargo's home inside the toolchain, so the action cached an unused
+`~/.cargo` and both tools were rebuilt every run. rust-cache v2.8.2 also pruned
+hyphenated crates from the nightly's new build-dir layout: all 65 reused crates
+survived its name rule, and every rebuilt crate was pruned or depended on one
+(`proc-macro2` among them). CI now exports `CARGO_HOME` from `asdf where rust`
+and pins rust-cache v2.9.2, which supports that layout. See
+[TESTING.md](TESTING.md#ci-and-handoff).
+
+TDD: the CI guard failed against the v2.8.2 pin and missing `CARGO_HOME` export,
+then passed. `npm run check` passed with 80 Rust unit tests, the integration
+suite, 42 frontend/tooling tests, nine probes and five report checks, all at 100%
+per file, plus TypeScript/build, formatting and Clippy.
+
+Hosted cold/warm pair (run 36432648943): the job took 10 min 21 s cold and 3 min
+33 s warm. Warm, tool installs fell from 76 s to 5 s, `npm run check` from 4 min
+21 s to 1 min 52 s and the release build from 3 min 22 s to 28 s; only first-party
+crates recompiled (5 and 1 units, against 451 and 311 cold). All gates still ran.
+The Rust cache is about 822 MiB. Lockfile, toolchain or workflow changes start a
+new key; rust-cache then restores its closest earlier entry.
+
 ## Next
 
 Validate contexts during extraction

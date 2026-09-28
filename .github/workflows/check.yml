@@ -36,6 +36,24 @@ jobs:
       - uses: asdf-vm/actions/install@a7acd3c0f80eb138922a2da9514d1df22864eaca # v4
         with:
           asdf_version: 0.20.0
+      - name: Cache npm downloads
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.npm/_cacache
+          key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}
+      - name: Point Cargo's home at the asdf toolchain
+        # asdf keeps installed tools and registry sources here, not in ~/.cargo.
+        run: echo "CARGO_HOME=$(asdf where rust)" >> "$GITHUB_ENV"
+      - name: Cache Rust dependencies and installed tools
+        # v2.9.2 supports Cargo's new build-dir layout used by the pinned nightly.
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri -> target
+          cache-bin: true
+          cache-workspace-crates: false
+          # The action also keys on rustc, Cargo manifests/lockfiles and build flags.
+          # Include the workflow so changes to pinned tool versions invalidate it.
+          key: ubuntu-24.04-${{ hashFiles('.tool-versions', '.github/workflows/check.yml') }}
       - name: Install pinned coverage and native test tools
         run: |
           rustup component add rustfmt clippy llvm-tools-preview
@@ -44,7 +62,7 @@ jobs:
           asdf reshim
       - name: Install locked dependencies before network isolation
         run: |
-          npm ci --ignore-scripts
+          npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
           cargo fetch --manifest-path src-tauri/Cargo.toml --locked
       - name: Tests, offline native smoke test, coverage gates and lint
         run: npm run check
