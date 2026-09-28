@@ -221,6 +221,7 @@ fn encoded_value(value: &str) -> bool {
 #[cfg(test)]
 pub(crate) mod tests {
     pub(crate) mod filesystem;
+    pub(crate) use super::transport::tests::http;
     use super::*;
     use std::io::{self, Read};
 

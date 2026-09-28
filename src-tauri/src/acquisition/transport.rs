@@ -80,8 +80,8 @@ fn failure(error: http::Error) -> TransportError {
 }
 
 #[cfg(test)]
-mod tests {
-    pub(super) mod http;
+pub(crate) mod tests {
+    pub(crate) mod http;
     use super::*;
     use http::{Error, Fixture, Plan};
 

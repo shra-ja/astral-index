@@ -1,4 +1,4 @@
-import { extractAutomatically, extractFromFile, type Failure } from './commands';
+import { extractAutomatically, extractFromFile, type Failure, type Kind } from './commands';
 
 document.querySelector('main')!.innerHTML = `
   <header>
@@ -28,9 +28,9 @@ document.querySelector('main')!.innerHTML = `
       <p class="detail">Your history will stay on this device. No account needed.</p>
     </div>
     <div class="retrieval" aria-busy="false" hidden>
-      <p>First, find the warp history request the game saved on this device.
-        Nothing is sent anywhere.</p>
-      <button type="button">Find automatically</button>
+      <p>Retrieval starts with the warp history link the game saved on this device.
+        The app finds it, then checks it with HoYoverse, so you need to be online.</p>
+      <button type="button">Start retrieval</button>
       <div class="fallback">
         <label for="cache-file">Or choose the game’s <code>data_2</code> cache file</label>
         <p class="detail" id="cache-file-hint">It’s in the game’s <code>webCaches</code> folder,
@@ -50,17 +50,28 @@ const find = retrieval.querySelector('button')!;
 const cacheFile = retrieval.querySelector<HTMLInputElement>('#cache-file')!;
 const status = retrieval.querySelector('.extraction-status')!;
 
-const found = 'Found your warp history request. Retrieving your history is coming next.';
+const found = 'HoYoverse accepted your warp history link. Retrieving your history is coming next.';
 const retry = 'then try again, or choose the cache file below.';
 const unexpected = 'Something went wrong. Please try again.';
-const automaticMessages: Partial<Record<Failure, string>> = {
+// Validation reads the same whichever way the link was found.
+const validationMessages: Partial<Record<Kind, string>> = {
+  expired_key: 'Your warp history link has expired. Open your warp history in the game to refresh it, then try again.',
+  rate_limited: 'HoYoverse is receiving too many requests. Wait a few minutes, then try again.',
+  network: 'We couldn’t reach HoYoverse. Check your internet connection, then try again.',
+  rejected: 'HoYoverse gave an unexpected response. Try again later.',
+  invalid_response: 'HoYoverse sent a response we couldn’t read. Try again later.',
+  internal: 'We couldn’t start the connection to HoYoverse. Nothing was sent. Please try again.',
+};
+const automaticMessages: Partial<Record<Kind, string>> = {
+  ...validationMessages,
   unsupported_host: 'Automatic search needs Windows, or WSL with access to Windows. Choose the cache file below instead.',
   discovery_failed: `We couldn’t look up your Windows user folder. Try again, or choose the cache file below.`,
   no_game_data: `We couldn’t find Honkai: Star Rail’s game logs. Launch the game once, ${retry}`,
   no_cache: `We found the game, but not its web cache. Open your warp history in the game, ${retry}`,
   no_request: `We couldn’t find a warp history request. Open your warp history in the game, ${retry}`,
 };
-const fileMessages: Partial<Record<Failure, string>> = {
+const fileMessages: Partial<Record<Kind, string>> = {
+  ...validationMessages,
   no_request: 'That file doesn’t contain a warp history request. Check it’s the game’s data_2 file, and open your warp history in the game first.',
   file_too_large: 'That file is larger than 16 MiB, so it isn’t a supported cache file.',
   invalid_file: 'That file couldn’t be read. Try choosing it again.',
@@ -83,9 +94,17 @@ async function extract(progress: string, action: () => Promise<Failure | undefin
   return failure;
 }
 
+function describe(failure: Failure | undefined, messages: Partial<Record<Kind, string>>) {
+  if (!failure) return found;
+  if (failure.kind === 'api_error') {
+    return `HoYoverse didn’t accept your warp history link (error ${failure.code}). Open your warp history in the game, then try again.`;
+  }
+  return messages[failure.kind] ?? unexpected;
+}
+
 find.addEventListener('click', async () => {
-  const failure = await extract('Searching this device…', extractAutomatically);
-  status.textContent = failure ? automaticMessages[failure] ?? unexpected : found;
+  const failure = await extract('Searching this device, then checking with HoYoverse…', extractAutomatically);
+  status.textContent = describe(failure, automaticMessages);
 });
 
 // Clear only as the dialog opens: the chosen file stays shown with its result,
@@ -95,8 +114,8 @@ cacheFile.addEventListener('click', () => { cacheFile.value = ''; });
 cacheFile.addEventListener('change', async () => {
   const file = cacheFile.files![0];
   if (!file) return;
-  const failure = await extract('Reading the file…', () => extractFromFile(file));
-  status.textContent = failure ? fileMessages[failure] ?? unexpected : found;
+  const failure = await extract('Reading the file, then checking with HoYoverse…', () => extractFromFile(file));
+  status.textContent = describe(failure, fileMessages);
 });
 
 game.addEventListener('change', updateGame);

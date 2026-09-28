@@ -1,13 +1,18 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { resolve } from 'node:path';
-import { mkdirSync, writeFileSync, rmSync, globSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, rmSync, globSync } from 'node:fs';
 import { beforeAll, expect, test } from 'vitest';
 
 import { nativeCargo, nativeEnvironment } from '../scripts/native-coverage';
 
 let nativeEnv: NodeJS.ProcessEnv;
 beforeAll(() => {
+  // Extraction now validates with HoYoverse: refuse to run where the synthetic key
+  // could reach the live endpoint. The network namespace must have only loopback.
+  const interfaces = readFileSync('/proc/self/net/dev', 'utf8').split('\n').slice(2)
+    .map(line => line.split(':')[0].trim()).filter(Boolean);
+  expect(interfaces, 'run the native test through test:offline').toEqual(['lo']);
   nativeEnv = nativeEnvironment();
   nativeCargo(['build', '--locked', '--offline']);
 }, 600000);
@@ -70,15 +75,15 @@ test('the bundled native shell works offline, supports keyboard selection, and c
         const done = arguments[arguments.length - 1];
         const invoke = window.__TAURI_INTERNALS__.invoke;
         Promise.all([
-          invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', String),
+          invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', JSON.stringify),
           invoke('read_arbitrary_file').then(() => 'resolved', String),
         ]).then(done);
       `, args: [],
     });
-    expect(commands[0]).toBe('no_request');
+    expect(commands[0]).toBe('{"kind":"no_request"}');
     expect(commands[1]).toContain('not allowed');
     // Keyboard-operated automatic search fails safely here, then the real file input
-    // sends a synthetic cache through raw IPC.
+    // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
     expect(await execute('return document.querySelector(".fallback").hidden')).toBe(false);
     await execute('document.querySelector(".retrieval button").focus()');
     await request(`/session/${session}/actions`, 'POST', { actions: [{ type: 'key', id: 'keyboard', actions: [
@@ -91,7 +96,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     writeFileSync(cachePath, '1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0');
     const input = await request(`/session/${session}/element`, 'POST', { using: 'css selector', value: '#cache-file' });
     await request(`/session/${session}/element/${Object.values(input)[0]}/value`, 'POST', { text: cachePath });
-    await expect.poll(() => execute(extractionStatus), { timeout: 10000 }).toContain('Found your warp history request.');
+    await expect.poll(() => execute(extractionStatus), { timeout: 10000 }).toContain('We couldn’t reach HoYoverse.');
     expect(await execute('return document.querySelector("#cache-file").files.length')).toBe(1);
     rmSync(cachePath);
     const screenshot = await request(`/session/${session}/screenshot`);

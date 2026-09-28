@@ -1,7 +1,8 @@
 # 0007 — Validate during extraction
 
 Date: 2026-09-27
-Status: Accepted; implemented with the auth-key validation step of milestone 3.
+Status: Accepted; implemented in milestone 3 through PRs #21 and #22 and the
+command and control change that followed them.
 
 Validate extracted request contexts in the same user action that extracts them.
 The first context whose cached request succeeds is the only one kept for

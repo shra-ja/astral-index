@@ -105,22 +105,31 @@ main window for local content. Undeclared commands are refused.
 
 The automatic command runs current-user extraction. The file command accepts
 only a raw IPC body holding the bytes of a file the user chose through an HTML
-file input; no path crosses IPC. Both return nothing on success or a safe
-category: `unsupported_host`, `discovery_failed`, `no_game_data`, `no_cache`,
-`no_request`, `file_too_large` or `invalid_file`. Contexts stay in a native
-in-memory session, replaced by each extraction and emptied by a failed one.
-They are never serialized, persisted or returned. The CSP's `connect-src` allows
+file input; no path crosses IPC. Both then validate the extracted auth keys with
+HoYoverse through `HttpTransport` and `validate`, in the same user action
+([decision 0007](decisions/0007-validate-during-extraction.md)). The native
+session holds only the validated context, in memory; it is emptied before each
+extraction, so any failure leaves none, and every cached URL is dropped when the
+command returns. Contexts are never serialized, persisted or returned. Both
+commands return nothing on success or a safe failure, serialized as
+`{"kind": ...}`: `unsupported_host`, `discovery_failed`, `no_game_data`,
+`no_cache`, `no_request`, `file_too_large`, `invalid_file`, `expired_key`,
+`rate_limited`, `network`, `rejected`, `invalid_response` or `internal`, or
+`api_error` with the first nonzero API code as `code`. Nothing else, including
+HTTP statuses and response text, crosses IPC. The CSP's `connect-src` allows
 only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC
 instead of the JSON `postMessage` fallback; network origins stay blocked. The
 file fallback does pass cache bytes through webview memory; see
 [decision 0006](decisions/0006-desktop-extraction-commands.md).
 
 In the webview, `src/commands.ts` wraps both commands through `@tauri-apps/api`,
-maps unknown rejections to `unavailable`, and rejects files over 16 MiB before
-reading them. `src/main.ts` shows the Star Rail extraction panel: automatic
-search first, with the file chooser always available below it as the fallback.
-Both actions are disabled while either runs, so results cannot arrive out of
-order. Success only confirms a request was found; nothing is fetched yet.
+maps any rejection that is not exactly a native failure shape to `unavailable`,
+and rejects files over 16 MiB before reading them. `src/main.ts` shows the Star
+Rail retrieval panel, which says the app checks the saved link with HoYoverse
+and needs a connection: "Start retrieval" first, with the file chooser always
+available below it as the fallback. Both actions are disabled while either runs,
+so results cannot arrive out of order. Validation failures read the same for
+both actions. Success confirms HoYoverse accepted a key; no history is fetched yet.
 
 ## Statistics
 
@@ -245,8 +254,8 @@ Each context comes back as a `CachedRequest` with its cached URL: the exact
 endpoint-checked text up to the entry's NUL, taken from the context's last
 occurrence, for validation to send unchanged
 ([decision 0007](decisions/0007-validate-during-extraction.md)).
-`CachedRequest::into_context` drops the URL. The desktop session currently keeps
-only the contexts, so no cached URL outlives an extraction command.
+`CachedRequest::into_context` drops the URL. The desktop commands pass cached
+requests straight to validation, so no cached URL outlives an extraction command.
 
 Request contexts and cached requests are opaque native values with redacted
 debug output and no serialization implementation. Errors contain neither paths nor source text.
@@ -260,8 +269,8 @@ folder. The unversioned `webCaches/Cache` layout is not supported; installations
 are assumed to use version folders. Version order does not establish credential
 age within the window. The same
 relative layouts work with native Windows paths and WSL-mounted Windows paths.
-Desktop extraction commands and controls exist (see above); there is no HTTP
-transport or credential persistence yet. The future client must use only the validated fields,
+Desktop extraction commands and controls exist and validate keys (see above);
+there is no credential persistence. The pagination client must use only the validated fields,
 construct fresh pagination parameters and resolve account identity from responses.
 
 `src-tauri/src/acquisition/request.rs` builds those page requests.
@@ -282,7 +291,7 @@ it with `reqwest` and rustls using `ring` and the OS trust store. It refuses any
 URL other than the exact endpoint before sending, never follows redirects,
 treats any status other than 200 as an error, uses no system proxy, applies
 10-second connect and 30-second request timeouts, and stops reading once a body
-exceeds 2 MiB. No command uses it yet. See
+exceeds 2 MiB. The extraction commands use it for validation. See
 [decision 0008](decisions/0008-https-transport.md).
 
 `src-tauri/src/acquisition/outcome.rs` classifies one attempt, a transport result,
@@ -306,8 +315,8 @@ failure stops at once. If every key is rejected, it reports an expired key if
 any expired, otherwise the first code. It consumes the cached requests, so every
 URL is dropped when it returns. With no contexts it sends nothing and reports an
 internal failure. `CachedRequest::url` is crate-private, so only native
-acquisition code can read a cached URL. No command calls `validate` yet, and
-there are no retries.
+acquisition code can read a cached URL. Both extraction commands call it. There
+are no retries yet: a transient failure stops validation.
 
 ## Windows player-log discovery
 
@@ -370,8 +379,8 @@ this log-discovery service; the separate automatic-extraction service above
 connects it to cache resolution and extraction. Explicit path inputs remain
 internal service APIs.
 
-Desktop extraction controls and real Windows/WSL installation validation remain pending.
-These services add no Tauri command, permission, startup task or history request.
+These services add no Tauri command, permission, startup task or history request;
+the desktop commands above compose them with validation.
 
 ## Unit and boundary test separation
 
