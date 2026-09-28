@@ -296,6 +296,19 @@ are invalid, and an unsupported URL or missing client is internal: nothing was
 sent. The parser mapping lists every `ParseError` variant, so a new one must be
 classified explicitly.
 
+`src-tauri/src/acquisition/validation.rs` validates auth keys
+([decision 0007](decisions/0007-validate-during-extraction.md)). `validate` takes
+the extracted cached requests, in reverse file order, and sends at most five
+cached URLs unchanged through a `Transport` and the classifier. It returns the
+first context whose response is a valid page, discarding that page's records.
+An expired key or other API code moves on to the next context. Any other
+failure stops at once. If every key is rejected, it reports an expired key if
+any expired, otherwise the first code. It consumes the cached requests, so every
+URL is dropped when it returns. With no contexts it sends nothing and reports an
+internal failure. `CachedRequest::url` is crate-private, so only native
+acquisition code can read a cached URL. No command calls `validate` yet, and
+there are no retries.
+
 ## Windows player-log discovery
 
 `src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming

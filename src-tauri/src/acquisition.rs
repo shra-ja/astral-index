@@ -10,9 +10,11 @@ use std::{collections::HashSet, fmt, io::Read, path::Path};
 mod outcome;
 mod request;
 mod transport;
+mod validation;
 pub use outcome::{FetchFailure, classify};
 pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
 pub use transport::{CONNECT_TIMEOUT, HttpTransport, REQUEST_TIMEOUT, Transport, TransportError};
+pub use validation::{MAX_VALIDATED_CONTEXTS, validate};
 
 pub const MAX_CACHE_BYTES: usize = 16 * 1024 * 1024;
 const ENDPOINT: &str =
@@ -43,8 +45,8 @@ impl fmt::Debug for CachedRequest {
 }
 impl CachedRequest {
     /// The credential-bearing cached URL, already checked against the endpoint.
-    /// Never log or display it.
-    pub fn url(&self) -> &str {
+    /// Crate-private so only native acquisition code can read it. Never log or display it.
+    pub(crate) fn url(&self) -> &str {
         &self.url
     }
     /// Drop the cached URL, keeping only the credentials for new page requests.

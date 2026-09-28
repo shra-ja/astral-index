@@ -460,7 +460,7 @@ new key; rust-cache then restores its closest earlier entry.
 
 ## Cached request URLs (2026-09-28)
 
-Work is on `feat/cached-request-urls`, branched from `main` at `deee662`. This is
+Integrated through PR #21 (`0cea1d1`), branched from `main` at `deee662`. This is
 the first of three PRs for validating during extraction
 ([decision 0007](decisions/0007-validate-during-extraction.md)): (A) keep cached
 URLs, (B) a validation service, (C) commands and controls that validate and so
@@ -479,19 +479,41 @@ native offline execution, nine probes and five report checks, all at 100% per
 file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Auth-key validation service (2026-09-28)
+
+Work is on `feat/auth-key-validation`, branched from `main` at `0cea1d1` (PR B of
+three for [decision 0007](decisions/0007-validate-during-extraction.md)).
+`acquisition::validate` sends at most five cached URLs unchanged, in the given
+reverse file order, through a `Transport` and `classify`. It returns the first
+context whose response is a valid page, discarding that page's records. `-101`
+and other API codes move on to the next context. Rate limits, transient,
+rejected, invalid and internal failures stop at once. If all keys are rejected,
+it reports an expired key if any expired, otherwise the first code; that
+second rule is newly recorded in the contract. An empty input sends nothing and
+is internal. Every cached URL is dropped on return. `CachedRequest::url` is now
+crate-private. No command calls `validate`, and there are no retries yet.
+
+TDD: against a stub that always failed as internal, four of five tests failed.
+The empty-input test passed against the stub, since both return internal
+without sending. All five pass with the implementation. The tests use a scripted
+`Transport` that records every requested URL.
+
+`npm run check` passed: 86 Rust unit tests, 34 integration tests, 42
+frontend/tooling tests, native offline execution, nine probes and five report
+checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
 Validate contexts during extraction
-([decision 0007](decisions/0007-validate-during-extraction.md)). Next is PR B:
-a validation service that sends at most five cached URLs unchanged, in reverse
-file order, through the transport and classifier, and returns the first working
-context. `-101` and other API codes move on to the next context; other failures
-stop. Until the retry step lands, a transient failure stops validation. PR B
-also makes `CachedRequest::url` crate-private, so only native acquisition code
-can read a cached URL. Then PR C: both commands validate, the session holds only
-the validated context, and the controls say they contact HoYoverse, with new
-failure messages. Then pagination, retries and cancellation, followed by the review DTO, atomic commit and history display, clearing auth
-keys when an import ends. Account/server verification remains a
+([decision 0007](decisions/0007-validate-during-extraction.md)), PR C: both
+commands run `validate` over an `HttpTransport` after extraction, the session
+holds only the validated context, and new safe failure categories cross IPC.
+The controls must say they contact HoYoverse, with messages for each failure,
+and the offline native test must expect a readable network failure. Until the
+retry step lands, a transient failure stops validation. Then pagination, retries
+and cancellation, followed by the review DTO, atomic commit and history display,
+clearing auth keys when an import ends. Account/server verification remains a
 milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
