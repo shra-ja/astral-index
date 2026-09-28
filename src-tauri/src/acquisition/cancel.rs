@@ -26,7 +26,7 @@ impl<T: Transport + Sync> Transport for Cancellable<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::scripted::Scripted;
+    use crate::acquisition::tests::scripted::{Scripted, ignore};
     use crate::acquisition::{
         AcquisitionError, ENDPOINT, FetchFailure, RETRY_DELAY, RetryBudget, Retrying,
         extract_request_contexts, fetch_history, validate,
@@ -123,7 +123,7 @@ mod tests {
         let elapsed = run(async {
             cancel_after(&token, RETRY_DELAY / 2);
             let started = Instant::now();
-            let retrying = Retrying::new(&transport, &budget);
+            let retrying = Retrying::new(&transport, &budget, &ignore);
             let result = Cancellable::new(&retrying, &token).get("url").await;
             assert_eq!(result, Err(TransportError::Cancelled));
             started.elapsed()
@@ -162,6 +162,7 @@ mod tests {
         let result = run(fetch_history(
             &Cancellable::new(&transport, &token),
             &context,
+            &ignore,
         ));
         assert_eq!(
             result.unwrap_err(),

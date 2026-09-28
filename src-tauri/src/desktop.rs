@@ -110,7 +110,8 @@ async fn acquire(
     let transport = HttpTransport::new().map_err(|_| Failure::Internal)?;
     // Pagination must continue with this budget once a command connects it.
     let budget = RetryBudget::default();
-    let transport = Retrying::new(&transport, &budget);
+    // Progress reaches the webview once acquisition has a command.
+    let transport = Retrying::new(&transport, &budget, &|_| {});
     session.set(Some(validate(&transport, requests).await?));
     Ok(())
 }

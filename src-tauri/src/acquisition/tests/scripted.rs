@@ -1,5 +1,8 @@
 //! Scripted transport double: replays responses in order and records every URL.
-use crate::acquisition::{Transport, TransportError};
+use crate::acquisition::{Progress, Transport, TransportError};
+
+/// Discard progress in tests that do not check it.
+pub fn ignore(_: Progress) {}
 use std::{collections::VecDeque, sync::Mutex};
 
 pub struct Scripted {

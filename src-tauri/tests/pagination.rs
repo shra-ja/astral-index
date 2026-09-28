@@ -35,7 +35,7 @@ fn retrieved_history_previews_and_commits_through_storage() {
     let history = tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap()
-        .block_on(fetch_history(&transport, &context))
+        .block_on(fetch_history(&transport, &context, &|_| {}))
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
 
