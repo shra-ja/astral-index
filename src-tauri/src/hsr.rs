@@ -1,11 +1,42 @@
 //! Pure HSR response parsing; no filesystem, network, or persistence access.
 
-use crate::acquisition::Category;
 use serde::{Deserialize, Serialize};
 
 pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 /// Bound for all responses in one acquisition or import batch.
 pub const MAX_BATCH_BYTES: usize = 16 * 1024 * 1024;
+
+/// The six known banner categories, fetched in this order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Category {
+    Stellar,
+    Departure,
+    CharacterEvent,
+    LightConeEvent,
+    CharacterCollaboration,
+    LightConeCollaboration,
+}
+impl Category {
+    pub const ALL: [Self; 6] = [
+        Self::Stellar,
+        Self::Departure,
+        Self::CharacterEvent,
+        Self::LightConeEvent,
+        Self::CharacterCollaboration,
+        Self::LightConeCollaboration,
+    ];
+    /// The `gacha_type` query value.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Stellar => "1",
+            Self::Departure => "2",
+            Self::CharacterEvent => "11",
+            Self::LightConeEvent => "12",
+            Self::CharacterCollaboration => "21",
+            Self::LightConeCollaboration => "22",
+        }
+    }
+}
 
 /// Distinguish actionable failures without exposing response contents.
 #[derive(Debug, PartialEq, Eq)]

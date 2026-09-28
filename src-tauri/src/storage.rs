@@ -1,10 +1,12 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
 #[cfg(test)]
 use self::tests::database::Connection;
+use crate::hsr::Category;
 use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
 #[cfg(not(test))]
 use rusqlite::Connection;
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
+use serde::Serialize;
 use std::{collections::BTreeMap, path::Path};
 
 const GAME: &str = "honkai-star-rail";
@@ -42,15 +44,71 @@ impl From<ParseError> for Error {
 }
 
 /// Counts let callers review an import before committing and retain a compact audit.
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize)]
 pub struct Summary {
     pub inserted: usize,
     pub duplicates: usize,
     pub conflicts: usize,
 }
+impl Summary {
+    fn count(&mut self, status: Status) {
+        match status {
+            Status::New => self.inserted += 1,
+            Status::Duplicate => self.duplicates += 1,
+            Status::Conflict => self.conflicts += 1,
+        }
+    }
+    fn of(statuses: &[Status]) -> Self {
+        let mut summary = Self::default();
+        for status in statuses {
+            summary.count(*status);
+        }
+        summary
+    }
+}
+
+/// How one incoming record compares with stored and earlier incoming rolls.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Status {
+    New,
+    Duplicate,
+    Conflict,
+}
+
+/// What an import would change, for the user to review before committing. It is
+/// the webview's review data: counts, scope and conflict locations, never payloads.
+/// Holds a player identifier: never log it.
+#[derive(Default, Serialize)]
+pub struct Review {
+    uid: String,
+    server: String,
+    /// UTC offset in hours of the server-local times, when the responses gave one.
+    timezone: Option<i32>,
+    summary: Summary,
+    /// Counts for each known category, in fetch order, including empty ones.
+    categories: Vec<CategoryCounts>,
+    /// Earliest and latest server-local record times in the import.
+    earliest: String,
+    latest: String,
+    conflicts: Vec<Conflict>,
+}
+#[derive(Serialize)]
+struct CategoryCounts {
+    gacha_type: &'static str,
+    #[serde(flatten)]
+    counts: Summary,
+}
+/// Where an incoming record disagrees with a stored or earlier record of the same ID.
+#[derive(Serialize)]
+struct Conflict {
+    id: String,
+    gacha_type: String,
+    time: String,
+}
 
 /// Owns validated input. Callers cannot replace records or alter reviewed counts.
 pub struct Preview {
+    review: Review,
     summary: Summary,
     uid: String,
     server: String,
@@ -61,6 +119,9 @@ pub struct Preview {
 impl Preview {
     pub fn summary(&self) -> Summary {
         self.summary
+    }
+    pub fn review(&self) -> &Review {
+        &self.review
     }
 }
 
@@ -113,6 +174,8 @@ impl Store {
         // None means no page seen; Some(None) means a page with unknown offset.
         let mut timezone: Option<Option<i32>> = None;
         let mut records = Vec::new();
+        // Each record's category and time, for the review.
+        let mut details = Vec::new();
         for bytes in bytes {
             let page = parse_response(bytes)?;
             if page
@@ -130,6 +193,7 @@ impl Store {
                     return Err(Error::Context);
                 }
                 records.push((roll.id.clone(), serde_json::json!(roll).to_string()));
+                details.push((roll.gacha_type.clone(), roll.time.clone()));
             }
             timezone = Some(page.region_time_zone);
         }
@@ -139,8 +203,44 @@ impl Store {
         let timezone = timezone.flatten();
         let tx = self.connection.transaction()?;
         check_timezone(&tx, uid, server, timezone)?;
-        let (summary, _) = classify(&tx, uid, server, &records)?;
+        let statuses = classify(&tx, uid, server, &records)?;
+        let summary = Summary::of(&statuses);
+        let mut by_category: BTreeMap<&str, Summary> = BTreeMap::new();
+        let mut conflicts = Vec::new();
+        for (((id, _), (gacha_type, time)), status) in records.iter().zip(&details).zip(statuses) {
+            by_category.entry(gacha_type).or_default().count(status);
+            if status == Status::Conflict {
+                conflicts.push(Conflict {
+                    id: id.clone(),
+                    gacha_type: gacha_type.clone(),
+                    time: time.clone(),
+                });
+            }
+        }
+        // Validated times share one canonical format and offset, so text order is
+        // time order.
+        let times = details.iter().map(|(_, time)| time);
+        let review = Review {
+            uid: uid.to_owned(),
+            server: server.to_owned(),
+            timezone,
+            summary,
+            categories: Category::ALL
+                .iter()
+                .map(|category| CategoryCounts {
+                    gacha_type: category.code(),
+                    counts: by_category
+                        .get(category.code())
+                        .copied()
+                        .unwrap_or_default(),
+                })
+                .collect(),
+            earliest: times.clone().min().cloned().unwrap_or_default(),
+            latest: times.max().cloned().unwrap_or_default(),
+            conflicts,
+        };
         let preview = Preview {
+            review,
             summary,
             uid: uid.to_owned(),
             server: server.to_owned(),
@@ -164,8 +264,8 @@ impl Store {
             return Err(Error::StalePreview);
         }
         check_timezone(&tx, &preview.uid, &preview.server, preview.timezone)?;
-        let (current, new_records) =
-            classify(&tx, &preview.uid, &preview.server, &preview.records)?;
+        let statuses = classify(&tx, &preview.uid, &preview.server, &preview.records)?;
+        let current = Summary::of(&statuses);
         if current != preview.summary {
             return Err(Error::StalePreview);
         }
@@ -178,8 +278,8 @@ impl Store {
         let batch = tx.last_insert_rowid();
         {
             let mut insert = tx.prepare("INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)")?;
-            for index in new_records {
-                let (id, payload) = &preview.records[index];
+            let new_records = preview.records.iter().zip(&statuses);
+            for ((id, payload), _) in new_records.filter(|(_, status)| **status == Status::New) {
                 insert.execute(params![
                     GAME,
                     preview.uid,
@@ -250,19 +350,18 @@ fn snapshot(connection: &Connection) -> Result<(String, i64), Error> {
 }
 
 /// Compare scoped identities with stored and earlier incoming rolls to expose conflicts
-/// and identify which input positions need insertion, without writing any state.
+/// and identify which records need insertion, without writing any state.
 fn classify(
     connection: &Connection,
     uid: &str,
     server: &str,
     records: &[(String, String)],
-) -> Result<(Summary, Vec<usize>), Error> {
-    let mut new_records = Vec::new();
+) -> Result<Vec<Status>, Error> {
+    let mut statuses = Vec::new();
     let mut query = connection
         .prepare("SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4")?;
-    let mut summary = Summary::default();
     let mut seen: BTreeMap<&String, String> = BTreeMap::new();
-    for (index, (id, payload)) in records.iter().enumerate() {
+    for (id, payload) in records {
         let previous = if let Some(previous) = seen.get(id) {
             Some(previous.clone())
         } else {
@@ -274,21 +373,20 @@ fn classify(
         };
         match previous {
             Some(previous) => {
-                if previous == *payload {
-                    summary.duplicates += 1;
+                statuses.push(if previous == *payload {
+                    Status::Duplicate
                 } else {
-                    summary.conflicts += 1;
-                }
+                    Status::Conflict
+                });
                 seen.insert(id, previous);
             }
             None => {
-                summary.inserted += 1;
-                new_records.push(index);
+                statuses.push(Status::New);
                 seen.insert(id, payload.clone());
             }
         }
     }
-    Ok((summary, new_records))
+    Ok(statuses)
 }
 
 #[cfg(test)]
@@ -372,6 +470,7 @@ mod tests {
     }
     fn preview() -> Preview {
         Preview {
+            review: Review::default(),
             summary: Summary {
                 inserted: 1,
                 duplicates: 0,
@@ -588,14 +687,7 @@ mod tests {
         ];
         assert_eq!(
             classify(&Connection, UID, SERVER, &records).unwrap(),
-            (
-                Summary {
-                    inserted: 1,
-                    duplicates: 1,
-                    conflicts: 1
-                },
-                vec![0]
-            )
+            [Status::New, Status::Duplicate, Status::Conflict]
         );
         database::finish();
         database::expect(vec![
@@ -604,14 +696,7 @@ mod tests {
         ]);
         assert_eq!(
             classify(&Connection, UID, SERVER, &records).unwrap(),
-            (
-                Summary {
-                    inserted: 0,
-                    duplicates: 2,
-                    conflicts: 1
-                },
-                vec![]
-            )
+            [Status::Duplicate, Status::Duplicate, Status::Conflict]
         );
         database::finish();
     }
@@ -629,6 +714,56 @@ mod tests {
         );
         database::finish();
     }
+    #[test]
+    fn the_review_counts_each_category_and_locates_conflicts() {
+        let bytes = page(|value| {
+            let list = value["data"]["list"].as_array_mut().unwrap();
+            let mut new = list[0].clone();
+            new["id"] = serde_json::json!("1000000000000000001");
+            new["gacha_type"] = serde_json::json!("1");
+            new["time"] = serde_json::json!("2023-01-01 00:00:00");
+            list.push(new);
+        });
+        let rolls = parse_response(&bytes).unwrap().list;
+        let payload = |index: usize| serde_json::json!(rolls[index]).to_string();
+        // The first record is already stored, the second differs from its stored
+        // copy, and the third is new.
+        database::expect(vec![
+            done("BEGIN Deferred"),
+            timezone(None),
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup(&rolls[0].id, Some(&payload(0))),
+            lookup(&rolls[1].id, Some("stored differently")),
+            lookup(&rolls[2].id, None),
+            identity(),
+            done("COMMIT"),
+        ]);
+        let preview = store().preview(UID, SERVER, &[&bytes]).unwrap();
+        database::finish();
+        let counts = |gacha_type, inserted, duplicates, conflicts| {
+            serde_json::json!({
+                "gacha_type": gacha_type, "inserted": inserted,
+                "duplicates": duplicates, "conflicts": conflicts,
+            })
+        };
+        assert_eq!(
+            serde_json::to_value(preview.review()).unwrap(),
+            serde_json::json!({
+                "uid": UID, "server": SERVER, "timezone": 8,
+                "summary": { "inserted": 1, "duplicates": 1, "conflicts": 1 },
+                "categories": [
+                    counts("1", 1, 0, 0), counts("2", 0, 0, 0), counts("11", 0, 1, 1),
+                    counts("12", 0, 0, 0), counts("21", 0, 0, 0), counts("22", 0, 0, 0),
+                ],
+                "earliest": "2023-01-01 00:00:00",
+                "latest": "2024-02-29 12:34:56",
+                "conflicts": [
+                    { "id": "9007199254740992", "gacha_type": "11", "time": "2024-02-29 12:34:56" },
+                ],
+            })
+        );
+    }
+
     #[test]
     fn preview_owns_validated_records_and_has_no_write_operations() {
         database::expect(preview_script());

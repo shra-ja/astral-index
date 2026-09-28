@@ -679,7 +679,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 
 ## Account and server resolution (2026-09-28)
 
-Work is on `feat/account-resolution`, branched from `main` at `e3d6558`.
+Integrated through PR #29 (`4e6fd32`), branched from `main` at `e3d6558`.
 `fetch_history` now resolves the account while retrieving: the UID from
 records and the server from each page's `region`. Values absent from a page add
 no evidence; every value present must match the first, so another account or
@@ -702,16 +702,42 @@ frontend/tooling tests, offline native execution, nine probes and five report
 checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Review DTO (2026-09-28)
+
+Work is on `feat/review-dto`, branched from `main` at `4e6fd32`. Each storage
+preview now carries a serializable `Review`: UID, server, timezone offset,
+overall counts, counts for all six categories in fetch order (including empty
+ones), the earliest and latest record times, and each conflict's ID, category
+and time, with no payloads. At the user's choice it holds summary figures only.
+A later extension to highlight 5-star characters and light cones is in the
+deferred list; rarity, item type and name are already in every record, and only
+banner meaning needs metadata. Failure indices for a failed preview are added to
+the commands step, where preview errors reach the webview.
+
+Refactors, with behaviour unchanged: `classify` returns each record's status,
+and summaries and commit inserts derive from it; its unit tests now assert the
+statuses, which state the old counts more precisely. `Category` moved to
+`hsr.rs`, re-exported from `acquisition`, so storage need not depend on
+acquisition.
+
+TDD: a review test scripting a duplicate, a conflict and a new record across two
+categories failed against a stub returning an empty review, then passed. The
+integration test now also checks the review from real SQLite.
+
+`npm run check` passed: 111 Rust unit tests, 35 integration tests, 43
+frontend/tooling tests, offline native execution, nine probes and five report
+checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Build the review DTO from an acquisition preview, with counts, account and
-server, per-category counts and the covered time range. Then the
-acquisition-to-preview, commit and cancel commands, which must carry the
-extraction's retry budget into pagination, let cancel stop validation as well
-as retrieval, forward progress to the webview, show "no history found" for an
-empty retrieval, and clear the auth key when an import ends; then the review
-controls and history display. Account/server verification remains a
-milestone-closing requirement.
+The acquisition-to-preview, commit and cancel commands: carry the extraction's
+retry budget into pagination, let cancel stop validation as well as retrieval,
+forward progress to the webview, show "no history found" for an empty
+retrieval, map preview failures to safe categories, send the review to the
+webview, and clear the auth key when an import ends. Then the review controls
+and history display. Account/server verification remains a milestone-closing
+requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

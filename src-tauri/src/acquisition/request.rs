@@ -1,42 +1,10 @@
 //! Page requests for the single history endpoint, built from an extracted context.
 use super::{ENDPOINT, RequestContext};
-use crate::hsr::Roll;
+use crate::hsr::{Category, Roll};
 use std::{fmt, num::NonZeroU32};
 
 /// Records requested per page, per the API contract.
 pub const PAGE_SIZE: usize = 1000;
-
-/// The six known banner categories, fetched in this order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Category {
-    Stellar,
-    Departure,
-    CharacterEvent,
-    LightConeEvent,
-    CharacterCollaboration,
-    LightConeCollaboration,
-}
-impl Category {
-    pub const ALL: [Self; 6] = [
-        Self::Stellar,
-        Self::Departure,
-        Self::CharacterEvent,
-        Self::LightConeEvent,
-        Self::CharacterCollaboration,
-        Self::LightConeCollaboration,
-    ];
-    /// The `gacha_type` query value.
-    pub fn code(self) -> &'static str {
-        match self {
-            Self::Stellar => "1",
-            Self::Departure => "2",
-            Self::CharacterEvent => "11",
-            Self::LightConeEvent => "12",
-            Self::CharacterCollaboration => "21",
-            Self::LightConeCollaboration => "22",
-        }
-    }
-}
 
 /// Where a page starts: the first page, or after a record from the previous page.
 #[derive(Clone, Copy)]
