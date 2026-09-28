@@ -54,7 +54,6 @@ test.each([false, true])('reports replace prior evidence and generate HTML only 
   ]);
 });
 
-
 test('unit coverage invalidates its old snapshot before running tests and freezes before integration', () => {
   nativeUnitCoverage(false);
   expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });

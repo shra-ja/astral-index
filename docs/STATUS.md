@@ -322,21 +322,6 @@ The release executable opens a console window beside the app, because `main.rs`
 does not select the Windows GUI subsystem. Documentation-only change; no TDD cycle
 applies.
 
-## Coverage probe scope — increment 1 (2026-09-27)
-
-On `perf/coverage-probe-scope`, native unit coverage, Cargo integration execution,
-desktop smoke testing and report generation now have separate commands. The full
-native/offline command retains the original execution order and unit-only report
-snapshot. Caching PR #5 is unchanged; this branch starts from main.
-
-Five tooling tests failed against stage stubs, then passed after implementation.
-The new executable tooling has 100% unit coverage. `npm run check` passed: 56
-Rust unit tests, 33 integration tests, 22 frontend/tooling tests, eight probes and
-both report guards, with all required coverage metrics at 100%. TypeScript/build,
-formatting and Clippy passed. The unchanged-scope probes took 217.24 seconds.
-The user reports no hosted runtime improvement from caching PR #5; no cache
-speedup is assumed for this work.
-
 ## Windows console window (2026-09-27)
 
 Work is on `fix/windows-console-window`, branched from `main` at `ba0f5ce`
@@ -417,71 +402,31 @@ tests, 34 integration tests, 28 frontend/tooling tests, native offline execution
 eight enforcement probes, both report guards, TypeScript/build, formatting and
 Clippy, all at 100% per file. `npm run tauri -- build --no-bundle` passed on Linux.
 
-## Coverage probe scope — increment 2 (2026-09-27)
+## Coverage probe scope (2026-09-28)
 
-The backend coverage-isolation probe now runs only library unit tests and its
-synthetic integration target, with JSON reports and no desktop execution.
-Report checks are separated by scope while the full gate still runs all scopes.
-A deliberately failing unrelated integration target failed the old broad command;
-the narrowed probe passed with that fixture present (41.00 seconds including
-the still-full restoration run). `npm run check` passed with 56 Rust unit tests,
-33 integration tests, 22 frontend/tooling tests, eight probes and all five scoped
-report/inventory/wrapper checks. All required coverage remains 100%; type/build,
-formatting and Clippy passed. The full probe suite took 203.18 seconds.
+Work is on `perf/coverage-probe-scope`, rebased on `main` at `9b9dd3b`. Native
+execution is split into unit coverage, Cargo integration, desktop smoke and report
+stages; `test:native` composes them in the original order and still freezes the
+unit-only report before integration runs. Each enforcement probe now runs only the
+stage it tests, restores its files in `finally`, and selects the specific report
+check it expects to fail. The backend, wrapper and CSP probes carry an unrelated
+panicking integration test, so a regression to the full pipeline fails them. A new
+probe rejects a stale unit report. A suite-level `afterAll` then clears all
+reports and runs full frontend coverage, the complete offline native suite and
+every report gate once, including after a failed probe; its failures propagate.
+HTML is rendered only in that final step. Thresholds, inventories, freshness and
+the wrapper guard are unchanged.
 
-## Coverage probe scope — increment 3 (2026-09-27)
-
-Wrapper-branch and CSP probes now use an isolated desktop-only pipeline with
-JSON reports, without backend test execution. Both scope regressions failed
-against the broad command because it executed their unrelated failing integration
-fixture. The wrapper probe targets wrapper coverage directly; CSP still requires
-its specific assertion failure. Both scope tests then passed (80.95 seconds
-including full restoration runs). `npm run check` passed with 56 Rust unit tests,
-33 integration tests, 22 frontend/tooling tests, eight probes and five report
-checks. All required coverage remains 100%; type/build, formatting and Clippy
-passed. The full probe suite took 160.92 seconds.
-
-## Coverage probe scope — increment 4 (2026-09-27)
-
-Probe setup now produces JSON-only frontend/unit evidence. Each probe restores
-its own files immediately, and a suite-level final hook clears old reports and
-runs full frontend coverage, the complete offline native suite and all report
-gates once. It runs even after a failed probe assertion. Unit reports are
-invalidated before execution; final validation failures propagate rather than
-reuse prior evidence. HTML is generated only in the final sequence.
-
-Six new regeneration/unit-snapshot tests failed against stubs and then passed.
-`npm run check` passed with 56 Rust unit tests, 33 integration tests, 28
-frontend/tooling tests, nine probes (including explicit stale-report rejection)
-and all five report checks. All required coverage metrics remain 100%; build/type,
-formatting and Clippy passed. A temporary probe deliberately threw after changing
-and restoring a source file: the command still failed as intended, final validation
-ran, and all report checks passed afterward. The temporary experiment was removed
-and all mutated application files match the committed source.
-
-Local timings on the same development host: the complete check took 74.92 seconds;
-the probe suite including final regeneration took 66.44 seconds, compared with
-217.24 seconds after increment 1, 203.18 after increment 2 and 160.92 after
-increment 3. These are individual warm local measurements, not a hosted CI
-speedup guarantee. Hosted timings remain to be measured independently of PR #5.
-`npm run tauri -- build --no-bundle` also passed on Linux, and `git diff --check`
-passed before committing.
-
-## Probe branch rebase verification (2026-09-28)
-
-Local `main` and the four probe-scope commits were updated to `9b9dd3b`.
-Conflict resolution preserves main's current implementation status and next
-steps. The rebased branch retains the extraction UI/IPC tests, IPC-enabled CSP,
-Windows GUI-subsystem wrapper guard, HTTPS transport and outcome classification.
-`npm run check` passed with 80 Rust unit tests, 34 integration tests, 39
-frontend/tooling tests, nine probes and five report checks. All required coverage
-metrics remain 100%; TypeScript/build, formatting and Clippy passed. The probe
-suite including final regeneration took 70.66 seconds on the development host.
-`npm run tauri -- build --no-bundle` also passed on Linux.
+TDD: stage, scope, regeneration and unit-snapshot tests failed against stubs or
+the old broad commands, then passed. A temporary probe that threw after mutating
+and restoring a source still failed the command, and final validation ran.
+After the rebase, `npm run check` passed with 80 Rust unit tests, 34 integration
+tests, 39 frontend/tooling tests, nine probes and five report checks, all at 100%
+per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux. Warm local probe-suite
+time fell from 217.24 to 70.66 seconds; hosted CI timing is not yet measured.
 
 ## Next
-
-Review the four probe-scope commits together and measure hosted CI timings.
 
 Validate contexts during extraction
 ([decision 0007](decisions/0007-validate-during-extraction.md)): extraction must
