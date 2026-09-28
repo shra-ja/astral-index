@@ -7,8 +7,10 @@ use std::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::{collections::HashSet, fmt, io::Read, path::Path};
 
+mod outcome;
 mod request;
 mod transport;
+pub use outcome::{FetchFailure, classify};
 pub use request::{Category, Cursor, PAGE_SIZE, PageRequest};
 pub use transport::{CONNECT_TIMEOUT, HttpTransport, REQUEST_TIMEOUT, Transport, TransportError};
 

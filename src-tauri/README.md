@@ -38,7 +38,8 @@ explicitly on a Tokio runtime with I/O and time enabled; it is not a startup tas
 extracts opaque request contexts in reverse file order. `src/acquisition/request.rs`
 builds paged history requests from a context without making network calls.
 `src/acquisition/transport.rs` is the bounded HTTPS client for the history
-endpoint; nothing calls it yet.
+endpoint, and `src/acquisition/outcome.rs` classifies each attempt; nothing
+calls them yet.
 `discovery::system::extract_current_user_contexts` connects these into automatic
 extraction. These native services do not fetch history or expose credentials
 to the webview. Automatic extraction and a user-provided file fallback still

@@ -384,16 +384,35 @@ frontend/tooling tests, native offline execution, eight enforcement probes, both
 report guards, TypeScript/build, formatting and Clippy, all at 100% per file.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Fetch outcome classification (2026-09-27)
+
+Work is on `feat/fetch-outcomes`, branched from `main` at `2f3c5fb` (PR #18).
+`classify` turns one attempt into a parsed page or a `FetchFailure`: `retcode
+-101` is an expired key; other nonzero codes are API errors that keep their
+number; HTTP 429 is rate limited; timeouts, connection failures and HTTP 5xx are
+transient, the only retryable category; other statuses, including redirects, are
+rejected; malformed, oversized or inconsistent responses are invalid; and an
+unsupported URL or missing client is internal. The API-level rate-limit code is
+unknown and is not guessed. No command uses the classifier yet.
+
+TDD: five classification tests failed against a stub, then passed. A refactor
+then replaced a wildcard parser mapping with an exhaustive one, so new parser
+errors must be classified explicitly. `npm run check` passed: 80 backend unit
+tests, 34 integration tests, 28 frontend/tooling tests, native offline execution,
+eight enforcement probes, both report guards, TypeScript/build, formatting and
+Clippy, all at 100% per file. `npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Classify outcomes as actionable failures: `-101` expired key, other nonzero API
-codes, rate limits, malformed responses, and transient connection failures or
-HTTP 5xx, without exposing raw messages. Then validate contexts during extraction
-([decision 0007](decisions/0007-validate-during-extraction.md)), which requires
-extraction to keep one cached URL per context until validation ends. Then
-pagination, retries and cancellation, followed by the review DTO, atomic commit
-and history display, clearing auth keys when an import ends. Account/server
-verification remains a milestone-closing requirement.
+Validate contexts during extraction
+([decision 0007](decisions/0007-validate-during-extraction.md)): extraction must
+keep one cached URL per context until validation ends, validation sends each
+unchanged through the transport and classifier, and only the first working
+context stays in the session. Update the controls, which will then contact
+HoYoverse, and their failure messages. Then pagination, retries and cancellation,
+followed by the review DTO, atomic commit and history display, clearing auth
+keys when an import ends. Account/server verification remains a
+milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

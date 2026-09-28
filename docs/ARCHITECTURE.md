@@ -279,6 +279,17 @@ treats any status other than 200 as an error, uses no system proxy, applies
 exceeds 2 MiB. No command uses it yet. See
 [decision 0008](decisions/0008-https-transport.md).
 
+`src-tauri/src/acquisition/outcome.rs` classifies one attempt, a transport result,
+into a parsed page or a `FetchFailure`. HTTP success is not API success: a 200
+body with `retcode -101` is an expired key, and any other nonzero code is an API
+error that keeps its number for display. HTTP 429 means rate limited. The
+API-level rate-limit code is unknown and is not guessed. Timeouts, connection
+failures and HTTP 5xx are transient, the only retryable category. Other statuses,
+including redirects, are rejected. Malformed, oversized or inconsistent responses
+are invalid, and an unsupported URL or missing client is internal: nothing was
+sent. The parser mapping lists every `ParseError` variant, so a new one must be
+classified explicitly.
+
 ## Windows player-log discovery
 
 `src-tauri/src/discovery.rs` accepts an explicitly supplied host-native roaming

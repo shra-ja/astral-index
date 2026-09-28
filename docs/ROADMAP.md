@@ -155,7 +155,7 @@ the order listed.
     cursor parameters.
   - [x] Add a mockable transport with finite timeouts that enforces the 2 MiB
     response bound while receiving data. Record the HTTP dependency choice.
-  - [ ] Classify outcomes as actionable failures: `-101` expired key, other
+  - [x] Classify outcomes as actionable failures: `-101` expired key, other
     nonzero codes, rate limits, malformed responses, and transient connection
     failures or HTTP 5xx. Do not expose raw messages or payloads.
   - [ ] Validate at most five extracted contexts, in reverse file order, by
