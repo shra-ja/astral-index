@@ -188,7 +188,7 @@ the order listed.
     record's `uid` and every page's `region` must agree, and neither is ever
     fabricated. A retrieval with no records is a normal outcome, not an import
     error: report readably that no history was found, and create no account.
-  - [ ] Build the native review DTO from an acquisition preview. Besides counts,
+  - [x] Build the native review DTO from an acquisition preview. Besides counts,
     account and server, include per-category counts and the covered time range,
     so the user can judge whether the retrieval looks complete.
   - [ ] Expose acquisition-to-preview, commit and cancel through narrow Tauri
@@ -197,7 +197,8 @@ the order listed.
     Let the cancel command stop validation during extraction as well as
     retrieval, and give the `cancelled` failure a message in the webview.
     Forward retrieval progress to the webview and show it beside a cancel
-    control while retrieval runs.
+    control while retrieval runs. Map preview failures to safe categories with
+    page and record indices where they help.
   - [ ] Add accessible review and commit controls for the preview.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
@@ -252,6 +253,11 @@ Done when a fresh profile can recover the same records and metadata from a backu
 
 
 ## Deferred low-priority follow-ups
+
+- [ ] Extend the review DTO with individual records, starting with highlighted
+  5-star characters and light cones as a quick accuracy check. Rarity
+  (`rank_type`), `item_type` and localized `name` are already in each record;
+  banner meaning (limited or standard, pity) needs the milestone 4 metadata.
 
 - [ ] Detect suspiciously unmatched roll IDs across substantially overlapping older
   history periods using timestamps, scoped to the same game/account/server/banner.

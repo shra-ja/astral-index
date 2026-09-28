@@ -162,6 +162,18 @@ validated values and counts. The 16 MiB total batch limit supplements the parser
 2 MiB page limit. Empty datasets produce a no-records error, without creating an
 account. No source is reread on commit and no service makes network requests.
 
+Classification records each incoming record's status (new, duplicate or
+conflict); summaries, commit inserts and the review all derive from it. Each
+preview carries a serializable `Review`, the native review DTO: UID, server,
+timezone offset, overall counts, counts for all six categories in fetch order
+(including empty ones), the earliest and latest server-local record times, and
+each conflict's ID, category and time. It carries no payloads. Validated times
+share one canonical format and offset, so text order is time order. `Category`
+now lives in `hsr.rs`, re-exported from `acquisition`, so storage takes the
+category order without depending on acquisition. Individual records are not in
+the review yet; a record list, such as highlighted 5-star rolls, can be added
+as a field later.
+
 Schema version 2 has accounts, unique rolls, compact import summaries and database
 identity/revision metadata. Keys include game, UID, server and string record ID.
 Roll JSON retains source fields/extensions; a scoped foreign key identifies its

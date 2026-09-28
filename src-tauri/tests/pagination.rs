@@ -57,6 +57,12 @@ fn retrieved_history_previews_and_commits_through_storage() {
         ..Default::default()
     };
     assert_eq!(preview.summary(), expected);
+    let review = serde_json::to_value(preview.review()).unwrap();
+    assert_eq!(review["summary"]["inserted"], 2);
+    assert_eq!(review["categories"][2]["gacha_type"], "11");
+    assert_eq!(review["categories"][2]["inserted"], 2);
+    assert_eq!(review["earliest"], "2024-02-29 12:34:56");
+    assert_eq!(review["conflicts"], serde_json::json!([]));
     assert_eq!(store.commit(preview, 1).unwrap(), expected);
     assert_eq!(
         store
