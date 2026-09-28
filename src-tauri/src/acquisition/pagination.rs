@@ -4,7 +4,26 @@ use super::{
     transport_failure,
 };
 use crate::MAX_BATCH_BYTES;
-use std::{cmp::Ordering, collections::HashSet, fmt, num::NonZeroU32};
+use std::{cmp::Ordering, collections::HashSet, fmt, num::NonZeroU32, time::Duration};
+
+/// Retrieval progress for the user deciding whether to stop. Categories and counts
+/// only: no IDs, URLs or response text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Progress {
+    /// A page is about to be requested; `pages` and `records` count what has been
+    /// received so far across all categories.
+    Requesting {
+        category: Category,
+        page: NonZeroU32,
+        pages: usize,
+        records: usize,
+    },
+    /// A transiently failed request will be retried after `delay`.
+    RetryPending { delay: Duration },
+}
+
+/// Receives progress as it happens. It must return quickly.
+pub type Report<'a> = &'a (dyn Fn(Progress) + Sync);
 
 /// Why history retrieval stopped. No URL, credential or response text is included.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,14 +68,22 @@ impl History {
 pub async fn fetch_history(
     transport: &impl Transport,
     context: &RequestContext,
+    report: Report<'_>,
 ) -> Result<History, AcquisitionError> {
     let mut responses = Vec::new();
     let mut total = 0;
+    let mut records_received = 0;
     for category in Category::ALL {
         let mut cursors = HashSet::new();
         let mut last = None;
         let mut page = NonZeroU32::MIN;
         loop {
+            report(Progress::Requesting {
+                category,
+                page,
+                pages: responses.len(),
+                records: records_received,
+            });
             let cursor = last.as_ref().map_or(Cursor::Start, Cursor::After);
             let request = context.page_request(category, page, cursor);
             let body = transport
@@ -69,6 +96,7 @@ pub async fn fetch_history(
                 return Err(AcquisitionError::TooLarge);
             }
             responses.push(body);
+            records_received += records.len();
             match records.len().cmp(&PAGE_SIZE) {
                 Ordering::Less => break,
                 Ordering::Equal => {
@@ -90,7 +118,7 @@ pub async fn fetch_history(
 mod tests {
     use super::*;
     use crate::MAX_BATCH_BYTES;
-    use crate::acquisition::tests::scripted::Scripted;
+    use crate::acquisition::tests::scripted::{Scripted, ignore};
     use crate::acquisition::{
         Category, ENDPOINT, PAGE_SIZE, TransportError, extract_request_contexts,
     };
@@ -172,7 +200,7 @@ mod tests {
             .map(|(index, category)| body(category, index as u64..index as u64 * 2, None))
             .collect();
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context())).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
         assert_eq!(
             transport.requested(),
             Category::ALL.map(|category| url(category, 1, "0")).to_vec()
@@ -182,6 +210,37 @@ mod tests {
             bodies.iter().map(Vec::as_slice).collect::<Vec<_>>()
         );
         assert_eq!(format!("{history:?}"), "History([redacted])");
+    }
+
+    #[test]
+    fn reports_each_request_with_the_totals_received_so_far() {
+        let mut bodies = vec![
+            full(Category::Stellar, 1),
+            body(Category::Stellar, 2001..2003, None),
+        ];
+        bodies.extend(empty_after(Category::Stellar));
+        let events = std::sync::Mutex::new(Vec::new());
+        let report = |progress| events.lock().unwrap().push(progress);
+        run(fetch_history(&scripted(&bodies), &context(), &report)).unwrap();
+        let requesting = |category, page, pages, records| Progress::Requesting {
+            category,
+            page: NonZeroU32::new(page).unwrap(),
+            pages,
+            records,
+        };
+        let events = events.into_inner().unwrap();
+        assert_eq!(
+            events[..3],
+            [
+                requesting(Category::Stellar, 1, 0, 0),
+                requesting(Category::Stellar, 2, 1, 1000),
+                requesting(Category::Departure, 1, 2, 1002),
+            ]
+        );
+        assert_eq!(
+            events[6..],
+            [requesting(Category::LightConeCollaboration, 1, 6, 1002)]
+        );
     }
 
     #[test]
@@ -195,7 +254,7 @@ mod tests {
         ];
         bodies.extend(empty_after(category));
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context())).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
         let requested = transport.requested();
         assert_eq!(
             requested[..3],
@@ -222,7 +281,7 @@ mod tests {
             let bodies = [before.to_vec(), pages.clone()].concat();
             let transport = scripted(&bodies);
             assert_eq!(
-                run(fetch_history(&transport, &context())).unwrap_err(),
+                run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
                 AcquisitionError::CursorCycle
             );
             assert_eq!(transport.requested().len(), bodies.len());
@@ -231,14 +290,14 @@ mod tests {
         let mut bodies = vec![full(Category::Stellar, 1), empty(Category::Stellar)];
         bodies.extend([full(Category::Departure, 1), empty(Category::Departure)]);
         bodies.extend(empty_after(Category::Departure));
-        assert!(run(fetch_history(&scripted(&bodies), &context())).is_ok());
+        assert!(run(fetch_history(&scripted(&bodies), &context(), &ignore)).is_ok());
     }
 
     #[test]
     fn pages_larger_than_requested_are_invalid() {
         let transport = scripted(&[body(Category::Stellar, 0..PAGE_SIZE as u64 + 1, None)]);
         assert_eq!(
-            run(fetch_history(&transport, &context())).unwrap_err(),
+            run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
             AcquisitionError::Fetch(FetchFailure::InvalidResponse)
         );
     }
@@ -258,7 +317,7 @@ mod tests {
                 response,
             ]);
             assert_eq!(
-                run(fetch_history(&transport, &context())).unwrap_err(),
+                run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
                 AcquisitionError::Fetch(failure)
             );
             assert_eq!(transport.requested().len(), 3);
@@ -287,7 +346,7 @@ mod tests {
         bodies.push(body(category, 0..0, Some(limit - rest_size)));
         bodies.extend(rest.clone());
         assert_eq!(bodies.iter().map(Vec::len).sum::<usize>(), MAX_BATCH_BYTES);
-        assert!(run(fetch_history(&scripted(&bodies), &context())).is_ok());
+        assert!(run(fetch_history(&scripted(&bodies), &context(), &ignore)).is_ok());
         // Eight full 2 MiB pages reach it, so the next response stops retrieval
         // before any further request.
         let mut bodies = padded_full(8);
@@ -295,7 +354,7 @@ mod tests {
         bodies.extend(rest);
         let transport = scripted(&bodies);
         assert_eq!(
-            run(fetch_history(&transport, &context())).unwrap_err(),
+            run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
             AcquisitionError::TooLarge
         );
         assert_eq!(transport.requested().len(), 9);

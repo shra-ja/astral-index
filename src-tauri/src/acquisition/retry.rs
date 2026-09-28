@@ -1,5 +1,5 @@
 //! The acquisition's retry budget: one delayed retry per transiently failed request.
-use super::{Transport, TransportError, transport_failure};
+use super::{Progress, Report, Transport, TransportError, transport_failure};
 use std::{
     sync::atomic::{AtomicU32, Ordering},
     time::Duration,
@@ -35,20 +35,27 @@ impl RetryBudget {
     }
 }
 
-/// Retries a transient failure of the inner transport once, within the budget.
+/// Retries a transient failure of the inner transport once, within the budget,
+/// reporting each pending retry.
 pub struct Retrying<'a, T> {
     transport: &'a T,
     budget: &'a RetryBudget,
+    report: Report<'a>,
 }
 impl<'a, T> Retrying<'a, T> {
-    pub fn new(transport: &'a T, budget: &'a RetryBudget) -> Self {
-        Self { transport, budget }
+    pub fn new(transport: &'a T, budget: &'a RetryBudget, report: Report<'a>) -> Self {
+        Self {
+            transport,
+            budget,
+            report,
+        }
     }
 }
 impl<T: Transport + Sync> Transport for Retrying<'_, T> {
     async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
         match self.transport.get(url).await {
             Err(error) if transport_failure(error).is_transient() && self.budget.take() => {
+                (self.report)(Progress::RetryPending { delay: RETRY_DELAY });
                 tokio::time::sleep(RETRY_DELAY).await;
                 self.transport.get(url).await
             }
@@ -60,7 +67,7 @@ impl<T: Transport + Sync> Transport for Retrying<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::scripted::Scripted;
+    use crate::acquisition::tests::scripted::{Scripted, ignore};
     use std::future::Future;
     use tokio::time::Instant;
 
@@ -84,7 +91,9 @@ mod tests {
         let budget = RetryBudget::default();
         let started = run(async {
             let started = Instant::now();
-            let body = Retrying::new(&transport, &budget).get("same").await;
+            let body = Retrying::new(&transport, &budget, &ignore)
+                .get("same")
+                .await;
             assert_eq!(body, ok());
             started.elapsed()
         });
@@ -94,10 +103,38 @@ mod tests {
     }
 
     #[test]
+    fn each_pending_retry_is_reported_before_waiting() {
+        let transport = Scripted::new(vec![
+            TRANSIENT,
+            ok(),
+            TRANSIENT,
+            ok(),
+            TRANSIENT,
+            Err(TransportError::Status(429)),
+        ]);
+        let budget = RetryBudget::default();
+        let events = std::sync::Mutex::new(Vec::new());
+        run(async {
+            let started = Instant::now();
+            let report = |progress| events.lock().unwrap().push((progress, started.elapsed()));
+            let retrying = Retrying::new(&transport, &budget, &report);
+            for url in ["a", "b", "c", "d"] {
+                let _ = retrying.get(url).await;
+            }
+        });
+        // The third transient failure exceeds the budget, and 429 is not retried.
+        let pending = Progress::RetryPending { delay: RETRY_DELAY };
+        assert_eq!(
+            events.into_inner().unwrap(),
+            [(pending, Duration::ZERO), (pending, RETRY_DELAY)]
+        );
+    }
+
+    #[test]
     fn a_failed_retry_is_not_retried_again() {
         let transport = Scripted::new(vec![TRANSIENT, Err(TransportError::Connection)]);
         let budget = RetryBudget::default();
-        let result = run(Retrying::new(&transport, &budget).get("url"));
+        let result = run(Retrying::new(&transport, &budget, &ignore).get("url"));
         assert_eq!(result, Err(TransportError::Connection));
         assert_eq!(transport.requested().len(), 2);
     }
@@ -108,7 +145,7 @@ mod tests {
         let budget = RetryBudget::default();
         let elapsed = run(async {
             let started = Instant::now();
-            let retrying = Retrying::new(&transport, &budget);
+            let retrying = Retrying::new(&transport, &budget, &ignore);
             assert_eq!(retrying.get("a").await, ok());
             assert_eq!(retrying.get("b").await, ok());
             assert_eq!(retrying.get("c").await, TRANSIENT);
@@ -135,7 +172,7 @@ mod tests {
             let elapsed = run(async {
                 let started = Instant::now();
                 assert_eq!(
-                    Retrying::new(&transport, &budget).get("url").await,
+                    Retrying::new(&transport, &budget, &ignore).get("url").await,
                     response
                 );
                 started.elapsed()

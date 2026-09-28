@@ -174,9 +174,10 @@ the order listed.
     short bounded delay, and at most two extra attempts per acquisition,
     including validation requests.
   - [x] Support cancellation that stops further requests and writes nothing.
-  - [ ] Optional, not blocking the milestone: report retrieval progress (the
+  - [x] Optional, not blocking the milestone: report retrieval progress (the
     current category, pages and records so far, and any pending retry) so the
-    user can make an informed choice to stop.
+    user can make an informed choice to stop. Native events only; the webview
+    receives them with the acquisition commands below.
 - [ ] Connect acquisition to import preview, atomic commit, and history display.
   Expose a narrow native review DTO with validated account/server/context, records
   and conflict locations, plus safe page/record indices for validation failures.
@@ -195,6 +196,8 @@ the order listed.
     or is cancelled. Continue with the retry budget the extraction started.
     Let the cancel command stop validation during extraction as well as
     retrieval, and give the `cancelled` failure a message in the webview.
+    Forward retrieval progress to the webview and show it beside a cancel
+    control while retrieval runs.
   - [ ] Add accessible review and commit controls for the preview.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,

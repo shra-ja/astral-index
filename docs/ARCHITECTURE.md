@@ -332,6 +332,15 @@ response bodies in request order, with redacted debug output, in the form
 split into `transport_failure` and `parse_body`, so pagination keeps each body
 without copying it. No command calls `fetch_history` yet.
 
+Both `fetch_history` and `Retrying` take a `Report`, a `&(dyn Fn(Progress) +
+Sync)` that must return quickly. Before each page request, `fetch_history`
+reports `Progress::Requesting` with the category, page number, and the pages and
+records received so far across all categories. Before each retry delay,
+`Retrying` reports `Progress::RetryPending` with the delay, so validation retries
+are reported too. Events carry categories and counts only, never IDs, URLs or
+response text. The extraction commands pass a no-op reporter for now; the
+acquisition commands will forward events to the webview.
+
 `src-tauri/src/acquisition/retry.rs` applies the retry budget. `Retrying` wraps
 any `Transport`: a transient failure (timeout, connection failure or HTTP 5xx)
 is retried once for the same URL after `RETRY_DELAY` (one second), if the shared

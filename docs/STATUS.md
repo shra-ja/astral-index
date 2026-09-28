@@ -623,7 +623,7 @@ time range. Documentation-only change; no TDD cycle or gate run applies.
 
 ## Cancellation (2026-09-28)
 
-Work is on `feat/cancellation`, branched from `main` at `8ab916f`. `Cancellable`
+Integrated through PR #27 (`6fbd17a`), branched from `main` at `8ab916f`. `Cancellable`
 wraps a transport with a `CancellationToken`. Once the token is cancelled, it
 drops a request in flight or a pending retry delay and refuses every later
 request without sending it. The new `TransportError::Cancelled` classifies as
@@ -655,15 +655,37 @@ execution, nine probes and five report checks, all at 100% per file, plus
 TypeScript/build, formatting and Clippy. `npm run tauri -- build --no-bundle`
 passed on Linux.
 
+## Retrieval progress (2026-09-28)
+
+Work is on `feat/retrieval-progress`, branched from `main` at `6fbd17a`, for the
+optional roadmap step the user chose to do first. `fetch_history` reports
+`Progress::Requesting` before each page request, with the category, page number,
+and pages and records received so far. `Retrying` reports
+`Progress::RetryPending` before each retry delay, including during validation.
+Both take a `Report` (`&(dyn Fn(Progress) + Sync)`). Events hold categories and
+counts only. This is native reporting only: the extraction commands pass a
+no-op reporter, and forwarding events to the webview, with a cancel control,
+is added to the acquisition commands step. Existing tests pass a shared no-op
+reporter from the test doubles, so no unused closure lands in covered code.
+
+TDD: a pagination test for the event sequence and totals, and a retry test that
+events precede each wait and stop once the budget is spent, failed against
+stubs that reported nothing, then passed.
+
+`npm run check` passed: 106 Rust unit tests, 35 integration tests, 43
+frontend/tooling tests, offline native execution, nine probes and five report
+checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Optionally, report retrieval progress. Then resolve the account and server from
-the retrieved responses and build the review DTO. After that come the
-acquisition-to-preview, commit and cancel commands, which must carry the
-extraction's retry budget into pagination, let cancel stop validation as well
-as retrieval, and clear the auth key when an import ends; then the review
-controls and history display. Account/server verification remains a
-milestone-closing requirement.
+Resolve the account and server from the retrieved responses and build the
+review DTO. After that come the acquisition-to-preview, commit and cancel
+commands, which must carry the extraction's retry budget into pagination, let
+cancel stop validation as well as retrieval, forward progress to the webview,
+and clear the auth key when an import ends; then the review controls and
+history display. Account/server verification remains a milestone-closing
+requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
