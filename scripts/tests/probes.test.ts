@@ -6,14 +6,22 @@ import { refreshProbeCoverage } from '../native-coverage';
 // Per-probe finally blocks restore files; even failed assertions reach this full refresh.
 afterAll(refreshProbeCoverage, 600000);
 
+// Scoped probes carry this target; running the full integration suite fails them.
+const unrelatedIntegration = '#[test] fn unrelated_must_not_run() { panic!("probe ran unrelated integration tests"); }\n';
+
+// Run one report check and require it to fail for the expected reason.
+function expectReportFailure(name: string, message: string): void {
+  const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', name], { encoding: 'utf8' });
+  expect(result.status).not.toBe(0);
+  expect(result.stdout + result.stderr).toContain(message);
+}
+
 test('the unit gate rejects stale evidence', () => {
   const path = 'coverage/native-unit/coverage.json';
   const original = statSync(path);
   try {
     utimesSync(path, original.atime, new Date(0));
-    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
-    expect(result.status).not.toBe(0);
-    expect(result.stdout + result.stderr).toContain('Stale report');
+    expectReportFailure('^backend unit coverage$', 'Stale report');
   } finally {
     utimesSync(path, original.atime, original.mtime);
   }
@@ -40,24 +48,20 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
   const unrelated = 'src-tauri/tests/unrelated_native_probe.rs';
   expect(existsSync(unrelated)).toBe(false);
   try {
-    writeFileSync(unrelated, '#[test] fn unrelated_must_not_run() { panic!("native probe ran backend tests"); }\n');
+    writeFileSync(unrelated, unrelatedIntegration);
     writeFileSync(main, original.replace('fn main() {', 'fn main() {\n    let _probe = if std::env::var_os("ROLL_TRACKER_UNSET_COVERAGE_PROBE").is_some() { 1 } else { 0 };'));
     execFileSync('npm', ['run', 'test:native-probe'], { stdio: 'pipe' });
     const report = JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8'));
     const summary = report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/main.rs')).summary;
     expect(summary.branches.count).toBeGreaterThan(summary.branches.covered);
-    const missedBranch = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^native wrapper coverage$'], { encoding: 'utf8' });
-    expect(missedBranch.status).not.toBe(0);
-    expect(missedBranch.stdout + missedBranch.stderr).toContain('Uncovered');
+    expectReportFailure('^native wrapper coverage$', 'Uncovered');
   } finally {
     unlinkSync(unrelated);
     writeFileSync(main, original);
   }
   try {
     writeFileSync(orphan, 'pub fn uncompiled() {}\n');
-    const missingFile = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
-    expect(missingFile.status).not.toBe(0);
-    expect(missingFile.stdout + missingFile.stderr).toContain('Missing coverage');
+    expectReportFailure('^backend unit coverage$', 'Missing coverage');
   } finally {
     unlinkSync(orphan);
   }
@@ -70,13 +74,9 @@ test('the report gate fails closed when a required report is missing or incomple
   const original = readFileSync(path, 'utf8');
   renameSync(path, backup);
   try {
-    const missing = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^frontend and tooling coverage$'], { encoding: 'utf8' });
-    expect(missing.status).not.toBe(0);
-    expect(missing.stdout + missing.stderr).toContain('ENOENT');
+    expectReportFailure('^frontend and tooling coverage$', 'ENOENT');
     writeFileSync(path, '{}');
-    const incomplete = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^frontend and tooling coverage$'], { encoding: 'utf8' });
-    expect(incomplete.status).not.toBe(0);
-    expect(incomplete.stdout + incomplete.stderr).toContain('Missing coverage');
+    expectReportFailure('^frontend and tooling coverage$', 'Missing coverage');
   } finally {
     writeFileSync(path, original);
     unlinkSync(backup);
@@ -110,7 +110,7 @@ test('the native CSP test rejects a permissive connection policy', () => {
   const unrelated = 'src-tauri/tests/unrelated_native_probe.rs';
   expect(existsSync(unrelated)).toBe(false);
   try {
-    writeFileSync(unrelated, '#[test] fn unrelated_must_not_run() { panic!("native probe ran backend tests"); }\n');
+    writeFileSync(unrelated, unrelatedIntegration);
     writeFileSync(path, original.replace(policy, 'connect-src *'));
     const result = spawnSync('npm', ['run', 'test:native-probe'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
@@ -130,7 +130,7 @@ test('backend coverage requires unit execution even when integration tests cover
   expect(existsSync(unrelated)).toBe(false);
   expect(existsSync(integration)).toBe(false);
   try {
-    writeFileSync(unrelated, '#[test] fn unrelated_must_not_run() { panic!("unrelated integration executed"); }\n');
+    writeFileSync(unrelated, unrelatedIntegration);
     writeFileSync(library, `${original}\npub fn unit_coverage_probe(value: bool) -> u8 { if value { 1 } else { 0 } }\n`);
     writeFileSync(integration, '#[test]\nfn covers_only_in_integration() { assert_eq!(roll_tracker::unit_coverage_probe(true), 1); assert_eq!(roll_tracker::unit_coverage_probe(false), 0); }\n');
     execFileSync('npm', ['run', 'test:backend-probe'], { stdio: 'pipe' });
@@ -139,9 +139,7 @@ test('backend coverage requires unit execution even when integration tests cover
     const metric = (report: typeof unit) => report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/lib.rs')).summary.functions;
     expect(metric(unit).covered).toBeLessThan(metric(unit).count);
     expect(metric(combined).covered).toBe(metric(combined).count);
-    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
-    expect(result.status).not.toBe(0);
-    expect(result.stdout + result.stderr).toContain('Uncovered');
+    expectReportFailure('^backend unit coverage$', 'Uncovered');
   } finally {
     writeFileSync(library, original);
     unlinkSync(integration);
@@ -156,15 +154,11 @@ test('the unit-only report is mandatory and cannot be replaced by boundary cover
   expect(existsSync(backup)).toBe(false);
   try {
     renameSync(path, backup);
-    const missing = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
-    expect(missing.status).not.toBe(0);
-    expect(missing.stdout + missing.stderr).toContain('ENOENT');
+    expectReportFailure('^backend unit coverage$', 'ENOENT');
     const incomplete = JSON.parse(original);
     incomplete.data[0].files = [];
     writeFileSync(path, JSON.stringify(incomplete));
-    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', '^backend unit coverage$'], { encoding: 'utf8' });
-    expect(result.status).not.toBe(0);
-    expect(result.stdout + result.stderr).toContain('Missing coverage');
+    expectReportFailure('^backend unit coverage$', 'Missing coverage');
   } finally {
     if (existsSync(backup)) unlinkSync(backup);
     writeFileSync(path, original);
@@ -176,9 +170,7 @@ test('the wrapper exception guard rejects added startup behavior', () => {
   const original = readFileSync(path, 'utf8');
   try {
     writeFileSync(path, original.replace('fn main() {', 'fn main() {\n    println!("unexpected extra startup behavior");'));
-    const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', 'startup/build exceptions'], { encoding: 'utf8' });
-    expect(result.status).not.toBe(0);
-    expect(result.stdout + result.stderr).toContain('startup/build exceptions');
+    expectReportFailure('startup/build exceptions', 'startup/build exceptions');
   } finally {
     writeFileSync(path, original);
   }
