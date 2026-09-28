@@ -7,7 +7,7 @@ export const MAX_CACHE_BYTES = 16 * 1024 * 1024;
 
 const nativeKinds = [
   'unsupported_host', 'discovery_failed', 'no_game_data', 'no_cache', 'no_request', 'file_too_large', 'invalid_file',
-  'expired_key', 'api_error', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal',
+  'expired_key', 'api_error', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal', 'cancelled',
 ] as const;
 
 /** A native failure kind, or `unavailable` for anything unexpected. */
@@ -35,6 +35,11 @@ async function run(call: () => Promise<unknown>): Promise<Failure | undefined> {
 /** Find the saved request on this device, then validate it with HoYoverse. */
 export function extractAutomatically(): Promise<Failure | undefined> {
   return run(() => invoke('extract_automatically'));
+}
+
+/** Stop the running extraction or acquisition; the native side keeps no context. */
+export function cancelAcquisition(): Promise<Failure | undefined> {
+  return run(() => invoke('cancel_acquisition'));
 }
 
 /** Check the size before reading, then send the bytes as a raw body for validation. */

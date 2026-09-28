@@ -97,11 +97,19 @@ Render imported names as text, and keep raw source payloads out of normal logs.
 
 ### Desktop extraction commands
 
-`src-tauri/src/desktop.rs` registers `extract_automatically` and
-`extract_from_file`, listed once in `src/desktop/commands.in` for both the library
-and the `build.rs` app manifest. Declaring the manifest makes every app command
-require a capability grant; `capabilities/main.json` grants only these two to the
-main window for local content. Undeclared commands are refused.
+`src-tauri/src/desktop.rs` registers `extract_automatically`,
+`extract_from_file` and `cancel_acquisition`, listed once in
+`src/desktop/commands.in` for both the library and the `build.rs` app manifest.
+Declaring the manifest makes every app command require a capability grant;
+`capabilities/main.json` grants only these three to the main window for local
+content. Undeclared commands are refused.
+
+The session holds the current acquisition in memory: the validated context, the
+retry budget validation started (for retrieval to continue with) and a
+cancellation token for the running operation. Starting an operation cancels
+any earlier one, and a validated context is kept only if its operation was not
+cancelled, checked under the session lock. `cancel_acquisition` cancels the
+running operation and drops the context.
 
 The automatic command runs current-user extraction. The file command accepts
 only a raw IPC body holding the bytes of a file the user chose through an HTML

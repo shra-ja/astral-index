@@ -1,18 +1,19 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
 use crate::acquisition::{
-    CacheError, CachedRequest, FetchFailure, HttpTransport, RequestContext, RetryBudget, Retrying,
-    extract_request_contexts, validate,
+    CacheError, CachedRequest, Cancellable, FetchFailure, HttpTransport, RequestContext,
+    RetryBudget, Retrying, Transport, extract_request_contexts, validate,
 };
 use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
 };
 use serde::Serialize;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
     Builder, Runtime, State,
     ipc::{InvokeBody, Request},
 };
+use tokio_util::sync::CancellationToken;
 
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
 pub const COMMANDS: &[&str] = include!("desktop/commands.in");
@@ -44,15 +45,53 @@ pub enum Failure {
     Cancelled,
 }
 
-/// The validated context from the latest extraction, held only in memory for the
-/// next acquisition. Each extraction replaces it, and a failed one leaves none.
+/// The current acquisition, held only in memory. Each extraction replaces it, and
+/// a failed or cancelled one leaves no context.
 #[derive(Default)]
 pub struct Session {
-    context: Mutex<Option<RequestContext>>,
+    state: Mutex<Operation>,
+}
+#[derive(Default)]
+struct Operation {
+    /// Cancels the operation now running; each operation gets a new one.
+    token: CancellationToken,
+    /// The validated context and the retry budget its acquisition started, which
+    /// retrieval continues with.
+    acquisition: Option<(RequestContext, RetryBudget)>,
 }
 impl Session {
-    fn set(&self, context: Option<RequestContext>) {
-        *self.context.lock().unwrap_or_else(PoisonError::into_inner) = context;
+    fn state(&self) -> MutexGuard<'_, Operation> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+    /// Start an operation: stop any earlier one, so its late result cannot
+    /// replace this one's, and drop the held context.
+    fn begin(&self) -> CancellationToken {
+        let mut state = self.state();
+        state.token.cancel();
+        state.token = CancellationToken::new();
+        state.acquisition = None;
+        state.token.clone()
+    }
+    /// Keep a validated context, unless its operation was cancelled meanwhile.
+    fn finish(
+        &self,
+        token: &CancellationToken,
+        context: RequestContext,
+        budget: RetryBudget,
+    ) -> Result<(), Failure> {
+        // Check under the lock that `cancel` takes, so no cancel can slip between.
+        let mut state = self.state();
+        if token.is_cancelled() {
+            return Err(Failure::Cancelled);
+        }
+        state.acquisition = Some((context, budget));
+        Ok(())
+    }
+    /// Stop the running operation and drop the held context.
+    fn cancel(&self) {
+        let mut state = self.state();
+        state.token.cancel();
+        state.acquisition = None;
     }
 }
 
@@ -60,7 +99,8 @@ impl Session {
 fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
         extract_automatically,
-        extract_from_file
+        extract_from_file,
+        cancel_acquisition
     ])
 }
 
@@ -99,21 +139,30 @@ impl From<FetchFailure> for Failure {
 /// Validate the extracted requests and keep only the first working context
 /// ([decision 0007](../../docs/decisions/0007-validate-during-extraction.md)).
 /// The session is emptied first, so a failure at any step leaves no context, and
-/// every cached URL is dropped when this returns. Transient failures are retried
-/// within a new acquisition's budget.
+/// every cached URL is dropped when this returns.
 async fn acquire(
     session: &Session,
     extracted: Result<Vec<CachedRequest>, Failure>,
 ) -> Result<(), Failure> {
-    session.set(None);
+    let token = session.begin();
     let requests = extracted?;
     let transport = HttpTransport::new().map_err(|_| Failure::Internal)?;
-    // Pagination must continue with this budget once a command connects it.
+    validate_into(session, &transport, &token, requests).await
+}
+
+/// Validate over `transport`, retrying transient failures within a new
+/// acquisition's budget, until done or cancelled.
+async fn validate_into(
+    session: &Session,
+    transport: &(impl Transport + Sync),
+    token: &CancellationToken,
+    requests: Vec<CachedRequest>,
+) -> Result<(), Failure> {
     let budget = RetryBudget::default();
-    // Progress reaches the webview once acquisition has a command.
-    let transport = Retrying::new(&transport, &budget, &|_| {});
-    session.set(Some(validate(&transport, requests).await?));
-    Ok(())
+    // Progress reaches the webview with the acquisition controls.
+    let retrying = Retrying::new(transport, &budget, &|_| {});
+    let context = validate(&Cancellable::new(&retrying, token), requests).await?;
+    session.finish(token, context, budget)
 }
 
 // Bounded cache and log reads run synchronously on the async worker running this command.
@@ -145,6 +194,12 @@ async fn extract_automatically(session: State<'_, Session>) -> Result<(), Failur
     extract_into(&session).await
 }
 
+/// Stop the running extraction or acquisition and drop the held context.
+#[tauri::command]
+fn cancel_acquisition(session: State<'_, Session>) {
+    session.cancel();
+}
+
 /// The webview sends the selected file's bytes as a raw body; no path crosses IPC.
 /// Contacts HoYoverse to validate the extracted auth keys.
 #[tauri::command]
@@ -159,7 +214,8 @@ async fn extract_from_file(
 mod tests {
     use super::*;
     use crate::acquisition::MAX_CACHE_BYTES;
-    use crate::acquisition::tests::{filesystem, http};
+    use crate::acquisition::TransportError;
+    use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
     use crate::discovery::system::tests::os;
     use std::path::PathBuf;
     use tauri::{
@@ -246,8 +302,11 @@ mod tests {
         .map(|_| ())
         .map_err(|error| error.to_string())
     }
+    fn held(session: &Session) -> Option<(RequestContext, RetryBudget)> {
+        session.state().acquisition.take()
+    }
     fn stored(session: &Session) -> Option<RequestContext> {
-        session.context.lock().unwrap().take()
+        held(session).map(|(context, _)| context)
     }
     fn raw(bytes: Vec<u8>) -> InvokeBody {
         InvokeBody::Raw(bytes)
@@ -256,7 +315,15 @@ mod tests {
     #[test]
     fn registers_exactly_the_manifest_commands_and_rejects_others() {
         let window = window();
-        assert_eq!(COMMANDS, ["extract_automatically", "extract_from_file"]);
+        assert_eq!(
+            COMMANDS,
+            [
+                "extract_automatically",
+                "extract_from_file",
+                "cancel_acquisition"
+            ]
+        );
+        assert_eq!(invoke(&window, COMMANDS[2], InvokeBody::default()), Ok(()));
         // Host discovery is unsupported here: the unit-test OS double reports plain Linux.
         assert_eq!(
             invoke(&window, COMMANDS[0], InvokeBody::default()),
@@ -272,10 +339,7 @@ mod tests {
         );
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
-        assert_eq!(
-            window.state::<Session>().context.lock().unwrap().take(),
-            None
-        );
+        assert_eq!(stored(&window.state::<Session>()), None);
     }
 
     #[test]
@@ -341,13 +405,79 @@ mod tests {
             requested(),
             [url("expired"), url("expired"), url("valid"), url("valid")]
         );
-        assert_eq!(stored(&session), Some(context("valid")));
+        // Retrieval continues with what validation left of the budget.
+        let (context_held, budget) = held(&session).unwrap();
+        assert_eq!(context_held, context("valid"));
+        assert_eq!(budget.remaining(), 0);
+    }
+
+    #[test]
+    fn cancel_stops_the_running_operation_and_drops_the_context() {
+        let session = Session::default();
+        let token = session.begin();
+        session
+            .finish(&token, context("valid"), RetryBudget::default())
+            .unwrap();
+        session.cancel();
+        assert!(token.is_cancelled());
+        assert_eq!(stored(&session), None);
+    }
+
+    #[test]
+    fn a_cancelled_or_superseded_operation_keeps_no_late_result() {
+        let session = Session::default();
+        let token = session.begin();
+        session.cancel();
+        assert_eq!(
+            session.finish(&token, context("late"), RetryBudget::default()),
+            Err(Failure::Cancelled)
+        );
+        assert_eq!(stored(&session), None);
+        // Starting another operation stops the earlier one.
+        let earlier = session.begin();
+        let later = session.begin();
+        assert!(earlier.is_cancelled());
+        assert!(!later.is_cancelled());
+        assert_eq!(
+            session.finish(&earlier, context("earlier"), RetryBudget::default()),
+            Err(Failure::Cancelled)
+        );
+        assert_eq!(stored(&session), None);
+    }
+
+    /// Serves scripted responses, cancelling the session after each one.
+    struct CancelsSession<'a>(&'a Session, Scripted);
+    impl Transport for CancelsSession<'_> {
+        async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
+            let response = self.1.get(url).await;
+            self.0.cancel();
+            response
+        }
+    }
+
+    #[test]
+    fn cancelling_during_validation_sends_no_further_request() {
+        let session = Session::default();
+        let transport = CancelsSession(&session, Scripted::new(vec![Ok(EXPIRED.to_vec())]));
+        let requests = extract_request_contexts(&cache(&["valid", "expired"])).unwrap();
+        let token = session.begin();
+        assert_eq!(
+            run(validate_into(&session, &transport, &token, requests)),
+            Err(Failure::Cancelled)
+        );
+        assert_eq!(transport.1.requested(), [url("expired")]);
+        assert_eq!(stored(&session), None);
     }
 
     #[test]
     fn failed_extraction_or_validation_leaves_no_context() {
         let session = Session::default();
-        let earlier = || session.set(Some(context("earlier")));
+        let earlier = || {
+            let token = session.begin();
+            session
+                .finish(&token, context("earlier"), RetryBudget::default())
+                .unwrap();
+        };
         for (body, failure) in [
             (raw(b"no request".to_vec()), Failure::NoRequest),
             (raw(vec![0; MAX_CACHE_BYTES + 1]), Failure::FileTooLarge),
