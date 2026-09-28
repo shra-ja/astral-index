@@ -623,12 +623,13 @@ time range. Documentation-only change; no TDD cycle or gate run applies.
 
 ## Next
 
-Support cancellation that stops further requests and writes nothing. Optionally,
-report retrieval progress. Then resolve the account and server from the
-retrieved responses, build the review DTO; the acquisition-to-preview, commit and cancel commands, which must
-carry the extraction's retry budget into pagination; the review controls; and
-history display, clearing auth keys when an import ends. Account/server
-verification remains a milestone-closing requirement.
+Support cancellation that stops further requests and writes nothing, and
+optionally report retrieval progress. Then resolve the account and server from
+the retrieved responses and build the review DTO. After that come the
+acquisition-to-preview, commit and cancel commands, which must carry the
+extraction's retry budget into pagination and clear the auth key when an import
+ends; then the review controls and history display. Account/server verification
+remains a milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
