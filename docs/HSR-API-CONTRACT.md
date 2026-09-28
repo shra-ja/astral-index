@@ -45,7 +45,10 @@ An expired key (`-101`) or any other nonzero `retcode` rejects that context, and
 validation moves to the next one. If no validated context works, or the
 five-context limit is reached, stop with an actionable error without writing
 history. Report an expired key if any context returned `-101`, and ask the user
-to refresh the key by opening the in-game warp history. Transient failures use
+to refresh the key by opening the in-game warp history. Otherwise report the
+first nonzero code returned. Any other failure (a rate limit, transient or
+rejected response, invalid data, or an internal error) stops validation without
+trying further contexts. Transient failures use
 the retry policy below and count toward the acquisition's retry budget. A
 rate-limit error or an exhausted budget stops acquisition. Validation makes one
 request per context, and it is the only request made before pagination.

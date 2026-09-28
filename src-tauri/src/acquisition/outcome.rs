@@ -17,7 +17,7 @@ pub enum FetchFailure {
     Rejected(u16),
     /// Malformed, oversized or inconsistent response data.
     InvalidResponse,
-    /// Nothing was sent: an unsupported URL or no HTTPS client.
+    /// Nothing was sent: an unsupported URL, no HTTPS client or no context to validate.
     Internal,
 }
 impl FetchFailure {
