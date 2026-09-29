@@ -975,7 +975,7 @@ jsdom tests and the mocked screenshot; the offline native test cannot reach it.
 
 ## Data folder name (2026-09-29)
 
-Work is on `feat/data-folder`, branched from `main` at `975eb1c`, after the user
+Integrated through PR #38 (`351ed8a`), branched from `main` at `975eb1c`, after the user
 tested PR B on Windows. Cancel, retrieval, the review, saving, the database under
 `%LOCALAPPDATA%` and a repeat retrieval all worked. Two follow-ups came out of it:
 both collaboration warps returned no records although the account has some (next
@@ -1002,10 +1002,39 @@ passed: 135 Rust unit tests, 60 frontend/tooling tests, offline native execution
 (the window opened from code, with its title, and WebKit created
 `~/.local/share/roll-tracker/webview`), nine probes and five report checks, all
 at 100% per file, plus TypeScript/build, formatting and Clippy, peaking at about
-3.2 GB used. One 320-byte default-named `.profraw` file appeared in `src-tauri/`
-during the probes; it did not recur in a rerun of the probes or the native smoke
-test, and was deleted. `npm run tauri -- build --no-bundle` passed on Linux, and
+3.2 GB used. One 320-byte default-named `.profraw` file appeared in `src-tauri/`;
+it came from a manual `cargo test --lib` run before the check, not from the gates
+(see the rate-limit pacing section), and was deleted. `npm run tauri -- build --no-bundle` passed on Linux, and
 the `cargo-xwin` Windows build succeeded.
+
+## Rate-limit pacing (2026-09-29)
+
+Work is on `fix/rate-limit-pacing`, branched from `main` at `351ed8a`. While
+testing the data folder on Windows, one retrieval stopped at page 2 with "didn't
+accept your warp history link (error -110)"; retrying a little later worked. The
+key was about an hour old, and several retrievals had just run with no pause
+between requests. Other open-source exporters treat `-110` as "visit too
+frequently", so the classifier now maps it to `RateLimited`, which shows the
+existing "too many requests" message and stops validation instead of trying
+further keys. A new `Paced` transport waits 500 ms before every request, between
+`Cancellable` and `Retrying`, in validation and retrieval. The API contract
+records the observation, marked unconfirmed, and the pacing.
+
+TDD: the classifier test (now expecting `-110` as rate limited), a validation case
+for `-110`, two `Paced` tests (the pause before each request, and cancelling during
+it) and a desktop test timing validation and retrieval failed, then passed. A
+validation test that used `-110` as an arbitrary rejection code now uses `-111`.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 138 Rust unit tests, 60 frontend/tooling tests, offline native execution,
+nine probes and five report checks, all at 100% per file, plus TypeScript/build,
+formatting and Clippy, peaking at about 3.7 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux, and the `cargo-xwin` Windows
+build succeeded. A default-named `.profraw` file again appeared in `src-tauri/`,
+written before the check started, during a manual `cargo test --lib` run; the
+earlier one matched such a run too. Manual Cargo runs reuse artifacts the
+coverage gates instrumented, which then write profiles without a configured path.
+It was deleted; the gates themselves leave none.
 
 ## Next
 
