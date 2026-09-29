@@ -818,7 +818,7 @@ now lives outside the repository. `npm run tauri -- build --no-bundle` passed on
 
 ## Portable mode (2026-09-29)
 
-Work is on `feat/portable-mode`, branched from `main` at `b6e279e`, at the user's
+Integrated through PR #33 (`8826c15`), branched from `main` at `b6e279e`, at the user's
 request ahead of PR C. A folder named `data` beside the executable switches on
 portable mode: `database::location` returns it when it exists as a folder, and the
 local app data folder otherwise, and `register` passes it the path from
@@ -843,14 +843,52 @@ offline native execution, nine probes and five report checks, all at 100% per
 file, plus TypeScript/build, formatting and Clippy, peaking at about 3.5 GB used.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Retrieve history command (2026-09-29)
+
+Work is on `feat/retrieve-history`, branched from `main` at `8826c15`: PR C of the
+acquisition commands. `retrieve_history` takes the validated context and its budget
+out of the session, retrieves every category cancellably while continuing the
+extraction's budget, streams progress over a Tauri channel, and drops the context
+as soon as retrieval ends, clearing the auth key whatever the outcome. With no
+records it returns `no_history` without touching the database; otherwise it
+previews under the resolved account, keeps the preview in the session unless
+cancelled meanwhile, and returns the review. Retrieval failures carry the failing
+category and page. Eight failure kinds are added, two of them for commit. The
+command is registered and granted; the typed client gains `retrieveHistory`, the
+progress and review types, the new kinds and failure locations. No UI changed.
+
+Test support: `spawn_blocking` is replaced in unit tests by an inline double that
+catches panics as Tokio does, so the thread-local SQL double stays visible; the
+database integration test now checks the real thread hop and panic handling.
+Storage's review types gain `Clone`, and its `preview_script` and `preview`
+test helpers are crate-visible. The IPC test window runs Tauri's setup hook, so
+the database is managed. All retrieval tests share one test transport, `Serving`,
+because coverage scores a generic function by its best single instantiation.
+
+TDD: seven retrieval tests (success with a retry, no history, located failure, no
+context or client, database failure, cancelling, the carried budget) failed
+against a stub, then passed; a further test covers a preview refused after a
+late cancel. The mappings, progress events and registration were written with
+their tests. Three client tests failed on the missing function and kinds, then
+passed. The native smoke test now calls `retrieve_history` from the real
+webview and gets `no_context`, showing the real setup hook manages the database.
+
+During development the native unit gate found gaps, all closed without
+exclusions: a retry event never passed through retrieval's reporter, a late
+cancel never refused a preview inside `retrieve_into`, the command's second and
+third arguments never failed over IPC, and some test closures never ran. It also
+split `retrieve_into` across three test transport types, which the shared
+`Serving` transport fixed. Run stage by stage with `CARGO_BUILD_JOBS=8`, every
+stage of `npm run check` passed: 130 Rust unit tests, 37 integration tests, 46
+frontend/tooling tests, offline native execution with the new IPC call, nine
+probes and five report checks, all at 100% per file, plus TypeScript/build,
+formatting and Clippy, peaking at about 3.2 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-PR C, `retrieve_history`: retrieve from the held context with its budget,
-cancellably, stream progress over a Tauri channel, resolve the account, preview it
-through the database, and return the review or "no history found", with the
-failing category and page for retrieval failures; clear the auth key when
-retrieval ends. Then `commit_import` and `discard_import`, the review and commit
-controls and history display. Account/server verification remains a
+PR D: `commit_import` and `discard_import` for the held preview, then the review
+and commit controls and history display. Account/server verification remains a
 milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are

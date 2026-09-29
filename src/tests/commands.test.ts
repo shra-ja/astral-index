@@ -1,6 +1,7 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, expect, test } from 'vitest';
-import { cancelAcquisition, extractAutomatically, extractFromFile, MAX_CACHE_BYTES } from '../commands';
+import type { Channel } from '@tauri-apps/api/core';
+import { cancelAcquisition, extractAutomatically, extractFromFile, MAX_CACHE_BYTES, retrieveHistory } from '../commands';
 
 afterEach(clearMocks);
 
@@ -15,6 +16,8 @@ test('known native kinds pass through and anything else becomes unavailable', as
   for (const kind of [
     'unsupported_host', 'discovery_failed', 'no_game_data', 'no_cache', 'no_request',
     'expired_key', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal', 'cancelled',
+    'no_context', 'history_too_large', 'mixed_accounts', 'missing_server', 'storage', 'context_mismatch',
+    'conflict', 'stale_preview',
   ]) {
     mockIPC(() => { throw { kind }; });
     expect(await extractAutomatically()).toEqual({ kind });
@@ -69,4 +72,32 @@ test('cancelling asks the native side to stop and reports only unexpected failur
   expect(calls).toEqual(['cancel_acquisition']);
   mockIPC(() => { throw 'cancel_acquisition not allowed'; });
   expect(await cancelAcquisition()).toEqual({ kind: 'unavailable' });
+});
+
+test('retrieval streams progress, then returns the review or no history', async () => {
+  const events: unknown[] = [];
+  const requesting = { kind: 'requesting', gacha_type: '1', page: 1, pages: 0, records: 0 };
+  let command = '';
+  mockIPC((cmd, args) => {
+    command = cmd;
+    (args as { onProgress: Channel<unknown> }).onProgress.onmessage(requesting);
+    return { kind: 'no_history' };
+  });
+  expect(await retrieveHistory(event => events.push(event))).toEqual({ retrieved: { kind: 'no_history' } });
+  expect(command).toBe('retrieve_history');
+  expect(events).toEqual([requesting]);
+  const review = { kind: 'review', uid: '100000001', server: 'synthetic-server' };
+  mockIPC(() => review);
+  expect(await retrieveHistory(() => undefined)).toEqual({ retrieved: review });
+});
+
+test('retrieval failures keep only a valid category and page', async () => {
+  mockIPC(() => { throw { kind: 'expired_key', gacha_type: '2', page: 1 }; });
+  expect(await retrieveHistory(() => undefined)).toEqual({
+    failure: { kind: 'expired_key', location: { gacha_type: '2', page: 1 } },
+  });
+  for (const location of [{}, { gacha_type: '99', page: 1 }, { gacha_type: '2', page: 0 }, { gacha_type: '2', page: 1.5 }]) {
+    mockIPC(() => { throw { kind: 'network', ...location }; });
+    expect(await retrieveHistory(() => undefined)).toEqual({ failure: { kind: 'network' } });
+  }
 });

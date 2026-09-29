@@ -98,10 +98,10 @@ Render imported names as text, and keep raw source payloads out of normal logs.
 ### Desktop extraction commands
 
 `src-tauri/src/desktop.rs` registers `extract_automatically`,
-`extract_from_file` and `cancel_acquisition`, listed once in
+`extract_from_file`, `cancel_acquisition` and `retrieve_history`, listed once in
 `src/desktop/commands.in` for both the library and the `build.rs` app manifest.
 Declaring the manifest makes every app command require a capability grant;
-`capabilities/main.json` grants only these three to the main window for local
+`capabilities/main.json` grants only these four to the main window for local
 content. Undeclared commands are refused.
 
 The session holds the current acquisition in memory: the validated context, the
@@ -109,7 +109,24 @@ retry budget validation started (for retrieval to continue with) and a
 cancellation token for the running operation. Starting an operation cancels
 any earlier one, and a validated context is kept only if its operation was not
 cancelled, checked under the session lock. `cancel_acquisition` cancels the
-running operation and drops the context.
+running operation and drops the context and any held preview.
+
+`retrieve_history` takes the validated context and its budget out of the session,
+so the session holds no auth key from then on, and fails with `no_context` if
+there is none. It retrieves every category through `Cancellable(Retrying(...))`,
+continuing the extraction's budget, and streams `ProgressEvent`s (`requesting`
+with the category code, page and totals, or `retry_pending` with the delay) over a
+Tauri channel. The context is dropped as soon as retrieval ends, whatever the
+outcome. A retrieval failure carries the failing request's `gacha_type` and `page`
+beside its kind. With no records the command returns `{"kind":"no_history"}`
+without opening the database. Otherwise it previews the history under the
+resolved account through `Database::run`, keeps the preview in the session unless
+the operation was cancelled meanwhile, and returns the review as
+`{"kind":"review", ...}`. New failure kinds are `no_context`,
+`history_too_large`, `mixed_accounts`, `missing_server`, `storage`,
+`context_mismatch`, `conflict` and `stale_preview`; the last two are for commit.
+Unit tests replace Tokio's `spawn_blocking` with an inline double, so the scripted
+SQL double is visible; the database integration test covers the real thread hop.
 
 The automatic command runs current-user extraction. The file command accepts
 only a raw IPC body holding the bytes of a file the user chose through an HTML
@@ -130,8 +147,10 @@ instead of the JSON `postMessage` fallback; network origins stay blocked. The
 file fallback does pass cache bytes through webview memory; see
 [decision 0006](decisions/0006-desktop-extraction-commands.md).
 
-In the webview, `src/commands.ts` wraps both commands through `@tauri-apps/api`,
+In the webview, `src/commands.ts` wraps the commands through `@tauri-apps/api`,
 maps any rejection that is not exactly a native failure shape to `unavailable`,
+keeps a failure's category and page only when both are valid, streams retrieval
+progress through a `Channel`,
 and rejects files over 16 MiB before reading them. `src/main.ts` shows the Star
 Rail retrieval panel, which says the app checks the saved link with HoYoverse
 and needs a connection: "Start retrieval" first, with the file chooser always
