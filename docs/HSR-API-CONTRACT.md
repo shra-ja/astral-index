@@ -7,9 +7,15 @@ application's working contract, not an official HoYoverse specification.
 ## Endpoint and request
 
 Use only HTTPS GET to `public-operation-hkrpg-sg.hoyoverse.com`, path
-`/common/hkrpg_gacha_record/api/getGachaLog`. Treat this as the sole endpoint for
-all six categories below. No alternate endpoint discovery or proxy is required.
-Reject redirects outside this endpoint rather than forwarding credentials.
+`/common/hkrpg_gacha_record/api/getGachaLog` for categories `1`, `2`, `11` and
+`12`, and `/common/hkrpg_gacha_record/api/getLdGachaLog` for the collaboration
+categories `21` and `22` (corrected 2026-09-29; see the
+[research](HSR-API-RESEARCH.md#collaboration-endpoint-2026-09-29)). The normal
+endpoint accepts `21` and `22` but returns an empty list, silently omitting those
+rolls. Both endpoints take the same query fields and return the same response
+shape, and one auth key works on both. A cached request to either endpoint
+supplies a context. No other endpoint discovery or proxy is required. Reject
+redirects rather than forwarding credentials.
 
 | Query field | Contract |
 | --- | --- |
@@ -20,7 +26,7 @@ Reject redirects outside this endpoint rather than forwarding credentials.
 | `lang` | Preserve requested language; `en` was tested. Keep it fixed during acquisition. |
 | `gacha_type` | One of the string category codes below; query each known category separately. |
 | `page` | Optional in the sampled cursor test: omission returned identical records. Send it to mirror the observed in-game client: start at `1` and increment after full pages. |
-| `size` | Default to `1000` records per request. `5000` is the largest tested value, not the default or a proven server maximum. Pagination retrieves remaining records; no higher-limit testing is required. |
+| `size` | Request `1000` records per page on both endpoints. `getGachaLog` honoured up to `5000` in testing (not a proven maximum); `getLdGachaLog` caps pages at `20` (2026-09-29). Pagination ends a category only on an empty page, so a cap never truncates history. |
 | `end_id` | String `0` initially, then the preceding successful page's last record ID, unchanged. Omitting it while incrementing `page` repeated the first ten records in all five test requests. |
 
 These nine fields form the working request recipe. `page` was also successfully
@@ -79,7 +85,7 @@ into the repository. All saved timestamps were calendar-valid in the stated form
 | `data` field | Observed JSON type | Meaning and handling |
 | --- | --- | --- |
 | `page` | String | Echoed the requested page number in the 2026-09-23 comparison; returned `"0"` when the query parameter was omitted. Do not use it instead of the client's own cursor state. |
-| `size` | String | Page-size metadata; not proof of a maximum or total history length. |
+| `size` | String | Unreliable: `getGachaLog` echoes `"0"` whatever was requested; `getLdGachaLog` echoes its applied size (`"20"` for a request of `1000`). Ignored by pagination; not proof of a maximum or total history length. |
 | `list` | Array of records | Authoritative roll collection for this initial contract; preserve order. Required on success, even when empty. |
 | `region` | String | Server/region identifier supplied by the response. Preserve the value; do not infer it from UID. |
 | `region_time_zone` | Integer | Treat as the server's UTC offset in hours. Samples consistently provide `1`. |
@@ -132,8 +138,8 @@ absent/null in the existing parser; missing evidence stays unknown.
 | `2` | Departure Warp | No sampled records. |
 | `11` | Character Event Warp | Nonempty lists observed. |
 | `12` | Light Cone Event Warp | No sampled records. |
-| `21` | Character Collaboration Warp | No sampled records. |
-| `22` | Light Cone Collaboration Warp | No sampled records. |
+| `21` | Character Collaboration Warp | Nonempty list from `getLdGachaLog` (2026-09-29); empty from `getGachaLog`. |
+| `22` | Light Cone Collaboration Warp | Nonempty list from `getLdGachaLog` (2026-09-29); empty from `getGachaLog`. |
 
 Banner labels use the official in-game terminology supplied by the user. The
 UIGF enum establishes the six recognised category codes. An empty result
@@ -212,15 +218,20 @@ five-request run incrementing `page` without `end_id` repeated the first ten rec
 on every request. Page metadata therefore does not establish progress; advancing
 the cursor is necessary for the tested recipe.
 For each category, keep authentication, language and size fixed; start
-with page 1/cursor `0`. Validate each successful response, then compare the number
-of records in `list` with the requested `size`:
+with page 1/cursor `0`. Validate each successful response, then:
 
-- Fewer records than requested, including zero: this is the final page for the
-  category. Retain any returned records and stop without a follow-up request.
-- A full page: advance both page and cursor using the last record ID exactly as
-  supplied, then request the next page. This also applies when every record on
-  the full page is already stored; duplicate status is not a termination rule.
+- An empty `list`: this is the final page for the category.
+- Any records, up to the requested `size`: retain them, advance both page and
+  cursor using the last record ID exactly as supplied, and request the next page,
+  even if the page is shorter than requested. This also applies when every record
+  on the page is already stored; duplicate status is not a termination rule.
 - More records than requested: the response is invalid, and acquisition stops.
+
+(Corrected 2026-09-29. A page shorter than requested used to end a category, which
+stopped each collaboration category after 20 records, since `getLdGachaLog` caps
+pages at 20. The echoed `size` cannot replace the request as the measure, because
+`getGachaLog` echoes `"0"`. Ending only on an empty page costs one request per
+category with records.)
 
 IDs are opaque: no numeric ordering or timestamp extraction is needed. Missing
 or malformed data and API errors abort rather than terminate successfully.

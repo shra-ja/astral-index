@@ -268,7 +268,7 @@ must resolve selected account/server and compare requested banner context.
 
 ## Initial acquisition contract
 
-The [HSR API contract](HSR-API-CONTRACT.md) fixes the initial single-endpoint scope
+The [HSR API contract](HSR-API-CONTRACT.md) fixes the initial two-endpoint scope
 and records accepted assumptions separately from observed evidence. Trust the auth
 key to select the account for initial acquisition; preserve response UID, region
 and offset for storage. Formal account/server verification is a closing requirement
@@ -311,7 +311,8 @@ handle's type, so opening a FIFO cannot wait indefinitely for a writer. The flag
 comes from pinned `libc`, already present transitively; regular-file reads are
 unchanged. This is an initial application limit, not a verified maximum cache size.
 The extractor tolerates binary data around NUL-terminated `1/0/` request entries.
-It accepts the exact researched HTTPS endpoint spelling and five required query
+It accepts the exact researched HTTPS spelling of either history endpoint,
+`getGachaLog` or the collaboration warps' `getLdGachaLog`, and five required query
 fields, retaining their encoded bytes. Empty/malformed fields, duplicate required
 fields, other game contexts, fragments and alternate endpoint spellings fail
 candidate validation. Unrelated/unsupported entries are skipped; no valid candidate
@@ -344,7 +345,8 @@ construct fresh pagination parameters and resolve account identity from response
 
 `src-tauri/src/acquisition/request.rs` builds those page requests.
 `RequestContext::page_request` appends `gacha_type`, `page`, `size=1000` and
-`end_id` to the endpoint and the five cached fields, which keep their encoded
+`end_id` to the category's endpoint (`getLdGachaLog` for the two collaboration
+warps, `getGachaLog` otherwise) and the five cached fields, which keep their encoded
 bytes and cached order; cached paging values never carry over. `Category::ALL`
 lists the six known categories in contract order and is also the parser's list
 of valid `gacha_type` codes. The page number cannot be zero, and the cursor is
@@ -357,7 +359,7 @@ output. Building a request makes no network call.
 `get` returning the response body or a safe `TransportError`, so validation and
 pagination can be tested against scripted transports. `HttpTransport` implements
 it with `reqwest` and rustls using `ring` and the OS trust store. It refuses any
-URL other than the exact endpoint before sending, never follows redirects,
+URL other than the two exact endpoints before sending, never follows redirects,
 treats any status other than 200 as an error, uses no system proxy, applies
 10-second connect and 30-second request timeouts, and stops reading once a body
 exceeds 2 MiB. The extraction commands use it for validation. See
@@ -389,10 +391,12 @@ the retrying transport described below.
 
 `src-tauri/src/acquisition/pagination.rs` retrieves history from a validated
 context. `fetch_history` requests the six categories in `Category::ALL` order,
-each from page 1 with `end_id=0`. A page with fewer than 1000 records, including
-none, ends its category. A full page advances the page number and sets the
-cursor to its last record's ID; a cursor already seen in that category is a
-cycle, and a page with more records than requested is invalid. Response sizes
+each from page 1 with `end_id=0`, requesting 1000 records. Only an empty page
+ends a category: `getLdGachaLog` caps pages at 20, and the echoed `data.size` is
+unreliable (`getGachaLog` echoes `"0"`), so a short page is not taken as the last.
+Any other page advances the page number and sets the cursor to its last record's
+ID; a cursor already seen in that category is a cycle, and a page with more
+records than requested is invalid. Response sizes
 are summed as they arrive, and retrieval stops once the total passes the 16 MiB
 batch bound (`MAX_BATCH_BYTES`, shared with storage), before any further
 request. Any fetch failure also stops it. The result is a `History` of raw

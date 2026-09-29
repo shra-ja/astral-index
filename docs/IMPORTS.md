@@ -20,7 +20,7 @@ of records that the API no longer provides.
 | Game | User-provided files | Installation source |
 | --- | --- | --- |
 | Genshin Impact | Planned; format and version to verify | Research required per OS/version |
-| Honkai: Star Rail | Parser/storage implemented; initial single-endpoint contract accepted | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor test accepted for initial implementation; see [contract](HSR-API-CONTRACT.md) |
+| Honkai: Star Rail | Parser/storage implemented; two-endpoint contract accepted (collaboration warps use `getLdGachaLog`) | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor test accepted for initial implementation; see [contract](HSR-API-CONTRACT.md) |
 
 Implementation order: HSR API response parsing and transactional services in
 milestone 2, user-requested API import in milestone 3, then standalone history-

@@ -146,7 +146,8 @@ the order listed.
   - [x] Record supported and unsupported sources with evidence
     ([HSR API research](HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27)).
 - [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
-  native client: single tested endpoint, 1000-record default pages, cursor pagination,
+  native client: the two history endpoints (collaboration warps use
+  `getLdGachaLog`), 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry
   per transiently failed request, at most two extra attempts per acquisition, and
   synthetic request mocks. No background or automatic fetching.
@@ -167,9 +168,14 @@ the order listed.
     ([decision 0007](decisions/0007-validate-during-extraction.md)). Update the
     controls, which will then contact HoYoverse, and their failure messages.
     Retries during validation arrive with the retry-budget step.
-  - [x] Paginate each category by cursor. Stop on a short page, advance on a full
-    page, reject repeated cursors and cycles, and enforce the 16 MiB batch bound.
-    Fetch all six known categories sequentially.
+  - [x] Paginate each category by cursor. Stop on an empty page and advance on
+    any other (corrected 2026-09-29: `getLdGachaLog` caps pages at 20, so a short
+    page is not the last), reject repeated cursors and cycles, and enforce the
+    16 MiB batch bound. Fetch all six known categories sequentially.
+  - [x] Request the collaboration categories from `getLdGachaLog`, found in
+    Windows testing to hold their history; accept cached requests to either
+    endpoint. Treat `retcode -110` as a rate limit and pause 500 ms before every
+    request.
   - [x] Apply the retry budget: one retry per transiently failed request after a
     short bounded delay, and at most two extra attempts per acquisition,
     including validation requests.
@@ -224,6 +230,17 @@ the order listed.
     visual design, before the stored-history display. Record the choice as a
     decision; weigh 100% branch coverage of compiled templates and dependency size.
   - [ ] Display stored history from local storage without triggering acquisition.
+- [ ] Optional, not blocking the milestone: incremental retrieval, so a repeat
+  retrieval stops each category once it reaches rolls already saved, instead of
+  fetching the whole history. Full retrieval takes noticeably longer since
+  collaboration pages hold only 20 records. Design first: the contract makes
+  duplicates no stopping rule today, because stopping early never fills a gap
+  left by an earlier failed or partial import (as the collaboration categories
+  were before their endpoint was fixed). The user chose separate actions: a
+  quick refresh that stops at saved rolls, and a full retrieval as today, rather
+  than the app deciding when a full retrieval is needed. Requesting both
+  endpoints concurrently is a later option only if live testing shows separate
+  rate limits.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.
   - [ ] Verify request, preview, commit, restart and display end to end with
