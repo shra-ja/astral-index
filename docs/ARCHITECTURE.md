@@ -167,8 +167,12 @@ to the starting control afterwards. Validation failures read the same for both
 actions. After validation the panel retrieves history, naming the warp, page and
 rolls so far, and says where retrieval stopped when it fails. Once Cancel is
 pressed, progress no longer shows, and a success that races the cancel keeps
-nothing. Until the review screen exists, a retrieved preview is discarded at once
-and the panel reports how many new rolls were found.
+nothing. A retrieved preview is then reviewed in the panel: its heading takes
+focus, and it shows the account, server-time date range and a table of new,
+already saved and conflicting rolls for each warp. Save commits it and reports
+what was added; Discard, or Done when nothing is new, drops it. Conflicts are
+listed by warp, time and ID with Save disabled, since the native commit refuses
+them. Saving, discarding and failures return to the start controls.
 
 ## Statistics
 

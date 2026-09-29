@@ -210,13 +210,13 @@ the order listed.
     failing category and page for retrieval failures. Clear the auth key as
     soon as retrieval ends, whether it succeeds, fails or is cancelled.
   - [x] Add `commit_import` and `discard_import` commands for the held preview.
-  - [ ] Add accessible review and commit controls for the preview: chain "Start
+  - [x] Add accessible review and commit controls for the preview: chain "Start
     retrieval" into retrieval, show progress beside a Cancel control, then the
     review with Commit and Discard. Give every failure, `cancelled` and "no
     history found" a readable message.
     - [x] Chain retrieval after validation, with progress, Cancel and a message
       for every retrieval failure and "no history found".
-    - [ ] Show the review with Save and Discard, conflicts and the save result.
+    - [x] Show the review with Save and Discard, conflicts and the save result.
   - [ ] Decide whether the webview adopts a component framework, and review the
     visual design, before the stored-history display. Record the choice as a
     decision; weigh 100% branch coverage of compiled templates and dependency size.

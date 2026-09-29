@@ -31,7 +31,22 @@ h2 { font-size: 21px; font-weight: 550; margin-top: 24px; }
 .retrieval > p:first-child { color: #c6cfc7; line-height: 1.5; margin: 0 auto 20px; max-width: 460px; }
 button { font: inherit; font-weight: 600; color: #131a19; background: #d3c48e; border: 0; border-radius: 8px; padding: 11px 20px; cursor: pointer; }
 button:disabled { opacity: .6; cursor: progress; }
-.cancel { color: #ecece7; background: transparent; border: 1px solid #526257; margin-top: 16px; }
+.cancel, .secondary { color: #ecece7; background: transparent; border: 1px solid #526257; }
+.cancel { margin-top: 16px; }
+.review { margin: 0 auto; max-width: 620px; text-align: left; }
+.review h3 { font-size: 19px; font-weight: 550; margin: 0 0 6px; }
+.review h3:focus { outline: none; }
+.review h3:focus-visible { outline: 3px solid #d3c48e; }
+.review .detail { color: #adb7af; font-size: 13px; margin: 0 0 20px; overflow-wrap: anywhere; }
+.review table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.review th, .review td { padding: 9px 8px; border-bottom: 1px solid #37433d; }
+.review thead th { color: #adb7af; font-size: 12px; font-weight: 500; }
+.review th[scope="row"] { font-weight: 500; text-align: left; }
+.review th[scope="col"]:first-child { text-align: left; }
+.review th[scope="col"], .review td { text-align: right; font-variant-numeric: tabular-nums; }
+.conflicts { margin-top: 20px; color: #e5c8a8; line-height: 1.5; }
+.conflicts ul { color: #c6cfc7; font-family: ui-monospace, monospace; font-size: 13px; padding-left: 20px; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; margin-top: 24px; }
 .fallback { margin: 28px auto 0; max-width: 460px; text-align: left; }
 .fallback .detail { color: #adb7af; font-size: 13px; line-height: 1.5; margin: 0 0 12px; }
 input[type="file"] { font: inherit; color: #c6cfc7; max-width: 100%; }
@@ -43,4 +58,5 @@ footer { color: #adb7af; font-size: 12px; margin: 24px 0; }
   main { padding: 24px 20px; }
   .intro { margin-top: 48px; }
   .toolbar { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .review th, .review td { padding: 8px 4px; }
 }

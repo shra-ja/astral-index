@@ -1,6 +1,6 @@
 import {
   cancelAcquisition, discardImport, extractAutomatically, extractFromFile, retrieveHistory,
-  type Failure, type Kind, type Progress,
+  commitImport, type Counts, type Failure, type Kind, type Progress, type Review,
 } from './commands';
 
 document.querySelector('main')!.innerHTML = `
@@ -27,7 +27,7 @@ document.querySelector('main')!.innerHTML = `
     <div class="empty" role="status" aria-live="polite" aria-atomic="true">
       <span class="empty-icon" aria-hidden="true">✧</span>
       <h2></h2>
-      <p>History retrieval is coming next.</p>
+      <p>Showing saved history is coming next.</p>
       <p class="detail">Your history will stay on this device. No account needed.</p>
     </div>
     <div class="retrieval" aria-busy="false" hidden>
@@ -44,6 +44,26 @@ document.querySelector('main')!.innerHTML = `
       </div>
       <p class="extraction-status" role="status" aria-live="polite" aria-atomic="true"></p>
       <button type="button" class="cancel" hidden>Cancel</button>
+      <section class="review" aria-labelledby="review-heading" hidden>
+        <h3 id="review-heading" tabindex="-1"></h3>
+        <p class="detail"></p>
+        <table>
+          <thead>
+            <tr><th scope="col">Warp</th><th scope="col">New</th><th scope="col">Already saved</th><th scope="col">Conflicts</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="conflicts" hidden>
+          <p id="conflicts-note">These retrieved rolls differ from saved rolls with the same ID, so nothing can be saved.
+            Discarding them leaves this device unchanged.</p>
+          <ul></ul>
+        </div>
+        <div class="actions">
+          <button type="button">Save to this device</button>
+          <button type="button" class="secondary">Discard</button>
+          <button type="button">Done</button>
+        </div>
+      </section>
     </div>
   </section>
   <footer>Made for your collection. No cloud required.</footer>
@@ -57,6 +77,13 @@ const find = start.querySelector('button')!;
 const cacheFile = start.querySelector<HTMLInputElement>('#cache-file')!;
 const status = retrieval.querySelector('.extraction-status')!;
 const cancel = retrieval.querySelector<HTMLButtonElement>('.cancel')!;
+const review = retrieval.querySelector<HTMLElement>('.review')!;
+const reviewHeading = review.querySelector('h3')!;
+const account = review.querySelector('.detail')!;
+const categoryRows = review.querySelector('tbody')!;
+const conflictsBox = review.querySelector<HTMLElement>('.conflicts')!;
+const conflictList = conflictsBox.querySelector('ul')!;
+const [save, discard, done] = review.querySelectorAll<HTMLButtonElement>('.actions button');
 
 /** Warp names by `gacha_type`, as the game shows them. */
 const warps: Record<string, string> = {
@@ -85,6 +112,12 @@ const retrievalMessages: Partial<Record<Kind, string>> = {
   context_mismatch: 'Saved history for this account uses a different time zone than HoYoverse reports. Nothing was saved.',
   no_context: 'Nothing is waiting to be saved. Start retrieval again.',
 };
+const commitMessages: Partial<Record<Kind, string>> = {
+  ...retrievalMessages,
+  conflict: 'Some retrieved rolls differ from ones already saved. Nothing was saved.',
+  stale_preview: 'Your saved history changed since this review. Start retrieval again.',
+  no_preview: 'Nothing is waiting to be saved. Start retrieval again.',
+};
 const automaticMessages: Partial<Record<Kind, string>> = {
   ...validationMessages,
   unsupported_host: 'Automatic search needs Windows, or WSL with access to Windows. Choose the cache file below instead.',
@@ -108,26 +141,36 @@ function updateGame() {
 
 // Set while the user has asked to stop the running acquisition.
 let cancelling = false;
+// The control that started the acquisition, which gets focus back when it ends.
+let origin: HTMLElement = find;
 
 const plural = (count: number, noun: string) => `${count.toLocaleString('en')} ${noun}${count === 1 ? '' : 's'}`;
 
-// Swap the start controls for Cancel while acquisition runs, so only one runs at a time,
-// and return focus to the control that started it.
+// Swap the start controls for Cancel while acquisition runs, so only one runs at a
+// time, then show the review or say how it ended.
 async function acquire(
   trigger: HTMLElement, searching: string, extract: () => Promise<Failure | undefined>,
   messages: Partial<Record<Kind, string>>,
 ) {
+  origin = trigger;
   cancelling = false;
   start.hidden = true;
   cancel.hidden = cancel.disabled = false;
   cancel.focus();
   retrieval.setAttribute('aria-busy', 'true');
   status.textContent = searching;
-  status.textContent = await run(extract, messages);
-  cancel.hidden = true;
+  const outcome = await run(extract, messages);
+  if (typeof outcome === 'string') finish(outcome);
+  else showReview(outcome);
+}
+
+// Return to the start controls with a message, focusing the control that started.
+function finish(message: string) {
+  cancel.hidden = review.hidden = true;
   start.hidden = false;
   retrieval.setAttribute('aria-busy', 'false');
-  trigger.focus();
+  status.textContent = message;
+  origin.focus();
 }
 
 // Validate, then retrieve. A cancel that races a success still keeps nothing.
@@ -139,10 +182,62 @@ async function run(extract: () => Promise<Failure | undefined>, messages: Partia
   const result = await retrieveHistory(showProgress);
   if ('failure' in result) return locate(result.failure) + describe(result.failure, retrievalMessages);
   if (result.retrieved.kind === 'no_history') return 'HoYoverse returned no warp history for this account. Nothing was saved.';
-  // Saving arrives with the review screen; until then, hold nothing natively.
+  if (!cancelling) return result.retrieved;
   await discardImport();
-  if (cancelling) return cancelled;
-  return `Found ${plural(result.retrieved.summary.inserted, 'new roll')}. Saving is coming next.`;
+  return cancelled;
+}
+
+// Show what saving would change. Save is offered only when something is new, and
+// stays disabled while any roll conflicts, since the native side refuses to commit it.
+function showReview(retrieved: Review) {
+  const { inserted, conflicts } = retrieved.summary;
+  const nothingNew = inserted === 0 && conflicts === 0;
+  cancel.hidden = true;
+  retrieval.setAttribute('aria-busy', 'false');
+  status.textContent = '';
+  reviewHeading.textContent = conflicts ? 'Some rolls conflict with your saved history'
+    : nothingNew ? 'Everything here is already saved' : `Ready to save ${plural(inserted, 'new roll')}`;
+  account.textContent = `UID ${retrieved.uid} · ${retrieved.server} · `
+    + `${retrieved.earliest.slice(0, 10)} to ${retrieved.latest.slice(0, 10)} (server time)`;
+  categoryRows.replaceChildren(...retrieved.categories.map(category => {
+    const row = document.createElement('tr');
+    const name = document.createElement('th');
+    name.scope = 'row';
+    name.textContent = warps[category.gacha_type];
+    row.append(name, ...[category.inserted, category.duplicates, category.conflicts].map(count => {
+      const cell = document.createElement('td');
+      cell.textContent = count.toLocaleString('en');
+      return cell;
+    }));
+    return row;
+  }));
+  conflictList.replaceChildren(...retrieved.conflicts.map(({ id, gacha_type, time }) => {
+    const item = document.createElement('li');
+    item.textContent = `${warps[gacha_type]} · ${time} · ID ${id}`;
+    return item;
+  }));
+  conflictsBox.hidden = !conflicts;
+  if (conflicts) save.setAttribute('aria-describedby', 'conflicts-note');
+  else save.removeAttribute('aria-describedby');
+  save.hidden = discard.hidden = nothingNew;
+  done.hidden = !nothingNew;
+  save.disabled = conflicts > 0;
+  discard.disabled = done.disabled = false;
+  review.hidden = false;
+  reviewHeading.focus();
+}
+
+function saved({ inserted, duplicates }: Counts) {
+  const already = duplicates === 0 ? ''
+    : ` ${duplicates.toLocaleString('en')} ${duplicates === 1 ? 'was' : 'were'} already saved.`;
+  return `Saved ${plural(inserted, 'new roll')} to this device.${already}`;
+}
+
+// Leave the review without saving; the native side drops the retrieved history.
+async function leave(message: string) {
+  save.disabled = discard.disabled = done.disabled = true;
+  await discardImport();
+  finish(message);
 }
 
 function showProgress(progress: Progress) {
@@ -171,6 +266,16 @@ cancel.addEventListener('click', async () => {
   status.textContent = 'Cancelling…';
   if (await cancelAcquisition()) cancelling = cancel.disabled = false;
 });
+
+save.addEventListener('click', async () => {
+  save.disabled = discard.disabled = true;
+  retrieval.setAttribute('aria-busy', 'true');
+  status.textContent = 'Saving…';
+  const result = await commitImport();
+  finish('failure' in result ? describe(result.failure, commitMessages) : saved(result.summary));
+});
+discard.addEventListener('click', () => leave('Discarded the retrieved history. Nothing was saved.'));
+done.addEventListener('click', () => leave('Your saved history is already up to date.'));
 
 find.addEventListener('click', () =>
   acquire(find, 'Searching this device, then checking with HoYoverse…', extractAutomatically, automaticMessages));

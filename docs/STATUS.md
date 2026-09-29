@@ -917,7 +917,7 @@ plus TypeScript/build, formatting and Clippy, peaking at about 3.8 GB used.
 
 ## Retrieval controls (2026-09-29)
 
-Work is on `feat/retrieval-controls`, branched from `main` at `6501c59`: PR A of
+Integrated through PR #36 (`b0c4489`), branched from `main` at `6501c59`: PR A of
 two for the review and commit controls. Either start action now validates, then
 retrieves: the start controls are hidden and a Cancel button takes focus, the
 status names the warp, page and rolls so far or a pending retry, and focus returns
@@ -942,13 +942,43 @@ formatting and Clippy, peaking at about 3.0 GB used.
 `npm run tauri -- build --no-bundle` passed on Linux. The running and cancelling
 states are covered by jsdom tests only; the offline native test cannot reach them.
 
+## Review and save controls (2026-09-29)
+
+Work is on `feat/review-controls`, branched from `main` at `b0c4489`: PR B, which
+completes the review and commit controls. A retrieved preview now stays held and
+the panel shows a review: a heading that takes focus ("Ready to save 412 new
+rolls", "Everything here is already saved" or "Some rolls conflict with your saved
+history"), the UID, server and server-time date range, and a table of new, already
+saved and conflicting rolls for each of the six warps. Save commits and reports
+"Saved 412 new rolls to this device. 88 were already saved."; Discard drops the
+preview, and Done replaces both when nothing is new. Conflicts are listed by warp,
+time and ID, and Save is disabled and described by the explanation, since the
+native commit refuses them. Save failures (`conflict`, `stale_preview`,
+`no_preview`, `storage`, `context_mismatch`) have messages, and every ending
+returns to the start controls with focus on the control that started. The empty
+state now says showing saved history is coming next; it still says there are no
+rolls after a save until the stored-history display exists. AGENTS.md now says the
+acquisition UI exists.
+
+TDD: six new UI tests (review and save, wording, discard, Done, conflicts and save
+failures) and five updated ones failed on the missing review, then passed. A
+WebKit (MiniBrowser) screenshot of the built page, with a synthetic native mock in
+a scratch copy, checked the review and conflict layouts at 1000 and 390 pixels
+wide: focus on the heading and no horizontal scrolling.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 133 Rust unit tests, 60 frontend/tooling tests, offline native execution,
+nine probes and five report checks, all at 100% per file, plus TypeScript/build,
+formatting and Clippy, peaking at about 2.9 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux. The review is covered by
+jsdom tests and the mocked screenshot; the offline native test cannot reach it.
+
 ## Next
 
-PR B of the controls: the review screen with Save and Discard (or Done when
-nothing is new), conflicts listed with Save disabled, and the save result and
-commit failure messages. Then the framework and visual-design decision, and the
+The framework and visual-design decision (a new decision record), then the
 stored-history display. Account/server verification remains a milestone-closing
-requirement.
+requirement. A live retrieve and save on Windows would be the first real check of
+the new controls and of the database location.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
