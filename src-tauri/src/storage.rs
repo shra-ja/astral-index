@@ -390,9 +390,9 @@ fn classify(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    pub(super) mod database;
+    pub(crate) mod database;
     use database::{Reply, Step};
     use rusqlite::types::Value;
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
@@ -404,10 +404,10 @@ mod tests {
         "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
     const HISTORY: &str =
         "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
-    fn text(value: &str) -> Value {
+    pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
     }
-    fn step(sql: &str, bindings: Vec<Value>, reply: Reply) -> Step {
+    pub(crate) fn step(sql: &str, bindings: Vec<Value>, reply: Reply) -> Step {
         Step {
             sql: sql.into(),
             bindings,
@@ -483,7 +483,8 @@ mod tests {
             snapshot: ("database".into(), 0),
         }
     }
-    fn setup(existing: bool) -> Vec<Step> {
+    /// The SQL for initializing a new or existing database after it is opened.
+    pub(crate) fn setup(existing: bool) -> Vec<Step> {
         let mut steps = vec![
             done("PRAGMA busy_timeout=250; PRAGMA foreign_keys=ON;"),
             done("BEGIN Immediate"),

@@ -196,8 +196,13 @@ the order listed.
     and add a `cancel_acquisition` command that stops the running operation
     (validation now, retrieval later) and drops the context. A cancelled or
     superseded operation keeps no late result.
-  - [ ] Open the local database in the app data folder on first use, running
+  - [x] Open the local database in the local app data folder on first use, running
     SQLite calls off the async workers; record the location in a decision.
+  - [ ] Add a portable mode that keeps the database next to the application
+    executable, with a seamless switch between it and the local app data folder
+    (for example, detected from the executable's folder rather than a setting),
+    and a safe way to move existing history between the two locations. Moved up
+    from the deferred list at the user's request.
   - [ ] Add a `retrieve_history` command: retrieve from the held context with
     its budget, cancellably, stream progress over a Tauri channel, resolve the
     account and preview it. Return the review or "no history found", with the
@@ -261,6 +266,7 @@ Done when a fresh profile can recover the same records and metadata from a backu
 
 
 ## Deferred low-priority follow-ups
+
 
 - [ ] Extend the review DTO with individual records, starting with highlighted
   5-star characters and light cones as a quick accuracy check. Rarity
