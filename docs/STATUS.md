@@ -1098,7 +1098,7 @@ are corrected.
 
 ## Toolchain refresh (2026-09-29)
 
-Work is on `chore/toolchain-refresh`, branched from `main` at `e558c81`, before the
+Integrated through PR #41 (`1f01756`), branched from `main` at `e558c81`, before the
 framework port, so any breakage is attributable to the upgrade alone. There were
 no major versions to catch up on; TypeScript 7.0.2, the other Rust crates and the
 Cargo-installed tools were already current (Tauri 3 is still alpha).
@@ -1129,15 +1129,63 @@ and Clippy, peaking at about 4.6 GB used during the full rebuild.
 `npm run tauri -- build --no-bundle` passed on Linux, and the `cargo-xwin` Windows
 build succeeded.
 
+## Vue foundation (2026-09-29)
+
+Work is on `feat/vue-foundation`, branched from `main` at `1f01756`: PR A of two
+for the move to Vue ([decision 0011](decisions/0011-vue-frontend.md)). The user
+chose Vue over Preact and React for its community, ecosystem and recognition,
+TypeScript 6 over 7 until Vue's tooling supports 7, and `create-vue` and Tauri
+conventions regardless of the app's size, with small presentational components
+since the UI is a placeholder that will be reorganised.
+
+- **Dependencies (exact):** `vue` 3.5.43; dev `@vitejs/plugin-vue` 6.0.9,
+  `@vue/test-utils` 2.5.1, `vue-tsc` 3.3.11, `@vue/tsconfig` 0.9.1,
+  `@tsconfig/node26` 26.0.1; TypeScript 7.0.2 replaced by 6.0.3.
+- **Types:** `tsconfig.json` references `tsconfig.app.json` (browser only),
+  `tsconfig.vitest.json` and `tsconfig.node.json`; `npm run typecheck` runs
+  `vue-tsc --build`, and `npm run build` runs it first. Mutations confirmed that
+  Node's `process` in app code and a template type error both fail. The stricter
+  Node settings type `fetch().json()` as `unknown`, so the native test's WebDriver
+  helper now declares its response shape.
+- **Vite and Vitest:** `scripts/vite-config.ts` holds Tauri's recommended
+  settings and the `ui` (jsdom), `tooling` (Node) and `gates` (Node) projects with
+  the coverage settings, replacing command-line flags; `vite.config.ts` only
+  delegates to it. Vitest hard-codes its config file out of coverage, so the
+  delegate is a third guarded exception, pinned in `reports.test.ts` and recorded
+  in AGENTS, CONTRIBUTING and TESTING. `.vue` files join coverage and the
+  inventory; declaration files, which compile to nothing, are left out of both.
+- **Review screen:** `src/components/ReviewPanel.vue` replaces the hand-built
+  review markup; `main.ts` renders it only while reviewing and keeps the native
+  calls. Warp names and plurals moved to `src/format.ts`. Two UI tests now wait
+  for Vue's next render or look elements up again, and four check that the review
+  is absent rather than hidden; the behaviour they check is unchanged.
+
+TDD: the config test and six `ReviewPanel` tests failed first (missing files, then
+against stubs, and the focus test against a first watcher that focused a tick
+late), then passed; the config module's five tests, rewritten for the full
+settings, failed against a stub and then passed.
+
+The first full check failed one gate: `npm run coverage` appended an HTML
+reporter, which with the reporters now in the config replaced them instead of
+adding to them, so no JSON summary was written. The script now lists all four
+reporters. Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of
+`npm run check` then passed: 142 Rust unit tests, 70 frontend/tooling tests,
+offline native execution (loading the Vue runtime under the production CSP),
+nine probes and five report checks, all at 100% per file, plus the type check,
+build, formatting and Clippy, peaking at about 3.4 GB used. The JavaScript bundle
+is 75 KB (29 KB gzipped). `npm run tauri -- build --no-bundle` passed on Linux,
+and the `cargo-xwin` Windows build succeeded. WebKit screenshots of the built page
+with a synthetic native mock show the review and conflict layouts unchanged.
+
 ## Next
 
-Decision 0011 adopting Vue, and the port of the existing UI to it. A trial (kept
-in a local stash, not committed) found that V8 coverage reports untested Vue
-template branches and reaches 100% with ordinary tests, that the runtime-only build
-renders under the production CSP in the native window, and that `vue-tsc` needs
-the `@typescript/typescript6` compatibility package, since TypeScript 7 has no
-JavaScript API. Then the stored-history display, with a mockup first.
-Incremental retrieval is an optional design step.
+Move the frontend into a self-contained `src-ui/` npm workspace beside
+`src-tauri/`, with sibling `*.test.ts` unit tests and integration tests in
+`src-ui/tests/`, with no behaviour change. Then the rest of the Vue port
+(`App.vue`, Vue Router with a first view, a retrieval composable, small
+presentational components, styles in `assets/`), the visual-design mockup and the
+stored-history display. Incremental retrieval is an
+optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

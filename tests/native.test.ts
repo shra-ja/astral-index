@@ -30,7 +30,8 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
-    const result = await response.json();
+    // A WebDriver response's `value` has a different shape for each command.
+    const result = await response.json() as { value?: any };
     expect(result.value?.error, JSON.stringify(result)).toBeUndefined();
     return result.value;
   };

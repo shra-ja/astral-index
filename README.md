@@ -58,7 +58,8 @@ internet access; stored-history operations remain local. See
 | `npm test` | UI behavior and coverage-validator tests |
 | `npm run coverage` | Fresh frontend/tooling coverage with 100% per-file thresholds |
 | `npm run coverage:json` | The same frontend/tooling gate without HTML rendering |
-| `npm run build` | Strict TypeScript checks, including tests, and bundled web assets |
+| `npm run typecheck` | `vue-tsc --build` over the app, UI-test and Node projects, including templates |
+| `npm run build` | The type check, then bundled web assets |
 | `npm run test:native` | Instrumented Rust build/tests, native UI/keyboard/close tests, LLVM reports |
 | `npm run test:offline` | Native test in a namespace with no external network route |
 | `npm run coverage:rust-unit` | Reset native counters, run Rust unit tests and freeze their JSON/HTML coverage |

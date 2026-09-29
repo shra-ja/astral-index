@@ -229,6 +229,16 @@ the order listed.
   - [ ] Decide whether the webview adopts a component framework, and review the
     visual design, before the stored-history display. Record the choice as a
     decision; weigh 100% branch coverage of compiled templates and dependency size.
+    - [x] Adopt Vue 3 with TypeScript 6 and `create-vue`/Tauri conventions
+      ([decision 0011](decisions/0011-vue-frontend.md)): tooling, split type
+      projects, the tested Vite config and the review screen as a component.
+    - [ ] Move the frontend into a self-contained `src-ui/` npm workspace beside
+      `src-tauri/`, with sibling `*.test.ts` unit tests and integration tests in
+      `src-ui/tests/`; no behaviour change.
+    - [ ] Move the rest of the UI to Vue: `App.vue`, Vue Router with a first
+      view, composables for the retrieval flow, small presentational components
+      and styles in `assets/`.
+    - [ ] Review the visual design with a mockup of the stored-history display.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Optional, not blocking the milestone: incremental retrieval, so a repeat
   retrieval stops each category once it reaches rolls already saved, instead of
