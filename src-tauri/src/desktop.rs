@@ -1,7 +1,7 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
 use crate::acquisition::{
     AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
-    HttpTransport, Progress, RequestContext, RetryBudget, Retrying, Transport,
+    HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, Transport,
     extract_request_contexts, fetch_history, validate,
 };
 use crate::discovery::{
@@ -338,7 +338,8 @@ async fn validate_into(
     let budget = RetryBudget::default();
     // Progress reaches the webview with the acquisition controls.
     let retrying = Retrying::new(transport, &budget, &|_| {});
-    let context = validate(&Cancellable::new(&retrying, token), requests).await?;
+    let paced = Paced::new(&retrying);
+    let context = validate(&Cancellable::new(&paced, token), requests).await?;
     session.finish(token, context, budget)
 }
 
@@ -397,7 +398,8 @@ async fn retrieve_into(
         progress(event.into());
     };
     let retrying = Retrying::new(transport, &budget, &report);
-    let fetched = fetch_history(&Cancellable::new(&retrying, &token), &context, &report).await;
+    let paced = Paced::new(&retrying);
+    let fetched = fetch_history(&Cancellable::new(&paced, &token), &context, &report).await;
     drop(context);
     let history = fetched.map_err(|error| {
         let location = requesting
@@ -495,9 +497,9 @@ mod tests {
     pub(crate) mod blocking;
     mod events;
     use super::*;
-    use crate::acquisition::MAX_CACHE_BYTES;
     use crate::acquisition::TransportError;
     use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
+    use crate::acquisition::{MAX_CACHE_BYTES, REQUEST_INTERVAL};
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
@@ -852,6 +854,32 @@ mod tests {
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn validation_and_retrieval_pause_before_each_request() {
+        let session = Session::default();
+        let transport = Serving::new(vec![Ok(EXPIRED.to_vec()), Ok(EMPTY.to_vec())]);
+        let requests = extract_request_contexts(&cache(&["valid", "expired"])).unwrap();
+        let token = session.begin();
+        let validating = run(async {
+            let started = tokio::time::Instant::now();
+            validate_into(&session, &transport, &token, requests)
+                .await
+                .unwrap();
+            started.elapsed()
+        });
+        assert_eq!(validating, REQUEST_INTERVAL * 2);
+        let transport = Serving::new((0..6).map(|_| Ok(EMPTY.to_vec())).collect());
+        let database = database();
+        let retrieving = run(async {
+            let started = tokio::time::Instant::now();
+            retrieve_into(&session, &database, Ok(&transport), &ignore)
+                .await
+                .unwrap();
+            started.elapsed()
+        });
+        assert_eq!(retrieving, REQUEST_INTERVAL * 6);
     }
 
     #[test]

@@ -114,7 +114,8 @@ running operation and drops the context and any held preview.
 
 `retrieve_history` takes the validated context and its budget out of the session,
 so the session holds no auth key from then on, and fails with `no_context` if
-there is none. It retrieves every category through `Cancellable(Retrying(...))`,
+there is none. It retrieves every category through
+`Cancellable(Paced(Retrying(...)))`, as validation does,
 continuing the extraction's budget, and streams `ProgressEvent`s (`requesting`
 with the category code, page and totals, or `retry_pending` with the delay) over a
 Tauri channel. The context is dropped as soon as retrieval ends, whatever the
@@ -430,6 +431,13 @@ once without spending the budget. `validate` and `fetch_history` take the
 wrapped transport unchanged. The extraction commands create a budget per
 extraction and validate through it; the future acquisition command must carry
 that same budget into pagination, since the budget covers the whole acquisition.
+
+`src-tauri/src/acquisition/pace.rs` paces requests: `Paced` waits
+`REQUEST_INTERVAL` (500 ms) before every request of the transport it wraps. It sits
+outside `Retrying`, so a retry keeps its own one-second delay, and inside
+`Cancellable`, so cancelling interrupts the pause. The classifier treats
+`retcode -110`, observed once from unpaced page requests, as `RateLimited`,
+which stops validation and retrieval like HTTP 429.
 
 `src-tauri/src/acquisition/cancel.rs` applies user cancellation. `Cancellable`
 wraps a transport with a `CancellationToken` from exactly pinned `tokio-util`

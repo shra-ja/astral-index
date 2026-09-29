@@ -9,7 +9,7 @@ pub enum FetchFailure {
     ExpiredKey,
     /// Any other nonzero API code, kept for display.
     Api(i64),
-    /// HTTP 429. The API-level rate-limit code is not known and is not guessed.
+    /// HTTP 429, or `retcode -110`, observed once from unpaced page requests.
     RateLimited,
     /// Timeout, connection failure or HTTP 5xx: the only retryable category.
     Transient,
@@ -53,6 +53,7 @@ pub fn transport_failure(error: TransportError) -> FetchFailure {
 pub fn parse_body(body: &[u8]) -> Result<Page, FetchFailure> {
     parse_response(body).map_err(|error| match error {
         ParseError::Api(-101) => FetchFailure::ExpiredKey,
+        ParseError::Api(-110) => FetchFailure::RateLimited,
         ParseError::Api(code) => FetchFailure::Api(code),
         ParseError::TooLarge
         | ParseError::InvalidResponse
@@ -80,10 +81,11 @@ mod tests {
     }
 
     #[test]
-    fn api_codes_distinguish_only_the_observed_expired_key() {
+    fn api_codes_distinguish_the_observed_expired_key_and_rate_limit() {
         assert_eq!(classify(Ok(api(-101))), Err(FetchFailure::ExpiredKey));
+        assert_eq!(classify(Ok(api(-110))), Err(FetchFailure::RateLimited));
         assert_eq!(classify(Ok(ERROR.to_vec())), Err(FetchFailure::Api(-100)));
-        assert_eq!(classify(Ok(api(-110))), Err(FetchFailure::Api(-110)));
+        assert_eq!(classify(Ok(api(-111))), Err(FetchFailure::Api(-111)));
     }
 
     #[test]

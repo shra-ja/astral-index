@@ -8,7 +8,7 @@ pub const MAX_VALIDATED_CONTEXTS: usize = 5;
 /// context whose key works. Call only on an explicit user request.
 ///
 /// A rejected key (`-101` or another API code) moves on to the next context; any
-/// other failure stops. If every key is rejected, report an expired key if any
+/// other failure, including a rate limit, stops. If every key is rejected, report an expired key if any
 /// expired, else the first code. The validation page's records are discarded, and
 /// every cached URL is dropped on return. With no contexts, nothing is sent.
 pub async fn validate(
@@ -99,12 +99,12 @@ mod tests {
 
     #[test]
     fn rejected_keys_report_expiry_if_any_expired_else_the_first_code() {
-        let transport = scripted(vec![api(-100), api(-101), api(-110)]);
+        let transport = scripted(vec![api(-100), api(-101), api(-111)]);
         assert_eq!(
             run(validate(&transport, requests(&["a", "b", "c"]))),
             Err(FetchFailure::ExpiredKey)
         );
-        let transport = scripted(vec![api(-100), api(-110)]);
+        let transport = scripted(vec![api(-100), api(-111)]);
         assert_eq!(
             run(validate(&transport, requests(&["a", "b"]))),
             Err(FetchFailure::Api(-100))
@@ -115,6 +115,7 @@ mod tests {
     fn other_failures_stop_validation_without_trying_further_keys() {
         for (response, failure) in [
             (Err(TransportError::Status(429)), FetchFailure::RateLimited),
+            (api(-110), FetchFailure::RateLimited),
             (Err(TransportError::Timeout), FetchFailure::Transient),
             (
                 Err(TransportError::Status(302)),

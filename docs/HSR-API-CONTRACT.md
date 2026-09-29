@@ -41,8 +41,8 @@ returns `retcode: 0` with a valid response page. Assume one cache file holds
 requests for a single account. Do not import records from the validation
 response; pagination retrieves them.
 
-An expired key (`-101`) or any other nonzero `retcode` rejects that context, and
-validation moves to the next one. If no validated context works, or the
+An expired key (`-101`) or any other nonzero `retcode` except the rate limit
+(`-110`, below) rejects that context, and validation moves to the next one. If no validated context works, or the
 five-context limit is reached, stop with an actionable error without writing
 history. Report an expired key if any context returned `-101`, and ask the user
 to refresh the key by opening the in-game warp history. Otherwise report the
@@ -265,9 +265,16 @@ codes also stop with a safe code and explanation; do not classify every API erro
 as expiry. This observation establishes the expired-key response, not an exact
 key lifetime or the codes for every other authentication failure.
 
-Assume rate limits will not constrain normal use with few sequential requests.
-Nevertheless, a received rate-limit error stops the operation and informs the
-user rather than initiating a retry loop. For transient connection/timeouts or
+Rate limits do constrain unpaced requests. On 2026-09-29, during the user's
+Windows testing of several retrievals in quick succession, one retrieval stopped
+at page 2 of a category with `retcode: -110`; retrying a little later succeeded.
+Other open-source exporters treat `-110` as "visit too frequently". This is one
+observation, not a confirmed meaning or limit, but classify `-110` as a rate
+limit, not a key rejection, so validation does not move on to further contexts.
+Pause 500 ms before every request, in validation and pagination alike; the
+interval is a judgement, not a measured limit. A received rate-limit error
+(`-110` or HTTP 429) stops the operation and informs the user rather than
+initiating a retry loop. For transient connection/timeouts or
 HTTP 5xx only, initial policy is **one retry for the same request**, with a short
 bounded delay and **at most two extra attempts across the entire acquisition**.
 The delay is one second. The budget spans validation and pagination.
