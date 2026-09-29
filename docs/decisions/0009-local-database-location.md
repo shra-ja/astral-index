@@ -45,9 +45,8 @@ from the Windows build of the same version.
 - **Roaming app data (`%APPDATA%`) on Windows:** first proposed, then rejected.
   On domain-managed machines with roaming profiles it can be copied to a server
   at sign-out, which conflicts with keeping player data local.
-- **Next to the executable (portable mode):** the next roadmap step, as an
-  addition rather than a replacement. It needs a seamless way to choose that
-  location and to move existing history.
+- **Next to the executable (portable mode):** added as an alternative location,
+  not a replacement, by [decision 0010](0010-portable-mode.md).
 - **Synchronous calls on the async worker:** simpler, but a large commit could
   stall other commands, including cancel.
 

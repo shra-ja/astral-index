@@ -15,7 +15,7 @@ use tauri::{
 };
 use tokio_util::sync::CancellationToken;
 
-mod database;
+pub mod database;
 pub use database::Database;
 
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
@@ -111,9 +111,14 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
 /// which stays unopened until first used.
 pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     handle_commands(builder.manage(Session::default())).setup(|app| {
-        // Local, not roaming, app data: history never leaves the machine with a
-        // roaming Windows profile.
-        app.manage(Database::new(app.path().app_local_data_dir().ok()));
+        // Portable mode, or else local, not roaming, app data: history never
+        // leaves the machine with a roaming Windows profile.
+        let executable = std::env::current_exe().ok();
+        let local = app.path().app_local_data_dir().ok();
+        app.manage(Database::new(database::location(
+            executable.as_deref(),
+            local,
+        )));
         Ok(())
     })
 }

@@ -198,11 +198,12 @@ the order listed.
     superseded operation keeps no late result.
   - [x] Open the local database in the local app data folder on first use, running
     SQLite calls off the async workers; record the location in a decision.
-  - [ ] Add a portable mode that keeps the database next to the application
+  - [x] Add a portable mode that keeps the database next to the application
     executable, with a seamless switch between it and the local app data folder
     (for example, detected from the executable's folder rather than a setting),
     and a safe way to move existing history between the two locations. Moved up
-    from the deferred list at the user's request.
+    from the deferred list at the user's request. A `data` folder beside the
+    executable switches it on; moving history is a documented manual copy.
   - [ ] Add a `retrieve_history` command: retrieve from the held context with
     its budget, cancellably, stream progress over a Tauri channel, resolve the
     account and preview it. Return the review or "no history found", with the
@@ -266,6 +267,10 @@ Done when a fresh profile can recover the same records and metadata from a backu
 
 
 ## Deferred low-priority follow-ups
+
+- [ ] On the first start in portable mode, when the `data` folder has no database
+  but the local folder does, offer to copy the history across: verify the copy
+  and keep the original. Replaces the documented manual copy.
 
 
 - [ ] Extend the review DTO with individual records, starting with highlighted

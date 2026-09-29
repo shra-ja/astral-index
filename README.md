@@ -131,6 +131,32 @@ debug builds keep the console for logs.
 `src-tauri/icons/icon.ico`, generated from `source.svg` with `npx tauri icon`,
 is required for Windows builds.
 
+## Where history is stored
+
+Imported history is kept in one SQLite file, `history.sqlite`, in the local app
+data folder:
+
+| Platform | Folder |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\com.shra-ja.roll-tracker` |
+| Linux, including a Linux build run in WSL | `~/.local/share/com.shra-ja.roll-tracker` (or `$XDG_DATA_HOME`) |
+
+**Portable mode:** if a folder named `data` sits next to the application
+executable, the database is kept in that folder instead, for example
+`D:\RollTracker\data\history.sqlite` beside `D:\RollTracker\roll-tracker.exe`.
+Create or remove the folder, then restart the app, to switch. If both locations
+hold a database, the portable one is used and the other is left untouched.
+
+To move existing history between the two locations:
+
+1. Close Roll Tracker.
+2. Copy `history.sqlite` from the old folder to the new one. Keep the original
+   until you have checked your history in the new location.
+3. Start Roll Tracker.
+
+See [decisions 0009](docs/decisions/0009-local-database-location.md) and
+[0010](docs/decisions/0010-portable-mode.md).
+
 ## Project context
 
 [AGENTS.md](AGENTS.md) supplies persistent instructions. All code changes require

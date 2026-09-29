@@ -71,6 +71,9 @@ impl Metadata {
     pub fn is_file(&self) -> bool {
         self.0
     }
+    pub fn is_dir(&self) -> bool {
+        !self.0
+    }
 }
 pub fn metadata(path: &Path) -> io::Result<Metadata> {
     access(path);
