@@ -1092,7 +1092,8 @@ build succeeded.
 
 The user's Windows retrieval with this rule brought in all collaboration rolls,
 but took noticeably longer. At the user's request, the roadmap gains an optional
-incremental-retrieval design step; the roadmap's pagination and endpoint items
+incremental-retrieval design step, with separate quick-refresh and
+full-retrieval actions at the user's choice; the roadmap's pagination and endpoint items
 are corrected.
 
 ## Next

@@ -236,10 +236,11 @@ the order listed.
   collaboration pages hold only 20 records. Design first: the contract makes
   duplicates no stopping rule today, because stopping early never fills a gap
   left by an earlier failed or partial import (as the collaboration categories
-  were before their endpoint was fixed). Consider a full retrieval on the first
-  import and whenever a category's last import did not finish cleanly, or
-  separate "quick update" and "full refresh" actions. Requesting both endpoints
-  concurrently is a later option only if live testing shows separate rate limits.
+  were before their endpoint was fixed). The user chose separate actions: a
+  quick refresh that stops at saved rolls, and a full retrieval as today, rather
+  than the app deciding when a full retrieval is needed. Requesting both
+  endpoints concurrently is a later option only if live testing shows separate
+  rate limits.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.
   - [ ] Verify request, preview, commit, restart and display end to end with
