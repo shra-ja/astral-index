@@ -27,7 +27,10 @@ inspect actual code before assuming a feature exists.
 
 ## Implementation conventions
 
-- Use vanilla TypeScript, Vite, npm, and Tauri 2 (decision 0001). Manage Node.js
+- Use Vue 3 with TypeScript 6, Vite, npm, and Tauri 2 (decisions 0001 and 0011).
+  Follow `create-vue` and Tauri conventions regardless of app size, and keep UI
+  components small and presentational: props in, events out, native calls and
+  flow logic outside them. Manage Node.js
   and Rust with asdf and `.tool-versions`. Use pinned rusqlite with bundled SQLite (decision 0003). Record consequential choices in
   `docs/decisions/` and update setup instructions when scaffolding the app.
 - Keep UI presentation, game rules, parsing, persistence, and OS discovery separate.
@@ -69,9 +72,11 @@ inspect actual code before assuming a feature exists.
 - Rust backend coverage must reach 100% from unit tests alone, with mocked
   filesystem/database APIs. Integration tests use real boundaries and cannot fill
   unit-coverage gaps. Only `src-tauri/src/main.rs` and `src-tauri/build.rs` retain
-  a separate 100% native gate while they remain minimal Tauri delegates; the
-  source-body guard in `scripts/tests/reports.test.ts` must fail if they change.
-  Reassess the exception before adding behavior to either wrapper.
+  a separate 100% native gate while they remain minimal Tauri delegates, and
+  `vite.config.ts`, which Vitest never measures, only delegates to the unit-tested
+  `scripts/vite-config.ts`. The source-body guard in `scripts/tests/reports.test.ts`
+  must fail if any of them changes. Reassess the exception before adding behavior
+  to any of them.
 - Include unexecuted source files in coverage. Enforce thresholds per file and per
   language/package; do not round up, rely on changed-lines-only coverage, or hide
   missed paths with exclusions, ignore annotations, or trivial assertions.

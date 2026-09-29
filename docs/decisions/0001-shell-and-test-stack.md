@@ -15,6 +15,8 @@ Imports, persistence and game rules remain outside this milestone.
 
 - Use vanilla TypeScript and Vite with npm, exact direct dependencies and a
   lockfile. No runtime UI framework or state-management library is needed yet.
+  (Superseded 2026-09-29 by [decision 0011](0011-vue-frontend.md): Vue 3 and
+  TypeScript 6.)
 - Use pinned Tauri 2 crates and Cargo.lock rather than the Tauri 3 alpha found
   during dependency discovery. Bundle assets; enable no capabilities/plugins.
   Production CSP denies network connections. Only development uses Vite.

@@ -7,11 +7,12 @@
     "node": "26.10.0"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
-    "build": "tsc --noEmit && vite build",
-    "test": "vitest run src/tests scripts/tests/unit --environment jsdom",
-    "coverage": "npm run coverage:json -- --coverage.reporter=html",
-    "coverage:json": "vitest run src/tests scripts/tests/unit --environment jsdom --coverage --coverage.provider=v8 --coverage.reportsDirectory=coverage/frontend --coverage.include='src/**/*.ts' --coverage.include='scripts/**/*.ts' --coverage.exclude='src/tests/**' --coverage.exclude='scripts/tests/**' --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.thresholds.perFile --coverage.thresholds.100",
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "vue-tsc --build",
+    "test": "vitest run --project ui --project tooling",
+    "coverage": "npm run coverage:json -- --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html",
+    "coverage:json": "vitest run --project ui --project tooling --coverage",
     "test:native": "npm run coverage:rust-unit && npm run test:rust-integration && npm run test:native-smoke && npm run coverage:native-report",
     "coverage:rust-unit": "vitest run tests/native-coverage.test.ts -t '^unit coverage$'",
     "test:rust-integration": "vitest run tests/native-coverage.test.ts -t '^integration tests$'",
@@ -29,14 +30,20 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.0",
+    "@tsconfig/node26": "26.0.1",
     "@types/node": "26.6.3",
+    "@vitejs/plugin-vue": "6.0.9",
     "@vitest/coverage-v8": "5.0.2",
+    "@vue/test-utils": "2.5.1",
+    "@vue/tsconfig": "0.9.1",
     "jsdom": "30.1.1",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
     "vite": "8.3.1",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "vue-tsc": "3.3.11"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.12.0"
+    "@tauri-apps/api": "2.12.0",
+    "vue": "3.5.43"
   }
 }

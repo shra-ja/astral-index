@@ -40,17 +40,21 @@ Use synthetic fixtures and deterministic clocks/data; never real player historie
 
 Keep tests with the layer they exercise:
 
-- `src/tests/`: frontend tests and frontend-only fixtures/helpers.
+- `src/tests/`: frontend tests and frontend-only fixtures/helpers, in the Vitest
+  `ui` project under jsdom. The next step moves the frontend to `src-ui/`, with
+  unit tests as sibling `*.test.ts` files and integration tests in `src-ui/tests/`
+  ([decision 0011](docs/decisions/0011-vue-frontend.md)).
 - Rust backend unit tests: use `#[cfg(test)] mod tests` beside the implementation
   in `src-tauri/src/`, following Rust conventions. Keep private implementation
   tests here; do not expose internals just for testing.
 - `src-tauri/tests/`: Cargo integration tests exercising the backend public API,
   with backend-only fixtures/helpers. Use Cargo's automatic test discovery.
   Keep helpers in subdirectories so they do not become empty test targets.
-- `scripts/tests/unit/`: development-tooling unit tests, discovered together with
-  `src/tests/` by both `npm test` and `npm run coverage`.
-- `scripts/tests/`: explicit coverage-report and mutation-probe suites; keep these
-  outside unit discovery to avoid recursive test runs.
+- `scripts/tests/unit/`: development-tooling unit tests in the Vitest `tooling`
+  project, under Node, discovered together with the `ui` project by both
+  `npm test` and `npm run coverage`.
+- `scripts/tests/`: explicit coverage-report and mutation-probe suites in the
+  `gates` project; keep these outside unit discovery to avoid recursive test runs.
 - Root `tests/`: application end-to-end tests spanning the frontend and backend,
   with their fixtures/helpers. Do not place layer-specific tests here.
 
@@ -93,6 +97,13 @@ both wrappers' current bodies: adding logic fails a guard and requires review of
 this exception. Move new functionality into unit-tested code rather than silently
 expanding the boundary-only coverage scope. `scripts/tests/reports.test.ts` is the
 single enforcement point for that allowlist and guard.
+
+`vite.config.ts` is the third exception ([decision 0011](docs/decisions/0011-vue-frontend.md)).
+Vitest always excludes its own config file from coverage, with no setting to
+override it, so the file only passes `process.env` to `viteConfig` in
+`scripts/vite-config.ts`, which holds every setting and is unit-tested at 100%.
+Unlike the Rust wrappers, the delegate has no coverage of its own; the same guard
+pins its body.
 
 - Require exactly 100% of executable lines, statements, functions, and branches
   for every first-party source file where those metrics apply. Enforce frontend

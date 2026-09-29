@@ -41,3 +41,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0008 — HTTPS transport](0008-https-transport.md)
 - [0009 — Local database location](0009-local-database-location.md)
 - [0010 — Portable mode](0010-portable-mode.md)
+- [0011 — Vue frontend](0011-vue-frontend.md)

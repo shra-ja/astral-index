@@ -1,6 +1,7 @@
 # Architecture
 
-The shell uses vanilla TypeScript, Vite/npm and Tauri 2; see decision 0001.
+The shell uses Vue 3 with TypeScript 6, Vite/npm and Tauri 2; see decisions 0001
+and 0011.
 Node.js and Rust are managed with asdf. The import/storage/service design below
 is implemented for the HSR response adapter and SQLite import services described below; acquisition and UI integration remain proposals. Instrumentation is documented in `TESTING.md`.
 
@@ -174,6 +175,13 @@ already saved and conflicting rolls for each warp. Save commits it and reports
 what was added; Discard, or Done when nothing is new, drops it. Conflicts are
 listed by warp, time and ID with Save disabled, since the native commit refuses
 them. Saving, discarding and failures return to the start controls.
+
+The review is the first Vue component ([decision 0011](decisions/0011-vue-frontend.md)):
+`src/components/ReviewPanel.vue` is presentational, taking a review and a busy
+flag and emitting `save`, `discard` and `done`, and focusing its heading as it
+mounts. `src/main.ts` renders it only while reviewing and makes the native calls
+for its choices. Warp names and plurals come from `src/format.ts`. The rest of
+the page moves to Vue components, a router and composables next.
 
 ## Statistics
 

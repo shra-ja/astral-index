@@ -38,6 +38,8 @@ const settle = () => new Promise(resolve => setTimeout(resolve));
 const cancelButton = () => panel().querySelector<HTMLButtonElement>('.cancel')!;
 const start = () => panel().querySelector<HTMLElement>('.start')!;
 const reviewPanel = () => panel().querySelector<HTMLElement>('.review')!;
+// The review is rendered only while one is shown.
+const reviewShown = () => panel().querySelector('.review') !== null;
 const reviewHeading = () => reviewPanel().querySelector('h3')!;
 const reviewButton = (name: string) =>
   [...reviewPanel().querySelectorAll('button')].find(button => button.textContent === name)!;
@@ -142,7 +144,7 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
   retrieval.resolve(review(412, 88));
   await settle();
   expect(calls).toEqual(['extract_automatically', 'retrieve_history']);
-  expect(reviewPanel().hidden).toBe(false);
+  expect(reviewShown()).toBe(true);
   expect(start().hidden).toBe(true);
   expect(cancelButton().hidden).toBe(true);
   expect(panel().getAttribute('aria-busy')).toBe('false');
@@ -167,13 +169,15 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
   serve({ commit_import: commit.handler });
   reviewButton('Save to this device').click();
   expect(extractionStatus()).toBe('Saving…');
+  // The review panel re-renders on the next tick.
+  await settle();
   expect(reviewButton('Save to this device').disabled).toBe(true);
   expect(reviewButton('Discard').disabled).toBe(true);
   expect(panel().getAttribute('aria-busy')).toBe('true');
   commit.resolve({ inserted: 412, duplicates: 88, conflicts: 0 });
   await settle();
   expect(extractionStatus()).toBe('Saved 412 new rolls to this device. 88 were already saved.');
-  expect(reviewPanel().hidden).toBe(true);
+  expect(reviewShown()).toBe(false);
   expect(start().hidden).toBe(false);
   expect(panel().getAttribute('aria-busy')).toBe('false');
   expect(document.activeElement).toBe(findButton());
@@ -211,7 +215,7 @@ test('discarding the review saves nothing', async () => {
   await settle();
   expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import']);
   expect(extractionStatus()).toBe('Discarded the retrieved history. Nothing was saved.');
-  expect(reviewPanel().hidden).toBe(true);
+  expect(reviewShown()).toBe(false);
   expect(start().hidden).toBe(false);
   expect(document.activeElement).toBe(findButton());
 });
@@ -229,7 +233,7 @@ test('when everything is already saved, Done replaces Save and Discard', async (
   await settle();
   expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import']);
   expect(extractionStatus()).toBe('Your saved history is already up to date.');
-  expect(reviewPanel().hidden).toBe(true);
+  expect(reviewShown()).toBe(false);
 });
 
 test('conflicting rolls are listed and cannot be saved', async () => {
@@ -261,9 +265,11 @@ test('conflicting rolls are listed and cannot be saved', async () => {
   serve({ retrieve_history: () => review(2) });
   findButton().click();
   await settle();
-  expect(conflicts.querySelectorAll('li')).toHaveLength(0);
-  expect(conflicts.hidden).toBe(true);
-  expect(save.hasAttribute('aria-describedby')).toBe(false);
+  // The panel renders each review afresh, so look its elements up again.
+  const next = reviewPanel().querySelector<HTMLElement>('.conflicts')!;
+  expect(next.querySelectorAll('li')).toHaveLength(0);
+  expect(next.hidden).toBe(true);
+  expect(reviewButton('Save to this device').hasAttribute('aria-describedby')).toBe(false);
 });
 
 test('each save failure explains what happened and returns to the start', async () => {
@@ -282,7 +288,7 @@ test('each save failure explains what happened and returns to the start', async 
     reviewButton('Save to this device').click();
     await settle();
     expect(extractionStatus()).toBe(message.endsWith('reports.') ? `${message} Nothing was saved.` : message);
-    expect(reviewPanel().hidden).toBe(true);
+    expect(reviewShown()).toBe(false);
     expect(start().hidden).toBe(false);
   }
 });

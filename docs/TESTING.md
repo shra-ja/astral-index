@@ -63,10 +63,11 @@ probe selections require the JSON preparation commands first.
 
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
-| `src/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |
+| `src/**/*.ts`, `src/**/*.vue` | Vitest V8 | Lines, statements, functions, branches: 100% |
 | `scripts/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |
 | Backend `src-tauri/src/**/*.rs` (except `main.rs`) | cargo-llvm-cov, **unit execution only** | Lines, regions, functions, branches: 100% |
 | `src-tauri/src/main.rs`, `src-tauri/build.rs` | Separate native boundary coverage; guarded minimal delegates | Lines, regions, functions, branches: 100% |
+| `vite.config.ts` | None: Vitest always excludes its own config file; a guarded one-line delegate to `scripts/vite-config.ts` | Not measurable; the delegated module is at 100% |
 
 LLVM uses executable regions rather than a distinct Rust statement metric. Zero
 branch points means there are no branches to cover; startup has no handwritten
