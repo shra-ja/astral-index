@@ -185,7 +185,10 @@ as a field later.
 The desktop layer keeps the database at `history.sqlite` in Tauri's local app
 data folder (`%LOCALAPPDATA%` on Windows, never the roaming profile; the XDG data
 folder on Linux, including WSL), resolved at setup but created and opened only on
-first use.
+first use. A `data` folder beside the executable switches on portable mode, and
+the database then lives there instead; `database::location` chooses, and a portable
+database is used even if the local folder also has one
+([decision 0010](decisions/0010-portable-mode.md)).
 `desktop::Database::run` runs SQLite work on Tokio's blocking pool, reusing the
 open store; failures are the safe storage `Database` error. See
 [decision 0009](decisions/0009-local-database-location.md). No command uses it

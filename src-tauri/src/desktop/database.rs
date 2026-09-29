@@ -12,6 +12,23 @@ use std::{
 
 /// The database file inside the local app data folder.
 pub const FILE_NAME: &str = "history.sqlite";
+/// A folder with this name beside the executable switches on portable mode.
+pub const PORTABLE_FOLDER: &str = "data";
+
+/// Where to keep the database: the `data` folder beside the executable if one
+/// exists (portable mode), otherwise the local app data folder. A portable
+/// database is used even when the local folder also has one; nothing is merged.
+pub fn location(executable: Option<&Path>, local: Option<PathBuf>) -> Option<PathBuf> {
+    let portable = executable
+        .and_then(Path::parent)
+        .map(|folder| folder.join(PORTABLE_FOLDER));
+    match portable {
+        Some(portable) if fs::metadata(&portable).is_ok_and(|metadata| metadata.is_dir()) => {
+            Some(portable)
+        }
+        _ => local,
+    }
+}
 
 /// Nothing is created or opened until the first `run`.
 pub struct Database {
@@ -90,6 +107,29 @@ mod tests {
         let mut steps = vec![open(path)];
         steps.extend(setup(true));
         steps
+    }
+
+    #[test]
+    fn a_data_folder_beside_the_executable_switches_on_portable_mode() {
+        let executable = Path::new("/apps/roll-tracker/roll-tracker.exe");
+        let data = PathBuf::from("/apps/roll-tracker/data");
+        let local = || Some(PathBuf::from("/local/com.example"));
+        filesystem::install(Fixture {
+            directories: vec![data.clone()],
+            ..Default::default()
+        });
+        assert_eq!(location(Some(executable), local()), Some(data.clone()));
+        // Without that folder, or with a file of that name, the local folder is used.
+        filesystem::install(Fixture::default());
+        assert_eq!(location(Some(executable), local()), local());
+        filesystem::install(Fixture {
+            files: [(data, vec![])].into(),
+            ..Default::default()
+        });
+        assert_eq!(location(Some(executable), local()), local());
+        // So it is without a known executable, or one with no folder.
+        assert_eq!(location(None, local()), local());
+        assert_eq!(location(Some(Path::new("")), local()), local());
     }
 
     #[test]

@@ -767,7 +767,7 @@ Clippy. `npm run tauri -- build --no-bundle` passed on Linux.
 
 ## Local database (2026-09-28)
 
-Work is on `feat/local-database`, branched from `main` at `3479fbe`: PR B of four
+Integrated through PR #32 (`b6e279e`), branched from `main` at `3479fbe`: PR B of four
 for the acquisition commands. `desktop::register` resolves Tauri's local app data
 folder in its setup hook and manages a `Database` for `history.sqlite` there.
 Nothing is created or opened until the first `Database::run`, which creates the
@@ -816,18 +816,42 @@ to the local app data folder. An earlier staged attempt failed only the source-i
 gate, which correctly flagged the staging script placed under `test-results/`; it
 now lives outside the repository. `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Portable mode (2026-09-29)
+
+Work is on `feat/portable-mode`, branched from `main` at `b6e279e`, at the user's
+request ahead of PR C. A folder named `data` beside the executable switches on
+portable mode: `database::location` returns it when it exists as a folder, and the
+local app data folder otherwise, and `register` passes it the path from
+`std::env::current_exe`. The user chose the `data` folder for detection, silent use
+of the portable database when both locations have one, and a documented manual
+copy for moving history; an in-app offer to copy on the first portable start is
+deferred on the roadmap. A file named `data` does not switch modes, and an
+unusable `data` folder fails to open rather than falling back. The README now says
+where history is stored, how portable mode works and how to copy history between
+locations. [Decision 0010](decisions/0010-portable-mode.md) records it.
+`desktop::database` is now public for the integration test, and the filesystem
+double's metadata gains `is_dir`.
+
+TDD: the location test failed against a stub that always returned the local
+folder, then passed. A new integration test creates a real `data` folder beside a
+synthetic executable path, opens the database there and checks the local folder is
+never created; it passed on its first run.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 119 Rust unit tests, 37 integration tests, 44 frontend/tooling tests,
+offline native execution, nine probes and five report checks, all at 100% per
+file, plus TypeScript/build, formatting and Clippy, peaking at about 3.5 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-Portable mode, moved up from the deferred list at the user's request: keep the
-database next to the executable when the app is used portably, switch between
-that and the local app data folder seamlessly, and move existing history safely
-between the two. Then PR C, `retrieve_history`: retrieve from the held context
-with its budget, cancellably, stream progress over a Tauri channel, resolve the
-account, preview it through the database, and return the review or "no history
-found", with the failing category and page for retrieval failures; clear the
-auth key when retrieval ends. Then `commit_import` and `discard_import`, the
-review and commit controls and history display. Account/server verification
-remains a milestone-closing requirement.
+PR C, `retrieve_history`: retrieve from the held context with its budget,
+cancellably, stream progress over a Tauri channel, resolve the account, preview it
+through the database, and return the review or "no history found", with the
+failing category and page for retrieval failures; clear the auth key when
+retrieval ends. Then `commit_import` and `discard_import`, the review and commit
+controls and history display. Account/server verification remains a
+milestone-closing requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

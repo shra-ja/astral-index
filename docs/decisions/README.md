@@ -40,3 +40,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0007 — Validate during extraction](0007-validate-during-extraction.md)
 - [0008 — HTTPS transport](0008-https-transport.md)
 - [0009 — Local database location](0009-local-database-location.md)
+- [0010 — Portable mode](0010-portable-mode.md)
