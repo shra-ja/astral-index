@@ -3,7 +3,7 @@
   "message": "OK",
   "data": {
     "page": "1",
-    "size": "20",
+    "size": "0",
     "region": "synthetic-server",
     "region_time_zone": 8,
     "list": [

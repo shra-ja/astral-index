@@ -1,5 +1,5 @@
 //! HTTPS transport for the history endpoint, bounded in time, bytes and redirects.
-use super::ENDPOINT;
+use super::ENDPOINTS;
 use crate::hsr::MAX_RESPONSE_BYTES;
 use std::{future::Future, time::Duration};
 
@@ -54,7 +54,7 @@ impl HttpTransport {
 }
 impl Transport for HttpTransport {
     async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
-        if !url.starts_with(ENDPOINT) {
+        if !ENDPOINTS.iter().any(|endpoint| url.starts_with(endpoint)) {
             return Err(TransportError::UnsupportedUrl);
         }
         let mut response = self.client.get(url).send().await.map_err(failure)?;
@@ -85,6 +85,7 @@ fn failure(error: http::Error) -> TransportError {
 pub(crate) mod tests {
     pub(crate) mod http;
     use super::*;
+    use crate::acquisition::ENDPOINT;
     use http::{Error, Fixture, Plan};
 
     fn run<T>(future: impl Future<Output = T>) -> T {
@@ -140,6 +141,7 @@ pub(crate) mod tests {
             url().replace("https:", "http:"),
             url().replace(".com/", ".com.evil/"),
             url().replace(".com/", ".com:443/"),
+            url().replace("getGachaLog?", "getLdGachaLogs?"),
             "https://example.com/".to_owned(),
             String::new(),
         ] {
@@ -149,6 +151,14 @@ pub(crate) mod tests {
             );
         }
         http::inspect(|state| assert!(state.requested.is_empty()));
+    }
+
+    #[test]
+    fn the_collaboration_endpoint_is_requested_too() {
+        let transport = respond(vec![ok(vec![b"body".to_vec()])]);
+        let collaboration = url().replace("getGachaLog?", "getLdGachaLog?");
+        assert_eq!(run(transport.get(&collaboration)), Ok(b"body".to_vec()));
+        http::inspect(|state| assert_eq!(state.requested, std::slice::from_ref(&collaboration)));
     }
 
     #[test]

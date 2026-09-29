@@ -36,6 +36,7 @@ mod tests {
 
     const PAGE: &[u8] = include_bytes!("../../tests/fixtures/hsr-api/page.json");
     const EXPIRED: &[u8] = br#"{"retcode":-101,"message":"synthetic","data":null}"#;
+    const EMPTY: &[u8] = br#"{"retcode":0,"message":"OK","data":{"region":"synthetic-server","region_time_zone":8,"list":[]}}"#;
 
     fn run<T>(future: impl Future<Output = T>) -> T {
         tokio::runtime::Builder::new_current_thread()
@@ -155,9 +156,9 @@ mod tests {
         let result = run(validate(&Cancellable::new(&transport, &token), requests()));
         assert_eq!(result.unwrap_err(), FetchFailure::Cancelled);
         assert_eq!(transport.inner.requested().len(), 1);
-        // Two of six categories are retrieved, and nothing is returned.
+        // Stellar's two pages are retrieved, then nothing more, and nothing is returned.
         let token = CancellationToken::new();
-        let transport = cancels_at_end(&[PAGE, PAGE], &token);
+        let transport = cancels_at_end(&[PAGE, EMPTY], &token);
         let context = requests().remove(0).into_context();
         let result = run(fetch_history(
             &Cancellable::new(&transport, &token),

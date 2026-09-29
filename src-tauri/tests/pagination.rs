@@ -30,8 +30,11 @@ fn retrieved_history_previews_and_commits_through_storage() {
         .unwrap()
         .remove(0)
         .into_context();
-    // The synthetic records sit in the character event category, third of six.
-    let transport = Scripted(Mutex::new([EMPTY, EMPTY, PAGE, EMPTY, EMPTY, EMPTY].into()));
+    // The synthetic records sit in the character event category, third of six,
+    // which an empty page then ends.
+    let transport = Scripted(Mutex::new(
+        [EMPTY, EMPTY, PAGE, EMPTY, EMPTY, EMPTY, EMPTY].into(),
+    ));
     let history = tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap()

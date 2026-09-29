@@ -4,7 +4,7 @@ use super::{
     transport_failure,
 };
 use crate::MAX_BATCH_BYTES;
-use std::{cmp::Ordering, collections::HashSet, fmt, num::NonZeroU32, time::Duration};
+use std::{collections::HashSet, fmt, num::NonZeroU32, time::Duration};
 
 /// Retrieval progress for the user deciding whether to stop. Categories and counts
 /// only: no IDs, URLs or response text.
@@ -93,10 +93,12 @@ impl History {
 /// Fetch every page of all six categories, in order. Call only on an explicit
 /// user request, with a context that passed validation.
 ///
-/// Each category starts at page 1 with no cursor. A page with fewer records than
-/// requested, including none, is its last. A full page advances the page and the
-/// cursor, which is its last record's ID; a cursor seen before in the category is
-/// a cycle. A page with more records than requested is invalid. Any failure stops
+/// Each category starts at page 1 with no cursor, and only an empty page ends it:
+/// the collaboration endpoint caps pages below the request, and the echoed `size`
+/// is not reliable (the normal endpoint echoes "0"), so a short page is not taken
+/// as the last. Any other page advances the page and the cursor, which is its last
+/// record's ID; a cursor seen before in the category is a cycle. A page with more
+/// records than requested is invalid. Any failure stops
 /// retrieval, as does passing the batch bound, before a further request.
 pub async fn fetch_history(
     transport: &impl Transport,
@@ -142,18 +144,17 @@ pub async fn fetch_history(
             }
             responses.push(body);
             records_received += records.len();
-            match records.len().cmp(&PAGE_SIZE) {
-                Ordering::Less => break,
-                Ordering::Equal => {
-                    let roll = records.swap_remove(PAGE_SIZE - 1);
-                    if !cursors.insert(roll.id.clone()) {
-                        return Err(AcquisitionError::CursorCycle);
-                    }
-                    last = Some(roll);
-                    page = page.saturating_add(1);
-                }
-                Ordering::Greater => return Err(FetchFailure::InvalidResponse.into()),
+            if records.len() > PAGE_SIZE {
+                return Err(FetchFailure::InvalidResponse.into());
             }
+            let Some(roll) = records.pop() else {
+                break;
+            };
+            if !cursors.insert(roll.id.clone()) {
+                return Err(AcquisitionError::CursorCycle);
+            }
+            last = Some(roll);
+            page = page.saturating_add(1);
         }
     }
     let account = match (uid, server) {
@@ -179,7 +180,8 @@ mod tests {
     use crate::MAX_BATCH_BYTES;
     use crate::acquisition::tests::scripted::{Scripted, ignore};
     use crate::acquisition::{
-        Category, ENDPOINT, PAGE_SIZE, TransportError, extract_request_contexts,
+        COLLABORATION_ENDPOINT, Category, ENDPOINT, PAGE_SIZE, TransportError,
+        extract_request_contexts,
     };
     use serde_json::json;
     use std::{future::Future, ops::Range};
@@ -201,8 +203,12 @@ mod tests {
     }
     /// The URL expected for a category's page after the given cursor.
     fn url(category: Category, page: u32, end_id: &str) -> String {
+        let endpoint = match category.code() {
+            "21" | "22" => COLLABORATION_ENDPOINT,
+            _ => ENDPOINT,
+        };
         format!(
-            "{ENDPOINT}authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en&gacha_type={}&page={page}&size={PAGE_SIZE}&end_id={end_id}",
+            "{endpoint}authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en&gacha_type={}&page={page}&size={PAGE_SIZE}&end_id={end_id}",
             category.code()
         )
     }
@@ -223,7 +229,7 @@ mod tests {
             .collect();
         let mut bytes = serde_json::to_vec(&json!({
             "retcode": 0, "message": "OK",
-            "data": { "page": "1", "size": "1000", "region": "synthetic-server",
+            "data": { "page": "1", "size": "0", "region": "synthetic-server",
                       "region_time_zone": 8, "list": list },
         }))
         .unwrap();
@@ -252,18 +258,18 @@ mod tests {
     }
 
     #[test]
-    fn fetches_each_category_in_order_until_a_short_page() {
-        let bodies: Vec<_> = Category::ALL
-            .into_iter()
-            .enumerate()
-            .map(|(index, category)| body(category, index as u64..index as u64 * 2, None))
-            .collect();
+    fn fetches_each_category_in_order_until_an_empty_page() {
+        // Stellar has no records; each later category has some, then an empty page.
+        let mut bodies = vec![empty(Category::Stellar)];
+        let mut expected = vec![url(Category::Stellar, 1, "0")];
+        for (index, category) in Category::ALL.into_iter().enumerate().skip(1) {
+            let first = index as u64;
+            bodies.extend([body(category, first..first * 2, None), empty(category)]);
+            expected.extend([url(category, 1, "0"), url(category, 2, &id(first * 2 - 1))]);
+        }
         let transport = scripted(&bodies);
         let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
-        assert_eq!(
-            transport.requested(),
-            Category::ALL.map(|category| url(category, 1, "0")).to_vec()
-        );
+        assert_eq!(transport.requested(), expected);
         assert_eq!(
             history.responses(),
             bodies.iter().map(Vec::as_slice).collect::<Vec<_>>()
@@ -276,6 +282,7 @@ mod tests {
         let mut bodies = vec![
             full(Category::Stellar, 1),
             body(Category::Stellar, 2001..2003, None),
+            empty(Category::Stellar),
         ];
         bodies.extend(empty_after(Category::Stellar));
         let events = std::sync::Mutex::new(Vec::new());
@@ -289,16 +296,17 @@ mod tests {
         };
         let events = events.into_inner().unwrap();
         assert_eq!(
-            events[..3],
+            events[..4],
             [
                 requesting(Category::Stellar, 1, 0, 0),
                 requesting(Category::Stellar, 2, 1, 1000),
-                requesting(Category::Departure, 1, 2, 1002),
+                requesting(Category::Stellar, 3, 2, 1002),
+                requesting(Category::Departure, 1, 3, 1002),
             ]
         );
         assert_eq!(
-            events[6..],
-            [requesting(Category::LightConeCollaboration, 1, 6, 1002)]
+            events[7..],
+            [requesting(Category::LightConeCollaboration, 1, 7, 1002)]
         );
     }
 
@@ -324,6 +332,7 @@ mod tests {
         // Only an empty page names the server; the others omit it.
         let mut bodies = vec![
             with_region(body(Category::Stellar, 1..3, None), json!(null)),
+            with_region(empty(Category::Stellar), json!(null)),
             empty(Category::Departure),
         ];
         bodies.extend(
@@ -356,11 +365,11 @@ mod tests {
         let first = body(Category::Stellar, 1..3, None);
         for (second, error) in [
             (
-                with_uid(body(Category::Departure, 4..6, None), "100000009"),
+                with_uid(body(Category::Stellar, 4..6, None), "100000009"),
                 AcquisitionError::MixedAccounts,
             ),
             (
-                with_region(empty(Category::Departure), json!("other-server")),
+                with_region(empty(Category::Stellar), json!("other-server")),
                 AcquisitionError::MixedServers,
             ),
         ] {
@@ -375,15 +384,61 @@ mod tests {
 
     #[test]
     fn records_without_a_named_server_are_rejected() {
-        let bodies = [body(Category::Stellar, 1..3, None)]
-            .into_iter()
-            .chain(empty_after(Category::Stellar))
-            .map(|page| with_region(page, json!(null)))
-            .collect::<Vec<_>>();
+        let bodies = [
+            body(Category::Stellar, 1..3, None),
+            empty(Category::Stellar),
+        ]
+        .into_iter()
+        .chain(empty_after(Category::Stellar))
+        .map(|page| with_region(page, json!(null)))
+        .collect::<Vec<_>>();
         assert_eq!(
             run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap_err(),
             AcquisitionError::MissingServer
         );
+    }
+
+    fn with_size(bytes: Vec<u8>, size: serde_json::Value) -> Vec<u8> {
+        edit(bytes, |data| data["size"] = size)
+    }
+    /// Empty pages for every category before `category`.
+    fn empty_before(category: Category) -> Vec<Vec<u8>> {
+        Category::ALL
+            .into_iter()
+            .take_while(|other| *other != category)
+            .map(empty)
+            .collect()
+    }
+
+    #[test]
+    fn short_pages_continue_until_an_empty_page_whatever_size_is_echoed() {
+        // The collaboration endpoint caps pages at 20 and echoes that; the normal
+        // endpoint echoes "0". Neither echo ends a category early.
+        let category = Category::CharacterCollaboration;
+        let page = |ids, size| with_size(body(category, ids, None), size);
+        let unsized_page = edit(body(category, 41..45, None), |data| {
+            data.as_object_mut().unwrap().remove("size");
+        });
+        let mut bodies = empty_before(category);
+        bodies.extend([
+            page(1..21, json!("20")),
+            page(21..41, json!("0")),
+            unsized_page,
+            empty(category),
+        ]);
+        bodies.extend(empty_after(category));
+        let transport = scripted(&bodies);
+        let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
+        assert_eq!(
+            transport.requested()[4..8],
+            [
+                url(category, 1, "0"),
+                url(category, 2, &id(20)),
+                url(category, 3, &id(40)),
+                url(category, 4, &id(44)),
+            ]
+        );
+        assert_eq!(history.responses().len(), bodies.len());
     }
 
     #[test]

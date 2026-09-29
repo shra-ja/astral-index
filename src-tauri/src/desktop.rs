@@ -778,10 +778,11 @@ mod tests {
         steps.extend(setup(true));
         steps
     }
-    /// The fixture page answers the first category, and empty pages the rest.
+    /// The fixture page answers the first category, then an empty page ends it and
+    /// each of the rest.
     fn pages() -> Vec<Result<Vec<u8>, TransportError>> {
         let mut pages = vec![Ok(PAGE.to_vec())];
-        pages.extend((0..5).map(|_| Ok(EMPTY.to_vec())));
+        pages.extend((0..6).map(|_| Ok(EMPTY.to_vec())));
         pages
     }
     /// Discard progress in tests that do not check it.
@@ -815,11 +816,11 @@ mod tests {
         assert_eq!(review["kind"], "review");
         assert_eq!(review["uid"], "100000002");
         assert_eq!(review["summary"]["inserted"], 2);
-        assert_eq!(transport.requested().len(), 7);
+        assert_eq!(transport.requested().len(), 8);
         let events = events.into_inner().unwrap();
         assert_eq!(events[1], ProgressEvent::RetryPending { delay_ms: 1000 });
         assert_eq!(
-            [events[0].clone(), events[2].clone()],
+            [events[0].clone(), events[2].clone(), events[3].clone()],
             [
                 ProgressEvent::Requesting {
                     gacha_type: "1",
@@ -828,9 +829,15 @@ mod tests {
                     records: 0
                 },
                 ProgressEvent::Requesting {
+                    gacha_type: "1",
+                    page: 2,
+                    pages: 1,
+                    records: 2
+                },
+                ProgressEvent::Requesting {
                     gacha_type: "2",
                     page: 1,
-                    pages: 1,
+                    pages: 2,
                     records: 2
                 },
             ]
@@ -1209,7 +1216,7 @@ mod tests {
         script.extend(preview_script());
         sql::expect(script);
         // The last response still arrives, so the preview is built, then refused.
-        let transport = Serving::cancelling(&session, 6, pages());
+        let transport = Serving::cancelling(&session, 7, pages());
         let failure = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
         sql::finish();
         assert_eq!(failure.err().unwrap(), Failure::Cancelled.into());

@@ -28,6 +28,10 @@ pub use validation::{MAX_VALIDATED_CONTEXTS, validate};
 pub const MAX_CACHE_BYTES: usize = 16 * 1024 * 1024;
 const ENDPOINT: &str =
     "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?";
+/// Collaboration warps have their own history endpoint; either one accepts the key.
+const COLLABORATION_ENDPOINT: &str =
+    "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getLdGachaLog?";
+const ENDPOINTS: [&str; 2] = [ENDPOINT, COLLABORATION_ENDPOINT];
 
 /// Opaque native-only credentials. Never serialize this value into webview state.
 #[derive(PartialEq, Eq)]
@@ -182,7 +186,9 @@ pub fn extract_request_contexts(bytes: &[u8]) -> Result<Vec<CachedRequest>, Cach
 fn parse_candidate(segment: &str) -> Option<CachedRequest> {
     let (url, _) = segment.split_once('\0')?;
     // Exact wire spelling deliberately rejects userinfo, ports, fragments and path aliases.
-    let query = url.strip_prefix(ENDPOINT)?;
+    let query = ENDPOINTS
+        .iter()
+        .find_map(|endpoint| url.strip_prefix(endpoint))?;
     if query.contains('#') {
         return None;
     }
@@ -297,6 +303,19 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn cached_collaboration_requests_supply_contexts_too() {
+        let collaboration = url("synthetic").replace(ENDPOINT, COLLABORATION_ENDPOINT);
+        let requests = extract_request_contexts(&cache(&[url("synthetic"), collaboration.clone()]));
+        // The same key cached from both endpoints is one context, with its last URL.
+        let urls: Vec<_> = requests
+            .unwrap()
+            .iter()
+            .map(|request| request.url().to_owned())
+            .collect();
+        assert_eq!(urls, [collaboration]);
+    }
+
+    #[test]
     fn refuses_unsupported_or_ambiguous_urls_without_echoing_source() {
         let valid = url("synthetic");
         let invalid = [
@@ -306,6 +325,8 @@ pub(crate) mod tests {
             valid.replace(".com/", ".com:443/"),
             valid.replace("https://", "https://user@"),
             valid.replace("getGachaLog?", "getGachaLog/../getGachaLog?"),
+            valid.replace("getGachaLog?", "getLdGachaLogs?"),
+            valid.replace("getGachaLog?", "getldGachaLog?"),
             format!("{valid}#secret"),
             valid.replace("authkey=synthetic&", ""),
             valid.replace("authkey=synthetic", "authkey="),

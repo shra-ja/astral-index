@@ -26,7 +26,8 @@ extraction does not generate a key or establish its lifetime.
 Local extraction from the original supplied cache found 414 candidates, all HTTPS
 requests to `public-operation-hkrpg-sg.hoyoverse.com` at
 `/common/hkrpg_gacha_record/api/getGachaLog`. Every candidate contained the five
-context fields listed below. No `getLdGachaLog` candidate was found. Subsequent
+context fields listed below. No `getLdGachaLog` candidate was found then; the
+[collaboration endpoint](#collaboration-endpoint-2026-09-29) was found later. Subsequent
 user-authorized requests retrieved records and verified cursor pagination.
 
 ## Extraction and acquisition flow
@@ -221,6 +222,74 @@ The client must inspect `retcode` even when HTTP succeeds. On `-101`, stop witho
 retrying or committing history and ask the user to refresh the key. Match the
 numeric code rather than requiring the diagnostic string. No credentials,
 request URL or private history are included in this evidence.
+
+## Collaboration endpoint (2026-09-29)
+
+Windows testing of the first complete retrieval found no records for categories
+`21` and `22`, although the account has collaboration rolls; the other categories
+matched the game. The user then opened both collaboration histories in the game.
+A read-only scan of the updated `data_2`, printing only hosts, paths, parameter
+names and `gacha_type`, `game_biz` and `lang` values, found:
+
+| Path | `gacha_type` | Requests |
+| --- | --- | --- |
+| `/common/hkrpg_gacha_record/api/getGachaLog` | `1`, `11` | 2 |
+| `/common/hkrpg_gacha_record/api/getLdGachaLog` | `21` (3), `22` (2) | 5 |
+
+Both paths used the same host and the same query parameter names. Every request
+carried a distinct auth key (seven in all; compared for equality only), so the
+cache could not show whether one key serves both endpoints.
+
+With the user's authorization, three paced requests (`size=5`, `page=1`,
+`end_id=0`, redirects disabled) were sent using the newest cached key of each
+kind. Only status, `retcode`, `message`, field names and value types were
+printed; raw responses were not saved.
+
+| Request | Outcome |
+| --- | --- |
+| `getGachaLog` key to `getLdGachaLog`, type `21` | HTTP 200, `retcode 0`, 5 records, all `gacha_type` `21` |
+| `getLdGachaLog` key to `getGachaLog`, type `1` | HTTP 200, `retcode 0`, 5 records, all `gacha_type` `1` |
+| `getLdGachaLog` key to `getLdGachaLog`, type `22` | HTTP 200, `retcode 0`, 5 records, all `gacha_type` `22` |
+
+All three had the same shape as `getGachaLog` responses: `data` with string
+`page` and `size`, string `region`, integer `region_time_zone`, the record `list`
+and an empty `list_v2`; records with string `uid`, `gacha_id`, `gacha_type`,
+`item_id`, `count`, `time`, `name`, `lang`, `item_type`, `rank_type` and `id`. So
+collaboration categories use `getLdGachaLog`, keys work across both endpoints,
+and the parser needs no change. The earlier note that no `getLdGachaLog`
+candidate was found reflected a cache without collaboration history requests.
+
+### Collaboration page size
+
+With the endpoint corrected, a Windows retrieval returned exactly 20 records for
+each collaboration category, far fewer than the account has. With the user's
+authorization, fifteen further requests (one second apart, redirects disabled)
+fetched five cursor-advanced pages of type `21` from `getLdGachaLog` at each of
+`size=5`, `20` and `1000`, using the newest cached collaboration key. Only
+counts, echoed metadata and comparison results were printed; responses were not
+saved.
+
+| Requested `size` | Records per page | Echoed `data.page` | Echoed `data.size` |
+| --- | --- | --- | --- |
+| `5` | 5 on each page | `"1"` to `"5"` | `"5"` |
+| `20` | 20 on each page | `"1"` to `"5"` | `"20"` |
+| `1000` | 20 on each page | `"1"` to `"5"` | `"20"` |
+
+Each run's IDs were unique and strictly descending, and every record had type
+`21`; `list_v2` was always empty. The first 25 records were identical in order
+and every field across all three sizes, and the first 100 identical between
+sizes `20` and `1000`. So `getLdGachaLog` caps pages at 20 and reports the cap in
+`data.size`, and the page size changes only how records are split, not which
+records are returned. The game's own cached requests use `size=5` on both
+endpoints, so the cache gives no evidence of the cap.
+
+Comparing pages with the echoed size instead of the requested one failed at once
+on Windows: the first Stellar page was rejected as unreadable. Every saved
+`getGachaLog` response from the 2026-09-19 research echoes `size` as `"0"`,
+whether 10, 100, 1000 or 5000 was requested and whether the page was full (for
+example, 1000 records for type `11` at `size=1000`, and 221 for type `1`). The
+echo is therefore endpoint-specific and not a usable measure. Pagination now ends
+a category only on an empty page, ignoring the echo.
 
 ## Translation into the application later
 

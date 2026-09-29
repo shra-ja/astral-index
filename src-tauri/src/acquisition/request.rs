@@ -1,5 +1,5 @@
-//! Page requests for the single history endpoint, built from an extracted context.
-use super::{ENDPOINT, RequestContext};
+//! Page requests for each category's history endpoint, built from an extracted context.
+use super::{COLLABORATION_ENDPOINT, ENDPOINT, RequestContext};
 use crate::hsr::{Category, Roll};
 use std::{fmt, num::NonZeroU32};
 
@@ -45,9 +45,15 @@ impl RequestContext {
             Cursor::Start => "0".to_owned(),
             Cursor::After(roll) => encode(&roll.id),
         };
+        let endpoint = match category {
+            Category::CharacterCollaboration | Category::LightConeCollaboration => {
+                COLLABORATION_ENDPOINT
+            }
+            _ => ENDPOINT,
+        };
         PageRequest {
             url: format!(
-                "{ENDPOINT}{}&gacha_type={}&page={page}&size={PAGE_SIZE}&end_id={end_id}",
+                "{endpoint}{}&gacha_type={}&page={page}&size={PAGE_SIZE}&end_id={end_id}",
                 self.fields.join("&"),
                 category.code()
             ),
@@ -72,7 +78,7 @@ fn encode(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::extract_request_contexts;
+    use crate::acquisition::{COLLABORATION_ENDPOINT, extract_request_contexts};
 
     fn context(key: &str) -> RequestContext {
         let url = format!(
@@ -130,6 +136,23 @@ mod tests {
             request
                 .url()
                 .ends_with("&gacha_type=22&page=2&size=1000&end_id=1780000000000000001")
+        );
+    }
+
+    #[test]
+    fn collaboration_warps_are_requested_from_their_own_endpoint() {
+        let endpoints: Vec<_> = Category::ALL
+            .iter()
+            .map(|&category| {
+                let request = context("synthetic").page_request(category, page(1), Cursor::Start);
+                let url = request.url().to_owned();
+                url[..url.find('?').unwrap() + 1].to_owned()
+            })
+            .collect();
+        let (normal, collaboration) = (ENDPOINT, COLLABORATION_ENDPOINT);
+        assert_eq!(
+            endpoints,
+            [normal, normal, normal, normal, collaboration, collaboration]
         );
     }
 

@@ -1009,7 +1009,7 @@ the `cargo-xwin` Windows build succeeded.
 
 ## Rate-limit pacing (2026-09-29)
 
-Work is on `fix/rate-limit-pacing`, branched from `main` at `351ed8a`. While
+Integrated through PR #39 (`e612e25`), branched from `main` at `351ed8a`. While
 testing the data folder on Windows, one retrieval stopped at page 2 with "didn't
 accept your warp history link (error -110)"; retrying a little later worked. The
 key was about an hour old, and several retrievals had just run with no pause
@@ -1036,12 +1036,69 @@ earlier one matched such a run too. Manual Cargo runs reuse artifacts the
 coverage gates instrumented, which then write profiles without a configured path.
 It was deleted; the gates themselves leave none.
 
+## Collaboration endpoint (2026-09-29)
+
+Work is on `fix/collaboration-endpoint`, branched from `main` at `e612e25`. The
+Windows test of PR #37 found no records for either collaboration warp, although
+the account has some: the normal endpoint accepts `21` and `22` but returns an
+empty list, so those rolls were silently omitted. After the user opened both
+collaboration histories in the game, a redacted read-only scan of the cache found
+them requested from `getLdGachaLog`, and three user-authorized requests confirmed
+that keys work on both endpoints and the response shape is identical (see the
+[research](HSR-API-RESEARCH.md#collaboration-endpoint-2026-09-29)).
+
+Page requests for `21` and `22` now go to `getLdGachaLog`; extraction accepts
+cached requests to either endpoint, so a key found only in a collaboration request
+still works; and the HTTP transport's guard allows exactly the two endpoints. The
+same key cached from both endpoints is one context. The contract, research notes,
+ARCHITECTURE and IMPORTS record the correction. Histories saved before this fix
+lack collaboration rolls; retrieving again adds them, as stored rolls are
+recognised as duplicates.
+
+TDD: four tests (the endpoint per category, cached collaboration requests
+supplying contexts, the transport allowing the collaboration endpoint, and
+pagination expecting collaboration URLs) failed, then passed; the refused-URL and
+transport-guard cases gained near-miss collaboration spellings.
+
+A Windows retrieval with the endpoint fixed returned exactly 20 records for each
+collaboration warp, far fewer than the account has. Fifteen more user-authorized,
+paced requests (five pages each at sizes 5, 20 and 1000) showed that
+`getLdGachaLog` caps pages at 20, echoing that as `data.size`, and that the
+records are identical whatever the size. The short-page rule compared pages with
+the requested 1000, so each collaboration warp stopped after its first page.
+
+A first fix compared pages with the echoed size instead; on Windows it rejected
+the first Stellar page at once. The saved research responses show `getGachaLog`
+always echoes `size` as `"0"`, a fact the synthetic fixtures (echoing `"20"`) had
+hidden; it should have been checked before relying on the echo. At the user's
+choice, pagination now ends a category only on an empty page and ignores the echo,
+at the cost of one request per category with records. A page with more records
+than requested is still invalid, and a repeated cursor is still a cycle. Requests
+stay at 1000 on both endpoints. The fixtures now echo `"0"`, like real
+`getGachaLog` responses, and the contract and research record the evidence.
+
+TDD: the pagination tests were rewritten for the rule, with fixtures echoing
+`"0"`: pages of 20, then an echoed `"0"`, then no `size`, continue until an empty
+page, and each category with records needs its empty page. Ten failed against the
+echoed-size rule, then passed. Desktop, cancellation and integration scripts
+gained the empty page after the fixture page.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 142 Rust unit tests, 60 frontend/tooling tests, offline native execution,
+nine probes and five report checks, all at 100% per file, plus TypeScript/build,
+formatting and Clippy, peaking at about 3.5 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux, and the `cargo-xwin` Windows
+build succeeded.
+
+The user's Windows retrieval with this rule brought in all collaboration rolls,
+but took noticeably longer. At the user's request, the roadmap gains an optional
+incremental-retrieval design step; the roadmap's pagination and endpoint items
+are corrected.
+
 ## Next
 
-The collaboration warps: confirm from a cache or a user-made request that `21`
-and `22` use the `getLdGachaLog` endpoint, then request them there and accept it
-in extraction. Then the framework and visual-design decision, and the
-stored-history display. Account/server verification remains a milestone-closing
+The framework and visual-design decision (a new decision record), then the
+stored-history display. Incremental retrieval is an optional design step. Account/server verification remains a milestone-closing
 requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
