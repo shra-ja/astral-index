@@ -63,7 +63,8 @@ mutation probe still fails a permissive `connect-src *` policy.
 ## Frontend client
 
 The webview calls the commands through the official `@tauri-apps/api` package,
-pinned exactly to 2.11.1 to match the Rust `tauri` 2.11 line. It has no
+pinned exactly to match the Rust `tauri` minor line: 2.11.1 at first, 2.12.0
+with `tauri` 2.12 since 2026-09-29. It has no
 dependencies and replaces the undocumented `__TAURI_INTERNALS__` object; its
 `mockIPC` helper lets frontend tests script native results.
 

@@ -113,7 +113,7 @@ milestone 6 work. It was used for the
 
 ```sh
 sudo apt-get install -y clang lld llvm
-rustup target add x86_64-pc-windows-msvc --toolchain nightly-2026-09-16
+rustup target add x86_64-pc-windows-msvc --toolchain nightly-2026-09-28
 cargo install cargo-xwin --version 0.23.1 --locked
 asdf reshim
 npm run tauri -- build --runner cargo-xwin --target x86_64-pc-windows-msvc --no-bundle
