@@ -1205,6 +1205,11 @@ rule; there is no behaviour change.
   tests anyway.
 - **Types:** the root `tsconfig.json` references `src-ui/` (app, UI-test and build
   projects) and a root Node project; `vue-tsc --build` checks all.
+- **Config imports:** both delegates import their modules with the `.ts`
+  extension (`./build/vite.ts`, `./tooling/vitest-config.ts`), which Vite's
+  planned native config loader requires; it warned on every run before. Both Node
+  type projects allow `.ts` imports, which is safe as they never emit. The guard's
+  pinned text changed first and failed, then passed.
 - **Root tooling:** at the user's request, `scripts/` is split in two. The tooling
   modules (`coverage.ts`, `native-coverage.ts`, `vitest-config.ts`) move to
   `tooling/` with their unit tests beside them, including `ci.test.ts`; the report

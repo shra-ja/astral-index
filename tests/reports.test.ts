@@ -76,11 +76,11 @@ for (const [name, reportPath, boundary] of [
 test('startup/build exceptions remain minimal third-party delegates', () => {
   // Vitest excludes config files from coverage; the configurations themselves are unit-tested.
   expect(readFileSync('src-ui/vite.config.ts', 'utf8').trim()).toBe(`import { defineConfig } from 'vitest/config';
-import { viteConfig } from './build/vite';
+import { viteConfig } from './build/vite.ts';
 
 export default defineConfig(() => viteConfig(process.env));`);
   expect(readFileSync('vitest.config.ts', 'utf8').trim()).toBe(`import { defineConfig } from 'vitest/config';
-import { vitestConfig } from './tooling/vitest-config';
+import { vitestConfig } from './tooling/vitest-config.ts';
 
 export default defineConfig(vitestConfig());`);
   // Registration and the command list live in unit-tested library code; these only delegate.
