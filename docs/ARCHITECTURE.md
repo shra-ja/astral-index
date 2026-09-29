@@ -98,10 +98,11 @@ Render imported names as text, and keep raw source payloads out of normal logs.
 ### Desktop extraction commands
 
 `src-tauri/src/desktop.rs` registers `extract_automatically`,
-`extract_from_file`, `cancel_acquisition` and `retrieve_history`, listed once in
+`extract_from_file`, `cancel_acquisition`, `retrieve_history`, `commit_import`
+and `discard_import`, listed once in
 `src/desktop/commands.in` for both the library and the `build.rs` app manifest.
 Declaring the manifest makes every app command require a capability grant;
-`capabilities/main.json` grants only these four to the main window for local
+`capabilities/main.json` grants only these six to the main window for local
 content. Undeclared commands are refused.
 
 The session holds the current acquisition in memory: the validated context, the
@@ -125,6 +126,12 @@ the operation was cancelled meanwhile, and returns the review as
 `{"kind":"review", ...}`. New failure kinds are `no_context`,
 `history_too_large`, `mixed_accounts`, `missing_server`, `storage`,
 `context_mismatch`, `conflict` and `stale_preview`; the last two are for commit.
+`commit_import` takes the held preview and commits it through `Database::run`
+with the current Unix time, returning the summary of rolls added, duplicates and
+conflicts. The preview is used up whatever the outcome: a conflict or
+`stale_preview` means retrieving again. A commit is atomic and quick, so it is
+not cancellable. `discard_import` drops the held preview without writing;
+without one, commit fails with `no_preview` and discard does nothing.
 Unit tests replace Tokio's `spawn_blocking` with an inline double, so the scripted
 SQL double is visible; the database integration test covers the real thread hop.
 
