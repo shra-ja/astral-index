@@ -78,7 +78,7 @@ enum Status {
 /// What an import would change, for the user to review before committing. It is
 /// the webview's review data: counts, scope and conflict locations, never payloads.
 /// Holds a player identifier: never log it.
-#[derive(Default, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub struct Review {
     uid: String,
     server: String,
@@ -92,14 +92,14 @@ pub struct Review {
     latest: String,
     conflicts: Vec<Conflict>,
 }
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct CategoryCounts {
     gacha_type: &'static str,
     #[serde(flatten)]
     counts: Summary,
 }
 /// Where an incoming record disagrees with a stored or earlier record of the same ID.
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct Conflict {
     id: String,
     gacha_type: String,
@@ -468,7 +468,8 @@ pub(crate) mod tests {
             connection: Connection,
         }
     }
-    fn preview() -> Preview {
+    /// A preview of one new fixture record, as a test value.
+    pub(crate) fn preview() -> Preview {
         Preview {
             review: Review::default(),
             summary: Summary {
@@ -549,7 +550,8 @@ pub(crate) mod tests {
         edit(&mut value);
         serde_json::to_vec(&value).unwrap()
     }
-    fn preview_script() -> Vec<Step> {
+    /// The SQL for previewing the fixture page's records for a new account.
+    pub(crate) fn preview_script() -> Vec<Step> {
         let mut steps = vec![
             done("BEGIN Deferred"),
             timezone(None),

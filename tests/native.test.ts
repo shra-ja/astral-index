@@ -78,12 +78,17 @@ test('the bundled native shell works offline, supports keyboard selection, and c
           invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', JSON.stringify),
           invoke('read_arbitrary_file').then(() => 'resolved', String),
           invoke('cancel_acquisition').then(() => 'resolved', String),
+          invoke('retrieve_history', {
+            onProgress: '__CHANNEL__:' + window.__TAURI_INTERNALS__.transformCallback(() => {}),
+          }).then(() => 'resolved', JSON.stringify),
         ]).then(done);
       `, args: [],
     });
     expect(commands[0]).toBe('{"kind":"no_request"}');
     expect(commands[1]).toContain('not allowed');
     expect(commands[2]).toBe('resolved');
+    // Setup managed the database; nothing was validated, so nothing is retrieved.
+    expect(commands[3]).toBe('{"kind":"no_context"}');
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
     expect(await execute('return document.querySelector(".fallback").hidden')).toBe(false);

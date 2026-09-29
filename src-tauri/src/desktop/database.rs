@@ -1,6 +1,8 @@
 //! The local history database, opened on first use in the local app data folder
 //! ([decision 0009](../../../docs/decisions/0009-local-database-location.md)).
 #[cfg(test)]
+use super::tests::blocking::spawn_blocking;
+#[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
 use crate::storage::{Error, Store};
 #[cfg(not(test))]
@@ -9,6 +11,8 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex, PoisonError},
 };
+#[cfg(not(test))]
+use tokio::task::spawn_blocking;
 
 /// The database file inside the local app data folder.
 pub const FILE_NAME: &str = "history.sqlite";
@@ -54,7 +58,7 @@ impl Database {
         f: impl FnOnce(&mut Store) -> T + Send + 'static,
     ) -> Result<T, Error> {
         let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
-        tokio::task::spawn_blocking(move || with_store(folder.as_deref(), &store, Box::new(f)))
+        spawn_blocking(move || with_store(folder.as_deref(), &store, Box::new(f)))
             .await
             .unwrap_or(Err(Error::Database))
     }
@@ -177,19 +181,23 @@ mod tests {
     }
 
     #[test]
-    fn runs_off_the_calling_thread_and_reports_panics_as_database_errors() {
-        // Open on this thread, whose doubles the blocking thread cannot see.
+    fn runs_the_work_and_reports_a_panic_as_a_database_error() {
         filesystem::install(Fixture::default());
         sql::expect(opening(&folder().join(FILE_NAME)));
         let database = Database::new(Some(folder()));
-        with_store(Some(&folder()), &database.store, Box::new(|_| 0)).unwrap();
+        assert_eq!(run(database.run(|_| 7)), Ok(7));
         sql::finish();
-        let caller = std::thread::current().id();
-        let thread = run(database.run(|_| std::thread::current().id())).unwrap();
-        assert_ne!(thread, caller);
+        // The store is reused, then dropped by the panic.
         assert_eq!(
-            run(database.run::<()>(|_| panic!("synthetic failure"))),
+            run(database.run::<i32>(|_| panic!("synthetic failure"))),
             Err(Error::Database)
+        );
+        assert!(
+            database
+                .store
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .is_none()
         );
     }
 }

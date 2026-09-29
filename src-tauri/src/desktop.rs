@@ -1,17 +1,19 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
 use crate::acquisition::{
-    CacheError, CachedRequest, Cancellable, FetchFailure, HttpTransport, RequestContext,
-    RetryBudget, Retrying, Transport, extract_request_contexts, validate,
+    AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
+    HttpTransport, Progress, RequestContext, RetryBudget, Retrying, Transport,
+    extract_request_contexts, fetch_history, validate,
 };
 use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
 };
+use crate::storage::{self, Preview, Review};
 use serde::Serialize;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
     Builder, Manager, Runtime, State,
-    ipc::{InvokeBody, Request},
+    ipc::{Channel, InvokeBody, Request},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -46,6 +48,86 @@ pub enum Failure {
     Internal,
     /// The user stopped the acquisition; nothing further was sent or kept.
     Cancelled,
+    /// Retrieval needs a validated context; extract first.
+    NoContext,
+    /// The retrieved history exceeded the 16 MiB batch bound.
+    HistoryTooLarge,
+    /// Responses named more than one account or server.
+    MixedAccounts,
+    /// Records were retrieved, but no response named their server.
+    MissingServer,
+    /// The local database could not be opened, read or written.
+    Storage,
+    /// The stored account's context, such as its timezone, differs.
+    ContextMismatch,
+    /// A retrieved record differs from the stored one with the same ID.
+    Conflict,
+    /// Stored history changed after the preview; retrieve again.
+    StalePreview,
+}
+
+/// A failure, with the category and page being requested when retrieval failed.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct RetrievalFailure {
+    #[serde(flatten)]
+    failure: Failure,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gacha_type: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<u32>,
+}
+impl From<Failure> for RetrievalFailure {
+    /// A failure outside retrieval's requests, so without a location.
+    fn from(failure: Failure) -> Self {
+        Self {
+            failure,
+            gacha_type: None,
+            page: None,
+        }
+    }
+}
+
+/// Retrieval progress for the webview: categories and counts only.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ProgressEvent {
+    Requesting {
+        gacha_type: &'static str,
+        page: u32,
+        pages: usize,
+        records: usize,
+    },
+    RetryPending {
+        delay_ms: u64,
+    },
+}
+impl From<Progress> for ProgressEvent {
+    fn from(progress: Progress) -> Self {
+        match progress {
+            Progress::Requesting {
+                category,
+                page,
+                pages,
+                records,
+            } => Self::Requesting {
+                gacha_type: category.code(),
+                page: page.get(),
+                pages,
+                records,
+            },
+            Progress::RetryPending { delay } => Self::RetryPending {
+                delay_ms: delay.as_millis() as u64,
+            },
+        }
+    }
+}
+
+/// What retrieval found: a review of the held preview, or no history at all.
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Retrieved {
+    Review(Review),
+    NoHistory,
 }
 
 /// The current acquisition, held only in memory. Each extraction replaces it, and
@@ -61,6 +143,8 @@ struct Operation {
     /// The validated context and the retry budget its acquisition started, which
     /// retrieval continues with.
     acquisition: Option<(RequestContext, RetryBudget)>,
+    /// The preview awaiting commit or discard. It holds no auth key.
+    preview: Option<Preview>,
 }
 impl Session {
     fn state(&self) -> MutexGuard<'_, Operation> {
@@ -73,7 +157,27 @@ impl Session {
         state.token.cancel();
         state.token = CancellationToken::new();
         state.acquisition = None;
+        state.preview = None;
         state.token.clone()
+    }
+    /// Start retrieval: stop any earlier operation and take the validated context,
+    /// so the session holds no auth key from here on.
+    fn take_validated(&self) -> Result<(CancellationToken, RequestContext, RetryBudget), Failure> {
+        let mut state = self.state();
+        state.token.cancel();
+        state.token = CancellationToken::new();
+        state.preview = None;
+        let (context, budget) = state.acquisition.take().ok_or(Failure::NoContext)?;
+        Ok((state.token.clone(), context, budget))
+    }
+    /// Hold a preview for commit or discard, unless its retrieval was cancelled.
+    fn keep_preview(&self, token: &CancellationToken, preview: Preview) -> Result<(), Failure> {
+        let mut state = self.state();
+        if token.is_cancelled() {
+            return Err(Failure::Cancelled);
+        }
+        state.preview = Some(preview);
+        Ok(())
     }
     /// Keep a validated context, unless its operation was cancelled meanwhile.
     fn finish(
@@ -95,6 +199,7 @@ impl Session {
         let mut state = self.state();
         state.token.cancel();
         state.acquisition = None;
+        state.preview = None;
     }
 }
 
@@ -103,7 +208,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
         extract_automatically,
         extract_from_file,
-        cancel_acquisition
+        cancel_acquisition,
+        retrieve_history
     ])
 }
 
@@ -146,6 +252,35 @@ impl From<FetchFailure> for Failure {
             FetchFailure::InvalidResponse => Self::InvalidResponse,
             FetchFailure::Internal => Self::Internal,
             FetchFailure::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
+impl From<AcquisitionError> for Failure {
+    fn from(error: AcquisitionError) -> Self {
+        match error {
+            AcquisitionError::Fetch(failure) => failure.into(),
+            AcquisitionError::CursorCycle => Self::InvalidResponse,
+            AcquisitionError::TooLarge => Self::HistoryTooLarge,
+            AcquisitionError::MixedAccounts | AcquisitionError::MixedServers => Self::MixedAccounts,
+            AcquisitionError::MissingServer => Self::MissingServer,
+        }
+    }
+}
+
+impl From<storage::Error> for Failure {
+    fn from(error: storage::Error) -> Self {
+        match error {
+            storage::Error::Database
+            | storage::Error::Schema
+            | storage::Error::InvalidStoredData => Self::Storage,
+            storage::Error::Context => Self::ContextMismatch,
+            storage::Error::TooLarge => Self::HistoryTooLarge,
+            storage::Error::Parse(_) => Self::InvalidResponse,
+            storage::Error::Conflict => Self::Conflict,
+            storage::Error::StalePreview => Self::StalePreview,
+            // Retrieval previews only when records exist, so this is a defect.
+            storage::Error::Empty => Self::Internal,
         }
     }
 }
@@ -214,6 +349,72 @@ fn cancel_acquisition(session: State<'_, Session>) {
     session.cancel();
 }
 
+/// Retrieve every category from the validated context, continuing its retry
+/// budget, and preview it. The auth key is dropped as soon as retrieval ends,
+/// whatever the outcome; the session then holds only the preview.
+async fn retrieve_into(
+    session: &Session,
+    database: &Database,
+    transport: Result<&(impl Transport + Sync), Failure>,
+    progress: &(dyn Fn(ProgressEvent) + Sync),
+) -> Result<Retrieved, RetrievalFailure> {
+    let (token, context, budget) = session.take_validated()?;
+    let transport = transport?;
+    // The last page requested locates a retrieval failure.
+    let requesting = Mutex::new(None);
+    let report = |event: Progress| {
+        if let Progress::Requesting { category, page, .. } = event {
+            *requesting.lock().unwrap_or_else(PoisonError::into_inner) = Some((category, page));
+        }
+        progress(event.into());
+    };
+    let retrying = Retrying::new(transport, &budget, &report);
+    let fetched = fetch_history(&Cancellable::new(&retrying, &token), &context, &report).await;
+    drop(context);
+    let history = fetched.map_err(|error| {
+        let location = requesting
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        RetrievalFailure {
+            failure: error.into(),
+            gacha_type: location.map(|(category, _)| Category::code(category)),
+            page: location.map(|(_, page)| page.get()),
+        }
+    })?;
+    let Some(account) = history.account() else {
+        return Ok(Retrieved::NoHistory);
+    };
+    let (uid, server) = (account.uid().to_owned(), account.server().to_owned());
+    let preview = database
+        .run(move |store| store.preview(&uid, &server, &history.responses()))
+        .await
+        .and_then(|preview| preview)
+        .map_err(Failure::from)?;
+    let review = preview.review().clone();
+    session.keep_preview(&token, preview)?;
+    Ok(Retrieved::Review(review))
+}
+
+/// Send progress to the webview; a closed webview is not an error.
+fn forward(channel: &Channel<ProgressEvent>) -> impl Fn(ProgressEvent) + Sync + '_ {
+    move |event| {
+        let _ = channel.send(event);
+    }
+}
+
+/// Contacts HoYoverse to retrieve history, streaming progress to `on_progress`.
+#[tauri::command]
+async fn retrieve_history(
+    session: State<'_, Session>,
+    database: State<'_, Database>,
+    on_progress: Channel<ProgressEvent>,
+) -> Result<Retrieved, RetrievalFailure> {
+    let transport = HttpTransport::new();
+    let transport = transport.as_ref().map_err(|_| Failure::Internal);
+    retrieve_into(&session, &database, transport, &forward(&on_progress)).await
+}
+
 /// The webview sends the selected file's bytes as a raw body; no path crosses IPC.
 /// Contacts HoYoverse to validate the extracted auth keys.
 #[tauri::command]
@@ -226,12 +427,15 @@ async fn extract_from_file(
 
 #[cfg(test)]
 mod tests {
+    pub(crate) mod blocking;
     mod events;
     use super::*;
     use crate::acquisition::MAX_CACHE_BYTES;
     use crate::acquisition::TransportError;
     use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
     use crate::discovery::system::tests::os;
+    use crate::storage::tests::database::{self as sql, Reply};
+    use crate::storage::tests::{preview_script, setup, step, text};
     use std::path::PathBuf;
     use tauri::{
         Manager, WebviewWindow, WebviewWindowBuilder,
@@ -288,9 +492,12 @@ mod tests {
         http::inspect(|state| state.requested.clone())
     }
     fn window() -> WebviewWindow<MockRuntime> {
-        let app = register(mock_builder())
+        let mut app = register(mock_builder())
             .build(mock_context(noop_assets()))
             .unwrap();
+        // Run the setup hook, which manages the database (see the registration test).
+        #[allow(deprecated)]
+        app.run_iteration(events::ignore);
         WebviewWindowBuilder::new(&app, "main", Default::default())
             .build()
             .unwrap()
@@ -335,10 +542,17 @@ mod tests {
             [
                 "extract_automatically",
                 "extract_from_file",
-                "cancel_acquisition"
+                "cancel_acquisition",
+                "retrieve_history"
             ]
         );
         assert_eq!(invoke(&window, COMMANDS[2], InvokeBody::default()), Ok(()));
+        // Nothing was validated, so retrieval sends nothing.
+        let channel = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
+        assert_eq!(
+            invoke(&window, COMMANDS[3], InvokeBody::Json(channel)),
+            Err(r#"{"kind":"no_context"}"#.into())
+        );
         // Host discovery is unsupported here: the unit-test OS double reports plain Linux.
         assert_eq!(
             invoke(&window, COMMANDS[0], InvokeBody::default()),
@@ -352,6 +566,9 @@ mod tests {
             invoke(&window, COMMANDS[1], raw(b"no request".to_vec())),
             Err(r#"{"kind":"no_request"}"#.into())
         );
+        // A progress channel is required.
+        let missing = invoke(&window, COMMANDS[3], InvokeBody::default());
+        assert!(missing.unwrap_err().contains("onProgress"));
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
         assert_eq!(stored(&window.state::<Session>()), None);
@@ -371,6 +588,20 @@ mod tests {
             app.state::<Database>().path(),
             Some(folder.join(database::FILE_NAME))
         );
+    }
+
+    #[test]
+    fn retrieval_fails_safely_without_a_managed_database() {
+        // Built without running setup, so no database is managed.
+        let app = register(mock_builder())
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+        let channel = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
+        let error = invoke(&window, "retrieve_history", InvokeBody::Json(channel));
+        assert!(error.unwrap_err().contains("state not managed"));
     }
 
     #[test]
@@ -442,6 +673,275 @@ mod tests {
         assert_eq!(budget.remaining(), 0);
     }
 
+    const EMPTY: &[u8] = br#"{"retcode":0,"message":"OK","data":{"region":"synthetic-server","region_time_zone":8,"list":[]}}"#;
+    /// Hold a validated context with the given budget, as extraction leaves it.
+    fn validated(session: &Session, budget: RetryBudget) {
+        let token = session.begin();
+        session.finish(&token, context("valid"), budget).unwrap();
+    }
+    fn database() -> Database {
+        filesystem::install(Default::default());
+        Database::new(Some(PathBuf::from("/data")))
+    }
+    fn opening() -> Vec<sql::Step> {
+        let mut steps = vec![step(
+            "OPEN",
+            vec![text("/data/history.sqlite")],
+            Reply::Done,
+        )];
+        steps.extend(setup(true));
+        steps
+    }
+    /// The fixture page answers the first category, and empty pages the rest.
+    fn pages() -> Vec<Result<Vec<u8>, TransportError>> {
+        let mut pages = vec![Ok(PAGE.to_vec())];
+        pages.extend((0..5).map(|_| Ok(EMPTY.to_vec())));
+        pages
+    }
+    /// Discard progress in tests that do not check it.
+    fn ignore(_: ProgressEvent) {}
+    fn json(value: impl Serialize) -> serde_json::Value {
+        serde_json::to_value(value).unwrap()
+    }
+    /// Whether the session holds a validated context, and a preview.
+    fn holds(session: &Session) -> (bool, bool) {
+        let state = session.state();
+        (state.acquisition.is_some(), state.preview.is_some())
+    }
+
+    #[test]
+    fn retrieval_previews_every_category_and_holds_only_the_preview() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let database = database();
+        let mut script = opening();
+        script.extend(preview_script());
+        sql::expect(script);
+        // The first request fails transiently and is retried within the budget.
+        let mut responses = vec![Err(TransportError::Status(503))];
+        responses.extend(pages());
+        let transport = Serving::new(responses);
+        let events = std::sync::Mutex::new(Vec::new());
+        let report = |event| events.lock().unwrap().push(event);
+        let retrieved = run(retrieve_into(&session, &database, Ok(&transport), &report));
+        sql::finish();
+        let review = json(retrieved.unwrap());
+        assert_eq!(review["kind"], "review");
+        assert_eq!(review["uid"], "100000002");
+        assert_eq!(review["summary"]["inserted"], 2);
+        assert_eq!(transport.requested().len(), 7);
+        let events = events.into_inner().unwrap();
+        assert_eq!(events[1], ProgressEvent::RetryPending { delay_ms: 1000 });
+        assert_eq!(
+            [events[0].clone(), events[2].clone()],
+            [
+                ProgressEvent::Requesting {
+                    gacha_type: "1",
+                    page: 1,
+                    pages: 0,
+                    records: 0
+                },
+                ProgressEvent::Requesting {
+                    gacha_type: "2",
+                    page: 1,
+                    pages: 1,
+                    records: 2
+                },
+            ]
+        );
+        // The auth key is gone; only the preview remains, until cancelled.
+        assert_eq!(holds(&session), (false, true));
+        session.cancel();
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn no_records_means_no_history_and_no_database_access() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let database = database();
+        let transport = Serving::new((0..6).map(|_| Ok(EMPTY.to_vec())).collect());
+        let retrieved = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
+        assert_eq!(
+            json(retrieved.unwrap()),
+            serde_json::json!({ "kind": "no_history" })
+        );
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn a_failed_retrieval_reports_where_it_failed_and_drops_the_key() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let transport = Serving::new(vec![Ok(EMPTY.to_vec()), Ok(EXPIRED.to_vec())]);
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Ok(&transport),
+            &ignore,
+        ));
+        assert_eq!(
+            json(failure.err().unwrap()),
+            serde_json::json!({ "kind": "expired_key", "gacha_type": "2", "page": 1 })
+        );
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn retrieval_needs_a_validated_context_and_a_client() {
+        let session = Session::default();
+        let transport = Serving::new(vec![]);
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Ok(&transport),
+            &ignore,
+        ));
+        assert_eq!(failure.err().unwrap(), Failure::NoContext.into());
+        // A missing HTTPS client still ends retrieval, dropping the key.
+        validated(&session, RetryBudget::default());
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Err::<&Serving, _>(Failure::Internal),
+            &ignore,
+        ));
+        assert_eq!(failure.err().unwrap(), Failure::Internal.into());
+        assert_eq!(holds(&session), (false, false));
+        assert!(transport.requested().is_empty());
+    }
+
+    #[test]
+    fn a_database_failure_after_retrieval_has_no_location() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let database = database();
+        let mut failing = opening().remove(0);
+        failing.reply = Err(rusqlite::Error::InvalidQuery);
+        sql::expect(vec![failing]);
+        let transport = Serving::new(pages());
+        let failure = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
+        sql::finish();
+        assert_eq!(failure.err().unwrap(), Failure::Storage.into());
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn cancelling_stops_retrieval_and_keeps_no_preview() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let transport = Serving::cancelling(&session, 1, pages());
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Ok(&transport),
+            &ignore,
+        ));
+        assert_eq!(json(failure.err().unwrap())["kind"], "cancelled");
+        assert_eq!(transport.requested().len(), 1);
+        // A preview finished after cancelling is not kept.
+        let token = session.begin();
+        session.cancel();
+        assert_eq!(
+            session.keep_preview(&token, crate::storage::tests::preview()),
+            Err(Failure::Cancelled)
+        );
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn retrieval_continues_the_budget_validation_left() {
+        // Validation spent both retries.
+        let budget = RetryBudget::default();
+        let spend = Serving::new(vec![
+            Err(TransportError::Timeout),
+            Ok(vec![]),
+            Err(TransportError::Timeout),
+            Ok(vec![]),
+        ]);
+        run(async {
+            let retrying = Retrying::new(&spend, &budget, &|_| {});
+            retrying.get("a").await.unwrap();
+            retrying.get("b").await.unwrap();
+        });
+        let session = Session::default();
+        validated(&session, budget);
+        let transport = Serving::new(vec![Err(TransportError::Status(503))]);
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Ok(&transport),
+            &ignore,
+        ));
+        assert_eq!(
+            json(failure.err().unwrap()),
+            serde_json::json!({ "kind": "network", "gacha_type": "1", "page": 1 })
+        );
+        assert_eq!(transport.requested().len(), 1);
+    }
+
+    #[test]
+    fn progress_reaches_the_webview_as_categories_and_counts() {
+        let sent = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let received = std::sync::Arc::clone(&sent);
+        let channel = Channel::new(move |body| {
+            let event: serde_json::Value = body.deserialize().unwrap();
+            received.lock().unwrap().push(event);
+            Ok(())
+        });
+        forward(&channel)(ProgressEvent::from(Progress::RetryPending {
+            delay: std::time::Duration::from_secs(1),
+        }));
+        assert_eq!(
+            *sent.lock().unwrap(),
+            [serde_json::json!({ "kind": "retry_pending", "delay_ms": 1000 })]
+        );
+        let requesting = ProgressEvent::from(Progress::Requesting {
+            category: Category::LightConeEvent,
+            page: std::num::NonZeroU32::new(3).unwrap(),
+            pages: 4,
+            records: 3000,
+        });
+        assert_eq!(
+            json(requesting),
+            serde_json::json!({ "kind": "requesting", "gacha_type": "12", "page": 3, "pages": 4, "records": 3000 })
+        );
+    }
+
+    #[test]
+    fn retrieval_and_storage_errors_map_to_safe_categories() {
+        for (error, failure) in [
+            (
+                AcquisitionError::Fetch(FetchFailure::ExpiredKey),
+                Failure::ExpiredKey,
+            ),
+            (AcquisitionError::CursorCycle, Failure::InvalidResponse),
+            (AcquisitionError::TooLarge, Failure::HistoryTooLarge),
+            (AcquisitionError::MixedAccounts, Failure::MixedAccounts),
+            (AcquisitionError::MixedServers, Failure::MixedAccounts),
+            (AcquisitionError::MissingServer, Failure::MissingServer),
+        ] {
+            assert_eq!(Failure::from(error), failure);
+        }
+        for (error, failure) in [
+            (storage::Error::Database, Failure::Storage),
+            (storage::Error::Schema, Failure::Storage),
+            (storage::Error::InvalidStoredData, Failure::Storage),
+            (storage::Error::Context, Failure::ContextMismatch),
+            (storage::Error::TooLarge, Failure::HistoryTooLarge),
+            (
+                storage::Error::Parse(crate::ParseError::InvalidRecord),
+                Failure::InvalidResponse,
+            ),
+            (storage::Error::Conflict, Failure::Conflict),
+            (storage::Error::StalePreview, Failure::StalePreview),
+            (storage::Error::Empty, Failure::Internal),
+        ] {
+            assert_eq!(Failure::from(error), failure);
+        }
+    }
+
     #[test]
     fn cancel_stops_the_running_operation_and_drops_the_context() {
         let session = Session::default();
@@ -476,27 +976,75 @@ mod tests {
         assert_eq!(stored(&session), None);
     }
 
-    /// Serves scripted responses, cancelling the session after each one.
-    struct CancelsSession<'a>(&'a Session, Scripted);
-    impl Transport for CancelsSession<'_> {
+    /// Serves scripted responses; with a count, cancels the session as it serves
+    /// that many. One transport type keeps each tested function to one
+    /// instantiation, which coverage scores as a whole.
+    struct Serving<'a> {
+        scripted: Scripted,
+        cancel: Option<(&'a Session, std::sync::Mutex<usize>)>,
+    }
+    impl<'a> Serving<'a> {
+        fn new(responses: Vec<Result<Vec<u8>, TransportError>>) -> Self {
+            Self {
+                scripted: Scripted::new(responses),
+                cancel: None,
+            }
+        }
+        fn cancelling(
+            session: &'a Session,
+            after: usize,
+            responses: Vec<Result<Vec<u8>, TransportError>>,
+        ) -> Self {
+            Self {
+                scripted: Scripted::new(responses),
+                cancel: Some((session, after.into())),
+            }
+        }
+        fn requested(&self) -> Vec<String> {
+            self.scripted.requested()
+        }
+    }
+    impl Transport for Serving<'_> {
         async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
-            let response = self.1.get(url).await;
-            self.0.cancel();
+            let response = self.scripted.get(url).await;
+            if let Some((session, left)) = &self.cancel {
+                let mut left = left.lock().unwrap();
+                *left -= 1;
+                if *left == 0 {
+                    session.cancel();
+                }
+            }
             response
         }
     }
 
     #[test]
+    fn a_preview_finished_after_cancelling_is_not_kept() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let database = database();
+        let mut script = opening();
+        script.extend(preview_script());
+        sql::expect(script);
+        // The last response still arrives, so the preview is built, then refused.
+        let transport = Serving::cancelling(&session, 6, pages());
+        let failure = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
+        sql::finish();
+        assert_eq!(failure.err().unwrap(), Failure::Cancelled.into());
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
     fn cancelling_during_validation_sends_no_further_request() {
         let session = Session::default();
-        let transport = CancelsSession(&session, Scripted::new(vec![Ok(EXPIRED.to_vec())]));
+        let transport = Serving::cancelling(&session, 1, vec![Ok(EXPIRED.to_vec())]);
         let requests = extract_request_contexts(&cache(&["valid", "expired"])).unwrap();
         let token = session.begin();
         assert_eq!(
             run(validate_into(&session, &transport, &token, requests)),
             Err(Failure::Cancelled)
         );
-        assert_eq!(transport.1.requested(), [url("expired")]);
+        assert_eq!(transport.requested(), [url("expired")]);
         assert_eq!(stored(&session), None);
     }
 

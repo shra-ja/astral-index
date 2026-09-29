@@ -204,7 +204,7 @@ the order listed.
     and a safe way to move existing history between the two locations. Moved up
     from the deferred list at the user's request. A `data` folder beside the
     executable switches it on; moving history is a documented manual copy.
-  - [ ] Add a `retrieve_history` command: retrieve from the held context with
+  - [x] Add a `retrieve_history` command: retrieve from the held context with
     its budget, cancellably, stream progress over a Tauri channel, resolve the
     account and preview it. Return the review or "no history found", with the
     failing category and page for retrieval failures. Clear the auth key as

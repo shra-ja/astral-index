@@ -1,1 +1,1 @@
-&["extract_automatically", "extract_from_file", "cancel_acquisition"]
+&["extract_automatically", "extract_from_file", "cancel_acquisition", "retrieve_history"]

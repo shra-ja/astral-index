@@ -18,6 +18,16 @@ fn creates_the_folder_and_database_on_first_use_then_reuses_them() {
         assert!(history.is_empty());
     }
     assert_eq!(database.path(), Some(folder.join("history.sqlite")));
+    // The work runs on Tokio's blocking pool, and a panic there is a database error.
+    let caller = std::thread::current().id();
+    let worker = runtime
+        .block_on(database.run(|_| std::thread::current().id()))
+        .unwrap();
+    assert_ne!(worker, caller);
+    assert_eq!(
+        runtime.block_on(database.run::<()>(|_| panic!("synthetic failure"))),
+        Err(roll_tracker::storage::Error::Database)
+    );
     assert!(folder.join("history.sqlite").is_file());
     drop(database);
     std::fs::remove_dir_all(root).unwrap();
