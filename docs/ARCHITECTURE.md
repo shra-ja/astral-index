@@ -156,11 +156,11 @@ instead of the JSON `postMessage` fallback; network origins stay blocked. The
 file fallback does pass cache bytes through webview memory; see
 [decision 0006](decisions/0006-desktop-extraction-commands.md).
 
-In the webview, `src/commands.ts` wraps the commands through `@tauri-apps/api`,
+In the webview, `src-ui/src/commands.ts` wraps the commands through `@tauri-apps/api`,
 maps any rejection that is not exactly a native failure shape to `unavailable`,
 keeps a failure's category and page only when both are valid, streams retrieval
 progress through a `Channel`,
-and rejects files over 16 MiB before reading them. `src/main.ts` shows the Star
+and rejects files over 16 MiB before reading them. `src-ui/src/main.ts` shows the Star
 Rail retrieval panel, which says the app checks the saved link with HoYoverse
 and needs a connection: "Start retrieval" first, with the file chooser always
 available below it as the fallback. While either runs, both are hidden and a
@@ -177,10 +177,10 @@ listed by warp, time and ID with Save disabled, since the native commit refuses
 them. Saving, discarding and failures return to the start controls.
 
 The review is the first Vue component ([decision 0011](decisions/0011-vue-frontend.md)):
-`src/components/ReviewPanel.vue` is presentational, taking a review and a busy
+`src-ui/src/components/ReviewPanel.vue` is presentational, taking a review and a busy
 flag and emitting `save`, `discard` and `done`, and focusing its heading as it
-mounts. `src/main.ts` renders it only while reviewing and makes the native calls
-for its choices. Warp names and plurals come from `src/format.ts`. The rest of
+mounts. `src-ui/src/main.ts` renders it only while reviewing and makes the native calls
+for its choices. Warp names and plurals come from `src-ui/src/format.ts`. The rest of
 the page moves to Vue components, a router and composables next.
 
 ## Statistics

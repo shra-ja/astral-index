@@ -1131,7 +1131,7 @@ build succeeded.
 
 ## Vue foundation (2026-09-29)
 
-Work is on `feat/vue-foundation`, branched from `main` at `1f01756`: PR A of two
+Integrated through PR #42 (`5424d7c`), branched from `main` at `1f01756`: PR A of two
 for the move to Vue ([decision 0011](decisions/0011-vue-frontend.md)). The user
 chose Vue over Preact and React for its community, ecosystem and recognition,
 TypeScript 6 over 7 until Vue's tooling supports 7, and `create-vue` and Tauri
@@ -1177,14 +1177,82 @@ is 75 KB (29 KB gzipped). `npm run tauri -- build --no-bundle` passed on Linux,
 and the `cargo-xwin` Windows build succeeded. WebKit screenshots of the built page
 with a synthetic native mock show the review and conflict layouts unchanged.
 
+## Frontend workspace (2026-09-29)
+
+Work is on `refactor/src-ui`, branched from `main` at `5424d7c`. At the user's
+request the frontend is now self-contained, like `src-tauri/`, with the same test
+rule; there is no behaviour change.
+
+- **Layout:** `src/`, `index.html`, `vite.config.ts` and the app and test type
+  projects moved into `src-ui/` with `git mv`. `src-ui/package.json`
+  (`roll-tracker-ui`) holds Vue, `@tauri-apps/api` and the frontend's tools; the
+  root `package.json` is the npm workspace root with the Tauri CLI, Vitest and
+  repository tooling. Tauri builds from `src-ui/dist`.
+- **Tests:** unit tests are siblings (`src-ui/src/commands.test.ts`,
+  `src-ui/src/components/ReviewPanel.test.ts`, `src-ui/build/vite.test.ts`); the
+  whole-page test is the integration test `src-ui/tests/app.test.ts`.
+- **Tests and coverage:** each half runs its own tests, as the backend does with
+  Cargo. `src-ui/build/vite.ts` holds the frontend's Vite and Vitest settings
+  (jsdom, with the Vite config test opting into Node per file), and `src-ui`'s
+  `npm test` and `npm run coverage` run them, reporting to `coverage/frontend/`.
+  A root `vitest.config.ts` delegates to the new `tooling/vitest-config.ts`, with
+  the `tooling` and `gates` projects and tooling coverage in `coverage/tooling/`.
+  The root commands run the frontend's, then the tooling's. All reports stay in
+  the root `coverage/`, where the gates read them, as the Rust reports already
+  do. A first attempt ran everything from the root with the frontend projects
+  rooted at `./src-ui`; coverage matched its globs relative to that root and
+  missed every frontend file, and the user preferred the frontend to own its
+  tests anyway.
+- **Types:** the root `tsconfig.json` references `src-ui/` (app, UI-test and build
+  projects) and a root Node project; `vue-tsc --build` checks all.
+- **Config imports:** both delegates import their modules with the `.ts`
+  extension (`./build/vite.ts`, `./tooling/vitest-config.ts`), which Vite's
+  planned native config loader requires; it warned on every run before. Both Node
+  type projects allow `.ts` imports, which is safe as they never emit. The guard's
+  pinned text changed first and failed, then passed.
+- **Root tooling:** at the user's request, `scripts/` is split in two. The tooling
+  modules (`coverage.ts`, `native-coverage.ts`, `vitest-config.ts`) move to
+  `tooling/` with their unit tests beside them, including `ci.test.ts`; the report
+  checks and probes join the native end-to-end test in root `tests/`, now defined
+  as repository-level verification. At the user's choice, its files were then
+  renamed: `e2e-smoke.test.ts`, `close-window-helper.py`,
+  `coverage-reports.test.ts`, `mutation-probes.test.ts` and
+  `backend-coverage-stages.test.ts`; the helper module became
+  `tooling/backend-coverage.ts`, with its functions renamed from `native…` to
+  `backend…`.
+- **Retiring "native":** the report folders became `coverage/backend-unit/` and
+  `coverage/backend/`; the npm scripts became `coverage:backend-unit` (and its
+  `:json` form), `test:backend-integration`, `test:e2e-smoke`,
+  `coverage:backend-report`, `test:e2e-probe` (and `:stages`) and `test:backend`,
+  with `test:offline` and `test:backend-probe` unchanged; the stages became
+  "backend coverage report", "reset backend probe" and "backend JSON report", the
+  gate "backend wrapper coverage", and the screenshot `test-results/e2e-smoke.png`.
+  CI uploads the renamed folders. The helper's test changed first and failed.
+- **Gates:** separate frontend and tooling coverage checks, each against its own
+  source list; the inventory covers `src-ui/src`, `src-ui/build` and `tooling`,
+  excludes `*.test.ts` and the test folders, and pins both delegates. The
+  discovery probe adds a failing suite in each tested place, one at a time,
+  since the frontend's failure stops the commands before the tooling's; the probe
+  refresh also clears `coverage/tooling/`, and CI uploads it. A stale root `dist/` from before the
+  move was deleted. Docs and `src-ui/README.md` describe the layout.
+
+TDD: the root Vitest config tests and the Vite config test failed against a stub
+and the previous settings at each stage, then passed; so did the report helper's
+test of the folders it clears.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 142 Rust unit tests, 41 frontend and 31 tooling tests, offline native
+execution (the app built from `src-ui/dist`), nine probes and six report
+checks, all at 100% per file, plus the type check, build, formatting and Clippy,
+peaking at about 3.4 GB used. `npm run tauri -- build --no-bundle` passed on Linux, the `cargo-xwin`
+Windows build succeeded, and `npm run dev` served the app from the workspace on
+`127.0.0.1:1420`.
+
 ## Next
 
-Move the frontend into a self-contained `src-ui/` npm workspace beside
-`src-tauri/`, with sibling `*.test.ts` unit tests and integration tests in
-`src-ui/tests/`, with no behaviour change. Then the rest of the Vue port
-(`App.vue`, Vue Router with a first view, a retrieval composable, small
-presentational components, styles in `assets/`), the visual-design mockup and the
-stored-history display. Incremental retrieval is an
+The rest of the Vue port: `App.vue`, Vue Router with a first view, a retrieval
+composable, small presentational components and styles in `assets/`. Then the
+visual-design mockup and the stored-history display. Incremental retrieval is an
 optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are

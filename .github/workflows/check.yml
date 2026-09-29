@@ -75,7 +75,8 @@ jobs:
           name: coverage-and-native-smoke
           path: |
             coverage/frontend/
-            coverage/native/
-            coverage/native-unit/
+            coverage/tooling/
+            coverage/backend/
+            coverage/backend-unit/
             test-results/
           if-no-files-found: error

@@ -1,8 +1,7 @@
-// Repository code that runs in Node: the Vitest config, the tooling and its unit
-// tests, and the repository-level verification in `tests/`.
+// Frontend build tooling that runs in Node: the Vite config and its module.
 {
   "extends": "@tsconfig/node26/tsconfig.json",
-  "include": ["vitest.config.ts", "tooling/**/*.ts", "tests/**/*.ts"],
+  "include": ["vite.config.ts", "build/**/*.ts"],
   "compilerOptions": {
     "noEmit": true,
     "allowImportingTsExtensions": true,

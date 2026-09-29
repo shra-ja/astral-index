@@ -4,23 +4,23 @@ import { resolve } from 'node:path';
 import { mkdirSync, readFileSync, writeFileSync, rmSync, globSync } from 'node:fs';
 import { beforeAll, expect, test } from 'vitest';
 
-import { nativeCargo, nativeEnvironment } from '../scripts/native-coverage';
+import { backendCargo, backendEnvironment } from '../tooling/backend-coverage';
 
-let nativeEnv: NodeJS.ProcessEnv;
+let backendEnv: NodeJS.ProcessEnv;
 beforeAll(() => {
   // Extraction now validates with HoYoverse: refuse to run where the synthetic key
   // could reach the live endpoint. The network namespace must have only loopback.
   const interfaces = readFileSync('/proc/self/net/dev', 'utf8').split('\n').slice(2)
     .map(line => line.split(':')[0].trim()).filter(Boolean);
   expect(interfaces, 'run the native test through test:offline').toEqual(['lo']);
-  nativeEnv = nativeEnvironment();
-  nativeCargo(['build', '--locked', '--offline']);
+  backendEnv = backendEnvironment();
+  backendCargo(['build', '--locked', '--offline']);
 }, 600000);
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
 test('the bundled native shell works offline, supports keyboard selection, and closes cleanly', async () => {
   // Keep automatic discovery deterministic: never start Windows helpers from a WSL test host.
-  const driver = spawn('tauri-driver', [], { env: { ...nativeEnv, WSL_DISTRO_NAME: '' }, stdio: 'inherit' });
+  const driver = spawn('tauri-driver', [], { env: { ...backendEnv, WSL_DISTRO_NAME: '' }, stdio: 'inherit' });
   let session = '';
   // Surface WebDriver failures at the request boundary instead of later UI assertions.
   const request = async (path: string, method = 'GET', body?: unknown) => {
@@ -113,10 +113,10 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     expect(await execute('return document.querySelector("#cache-file").files.length')).toBe(1);
     rmSync(cachePath);
     const screenshot = await request(`/session/${session}/screenshot`);
-    writeFileSync('test-results/native-shell.png', Buffer.from(screenshot, 'base64'));
+    writeFileSync('test-results/e2e-smoke.png', Buffer.from(screenshot, 'base64'));
     const windowId = execFileSync('xdotool', ['search', '--name', '^Roll Tracker$'], { encoding: 'utf8' }).trim().split('\n')[0];
     const pid = execFileSync('xdotool', ['getwindowpid', windowId], { encoding: 'utf8' }).trim();
-    execFileSync('python3', ['tests/close-window.py', windowId]);
+    execFileSync('python3', ['tests/close-window-helper.py', windowId]);
     await expect.poll(() => globSync(`src-tauri/target/src-tauri-${pid}-*.profraw`).length, { timeout: 10000 }).toBeGreaterThan(0);
   } finally {
     if (session) {

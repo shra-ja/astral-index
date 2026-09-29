@@ -1,26 +1,33 @@
 import { globSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test } from 'vitest';
-import { assertCompleteCoverage, type FileCoverage } from '../coverage';
+import { assertCompleteCoverage, type FileCoverage } from '../tooling/coverage';
 
-// Vitest never measures its own config file, so `vite.config.ts` only delegates to the
-// unit-tested `scripts/vite-config.ts`; the guard below pins its source.
-const configDelegate = resolve('vite.config.ts');
+// Vitest never measures config files, so each only delegates to a unit-tested module
+// (`src-ui/build/vite.ts`, `tooling/vitest-config.ts`); the guard below pins them.
+const configDelegates = ['src-ui/vite.config.ts', 'vitest.config.ts'].map(file => resolve(file));
 
-function frontendSources(): string[] {
-  return globSync(['src/**/*.{ts,vue}', 'scripts/**/*.ts'], {
-    exclude: ['src/tests/**', 'scripts/tests/**', '**/*.d.ts'],
-  }).map(file => resolve(file));
+// Unit tests sit beside their source as `*.test.ts`; the rest live in test folders.
+const testFiles = ['**/*.test.ts', 'src-ui/tests/**', 'tests/**'];
+
+// The frontend and the repository tooling each have their own Vitest run and report.
+const typeScriptReports = [
+  ['frontend coverage', 'coverage/frontend/coverage-summary.json', ['src-ui/src/**/*.{ts,vue}', 'src-ui/build/**/*.ts']],
+  ['tooling coverage', 'coverage/tooling/coverage-summary.json', ['tooling/**/*.ts']],
+] as const;
+
+function sources(globs: readonly string[]): string[] {
+  return globSync([...globs], { exclude: [...testFiles, '**/*.d.ts'] }).map(file => resolve(file));
 }
 
 test('every executable source is inventoried', () => {
-  const sources = frontendSources();
+  const typeScript = typeScriptReports.flatMap(([, , globs]) => sources(globs));
   const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], { exclude: ['src-tauri/src/**/tests/**'] }).map(file => resolve(file));
   // Declaration files (`*.d.ts`) hold types only and compile to nothing.
   const allExecutable = globSync('**/*.{ts,tsx,vue,js,jsx,mjs,cjs,rs,sh,py}', {
-    exclude: ['**/*.d.ts', 'node_modules/**', 'src-tauri/target/**', 'src-tauri/gen/**', '.git/**', 'dist/**', 'coverage/**', 'tests/**', 'src/tests/**', 'scripts/tests/**', 'src-tauri/tests/**', 'src-tauri/src/**/tests/**'],
+    exclude: [...testFiles, '**/*.d.ts', '**/node_modules/**', 'src-tauri/target/**', 'src-tauri/gen/**', '.git/**', 'src-ui/dist/**', 'coverage/**', 'src-tauri/tests/**', 'src-tauri/src/**/tests/**'],
   }).map(file => resolve(file));
-  expect([...sources, configDelegate, ...rust].sort(), 'New executable source must be included in instrumentation').toEqual(allExecutable.sort());
+  expect([...typeScript, ...configDelegates, ...rust].sort(), 'New executable source must be included in instrumentation').toEqual(allExecutable.sort());
 
 });
 
@@ -32,16 +39,17 @@ function assertFresh(report: string, files: string[]): void {
   }
 }
 
-test('frontend and tooling coverage', () => {
-  const sources = frontendSources();
-  const report = 'coverage/frontend/coverage-summary.json';
-  assertCompleteCoverage(sources, JSON.parse(readFileSync(report, 'utf8')));
-  assertFresh(report, sources);
-});
+for (const [name, report, globs] of typeScriptReports) {
+  test(name, () => {
+    const inventory = sources(globs);
+    assertCompleteCoverage(inventory, JSON.parse(readFileSync(report, 'utf8')));
+    assertFresh(report, inventory);
+  });
+}
 
 for (const [name, reportPath, boundary] of [
-  ['backend unit coverage', 'coverage/native-unit/coverage.json', false],
-  ['native wrapper coverage', 'coverage/native/coverage.json', true],
+  ['backend unit coverage', 'coverage/backend-unit/coverage.json', false],
+  ['backend wrapper coverage', 'coverage/backend/coverage.json', true],
 ] as const) {
   test(name, () => {
     const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], { exclude: ['src-tauri/src/**/tests/**'] }).map(file => resolve(file));
@@ -66,11 +74,15 @@ for (const [name, reportPath, boundary] of [
 
 // These are the only unit-coverage exceptions. Any added logic requires an explicit review.
 test('startup/build exceptions remain minimal third-party delegates', () => {
-  // Vitest excludes its config file from coverage; the configuration itself is unit-tested.
-  expect(readFileSync(configDelegate, 'utf8').trim()).toBe(`import { defineConfig } from 'vitest/config';
-import { viteConfig } from './scripts/vite-config';
+  // Vitest excludes config files from coverage; the configurations themselves are unit-tested.
+  expect(readFileSync('src-ui/vite.config.ts', 'utf8').trim()).toBe(`import { defineConfig } from 'vitest/config';
+import { viteConfig } from './build/vite.ts';
 
 export default defineConfig(() => viteConfig(process.env));`);
+  expect(readFileSync('vitest.config.ts', 'utf8').trim()).toBe(`import { defineConfig } from 'vitest/config';
+import { vitestConfig } from './tooling/vitest-config.ts';
+
+export default defineConfig(vitestConfig());`);
   // Registration and the command list live in unit-tested library code; these only delegate.
   // The attribute only selects the Windows GUI subsystem for release builds; no code runs.
   expect(readFileSync('src-tauri/src/main.rs', 'utf8').trim()).toBe(`#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]

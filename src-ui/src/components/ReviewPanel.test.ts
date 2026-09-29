@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils';
 import { expect, test } from 'vitest';
-import ReviewPanel from '../components/ReviewPanel.vue';
+import ReviewPanel from './ReviewPanel.vue';
 import type { Review } from '../commands';
 
 type Conflict = Review['conflicts'][number];

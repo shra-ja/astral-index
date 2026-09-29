@@ -21,14 +21,14 @@ a fallback. See [Ubuntu's namespace policy](https://discourse.ubuntu.com/t/under
 This is a native development build with production bundled assets. Installer
 packaging and other operating systems are later release work.
 
-Native execution is split into explicit stages. `coverage:rust-unit` cleans the
+Backend execution is split into explicit stages. `coverage:backend-unit` cleans the
 workspace's instrumentation data, runs only library unit tests and freezes their
-report. `test:rust-integration` runs Cargo tests, `test:native-smoke` builds and
-launches the desktop, and `coverage:native-report` renders combined evidence.
-`test:native` composes those stages in that order; `test:offline` isolates the
+report. `test:backend-integration` runs Cargo tests, `test:e2e-smoke` builds and
+launches the desktop, and `coverage:backend-report` renders combined evidence.
+`test:backend` composes those stages in that order; `test:offline` isolates the
 whole sequence. Individual stages are diagnostic building blocks, not substitutes
 for the complete gate. Report rendering never executes tests and cannot establish
-freshness on its own. The shared tooling in `scripts/native-coverage.ts` has
+freshness on its own. The shared tooling in `tooling/backend-coverage.ts` has
 mocked unit tests and is included in the 100% tooling coverage inventory.
 
 `test:backend-probe` is a network-isolated probe-only stage. It resets counters,
@@ -39,7 +39,7 @@ has independently selectable frontend/tooling, backend-unit and wrapper tests;
 the complete command still requires every scope, source inventory and wrapper
 body guard. The probe asserts that integration coverage cannot fill a unit gap.
 
-`test:native-probe` resets instrumentation, builds/runs the desktop in the network
+`test:e2e-probe` resets instrumentation, builds/runs the desktop in the network
 namespace and writes only JSON coverage. It never runs backend tests. The branch
 probe validates the wrapper report directly, and the CSP probe still requires the
 specific security-policy assertion failure. Both carry an unrelated failing
@@ -63,11 +63,11 @@ probe selections require the JSON preparation commands first.
 
 | Source | Instrumentation | Mandatory per-file metrics |
 | --- | --- | --- |
-| `src/**/*.ts`, `src/**/*.vue` | Vitest V8 | Lines, statements, functions, branches: 100% |
-| `scripts/**/*.ts` | Vitest V8 | Lines, statements, functions, branches: 100% |
+| `src-ui/src/**/*.{ts,vue}`, `src-ui/build/**/*.ts` | Vitest V8, the frontend's own run, to `coverage/frontend/` | Lines, statements, functions, branches: 100% |
+| `tooling/**/*.ts` | Vitest V8, the root `tooling` project, to `coverage/tooling/` | Lines, statements, functions, branches: 100% |
 | Backend `src-tauri/src/**/*.rs` (except `main.rs`) | cargo-llvm-cov, **unit execution only** | Lines, regions, functions, branches: 100% |
 | `src-tauri/src/main.rs`, `src-tauri/build.rs` | Separate native boundary coverage; guarded minimal delegates | Lines, regions, functions, branches: 100% |
-| `vite.config.ts` | None: Vitest always excludes its own config file; a guarded one-line delegate to `scripts/vite-config.ts` | Not measurable; the delegated module is at 100% |
+| `src-ui/vite.config.ts`, `vitest.config.ts` | None: Vitest always excludes config files; guarded one-line delegates to `src-ui/build/vite.ts` and `tooling/vitest-config.ts` | Not measurable; the delegated modules are at 100% |
 
 LLVM uses executable regions rather than a distinct Rust statement metric. Zero
 branch points means there are no branches to cover; startup has no handwritten
@@ -75,8 +75,8 @@ conditionals, while the HSR parser has measured validation branches. An automate
 verifies LLVM reports a missed branch before restoring the source. Macro-generated
 mappings remain in the report; handwritten native glue is not excluded.
 
-`scripts/coverage.ts` compares integer covered/total counts, so rounded percentages
-cannot pass. The validator itself has 100% coverage. `scripts/tests/reports.test.ts`
+`tooling/coverage.ts` compares integer covered/total counts, so rounded percentages
+cannot pass. The validator itself has 100% coverage. `tests/coverage-reports.test.ts`
 inventories source independently of execution and rejects absent, empty or stale
 reports. New executable files outside the instrumented directories fail the
 inventory check until instrumentation is added. V8 includes unexecuted files; the
@@ -86,15 +86,16 @@ including `build.rs`.
 
 Exclusions are limited to:
 
-- `src/tests/`, `src-tauri/tests/`, `scripts/tests/`, and root `tests/`:
-  test code, test helpers and synthetic fixtures only. Frontend/tooling coverage
+- Sibling `*.test.ts` files, `src-ui/tests/`, `src-tauri/tests/` and root
+  `tests/`: test code, test helpers and synthetic
+  fixtures only. Frontend/tooling coverage
   and source inventories explicitly exclude those test directories; production
   source globs and per-file thresholds are unchanged.
 - `src-tauri/src/**/tests/**`: supporting unit-test doubles only, imported under
   `cfg(test)`. The real service implementation remains in the instrumented parent
   files; no production logic is excluded.
 - `node_modules/`, Cargo dependencies and `src-tauri/target/`: third-party or generated artifacts.
-- `src-tauri/gen/`, `dist/`, `coverage/`: mechanically generated output.
+- `src-tauri/gen/`, `src-ui/dist/`, `coverage/`: mechanically generated output.
 - HTML, CSS, SVG/PNG, Markdown, lockfiles and declarative JSON/YAML/TOML: no
   instrumentable TypeScript/Rust control flow. They are exercised by native smoke
   tests, builds and schema checks as applicable.
@@ -337,8 +338,8 @@ native test's network isolation. No live APIs or real player data were used.
 The native test now requires an enforced `connect-src` security-policy violation.
 Its mutation probe relaxes that directive, observes failure at the CSP assertion,
 restores configuration, and repeats the native run. A rejected fetch alone cannot
-pass. Discovery probes add deliberately failing suites in both `src/tests/` and
-`scripts/tests/unit/`, verify that both `npm test` and `npm run coverage` fail and
+pass. Discovery probes add deliberately failing suites beside frontend source, in
+`src-ui/tests/`, in `src-ui/build/` and in `tooling/`, verify that both `npm test` and `npm run coverage` fail and
 report each suite, then remove them and regenerate clean coverage. Report and
 mutation suites remain explicit commands outside unit discovery.
 

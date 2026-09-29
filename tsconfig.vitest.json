@@ -1,9 +1,0 @@
-// UI tests: the app's settings, plus the test files that run in jsdom.
-{
-  "extends": "./tsconfig.app.json",
-  "include": ["src/env.d.ts", "src/tests/**/*.ts"],
-  "exclude": [],
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo"
-  }
-}

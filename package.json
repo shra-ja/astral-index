@@ -6,25 +6,28 @@
   "engines": {
     "node": "26.10.0"
   },
+  "workspaces": [
+    "src-ui"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "npm run typecheck && vite build",
+    "dev": "npm run dev --workspace src-ui",
+    "build": "npm run typecheck && npm run build --workspace src-ui",
     "typecheck": "vue-tsc --build",
-    "test": "vitest run --project ui --project tooling",
-    "coverage": "npm run coverage:json -- --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html",
-    "coverage:json": "vitest run --project ui --project tooling --coverage",
-    "test:native": "npm run coverage:rust-unit && npm run test:rust-integration && npm run test:native-smoke && npm run coverage:native-report",
-    "coverage:rust-unit": "vitest run tests/native-coverage.test.ts -t '^unit coverage$'",
-    "test:rust-integration": "vitest run tests/native-coverage.test.ts -t '^integration tests$'",
-    "test:native-smoke": "dbus-run-session -- xvfb-run -a vitest run tests/native.test.ts",
-    "coverage:native-report": "vitest run tests/native-coverage.test.ts -t '^native coverage report$'",
-    "test:offline": "bwrap --unshare-net --dev-bind / / --proc /proc npm run test:native",
-    "test:probes": "npm run coverage:json && npm run coverage:rust-unit:json && vitest run scripts/tests/probes.test.ts",
-    "coverage:rust-unit:json": "bwrap --unshare-net --dev-bind / / --proc /proc vitest run tests/native-coverage.test.ts -t '^unit JSON coverage$'",
-    "test:backend-probe": "bwrap --unshare-net --dev-bind / / --proc /proc vitest run tests/native-coverage.test.ts -t '^backend probe coverage$'",
-    "test:native-probe": "bwrap --unshare-net --dev-bind / / --proc /proc npm run test:native-probe:stages",
-    "test:native-probe:stages": "vitest run tests/native-coverage.test.ts -t '^reset native probe$' && npm run test:native-smoke && vitest run tests/native-coverage.test.ts -t '^native JSON report$'",
-    "coverage:verify": "vitest run scripts/tests/reports.test.ts",
+    "test": "npm test --workspace src-ui && vitest run --project tooling",
+    "coverage": "npm run coverage --workspace src-ui -- --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html && vitest run --project tooling --coverage --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html",
+    "coverage:json": "npm run coverage --workspace src-ui && vitest run --project tooling --coverage",
+    "test:backend": "npm run coverage:backend-unit && npm run test:backend-integration && npm run test:e2e-smoke && npm run coverage:backend-report",
+    "coverage:backend-unit": "vitest run tests/backend-coverage-stages.test.ts -t '^unit coverage$'",
+    "test:backend-integration": "vitest run tests/backend-coverage-stages.test.ts -t '^integration tests$'",
+    "test:e2e-smoke": "dbus-run-session -- xvfb-run -a vitest run tests/e2e-smoke.test.ts",
+    "coverage:backend-report": "vitest run tests/backend-coverage-stages.test.ts -t '^backend coverage report$'",
+    "test:offline": "bwrap --unshare-net --dev-bind / / --proc /proc npm run test:backend",
+    "test:probes": "npm run coverage:json && npm run coverage:backend-unit:json && vitest run tests/mutation-probes.test.ts",
+    "coverage:backend-unit:json": "bwrap --unshare-net --dev-bind / / --proc /proc vitest run tests/backend-coverage-stages.test.ts -t '^unit JSON coverage$'",
+    "test:backend-probe": "bwrap --unshare-net --dev-bind / / --proc /proc vitest run tests/backend-coverage-stages.test.ts -t '^backend probe coverage$'",
+    "test:e2e-probe": "bwrap --unshare-net --dev-bind / / --proc /proc npm run test:e2e-probe:stages",
+    "test:e2e-probe:stages": "vitest run tests/backend-coverage-stages.test.ts -t '^reset backend probe$' && npm run test:e2e-smoke && vitest run tests/backend-coverage-stages.test.ts -t '^backend JSON report$'",
+    "coverage:verify": "vitest run tests/coverage-reports.test.ts",
     "check": "npm run build && npm run test:probes && npm run coverage:verify && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings",
     "tauri": "tauri"
   },
@@ -32,18 +35,9 @@
     "@tauri-apps/cli": "2.12.0",
     "@tsconfig/node26": "26.0.1",
     "@types/node": "26.6.3",
-    "@vitejs/plugin-vue": "6.0.9",
     "@vitest/coverage-v8": "5.0.2",
-    "@vue/test-utils": "2.5.1",
-    "@vue/tsconfig": "0.9.1",
-    "jsdom": "30.1.1",
     "typescript": "6.0.3",
-    "vite": "8.3.1",
     "vitest": "5.0.2",
     "vue-tsc": "3.3.11"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "2.12.0",
-    "vue": "3.5.43"
   }
 }

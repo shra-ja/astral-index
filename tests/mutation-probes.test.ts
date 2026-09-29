@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync, renameSync, statSync, utimesSync } from 'node:fs';
 import { afterAll, expect, test } from 'vitest';
-import { refreshProbeCoverage } from '../native-coverage';
+import { refreshProbeCoverage } from '../tooling/backend-coverage';
 
 // Per-probe finally blocks restore files; even failed assertions reach this full refresh.
 afterAll(refreshProbeCoverage, 600000);
@@ -11,13 +11,13 @@ const unrelatedIntegration = '#[test] fn unrelated_must_not_run() { panic!("prob
 
 // Run one report check and require it to fail for the expected reason.
 function expectReportFailure(name: string, message: string): void {
-  const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', name], { encoding: 'utf8' });
+  const result = spawnSync('npx', ['vitest', 'run', 'tests/coverage-reports.test.ts', '-t', name], { encoding: 'utf8' });
   expect(result.status).not.toBe(0);
   expect(result.stdout + result.stderr).toContain(message);
 }
 
 test('the unit gate rejects stale evidence', () => {
-  const path = 'coverage/native-unit/coverage.json';
+  const path = 'coverage/backend-unit/coverage.json';
   const original = statSync(path);
   try {
     utimesSync(path, original.atime, new Date(0));
@@ -28,7 +28,7 @@ test('the unit gate rejects stale evidence', () => {
 }, 30000);
 
 test('the real coverage command rejects an unexecuted file and branch', () => {
-  const probe = 'src/coverage-probe.ts';
+  const probe = 'src-ui/src/coverage-probe.ts';
   expect(existsSync(probe)).toBe(false);
   try {
     writeFileSync(probe, 'export const probe = (value: boolean) => value ? 1 : 0;\n');
@@ -50,11 +50,11 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
   try {
     writeFileSync(unrelated, unrelatedIntegration);
     writeFileSync(main, original.replace('fn main() {', 'fn main() {\n    let _probe = if std::env::var_os("ROLL_TRACKER_UNSET_COVERAGE_PROBE").is_some() { 1 } else { 0 };'));
-    execFileSync('npm', ['run', 'test:native-probe'], { stdio: 'pipe' });
-    const report = JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8'));
+    execFileSync('npm', ['run', 'test:e2e-probe'], { stdio: 'pipe' });
+    const report = JSON.parse(readFileSync('coverage/backend/coverage.json', 'utf8'));
     const summary = report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/main.rs')).summary;
     expect(summary.branches.count).toBeGreaterThan(summary.branches.covered);
-    expectReportFailure('^native wrapper coverage$', 'Uncovered');
+    expectReportFailure('^backend wrapper coverage$', 'Uncovered');
   } finally {
     unlinkSync(unrelated);
     writeFileSync(main, original);
@@ -74,9 +74,9 @@ test('the report gate fails closed when a required report is missing or incomple
   const original = readFileSync(path, 'utf8');
   renameSync(path, backup);
   try {
-    expectReportFailure('^frontend and tooling coverage$', 'ENOENT');
+    expectReportFailure('^frontend coverage$', 'ENOENT');
     writeFileSync(path, '{}');
-    expectReportFailure('^frontend and tooling coverage$', 'Missing coverage');
+    expectReportFailure('^frontend coverage$', 'Missing coverage');
   } finally {
     writeFileSync(path, original);
     unlinkSync(backup);
@@ -85,21 +85,26 @@ test('the report gate fails closed when a required report is missing or incomple
 
 // Exercise the public commands so adding a suite cannot silently bypass either gate.
 test('test and coverage commands discover additional frontend and tooling suites', () => {
-  const paths = ['src/tests/discovery-probe.test.ts', 'scripts/tests/unit/discovery-probe.test.ts'];
+  // Sibling unit tests, frontend integration tests, build tests and tooling tests.
+  const paths = [
+    'src-ui/src/discovery-probe.test.ts', 'src-ui/tests/discovery-probe.test.ts',
+    'src-ui/build/discovery-probe.test.ts', 'tooling/discovery-probe.test.ts',
+  ];
   for (const path of paths) expect(existsSync(path)).toBe(false);
-  try {
-    for (const path of paths) {
+  // One suite at a time: the frontend's run stops the commands before tooling's.
+  for (const path of paths) {
+    try {
       writeFileSync(path, `import { test, expect } from 'vitest';\ntest('${path}', () => expect('discovery probe').toBe('must fail'));\n`);
+      for (const command of ['test', 'coverage:json']) {
+        const result = spawnSync('npm', ['run', command], { encoding: 'utf8' });
+        expect(result.status).not.toBe(0);
+        expect(result.stdout + result.stderr).toContain(path.replace(/^src-ui\//, ''));
+      }
+    } finally {
+      unlinkSync(path);
     }
-    for (const command of ['test', 'coverage:json']) {
-      const result = spawnSync('npm', ['run', command], { encoding: 'utf8' });
-      expect(result.status).not.toBe(0);
-      for (const path of paths) expect(result.stdout + result.stderr).toContain(path);
-    }
-  } finally {
-    for (const path of paths) unlinkSync(path);
   }
-}, 30000);
+}, 180000);
 
 // A network failure alone must not satisfy the native CSP assertion.
 test('the native CSP test rejects a permissive connection policy', () => {
@@ -112,7 +117,7 @@ test('the native CSP test rejects a permissive connection policy', () => {
   try {
     writeFileSync(unrelated, unrelatedIntegration);
     writeFileSync(path, original.replace(policy, 'connect-src *'));
-    const result = spawnSync('npm', ['run', 'test:native-probe'], { encoding: 'utf8' });
+    const result = spawnSync('npm', ['run', 'test:e2e-probe'], { encoding: 'utf8' });
     expect(result.status).not.toBe(0);
     expect(result.stdout + result.stderr).toContain('CSP must block webview connections');
   } finally {
@@ -134,8 +139,8 @@ test('backend coverage requires unit execution even when integration tests cover
     writeFileSync(library, `${original}\npub fn unit_coverage_probe(value: bool) -> u8 { if value { 1 } else { 0 } }\n`);
     writeFileSync(integration, '#[test]\nfn covers_only_in_integration() { assert_eq!(roll_tracker::unit_coverage_probe(true), 1); assert_eq!(roll_tracker::unit_coverage_probe(false), 0); }\n');
     execFileSync('npm', ['run', 'test:backend-probe'], { stdio: 'pipe' });
-    const unit = JSON.parse(readFileSync('coverage/native-unit/coverage.json', 'utf8'));
-    const combined = JSON.parse(readFileSync('coverage/native/coverage.json', 'utf8'));
+    const unit = JSON.parse(readFileSync('coverage/backend-unit/coverage.json', 'utf8'));
+    const combined = JSON.parse(readFileSync('coverage/backend/coverage.json', 'utf8'));
     const metric = (report: typeof unit) => report.data[0].files.find((file: { filename: string }) => file.filename.endsWith('/src/lib.rs')).summary.functions;
     expect(metric(unit).covered).toBeLessThan(metric(unit).count);
     expect(metric(combined).covered).toBe(metric(combined).count);
@@ -148,7 +153,7 @@ test('backend coverage requires unit execution even when integration tests cover
 }, 180000);
 
 test('the unit-only report is mandatory and cannot be replaced by boundary coverage', () => {
-  const path = 'coverage/native-unit/coverage.json';
+  const path = 'coverage/backend-unit/coverage.json';
   const backup = `${path}.probe-backup`;
   const original = readFileSync(path, 'utf8');
   expect(existsSync(backup)).toBe(false);

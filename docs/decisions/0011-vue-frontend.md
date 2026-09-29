@@ -2,7 +2,8 @@
 
 Date: 2026-09-29
 Status: Accepted; supersedes the "no runtime UI framework" and TypeScript version
-parts of [decision 0001](0001-shell-and-test-stack.md).
+parts of [decision 0001](0001-shell-and-test-stack.md). Updated 2026-09-29 as the
+frontend moved into `src-ui/`: paths below are current.
 
 ## Context
 
@@ -24,7 +25,7 @@ conventions regardless of the app's current size, so the structure guides growth
 
 - **Components:** small and presentational, taking props and emitting events.
   Native calls stay in the flow code that uses them; flow logic moves into
-  composables; shared display text lives in modules such as `src/format.ts`.
+  composables; shared display text lives in modules such as `src-ui/src/format.ts`.
 - **Structure:** the frontend moves into a self-contained `src-ui/` npm
   workspace beside `src-tauri/`, so each half of the app is self-contained; the
   user chose the name to mirror `src-tauri/`. Inside it: `components/`, `App.vue`, `views/` behind Vue Router
@@ -37,20 +38,34 @@ conventions regardless of the app's current size, so the structure guides growth
   `src-ui/tests/` with shared fixtures in `src-ui/tests/fixtures/`, like
   `src-tauri/tests/`; end-to-end tests of the real native app stay in root
   `tests/`.
-- **Build:** `vite.config.ts` only delegates to `scripts/vite-config.ts`, which
-  holds Tauri's recommended settings (loopback dev server on port 1420,
+- **Packages:** the root `package.json` is the npm workspace root, holding the
+  Tauri CLI, Vitest and repository tooling; `src-ui/package.json`
+  (`roll-tracker-ui`) holds Vue, `@tauri-apps/api` and the frontend's build and
+  test tools. One lockfile; `npm ci` at the root installs both.
+- **Build:** `src-ui/vite.config.ts` only delegates to `src-ui/build/vite.ts`,
+  which holds Tauri's recommended settings (loopback dev server on port 1420,
   `clearScreen: false`, `TAURI_DEV_HOST` live reload, `envPrefix`, a WebView2 or
-  WebKit build target, source maps only for debug builds) and the Vitest projects
-  and coverage settings. Vitest always excludes its own config file from coverage
-  (hard-coded, "cannot be overridden by user config"), so the file is a third
-  guarded delegate beside `main.rs` and `build.rs`, pinned by an exact source
-  check; unlike those, it has no coverage of its own.
-- **Tests:** Vitest projects `ui` (jsdom), `tooling` (Node) and `gates` (Node)
-  replace command-line flags.
+  WebKit build target, source maps only for debug builds). Tauri builds from
+  `src-ui/dist`.
+- **Tests:** each half runs its own tests, as the backend does with Cargo.
+  `src-ui/build/vite.ts` also holds the frontend's Vitest settings (jsdom; the
+  Vite config test opts into Node per file) and coverage, reported to the
+  repository's `coverage/frontend/` beside the other reports, which the root
+  gates read. The root `vitest.config.ts` only delegates to
+  `tooling/vitest-config.ts`, with the `tooling` and `gates` projects (Node) and
+  tooling coverage in `coverage/tooling/`. The root `npm test` and
+  `npm run coverage` run the frontend's, then the tooling's. Settings replace
+  command-line flags.
+- **Config delegates:** Vitest always excludes config files from coverage
+  (hard-coded, "cannot be overridden by user config"), so both config files are
+  guarded delegates beside `main.rs` and `build.rs`, pinned by exact source
+  checks; unlike those, they have no coverage of their own.
 - **Types:** TypeScript 6.0.3 throughout, split by `create-vue`'s project
-  references: `tsconfig.app.json` (browser only, from `@vue/tsconfig`),
-  `tsconfig.vitest.json` and `tsconfig.node.json` (from `@tsconfig/node26`).
-  `vue-tsc --build` checks all three, including templates.
+  references. `src-ui/tsconfig.json` references `tsconfig.app.json` (browser
+  only, from `@vue/tsconfig`), `tsconfig.vitest.json` and `tsconfig.node.json`
+  (from `@tsconfig/node26`); the root `tsconfig.json` references `src-ui/` and a
+  root Node project for tooling and end-to-end tests. `vue-tsc --build` at the
+  root checks everything, including templates.
 
 ## Alternatives and consequences
 

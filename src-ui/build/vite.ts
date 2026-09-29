@@ -1,5 +1,5 @@
-// Vite and Vitest configuration, kept here so it is unit-tested: Vitest never
-// measures `vite.config.ts` itself, which only delegates to this module.
+// The frontend's Vite and Vitest configuration, kept here so it is unit-tested:
+// Vitest never measures `vite.config.ts` itself, which only delegates to this module.
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath } from 'node:url';
 import type { ViteUserConfig } from 'vitest/config';
@@ -36,17 +36,17 @@ export function viteConfig(env: NodeJS.ProcessEnv): ViteUserConfig {
       minify: !debug,
       sourcemap: debug,
     },
+    // Unit tests sit beside their source and integration tests in `tests/`; the
+    // build test opts into Node with a `@vitest-environment` comment. Reports go to
+    // the repository's `coverage/`, beside the backend's, for the root gates.
     test: {
-      projects: [
-        { extends: true, test: { name: 'ui', environment: 'jsdom', include: ['src/**/*.test.ts'] } },
-        { extends: true, test: { name: 'tooling', environment: 'node', include: ['scripts/tests/unit/**/*.test.ts'] } },
-        { extends: true, test: { name: 'gates', environment: 'node', include: ['tests/**/*.test.ts', 'scripts/tests/*.test.ts'] } },
-      ],
+      environment: 'jsdom',
+      include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
       coverage: {
         provider: 'v8',
-        reportsDirectory: 'coverage/frontend',
-        include: ['src/**/*.{ts,vue}', 'scripts/**/*.ts'],
-        exclude: ['src/tests/**', 'scripts/tests/**', '**/*.d.ts'],
+        reportsDirectory: '../coverage/frontend',
+        include: ['src/**/*.{ts,vue}', 'build/**/*.ts'],
+        exclude: ['**/*.test.ts', 'tests/**', '**/*.d.ts'],
         reporter: ['text', 'json', 'json-summary'],
         thresholds: { perFile: true, 100: true },
       },

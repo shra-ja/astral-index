@@ -1,8 +1,8 @@
 // The webview app: browser APIs only, never Node's.
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["src/env.d.ts", "src/**/*.ts", "src/**/*.vue"],
-  "exclude": ["src/tests/**"],
+  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "exclude": ["src/**/*.test.ts"],
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "noUnusedLocals": true,
