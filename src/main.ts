@@ -1,4 +1,7 @@
-import { extractAutomatically, extractFromFile, type Failure, type Kind } from './commands';
+import {
+  cancelAcquisition, discardImport, extractAutomatically, extractFromFile, retrieveHistory,
+  type Failure, type Kind, type Progress,
+} from './commands';
 
 document.querySelector('main')!.innerHTML = `
   <header>
@@ -28,16 +31,19 @@ document.querySelector('main')!.innerHTML = `
       <p class="detail">Your history will stay on this device. No account needed.</p>
     </div>
     <div class="retrieval" aria-busy="false" hidden>
-      <p>Retrieval starts with the warp history link the game saved on this device.
-        The app finds it, then checks it with HoYoverse, so you need to be online.</p>
-      <button type="button">Start retrieval</button>
-      <div class="fallback">
-        <label for="cache-file">Or choose the game’s <code>data_2</code> cache file</label>
-        <p class="detail" id="cache-file-hint">It’s in the game’s <code>webCaches</code> folder,
-          under <code>Cache\\Cache_Data</code>.</p>
-        <input type="file" id="cache-file" aria-describedby="cache-file-hint">
+      <div class="start">
+        <p>Retrieval starts with the warp history link the game saved on this device.
+          The app finds it, then checks it with HoYoverse, so you need to be online.</p>
+        <button type="button">Start retrieval</button>
+        <div class="fallback">
+          <label for="cache-file">Or choose the game’s <code>data_2</code> cache file</label>
+          <p class="detail" id="cache-file-hint">It’s in the game’s <code>webCaches</code> folder,
+            under <code>Cache\\Cache_Data</code>.</p>
+          <input type="file" id="cache-file" aria-describedby="cache-file-hint">
+        </div>
       </div>
       <p class="extraction-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <button type="button" class="cancel" hidden>Cancel</button>
     </div>
   </section>
   <footer>Made for your collection. No cloud required.</footer>
@@ -46,11 +52,18 @@ document.querySelector('main')!.innerHTML = `
 const game = document.querySelector<HTMLSelectElement>('#game')!;
 const heading = document.querySelector('h2')!;
 const retrieval = document.querySelector<HTMLElement>('.retrieval')!;
-const find = retrieval.querySelector('button')!;
-const cacheFile = retrieval.querySelector<HTMLInputElement>('#cache-file')!;
+const start = retrieval.querySelector<HTMLElement>('.start')!;
+const find = start.querySelector('button')!;
+const cacheFile = start.querySelector<HTMLInputElement>('#cache-file')!;
 const status = retrieval.querySelector('.extraction-status')!;
+const cancel = retrieval.querySelector<HTMLButtonElement>('.cancel')!;
 
-const found = 'HoYoverse accepted your warp history link. Retrieving your history is coming next.';
+/** Warp names by `gacha_type`, as the game shows them. */
+const warps: Record<string, string> = {
+  1: 'Stellar Warp', 2: 'Departure Warp', 11: 'Character Event Warp', 12: 'Light Cone Event Warp',
+  21: 'Character Collaboration Warp', 22: 'Light Cone Collaboration Warp',
+};
+const cancelled = 'Retrieval cancelled. Nothing was saved.';
 const retry = 'then try again, or choose the cache file below.';
 const unexpected = 'Something went wrong. Please try again.';
 // Validation reads the same whichever way the link was found.
@@ -61,6 +74,16 @@ const validationMessages: Partial<Record<Kind, string>> = {
   rejected: 'HoYoverse gave an unexpected response. Try again later.',
   invalid_response: 'HoYoverse sent a response we couldn’t read. Try again later.',
   internal: 'We couldn’t start the connection to HoYoverse. Nothing was sent. Please try again.',
+  cancelled,
+};
+const retrievalMessages: Partial<Record<Kind, string>> = {
+  ...validationMessages,
+  history_too_large: 'Your history is larger than the 16 MiB we can retrieve at once. Nothing was saved.',
+  mixed_accounts: 'HoYoverse returned history for more than one account, so nothing was kept. Try again.',
+  missing_server: 'HoYoverse didn’t say which server this history belongs to, so nothing was kept.',
+  storage: 'We couldn’t open the history saved on this device. Nothing was changed.',
+  context_mismatch: 'Saved history for this account uses a different time zone than HoYoverse reports. Nothing was saved.',
+  no_context: 'Nothing is waiting to be saved. Start retrieval again.',
 };
 const automaticMessages: Partial<Record<Kind, string>> = {
   ...validationMessages,
@@ -83,29 +106,74 @@ function updateGame() {
   retrieval.hidden = game.value !== 'honkai-star-rail';
 }
 
-// Disable both actions while one runs, so results cannot arrive out of order.
-async function extract(progress: string, action: () => Promise<Failure | undefined>) {
-  find.disabled = cacheFile.disabled = true;
+// Set while the user has asked to stop the running acquisition.
+let cancelling = false;
+
+const plural = (count: number, noun: string) => `${count.toLocaleString('en')} ${noun}${count === 1 ? '' : 's'}`;
+
+// Swap the start controls for Cancel while acquisition runs, so only one runs at a time,
+// and return focus to the control that started it.
+async function acquire(
+  trigger: HTMLElement, searching: string, extract: () => Promise<Failure | undefined>,
+  messages: Partial<Record<Kind, string>>,
+) {
+  cancelling = false;
+  start.hidden = true;
+  cancel.hidden = cancel.disabled = false;
+  cancel.focus();
   retrieval.setAttribute('aria-busy', 'true');
-  status.textContent = progress;
-  const failure = await action();
-  find.disabled = cacheFile.disabled = false;
+  status.textContent = searching;
+  status.textContent = await run(extract, messages);
+  cancel.hidden = true;
+  start.hidden = false;
   retrieval.setAttribute('aria-busy', 'false');
-  return failure;
+  trigger.focus();
 }
 
-function describe(failure: Failure | undefined, messages: Partial<Record<Kind, string>>) {
-  if (!failure) return found;
+// Validate, then retrieve. A cancel that races a success still keeps nothing.
+async function run(extract: () => Promise<Failure | undefined>, messages: Partial<Record<Kind, string>>) {
+  const failure = await extract();
+  if (failure) return describe(failure, messages);
+  if (cancelling) return cancelled;
+  status.textContent = 'Retrieving your warp history…';
+  const result = await retrieveHistory(showProgress);
+  if ('failure' in result) return locate(result.failure) + describe(result.failure, retrievalMessages);
+  if (result.retrieved.kind === 'no_history') return 'HoYoverse returned no warp history for this account. Nothing was saved.';
+  // Saving arrives with the review screen; until then, hold nothing natively.
+  await discardImport();
+  if (cancelling) return cancelled;
+  return `Found ${plural(result.retrieved.summary.inserted, 'new roll')}. Saving is coming next.`;
+}
+
+function showProgress(progress: Progress) {
+  if (cancelling) return;
+  status.textContent = progress.kind === 'requesting'
+    ? `Retrieving ${warps[progress.gacha_type]}, page ${progress.page} · ${plural(progress.records, 'roll')} so far`
+    : 'HoYoverse didn’t respond, so we’ll try again in a moment…';
+}
+
+// Say where retrieval stopped, unless the user stopped it.
+function locate({ kind, location }: Failure) {
+  return location && kind !== 'cancelled' ? `Retrieval stopped at ${warps[location.gacha_type]}, page ${location.page}. ` : '';
+}
+
+function describe(failure: Failure, messages: Partial<Record<Kind, string>>) {
   if (failure.kind === 'api_error') {
     return `HoYoverse didn’t accept your warp history link (error ${failure.code}). Open your warp history in the game, then try again.`;
   }
   return messages[failure.kind] ?? unexpected;
 }
 
-find.addEventListener('click', async () => {
-  const failure = await extract('Searching this device, then checking with HoYoverse…', extractAutomatically);
-  status.textContent = describe(failure, automaticMessages);
+// Progress stops showing once the user asks to cancel; if the request cannot be
+// sent, retrieval carries on and can be cancelled again.
+cancel.addEventListener('click', async () => {
+  cancelling = cancel.disabled = true;
+  status.textContent = 'Cancelling…';
+  if (await cancelAcquisition()) cancelling = cancel.disabled = false;
 });
+
+find.addEventListener('click', () =>
+  acquire(find, 'Searching this device, then checking with HoYoverse…', extractAutomatically, automaticMessages));
 
 // Clear only as the dialog opens: the chosen file stays shown with its result,
 // and choosing the same file again still fires a change.
@@ -114,8 +182,7 @@ cacheFile.addEventListener('click', () => { cacheFile.value = ''; });
 cacheFile.addEventListener('change', async () => {
   const file = cacheFile.files![0];
   if (!file) return;
-  const failure = await extract('Reading the file, then checking with HoYoverse…', () => extractFromFile(file));
-  status.textContent = describe(failure, fileMessages);
+  await acquire(cacheFile, 'Reading the file, then checking with HoYoverse…', () => extractFromFile(file), fileMessages);
 });
 
 game.addEventListener('change', updateGame);

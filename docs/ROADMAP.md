@@ -214,6 +214,12 @@ the order listed.
     retrieval" into retrieval, show progress beside a Cancel control, then the
     review with Commit and Discard. Give every failure, `cancelled` and "no
     history found" a readable message.
+    - [x] Chain retrieval after validation, with progress, Cancel and a message
+      for every retrieval failure and "no history found".
+    - [ ] Show the review with Save and Discard, conflicts and the save result.
+  - [ ] Decide whether the webview adopts a component framework, and review the
+    visual design, before the stored-history display. Record the choice as a
+    decision; weigh 100% branch coverage of compiled templates and dependency size.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
   account isolation, cancellation, and failure recovery using local test data.

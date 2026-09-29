@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-09-28
+Updated: 2026-09-29
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -887,7 +887,7 @@ formatting and Clippy, peaking at about 3.2 GB used.
 
 ## Commit and discard commands (2026-09-29)
 
-Work is on `feat/commit-import`, branched from `main` at `301956f`: PR D, the last
+Integrated through PR #35 (`6501c59`), branched from `main` at `301956f`: PR D, the last
 of the acquisition commands. `commit_import` takes the held preview and commits it
 through the database with the current Unix time, returning the summary of rolls
 added, duplicates and conflicts. The preview is used up whatever the outcome, so
@@ -915,11 +915,38 @@ with the new IPC calls, nine probes and five report checks, all at 100% per file
 plus TypeScript/build, formatting and Clippy, peaking at about 3.8 GB used.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Retrieval controls (2026-09-29)
+
+Work is on `feat/retrieval-controls`, branched from `main` at `6501c59`: PR A of
+two for the review and commit controls. Either start action now validates, then
+retrieves: the start controls are hidden and a Cancel button takes focus, the
+status names the warp, page and rolls so far or a pending retry, and focus returns
+to the starting control at the end. Every retrieval failure, `cancelled` and "no
+history found" has a message, prefixed with the warp and page where retrieval
+stopped unless the user cancelled. Once Cancel is pressed, progress stops showing;
+a success that races the cancel is discarded and reported as cancelled, and a
+cancel that cannot be sent re-enables the button. Until PR B adds the review, a
+retrieved preview is discarded at once and the panel says how many new rolls were
+found. The roadmap gains a step to decide on a component framework, and review the
+visual design, before the stored-history display.
+
+TDD: eight new UI tests (the chained flow, warp names, no history, retrieval
+failures and four cancel cases) and four updated ones failed on the missing
+controls and the old "accepted" result, then passed.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 133 Rust unit tests, 55 frontend/tooling tests, offline native execution
+(where the synthetic key fails validation and focus returns to the file chooser),
+nine probes and five report checks, all at 100% per file, plus TypeScript/build,
+formatting and Clippy, peaking at about 3.0 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux. The running and cancelling
+states are covered by jsdom tests only; the offline native test cannot reach them.
+
 ## Next
 
-The review and commit controls: chain "Start retrieval" into retrieval, show
-progress beside a Cancel control, then the review with Commit and Discard, with a
-readable message for every failure, `cancelled` and "no history found". Then the
+PR B of the controls: the review screen with Save and Discard (or Done when
+nothing is new), conflicts listed with Save disabled, and the save result and
+commit failure messages. Then the framework and visual-design decision, and the
 stored-history display. Account/server verification remains a milestone-closing
 requirement.
 

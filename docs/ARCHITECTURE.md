@@ -161,9 +161,14 @@ progress through a `Channel`,
 and rejects files over 16 MiB before reading them. `src/main.ts` shows the Star
 Rail retrieval panel, which says the app checks the saved link with HoYoverse
 and needs a connection: "Start retrieval" first, with the file chooser always
-available below it as the fallback. Both actions are disabled while either runs,
-so results cannot arrive out of order. Validation failures read the same for
-both actions. Success confirms HoYoverse accepted a key; no history is fetched yet.
+available below it as the fallback. While either runs, both are hidden and a
+Cancel button takes focus, so results cannot arrive out of order; focus returns
+to the starting control afterwards. Validation failures read the same for both
+actions. After validation the panel retrieves history, naming the warp, page and
+rolls so far, and says where retrieval stopped when it fails. Once Cancel is
+pressed, progress no longer shows, and a success that races the cancel keeps
+nothing. Until the review screen exists, a retrieved preview is discarded at once
+and the panel reports how many new rolls were found.
 
 ## Statistics
 
@@ -408,8 +413,8 @@ reports `Progress::Requesting` with the category, page number, and the pages and
 records received so far across all categories. Before each retry delay,
 `Retrying` reports `Progress::RetryPending` with the delay, so validation retries
 are reported too. Events carry categories and counts only, never IDs, URLs or
-response text. The extraction commands pass a no-op reporter for now; the
-acquisition commands will forward events to the webview.
+response text. The extraction commands pass a no-op reporter;
+`retrieve_history` forwards events to the webview, which shows them.
 
 `src-tauri/src/acquisition/retry.rs` applies the retry budget. `Retrying` wraps
 any `Transport`: a transient failure (timeout, connection failure or HTTP 5xx)
@@ -430,9 +435,8 @@ in flight is dropped, and every later request returns
 `FetchFailure::Cancelled`, which is not retried and stops `validate` and
 `fetch_history`, so no context or history is returned. Wrap it outside
 `Retrying`, so cancelling also interrupts a retry delay. Retrieval never writes
-storage; only an explicit commit does. No command creates or cancels a token
-yet: the cancel command and its control arrive with the acquisition commands,
-and the native `cancelled` failure kind has no webview message until then.
+storage; only an explicit commit does. Each acquisition command starts with a
+new token, which `cancel_acquisition`, called by the panel's Cancel button, cancels.
 
 ## Windows player-log discovery
 
