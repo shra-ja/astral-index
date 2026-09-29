@@ -105,7 +105,7 @@ They retain their own 100% native boundary gate. This is an explicit, user-appro
 exception for I/O, databases, new commands or platform code. The report gate pins
 both wrappers' current bodies: adding logic fails a guard and requires review of
 this exception. Move new functionality into unit-tested code rather than silently
-expanding the boundary-only coverage scope. `tests/reports.test.ts` is the
+expanding the boundary-only coverage scope. `tests/coverage-reports.test.ts` is the
 single enforcement point for that allowlist and guard.
 
 The config files are the other exceptions ([decision 0011](docs/decisions/0011-vue-frontend.md)).

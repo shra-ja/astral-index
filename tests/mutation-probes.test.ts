@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync, renameSync, statSync, utimesSync } from 'node:fs';
 import { afterAll, expect, test } from 'vitest';
-import { refreshProbeCoverage } from '../tooling/native-coverage';
+import { refreshProbeCoverage } from '../tooling/backend-coverage';
 
 // Per-probe finally blocks restore files; even failed assertions reach this full refresh.
 afterAll(refreshProbeCoverage, 600000);
@@ -11,7 +11,7 @@ const unrelatedIntegration = '#[test] fn unrelated_must_not_run() { panic!("prob
 
 // Run one report check and require it to fail for the expected reason.
 function expectReportFailure(name: string, message: string): void {
-  const result = spawnSync('npx', ['vitest', 'run', 'tests/reports.test.ts', '-t', name], { encoding: 'utf8' });
+  const result = spawnSync('npx', ['vitest', 'run', 'tests/coverage-reports.test.ts', '-t', name], { encoding: 'utf8' });
   expect(result.status).not.toBe(0);
   expect(result.stdout + result.stderr).toContain(message);
 }

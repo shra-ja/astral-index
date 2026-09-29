@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { nativeCargo, nativeEnvironment, nativeReport, nativeUnitCoverage, refreshProbeCoverage, resetNativeCoverage } from './native-coverage';
+import { backendCargo, backendEnvironment, backendReport, backendUnitCoverage, refreshProbeCoverage, resetBackendCoverage } from './backend-coverage';
 
 vi.mock('node:child_process', () => {
   const api = { execFileSync: vi.fn() };
@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 
 test('native stages retain the process environment and enable branch instrumentation', () => {
-  expect(nativeEnvironment()).toMatchObject({
+  expect(backendEnvironment()).toMatchObject({
     PATH: process.env.PATH,
     CARGO_LLVM_COV_TARGET_DIR: resolve('src-tauri/target'),
     GDK_BACKEND: 'x11',
@@ -28,23 +28,23 @@ test('native stages retain the process environment and enable branch instrumenta
 });
 
 test('reset clears execution data with cargo while retaining separately frozen reports', () => {
-  resetNativeCoverage();
+  resetBackendCoverage();
   expect(writeFileSync).toHaveBeenCalledWith('src-tauri/target/CACHEDIR.TAG', expect.stringContaining('8a477f597d28d172789f06886806bc55'));
   expect(execFileSync).toHaveBeenCalledWith('cargo', ['llvm-cov', 'clean', '--workspace'], expect.any(Object));
   expect(rmSync).not.toHaveBeenCalled();
 });
 
 test('cargo stage executes only the requested operation and propagates failures', () => {
-  nativeCargo(['test', '--lib', '--locked', '--offline']);
+  backendCargo(['test', '--lib', '--locked', '--offline']);
   expect(execFileSync).toHaveBeenLastCalledWith('cargo', ['test', '--lib', '--locked', '--offline'], expect.objectContaining({ cwd: resolve('src-tauri'), stdio: 'inherit' }));
   vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('environment failed'); });
-  expect(() => nativeCargo(['build'])).toThrow('environment failed');
+  expect(() => backendCargo(['build'])).toThrow('environment failed');
   vi.mocked(execFileSync).mockImplementationOnce(() => "export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS='flags'\n").mockImplementationOnce(() => { throw new Error('cargo failed'); });
-  expect(() => nativeCargo(['build'])).toThrow('cargo failed');
+  expect(() => backendCargo(['build'])).toThrow('cargo failed');
 });
 
 test.each([false, true])('reports replace prior evidence and generate HTML only when requested: %s', html => {
-  nativeReport('coverage/native-unit', html);
+  backendReport('coverage/native-unit', html);
   expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });
   expect(mkdirSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true });
   const commands = vi.mocked(execFileSync).mock.calls.filter(([, args]) => args?.[1] === 'report').map(([, args]) => args);
@@ -55,7 +55,7 @@ test.each([false, true])('reports replace prior evidence and generate HTML only 
 });
 
 test('unit coverage invalidates its old snapshot before running tests and freezes before integration', () => {
-  nativeUnitCoverage(false);
+  backendUnitCoverage(false);
   expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });
   const commands = vi.mocked(execFileSync).mock.calls.map(([, args]) => args).filter(args => args?.[1] !== 'show-env');
   expect(commands).toEqual([
@@ -70,7 +70,7 @@ test('failed unit execution cannot leave a previous unit report in place', () =>
     if (args?.[0] === 'test') throw new Error('unit failure');
     return "export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS='flags'\n";
   });
-  expect(() => nativeUnitCoverage(true)).toThrow('unit failure');
+  expect(() => backendUnitCoverage(true)).toThrow('unit failure');
   expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });
   const testCall = vi.mocked(execFileSync).mock.calls.findIndex(([, args]) => args?.[0] === 'test');
   expect(vi.mocked(rmSync).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(execFileSync).mock.invocationCallOrder[testCall]);

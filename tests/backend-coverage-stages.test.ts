@@ -1,34 +1,34 @@
 import { test } from 'vitest';
-import { nativeCargo, nativeReport, nativeUnitCoverage, resetNativeCoverage } from '../tooling/native-coverage';
+import { backendCargo, backendReport, backendUnitCoverage, resetBackendCoverage } from '../tooling/backend-coverage';
 
 // The full command freezes unit evidence before any integration or desktop execution.
 test('unit coverage', () => {
-  nativeUnitCoverage(true);
+  backendUnitCoverage(true);
 }, 600000);
 
 test('integration tests', () => {
-  nativeCargo(['test', '--locked', '--offline']);
+  backendCargo(['test', '--locked', '--offline']);
 }, 600000);
 
 test('native coverage report', () => {
-  nativeReport('coverage/native', true);
+  backendReport('coverage/native', true);
 }, 600000);
 
 // Only the synthetic integration target may fill this deliberately missing unit path.
 test('backend probe coverage', () => {
-  nativeUnitCoverage(false);
-  nativeCargo(['test', '--test', 'unit_coverage_probe', '--locked', '--offline']);
-  nativeReport('coverage/native', false);
+  backendUnitCoverage(false);
+  backendCargo(['test', '--test', 'unit_coverage_probe', '--locked', '--offline']);
+  backendReport('coverage/native', false);
 }, 600000);
 
 test('reset native probe', () => {
-  resetNativeCoverage();
+  resetBackendCoverage();
 }, 600000);
 
 test('native JSON report', () => {
-  nativeReport('coverage/native', false);
+  backendReport('coverage/native', false);
 }, 600000);
 
 test('unit JSON coverage', () => {
-  nativeUnitCoverage(false);
+  backendUnitCoverage(false);
 }, 600000);

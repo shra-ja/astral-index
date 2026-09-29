@@ -28,7 +28,7 @@ launches the desktop, and `coverage:native-report` renders combined evidence.
 `test:native` composes those stages in that order; `test:offline` isolates the
 whole sequence. Individual stages are diagnostic building blocks, not substitutes
 for the complete gate. Report rendering never executes tests and cannot establish
-freshness on its own. The shared tooling in `tooling/native-coverage.ts` has
+freshness on its own. The shared tooling in `tooling/backend-coverage.ts` has
 mocked unit tests and is included in the 100% tooling coverage inventory.
 
 `test:backend-probe` is a network-isolated probe-only stage. It resets counters,
@@ -76,7 +76,7 @@ verifies LLVM reports a missed branch before restoring the source. Macro-generat
 mappings remain in the report; handwritten native glue is not excluded.
 
 `tooling/coverage.ts` compares integer covered/total counts, so rounded percentages
-cannot pass. The validator itself has 100% coverage. `tests/reports.test.ts`
+cannot pass. The validator itself has 100% coverage. `tests/coverage-reports.test.ts`
 inventories source independently of execution and rejects absent, empty or stale
 reports. New executable files outside the instrumented directories fail the
 inventory check until instrumentation is added. V8 includes unexecuted files; the

@@ -75,7 +75,7 @@ inspect actual code before assuming a feature exists.
   a separate 100% native gate while they remain minimal Tauri delegates, and the
   config files Vitest never measures, `src-ui/vite.config.ts` and
   `vitest.config.ts`, only delegate to the unit-tested `src-ui/build/vite.ts` and
-  `tooling/vitest-config.ts`. The source-body guard in `tests/reports.test.ts`
+  `tooling/vitest-config.ts`. The source-body guard in `tests/coverage-reports.test.ts`
   must fail if any of them changes. Reassess the exception before adding behavior
   to any of them.
 - Include unexecuted source files in coverage. Enforce thresholds per file and per

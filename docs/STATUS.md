@@ -1214,8 +1214,12 @@ rule; there is no behaviour change.
   modules (`coverage.ts`, `native-coverage.ts`, `vitest-config.ts`) move to
   `tooling/` with their unit tests beside them, including `ci.test.ts`; the report
   checks and probes join the native end-to-end test in root `tests/`, now defined
-  as repository-level verification. File names in `tests/` are kept for now, for
-  the user to revisit.
+  as repository-level verification. At the user's choice, its files were then
+  renamed: `e2e-smoke.test.ts`, `close-window-helper.py`,
+  `coverage-reports.test.ts`, `mutation-probes.test.ts` and
+  `backend-coverage-stages.test.ts`; the helper module became
+  `tooling/backend-coverage.ts`, with its functions renamed from `native…` to
+  `backend…`.
 - **Gates:** separate frontend and tooling coverage checks, each against its own
   source list; the inventory covers `src-ui/src`, `src-ui/build` and `tooling`,
   excludes `*.test.ts` and the test folders, and pins both delegates. The
