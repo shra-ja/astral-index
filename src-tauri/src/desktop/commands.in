@@ -1,1 +1,8 @@
-&["extract_automatically", "extract_from_file", "cancel_acquisition", "retrieve_history"]
+&[
+    "extract_automatically",
+    "extract_from_file",
+    "cancel_acquisition",
+    "retrieve_history",
+    "commit_import",
+    "discard_import",
+]

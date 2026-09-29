@@ -81,6 +81,8 @@ test('the bundled native shell works offline, supports keyboard selection, and c
           invoke('retrieve_history', {
             onProgress: '__CHANNEL__:' + window.__TAURI_INTERNALS__.transformCallback(() => {}),
           }).then(() => 'resolved', JSON.stringify),
+          invoke('commit_import').then(() => 'resolved', JSON.stringify),
+          invoke('discard_import').then(() => 'resolved', String),
         ]).then(done);
       `, args: [],
     });
@@ -89,6 +91,9 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     expect(commands[2]).toBe('resolved');
     // Setup managed the database; nothing was validated, so nothing is retrieved.
     expect(commands[3]).toBe('{"kind":"no_context"}');
+    // Nothing was retrieved, so nothing can be committed; discarding is harmless.
+    expect(commands[4]).toBe('{"kind":"no_preview"}');
+    expect(commands[5]).toBe('resolved');
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
     expect(await execute('return document.querySelector(".fallback").hidden')).toBe(false);

@@ -568,7 +568,8 @@ pub(crate) mod tests {
     const INSERT: &str =
         "INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)";
     const REVISION: &str = "UPDATE metadata SET revision=revision+1 WHERE singleton=1";
-    fn commit_script(duplicate: bool) -> Vec<Step> {
+    /// The SQL for committing `preview()`, imported at 1234.
+    pub(crate) fn commit_script(duplicate: bool) -> Vec<Step> {
         let (id, payload) = record();
         let mut account_bindings = scope();
         account_bindings.push(Value::Integer(8));
@@ -891,14 +892,9 @@ pub(crate) mod tests {
         );
         database::finish();
     }
-    #[test]
-    fn commit_conflicts_and_stale_previews_do_not_write() {
-        let mut conflict = preview();
-        conflict.summary.conflicts = 1;
-        database::expect(vec![]);
-        assert_eq!(store().commit(conflict, 0), Err(Error::Conflict));
-        database::finish();
-        database::expect(vec![
+    /// The SQL for a commit refused because the database is not the previewed one.
+    pub(crate) fn stale_commit_script() -> Vec<Step> {
+        vec![
             done("BEGIN Immediate"),
             rows(
                 SNAPSHOT,
@@ -906,7 +902,16 @@ pub(crate) mod tests {
                 vec![vec![text("another database"), Value::Integer(1)]],
             ),
             done("ROLLBACK"),
-        ]);
+        ]
+    }
+    #[test]
+    fn commit_conflicts_and_stale_previews_do_not_write() {
+        let mut conflict = preview();
+        conflict.summary.conflicts = 1;
+        database::expect(vec![]);
+        assert_eq!(store().commit(conflict, 0), Err(Error::Conflict));
+        database::finish();
+        database::expect(stale_commit_script());
         assert_eq!(store().commit(preview(), 0), Err(Error::StalePreview));
         database::finish();
         let (id, payload) = record();

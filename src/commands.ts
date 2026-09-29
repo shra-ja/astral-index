@@ -9,7 +9,7 @@ const nativeKinds = [
   'unsupported_host', 'discovery_failed', 'no_game_data', 'no_cache', 'no_request', 'file_too_large', 'invalid_file',
   'expired_key', 'api_error', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal', 'cancelled',
   'no_context', 'history_too_large', 'mixed_accounts', 'missing_server', 'storage', 'context_mismatch',
-  'conflict', 'stale_preview',
+  'conflict', 'stale_preview', 'no_preview',
 ] as const;
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22'];
@@ -82,6 +82,20 @@ export async function retrieveHistory(
   } catch (error) {
     return { failure: parse(error) };
   }
+}
+
+/** Write the retrieved history to this device; the native side keeps no preview afterwards. */
+export async function commitImport(): Promise<{ summary: Counts } | { failure: Failure }> {
+  try {
+    return { summary: await invoke<Counts>('commit_import') };
+  } catch (error) {
+    return { failure: parse(error) };
+  }
+}
+
+/** Drop the retrieved history without writing anything. */
+export function discardImport(): Promise<Failure | undefined> {
+  return run(() => invoke('discard_import'));
 }
 
 /** Check the size before reading, then send the bytes as a raw body for validation. */

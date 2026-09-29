@@ -845,7 +845,7 @@ file, plus TypeScript/build, formatting and Clippy, peaking at about 3.5 GB used
 
 ## Retrieve history command (2026-09-29)
 
-Work is on `feat/retrieve-history`, branched from `main` at `8826c15`: PR C of the
+Integrated through PR #34 (`301956f`), branched from `main` at `8826c15`: PR C of the
 acquisition commands. `retrieve_history` takes the validated context and its budget
 out of the session, retrieves every category cancellably while continuing the
 extraction's budget, streams progress over a Tauri channel, and drops the context
@@ -885,11 +885,43 @@ probes and five report checks, all at 100% per file, plus TypeScript/build,
 formatting and Clippy, peaking at about 3.2 GB used.
 `npm run tauri -- build --no-bundle` passed on Linux.
 
+## Commit and discard commands (2026-09-29)
+
+Work is on `feat/commit-import`, branched from `main` at `301956f`: PR D, the last
+of the acquisition commands. `commit_import` takes the held preview and commits it
+through the database with the current Unix time, returning the summary of rolls
+added, duplicates and conflicts. The preview is used up whatever the outcome, so
+after a conflict or `stale_preview` the user retrieves again; a commit is atomic
+and quick, so it is not cancellable. `discard_import` drops the held preview
+without writing. Without a preview, commit fails with the new `no_preview` kind and
+discard does nothing. Both are registered and granted; the typed client gains
+`commitImport` and `discardImport`. No UI changed. The storage tests'
+`commit_script` is crate-visible, and a `stale_commit_script` helper replaces an
+inline stale-commit script.
+
+TDD: three native tests (commit, a refused or failed commit, discard) failed
+against stubs, then passed; the IPC checks passed against the stubs, as they only
+need the commands registered. Three client tests failed on the missing kind and
+functions, then passed. The native smoke test now calls both commands from the
+real webview. A permission-check outage interrupted the work between the native
+implementation and its test run; nothing was committed in between.
+
+The first staged run failed the native unit gate on `commit_import`'s generated
+handling of an unmanaged database; the no-database IPC test now calls
+`commit_import` as well as `retrieve_history`. Run stage by stage with
+`CARGO_BUILD_JOBS=8`, every stage of `npm run check` then passed: 133 Rust unit
+tests, 37 integration tests, 48 frontend/tooling tests, offline native execution
+with the new IPC calls, nine probes and five report checks, all at 100% per file,
+plus TypeScript/build, formatting and Clippy, peaking at about 3.8 GB used.
+`npm run tauri -- build --no-bundle` passed on Linux.
+
 ## Next
 
-PR D: `commit_import` and `discard_import` for the held preview, then the review
-and commit controls and history display. Account/server verification remains a
-milestone-closing requirement.
+The review and commit controls: chain "Start retrieval" into retrieval, show
+progress beside a Cancel control, then the review with Commit and Discard, with a
+readable message for every failure, `cancelled` and "no history found". Then the
+stored-history display. Account/server verification remains a milestone-closing
+requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

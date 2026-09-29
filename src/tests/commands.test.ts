@@ -1,7 +1,10 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, expect, test } from 'vitest';
 import type { Channel } from '@tauri-apps/api/core';
-import { cancelAcquisition, extractAutomatically, extractFromFile, MAX_CACHE_BYTES, retrieveHistory } from '../commands';
+import {
+  cancelAcquisition, commitImport, discardImport, extractAutomatically, extractFromFile, MAX_CACHE_BYTES,
+  retrieveHistory,
+} from '../commands';
 
 afterEach(clearMocks);
 
@@ -17,7 +20,7 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'unsupported_host', 'discovery_failed', 'no_game_data', 'no_cache', 'no_request',
     'expired_key', 'rate_limited', 'network', 'rejected', 'invalid_response', 'internal', 'cancelled',
     'no_context', 'history_too_large', 'mixed_accounts', 'missing_server', 'storage', 'context_mismatch',
-    'conflict', 'stale_preview',
+    'conflict', 'stale_preview', 'no_preview',
   ]) {
     mockIPC(() => { throw { kind }; });
     expect(await extractAutomatically()).toEqual({ kind });
@@ -100,4 +103,21 @@ test('retrieval failures keep only a valid category and page', async () => {
     mockIPC(() => { throw { kind: 'network', ...location }; });
     expect(await retrieveHistory(() => undefined)).toEqual({ failure: { kind: 'network' } });
   }
+});
+
+test('committing returns what was added, and failures stay safe categories', async () => {
+  const summary = { inserted: 2, duplicates: 5, conflicts: 0 };
+  const calls: string[] = [];
+  mockIPC(cmd => { calls.push(cmd); return summary; });
+  expect(await commitImport()).toEqual({ summary });
+  expect(calls).toEqual(['commit_import']);
+  mockIPC(() => { throw { kind: 'stale_preview' }; });
+  expect(await commitImport()).toEqual({ failure: { kind: 'stale_preview' } });
+});
+
+test('discarding asks the native side to drop the preview', async () => {
+  const calls: string[] = [];
+  mockIPC(cmd => { calls.push(cmd); });
+  expect(await discardImport()).toBeUndefined();
+  expect(calls).toEqual(['discard_import']);
 });

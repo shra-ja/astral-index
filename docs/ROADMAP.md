@@ -209,7 +209,7 @@ the order listed.
     account and preview it. Return the review or "no history found", with the
     failing category and page for retrieval failures. Clear the auth key as
     soon as retrieval ends, whether it succeeds, fails or is cancelled.
-  - [ ] Add `commit_import` and `discard_import` commands for the held preview.
+  - [x] Add `commit_import` and `discard_import` commands for the held preview.
   - [ ] Add accessible review and commit controls for the preview: chain "Start
     retrieval" into retrieval, show progress beside a Cancel control, then the
     review with Commit and Discard. Give every failure, `cancelled` and "no

@@ -8,7 +8,7 @@ use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
 };
-use crate::storage::{self, Preview, Review};
+use crate::storage::{self, Preview, Review, Summary};
 use serde::Serialize;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
@@ -64,6 +64,8 @@ pub enum Failure {
     Conflict,
     /// Stored history changed after the preview; retrieve again.
     StalePreview,
+    /// There is no retrieved history awaiting commit.
+    NoPreview,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -194,6 +196,14 @@ impl Session {
         state.acquisition = Some((context, budget));
         Ok(())
     }
+    /// Take the held preview for commit; the session no longer holds it.
+    fn take_preview(&self) -> Result<Preview, Failure> {
+        self.state().preview.take().ok_or(Failure::NoPreview)
+    }
+    /// Drop the held preview, if any.
+    fn discard(&self) {
+        self.state().preview = None;
+    }
     /// Stop the running operation and drop the held context.
     fn cancel(&self) {
         let mut state = self.state();
@@ -209,7 +219,9 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         extract_automatically,
         extract_from_file,
         cancel_acquisition,
-        retrieve_history
+        retrieve_history,
+        commit_import,
+        discard_import
     ])
 }
 
@@ -403,6 +415,43 @@ fn forward(channel: &Channel<ProgressEvent>) -> impl Fn(ProgressEvent) + Sync + 
     }
 }
 
+/// Commit the held preview, imported at `imported_at` (Unix seconds). The preview
+/// is used up whatever the outcome; after a failure, retrieve again. A commit is
+/// atomic and quick, so it is not cancellable.
+async fn commit_into(
+    session: &Session,
+    database: &Database,
+    imported_at: i64,
+) -> Result<Summary, Failure> {
+    let preview = session.take_preview()?;
+    database
+        .run(move |store| store.commit(preview, imported_at))
+        .await
+        .and_then(|summary| summary)
+        .map_err(Failure::from)
+}
+
+/// Write the held preview to local history and return what it added.
+#[tauri::command]
+async fn commit_import(
+    session: State<'_, Session>,
+    database: State<'_, Database>,
+) -> Result<Summary, Failure> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+    commit_into(
+        &session,
+        &database,
+        now.map_or(0, |elapsed| elapsed.as_secs() as i64),
+    )
+    .await
+}
+
+/// Drop the held preview without writing anything.
+#[tauri::command]
+fn discard_import(session: State<'_, Session>) {
+    session.discard();
+}
+
 /// Contacts HoYoverse to retrieve history, streaming progress to `on_progress`.
 #[tauri::command]
 async fn retrieve_history(
@@ -435,7 +484,9 @@ mod tests {
     use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
-    use crate::storage::tests::{preview_script, setup, step, text};
+    use crate::storage::tests::{
+        commit_script, preview, preview_script, setup, stale_commit_script, step, text,
+    };
     use std::path::PathBuf;
     use tauri::{
         Manager, WebviewWindow, WebviewWindowBuilder,
@@ -543,9 +594,17 @@ mod tests {
                 "extract_automatically",
                 "extract_from_file",
                 "cancel_acquisition",
-                "retrieve_history"
+                "retrieve_history",
+                "commit_import",
+                "discard_import"
             ]
         );
+        // Nothing was retrieved, so there is nothing to commit; discarding is harmless.
+        assert_eq!(
+            invoke(&window, COMMANDS[4], InvokeBody::default()),
+            Err(r#"{"kind":"no_preview"}"#.into())
+        );
+        assert_eq!(invoke(&window, COMMANDS[5], InvokeBody::default()), Ok(()));
         assert_eq!(invoke(&window, COMMANDS[2], InvokeBody::default()), Ok(()));
         // Nothing was validated, so retrieval sends nothing.
         let channel = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
@@ -591,7 +650,7 @@ mod tests {
     }
 
     #[test]
-    fn retrieval_fails_safely_without_a_managed_database() {
+    fn database_commands_fail_safely_without_a_managed_database() {
         // Built without running setup, so no database is managed.
         let app = register(mock_builder())
             .build(mock_context(noop_assets()))
@@ -601,6 +660,8 @@ mod tests {
             .unwrap();
         let channel = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
         let error = invoke(&window, "retrieve_history", InvokeBody::Json(channel));
+        assert!(error.unwrap_err().contains("state not managed"));
+        let error = invoke(&window, "commit_import", InvokeBody::default());
         assert!(error.unwrap_err().contains("state not managed"));
     }
 
@@ -844,7 +905,7 @@ mod tests {
         let token = session.begin();
         session.cancel();
         assert_eq!(
-            session.keep_preview(&token, crate::storage::tests::preview()),
+            session.keep_preview(&token, preview()),
             Err(Failure::Cancelled)
         );
         assert_eq!(holds(&session), (false, false));
@@ -940,6 +1001,76 @@ mod tests {
         ] {
             assert_eq!(Failure::from(error), failure);
         }
+    }
+
+    /// Hold a preview of one new record, as retrieval leaves it.
+    fn previewed(session: &Session) {
+        let token = session.begin();
+        session.keep_preview(&token, preview()).unwrap();
+    }
+
+    #[test]
+    fn commit_writes_the_held_preview_and_uses_it_up() {
+        let session = Session::default();
+        previewed(&session);
+        let database = database();
+        let mut script = opening();
+        script.extend(commit_script(false));
+        sql::expect(script);
+        let summary = run(commit_into(&session, &database, 1234)).unwrap();
+        sql::finish();
+        assert_eq!(
+            json(summary),
+            serde_json::json!({ "inserted": 1, "duplicates": 0, "conflicts": 0 })
+        );
+        assert_eq!(holds(&session), (false, false));
+        // Nothing is left to commit.
+        assert_eq!(
+            run(commit_into(&session, &database, 1234)),
+            Err(Failure::NoPreview)
+        );
+    }
+
+    #[test]
+    fn a_refused_commit_writes_nothing_and_uses_up_the_preview() {
+        let session = Session::default();
+        previewed(&session);
+        let database = database();
+        let mut script = opening();
+        script.extend(stale_commit_script());
+        sql::expect(script);
+        assert_eq!(
+            run(commit_into(&session, &database, 1234)),
+            Err(Failure::StalePreview)
+        );
+        sql::finish();
+        assert_eq!(holds(&session), (false, false));
+        // A database that cannot be opened is a storage failure.
+        previewed(&session);
+        let mut failing = opening().remove(0);
+        failing.reply = Err(rusqlite::Error::InvalidQuery);
+        sql::expect(vec![failing]);
+        assert_eq!(
+            run(commit_into(
+                &session,
+                &Database::new(Some(PathBuf::from("/data"))),
+                1234
+            )),
+            Err(Failure::Storage)
+        );
+        sql::finish();
+    }
+
+    #[test]
+    fn discarding_drops_the_preview_without_writing() {
+        let session = Session::default();
+        previewed(&session);
+        sql::expect(vec![]);
+        session.discard();
+        sql::finish();
+        assert_eq!(holds(&session), (false, false));
+        session.discard();
+        assert_eq!(holds(&session), (false, false));
     }
 
     #[test]
