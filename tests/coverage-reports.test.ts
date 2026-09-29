@@ -48,8 +48,8 @@ for (const [name, report, globs] of typeScriptReports) {
 }
 
 for (const [name, reportPath, boundary] of [
-  ['backend unit coverage', 'coverage/native-unit/coverage.json', false],
-  ['native wrapper coverage', 'coverage/native/coverage.json', true],
+  ['backend unit coverage', 'coverage/backend-unit/coverage.json', false],
+  ['backend wrapper coverage', 'coverage/backend/coverage.json', true],
 ] as const) {
   test(name, () => {
     const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], { exclude: ['src-tauri/src/**/tests/**'] }).map(file => resolve(file));

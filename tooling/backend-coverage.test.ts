@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.mocked(execFileSync).mockReturnValue("export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS='existing'\nexport LLVM_PROFILE_FILE='profiles/%p.profraw'\n");
 });
 
-test('native stages retain the process environment and enable branch instrumentation', () => {
+test('backend stages retain the process environment and enable branch instrumentation', () => {
   expect(backendEnvironment()).toMatchObject({
     PATH: process.env.PATH,
     CARGO_LLVM_COV_TARGET_DIR: resolve('src-tauri/target'),
@@ -44,24 +44,24 @@ test('cargo stage executes only the requested operation and propagates failures'
 });
 
 test.each([false, true])('reports replace prior evidence and generate HTML only when requested: %s', html => {
-  backendReport('coverage/native-unit', html);
-  expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });
-  expect(mkdirSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true });
+  backendReport('coverage/backend-unit', html);
+  expect(rmSync).toHaveBeenCalledWith('coverage/backend-unit', { recursive: true, force: true });
+  expect(mkdirSync).toHaveBeenCalledWith('coverage/backend-unit', { recursive: true });
   const commands = vi.mocked(execFileSync).mock.calls.filter(([, args]) => args?.[1] === 'report').map(([, args]) => args);
   expect(commands).toEqual([
-    ['llvm-cov', 'report', '--include-build-script', '--json', '--output-path', resolve('coverage/native-unit/coverage.json')],
-    ...(html ? [['llvm-cov', 'report', '--include-build-script', '--html', '--output-dir', resolve('coverage/native-unit')]] : []),
+    ['llvm-cov', 'report', '--include-build-script', '--json', '--output-path', resolve('coverage/backend-unit/coverage.json')],
+    ...(html ? [['llvm-cov', 'report', '--include-build-script', '--html', '--output-dir', resolve('coverage/backend-unit')]] : []),
   ]);
 });
 
 test('unit coverage invalidates its old snapshot before running tests and freezes before integration', () => {
   backendUnitCoverage(false);
-  expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });
+  expect(rmSync).toHaveBeenCalledWith('coverage/backend-unit', { recursive: true, force: true });
   const commands = vi.mocked(execFileSync).mock.calls.map(([, args]) => args).filter(args => args?.[1] !== 'show-env');
   expect(commands).toEqual([
     ['llvm-cov', 'clean', '--workspace'],
     ['test', '--lib', '--locked', '--offline'],
-    ['llvm-cov', 'report', '--include-build-script', '--json', '--output-path', resolve('coverage/native-unit/coverage.json')],
+    ['llvm-cov', 'report', '--include-build-script', '--json', '--output-path', resolve('coverage/backend-unit/coverage.json')],
   ]);
 });
 
@@ -71,7 +71,7 @@ test('failed unit execution cannot leave a previous unit report in place', () =>
     return "export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS='flags'\n";
   });
   expect(() => backendUnitCoverage(true)).toThrow('unit failure');
-  expect(rmSync).toHaveBeenCalledWith('coverage/native-unit', { recursive: true, force: true });
+  expect(rmSync).toHaveBeenCalledWith('coverage/backend-unit', { recursive: true, force: true });
   const testCall = vi.mocked(execFileSync).mock.calls.findIndex(([, args]) => args?.[0] === 'test');
   expect(vi.mocked(rmSync).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(execFileSync).mock.invocationCallOrder[testCall]);
 });
@@ -83,7 +83,7 @@ test('final regeneration runs coverage and the full offline suite before all rep
     ['npm', ['run', 'test:offline'], { stdio: 'inherit' }],
     ['npm', ['run', 'coverage:verify'], { stdio: 'inherit' }],
   ]);
-  expect(vi.mocked(rmSync).mock.calls.map(([path]) => path)).toEqual(['coverage/frontend', 'coverage/tooling', 'coverage/native-unit', 'coverage/native']);
+  expect(vi.mocked(rmSync).mock.calls.map(([path]) => path)).toEqual(['coverage/frontend', 'coverage/tooling', 'coverage/backend-unit', 'coverage/backend']);
 });
 
 test.each([0, 1, 2])('final regeneration fails closed at stage %s', stage => {

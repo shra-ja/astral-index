@@ -60,12 +60,12 @@ internet access; stored-history operations remain local. See
 | `npm run coverage:json` | The same frontend and tooling gates without HTML rendering |
 | `npm run typecheck` | `vue-tsc --build` over the app, UI-test and Node projects, including templates |
 | `npm run build` | The type check, then bundled web assets |
-| `npm run test:native` | Instrumented Rust build/tests, native UI/keyboard/close tests, LLVM reports |
-| `npm run test:offline` | Native test in a namespace with no external network route |
-| `npm run coverage:rust-unit` | Reset native counters, run Rust unit tests and freeze their JSON/HTML coverage |
-| `npm run test:rust-integration` | Run the instrumented Cargo test suite without launching the desktop |
-| `npm run test:native-smoke` | Build and exercise the native desktop without running backend tests |
-| `npm run coverage:native-report` | Render JSON/HTML from the current native execution counters |
+| `npm run test:backend` | Instrumented Rust build and tests, the end-to-end UI/keyboard/close test, LLVM reports |
+| `npm run test:offline` | `test:backend` in a namespace with no external network route |
+| `npm run coverage:backend-unit` | Reset backend counters, run Rust unit tests and freeze their JSON/HTML coverage |
+| `npm run test:backend-integration` | Run the instrumented Cargo test suite without launching the desktop |
+| `npm run test:e2e-smoke` | Build and exercise the desktop app end to end without running backend tests |
+| `npm run coverage:backend-report` | Render JSON/HTML from the current backend execution counters |
 | `npm run test:probes` | Prepare JSON evidence, run scoped enforcement probes, then regenerate and validate full coverage |
 | `npm run coverage:verify` | Validate frontend, Rust unit-only and startup/build coverage against source inventories and modification times |
 | `npm run check` | All coverage, build/type, offline native, probe, format and lint gates |
@@ -87,9 +87,9 @@ verification: the native end-to-end test and the coverage gates. See
 [contributor test layout](CONTRIBUTING.md#test-layout).
 
 Rust backend coverage is enforced at 100% from unit tests using mocked filesystem
-and SQLite APIs, before integration tests run. `coverage/native-unit/` contains
+and SQLite APIs, before integration tests run. `coverage/backend-unit/` contains
 that independent report. Only the minimal Tauri `main.rs` and `build.rs` delegates
-use the separate native gate in `coverage/native/`; a source-body guard requires
+use the separate backend wrapper gate in `coverage/backend/`; a source-body guard requires
 review if either wrapper changes. Real-file, SQLite and desktop integration tests
 remain mandatory additional checks and cannot compensate for unit-test gaps.
 
@@ -103,9 +103,9 @@ source and restore it, then regenerate the real coverage reports. Inspect source
 if a probe is interrupted.
 
 The executable is `src-tauri/target/release/roll-tracker`. Reports live in
-`coverage/frontend/`, `coverage/tooling/`, `coverage/native-unit/` and
-`coverage/native/`; the native screenshot is
-`test-results/native-shell.png`. These outputs are ignored by Git.
+`coverage/frontend/`, `coverage/tooling/`, `coverage/backend-unit/` and
+`coverage/backend/`; the end-to-end screenshot is
+`test-results/e2e-smoke.png`. These outputs are ignored by Git.
 
 ### Optional: Windows executable for manual verification
 

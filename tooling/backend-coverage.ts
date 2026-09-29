@@ -38,15 +38,15 @@ export function backendReport(directory: string, html: boolean): void {
 
 /** Freeze unit evidence before integration execution. */
 export function backendUnitCoverage(html: boolean): void {
-  rmSync('coverage/native-unit', { recursive: true, force: true });
+  rmSync('coverage/backend-unit', { recursive: true, force: true });
   resetBackendCoverage();
   backendCargo(['test', '--lib', '--locked', '--offline']);
-  backendReport('coverage/native-unit', html);
+  backendReport('coverage/backend-unit', html);
 }
 
 /** Regenerate authoritative evidence after all mutations have been restored. */
 export function refreshProbeCoverage(): void {
-  for (const directory of ['coverage/frontend', 'coverage/tooling', 'coverage/native-unit', 'coverage/native']) {
+  for (const directory of ['coverage/frontend', 'coverage/tooling', 'coverage/backend-unit', 'coverage/backend']) {
     rmSync(directory, { recursive: true, force: true });
   }
   for (const command of ['coverage', 'test:offline', 'coverage:verify']) {

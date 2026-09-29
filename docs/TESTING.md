@@ -21,11 +21,11 @@ a fallback. See [Ubuntu's namespace policy](https://discourse.ubuntu.com/t/under
 This is a native development build with production bundled assets. Installer
 packaging and other operating systems are later release work.
 
-Native execution is split into explicit stages. `coverage:rust-unit` cleans the
+Backend execution is split into explicit stages. `coverage:backend-unit` cleans the
 workspace's instrumentation data, runs only library unit tests and freezes their
-report. `test:rust-integration` runs Cargo tests, `test:native-smoke` builds and
-launches the desktop, and `coverage:native-report` renders combined evidence.
-`test:native` composes those stages in that order; `test:offline` isolates the
+report. `test:backend-integration` runs Cargo tests, `test:e2e-smoke` builds and
+launches the desktop, and `coverage:backend-report` renders combined evidence.
+`test:backend` composes those stages in that order; `test:offline` isolates the
 whole sequence. Individual stages are diagnostic building blocks, not substitutes
 for the complete gate. Report rendering never executes tests and cannot establish
 freshness on its own. The shared tooling in `tooling/backend-coverage.ts` has
@@ -39,7 +39,7 @@ has independently selectable frontend/tooling, backend-unit and wrapper tests;
 the complete command still requires every scope, source inventory and wrapper
 body guard. The probe asserts that integration coverage cannot fill a unit gap.
 
-`test:native-probe` resets instrumentation, builds/runs the desktop in the network
+`test:e2e-probe` resets instrumentation, builds/runs the desktop in the network
 namespace and writes only JSON coverage. It never runs backend tests. The branch
 probe validates the wrapper report directly, and the CSP probe still requires the
 specific security-policy assertion failure. Both carry an unrelated failing

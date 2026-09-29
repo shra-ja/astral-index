@@ -1220,6 +1220,14 @@ rule; there is no behaviour change.
   `backend-coverage-stages.test.ts`; the helper module became
   `tooling/backend-coverage.ts`, with its functions renamed from `native…` to
   `backend…`.
+- **Retiring "native":** the report folders became `coverage/backend-unit/` and
+  `coverage/backend/`; the npm scripts became `coverage:backend-unit` (and its
+  `:json` form), `test:backend-integration`, `test:e2e-smoke`,
+  `coverage:backend-report`, `test:e2e-probe` (and `:stages`) and `test:backend`,
+  with `test:offline` and `test:backend-probe` unchanged; the stages became
+  "backend coverage report", "reset backend probe" and "backend JSON report", the
+  gate "backend wrapper coverage", and the screenshot `test-results/e2e-smoke.png`.
+  CI uploads the renamed folders. The helper's test changed first and failed.
 - **Gates:** separate frontend and tooling coverage checks, each against its own
   source list; the inventory covers `src-ui/src`, `src-ui/build` and `tooling`,
   excludes `*.test.ts` and the test folders, and pins both delegates. The

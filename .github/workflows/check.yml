@@ -76,7 +76,7 @@ jobs:
           path: |
             coverage/frontend/
             coverage/tooling/
-            coverage/native/
-            coverage/native-unit/
+            coverage/backend/
+            coverage/backend-unit/
             test-results/
           if-no-files-found: error

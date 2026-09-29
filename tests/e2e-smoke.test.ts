@@ -113,7 +113,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     expect(await execute('return document.querySelector("#cache-file").files.length')).toBe(1);
     rmSync(cachePath);
     const screenshot = await request(`/session/${session}/screenshot`);
-    writeFileSync('test-results/native-shell.png', Buffer.from(screenshot, 'base64'));
+    writeFileSync('test-results/e2e-smoke.png', Buffer.from(screenshot, 'base64'));
     const windowId = execFileSync('xdotool', ['search', '--name', '^Roll Tracker$'], { encoding: 'utf8' }).trim().split('\n')[0];
     const pid = execFileSync('xdotool', ['getwindowpid', windowId], { encoding: 'utf8' }).trim();
     execFileSync('python3', ['tests/close-window-helper.py', windowId]);
