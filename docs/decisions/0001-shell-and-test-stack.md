@@ -20,7 +20,8 @@ Imports, persistence and game rules remain outside this milestone.
   Production CSP denies network connections. Only development uses Vite.
 - Select Ubuntu 24.04 x86_64 as the initial development/CI target, without implying
   Linux-only releases or support for untested platforms.
-- Pin Node.js 26.8.1 and Rust nightly-2026-09-16 in `.tool-versions`. Reuse the
+- Pin Node.js 26.8.1 and Rust nightly-2026-09-16 in `.tool-versions` (updated
+  2026-09-29 to Node.js 26.10.0 and nightly-2026-09-28). Reuse the
   existing asdf Node runtime. The asdf Rust plugin manages Cargo/Rustup, with
   rustfmt, clippy and llvm-tools-preview installed inside that toolchain.
 - Use Vitest/jsdom and V8 coverage for TypeScript. Use cargo-llvm-cov 0.9.1 with

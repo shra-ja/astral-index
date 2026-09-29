@@ -1038,7 +1038,7 @@ It was deleted; the gates themselves leave none.
 
 ## Collaboration endpoint (2026-09-29)
 
-Work is on `fix/collaboration-endpoint`, branched from `main` at `e612e25`. The
+Integrated through PR #40 (`e558c81`), branched from `main` at `e612e25`. The
 Windows test of PR #37 found no records for either collaboration warp, although
 the account has some: the normal endpoint accepts `21` and `22` but returns an
 empty list, so those rolls were silently omitted. After the user opened both
@@ -1096,11 +1096,48 @@ incremental-retrieval design step, with separate quick-refresh and
 full-retrieval actions at the user's choice; the roadmap's pagination and endpoint items
 are corrected.
 
+## Toolchain refresh (2026-09-29)
+
+Work is on `chore/toolchain-refresh`, branched from `main` at `e558c81`, before the
+framework port, so any breakage is attributable to the upgrade alone. There were
+no major versions to catch up on; TypeScript 7.0.2, the other Rust crates and the
+Cargo-installed tools were already current (Tauri 3 is still alpha).
+
+| Tool | From | To |
+| --- | --- | --- |
+| Node.js | 26.8.1 | 26.10.0 |
+| Rust nightly | 2026-09-16 | 2026-09-28 (rustc 1.101.0) |
+| `tauri` / `tauri-build` | 2.11.5 / 2.6.3 | 2.12.0 / 2.7.0 |
+| `@tauri-apps/cli` / `@tauri-apps/api` | 2.11.4 / 2.11.1 | 2.12.0 / 2.12.0 |
+| Vite / Vitest / `@vitest/coverage-v8` | 8.3.0 / 5.0.1 / 5.0.1 | 8.3.1 / 5.0.2 / 5.0.2 |
+| jsdom / `@types/node` | 30.1.0 / 26.6.1 | 30.1.1 / 26.6.3 |
+
+Tauri 2.12 moved several of its own dependencies to new major versions (for
+example `tao`, `muda` and `brotli`). `cargo-llvm-cov` 0.9.1, `tauri-driver` 2.0.6
+and `cargo-xwin` 0.23.1 were reinstalled for the new nightly, whose rustfmt,
+clippy, llvm-tools and Windows target were added. Each asdf Rust version keeps its
+own rustup home, so components must be added after switching `.tool-versions`;
+the first check run failed on this, and a second on crates not yet fetched for the
+offline build, before any test ran. Decisions 0001 and 0006 and the README record
+the new pins.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed on the new toolchain, including the nightly branch-coverage probe: 142
+Rust unit tests, 60 frontend/tooling tests, offline native execution, nine probes
+and five report checks, all at 100% per file, plus TypeScript/build, formatting
+and Clippy, peaking at about 4.6 GB used during the full rebuild.
+`npm run tauri -- build --no-bundle` passed on Linux, and the `cargo-xwin` Windows
+build succeeded.
+
 ## Next
 
-The framework and visual-design decision (a new decision record), then the
-stored-history display. Incremental retrieval is an optional design step. Account/server verification remains a milestone-closing
-requirement.
+Decision 0011 adopting Vue, and the port of the existing UI to it. A trial (kept
+in a local stash, not committed) found that V8 coverage reports untested Vue
+template branches and reaches 100% with ordinary tests, that the runtime-only build
+renders under the production CSP in the native window, and that `vue-tsc` needs
+the `@typescript/typescript6` compatibility package, since TypeScript 7 has no
+JavaScript API. Then the stored-history display, with a mockup first.
+Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
