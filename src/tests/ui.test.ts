@@ -37,6 +37,12 @@ const validationFailures = [
 const settle = () => new Promise(resolve => setTimeout(resolve));
 const cancelButton = () => panel().querySelector<HTMLButtonElement>('.cancel')!;
 const start = () => panel().querySelector<HTMLElement>('.start')!;
+const reviewPanel = () => panel().querySelector<HTMLElement>('.review')!;
+const reviewHeading = () => reviewPanel().querySelector('h3')!;
+const reviewButton = (name: string) =>
+  [...reviewPanel().querySelectorAll('button')].find(button => button.textContent === name)!;
+const rows = () => [...reviewPanel().querySelectorAll('tbody tr')]
+  .map(row => [...row.children].map(cell => cell.textContent));
 
 type Handler = (args: Record<string, unknown>) => unknown;
 // Route each mocked command to its handler, recording the commands called.
@@ -50,10 +56,15 @@ function serve(handlers: Record<string, Handler>) {
 }
 type Progress = Channel<unknown>;
 const progressOf = (args: Record<string, unknown>) => args.onProgress as Progress;
-const review = (inserted: number) => ({
+type Conflict = { id: string; gacha_type: string; time: string };
+// A synthetic review with every count in Stellar Warp.
+const review = (inserted: number, duplicates = 0, conflicts: Conflict[] = []) => ({
   kind: 'review', uid: '100000001', server: 'synthetic-server', timezone: 8,
-  summary: { inserted, duplicates: 0, conflicts: 0 }, categories: [],
-  earliest: '2026-01-01 00:00:00', latest: '2026-01-02 00:00:00', conflicts: [],
+  summary: { inserted, duplicates, conflicts: conflicts.length },
+  categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type, index) => index === 0
+    ? { gacha_type, inserted, duplicates, conflicts: conflicts.length }
+    : { gacha_type, inserted: 0, duplicates: 0, conflicts: 0 }),
+  earliest: '2026-04-02 10:00:00', latest: '2026-09-28 21:30:00', conflicts,
 });
 // A command that stays pending until the test resolves or rejects it.
 function pending() {
@@ -72,7 +83,7 @@ test('starts with accessible game selection and a local-app empty state', () => 
   ]);
   expect(select.value).toBe('genshin-impact');
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Genshin Impact rolls yet');
-  expect(document.body.textContent).toContain('History retrieval is coming next.');
+  expect(document.body.textContent).toContain('Showing saved history is coming next.');
   expect(document.body.textContent).toContain('Local app');
   expect(document.body.textContent).not.toContain('Offline');
   expect(panel().hidden).toBe(true);
@@ -103,7 +114,7 @@ test('Star Rail offers retrieval, automatically or from a file, and says it cont
   expect(panel().textContent).not.toContain('Nothing is sent anywhere');
 });
 
-test('starting retrieval validates, retrieves with progress, then reports what was found', async () => {
+test('starting retrieval validates, retrieves with progress, then reviews and saves', async () => {
   const extraction = pending();
   const retrieval = pending();
   let progress!: Progress;
@@ -128,15 +139,152 @@ test('starting retrieval validates, retrieves with progress, then reports what w
   expect(extractionStatus()).toBe('HoYoverse didn’t respond, so we’ll try again in a moment…');
   progress.onmessage({ kind: 'requesting', gacha_type: '1', page: 1, pages: 0, records: 1 });
   expect(extractionStatus()).toBe('Retrieving Stellar Warp, page 1 · 1 roll so far');
-  retrieval.resolve(review(412));
+  retrieval.resolve(review(412, 88));
   await settle();
-  // Saving comes with the review screen; until then nothing is left waiting natively.
-  expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import']);
-  expect(extractionStatus()).toBe('Found 412 new rolls. Saving is coming next.');
-  expect(start().hidden).toBe(false);
+  expect(calls).toEqual(['extract_automatically', 'retrieve_history']);
+  expect(reviewPanel().hidden).toBe(false);
+  expect(start().hidden).toBe(true);
   expect(cancelButton().hidden).toBe(true);
   expect(panel().getAttribute('aria-busy')).toBe('false');
+  expect(extractionStatus()).toBe('');
+  expect(reviewHeading().textContent).toBe('Ready to save 412 new rolls');
+  expect(document.activeElement).toBe(reviewHeading());
+  expect(reviewPanel().textContent).toContain('UID 100000001 · synthetic-server · 2026-04-02 to 2026-09-28 (server time)');
+  expect([...reviewPanel().querySelectorAll('thead th')].map(cell => cell.textContent))
+    .toEqual(['Warp', 'New', 'Already saved', 'Conflicts']);
+  expect(rows()).toEqual([
+    ['Stellar Warp', '412', '88', '0'],
+    ['Departure Warp', '0', '0', '0'],
+    ['Character Event Warp', '0', '0', '0'],
+    ['Light Cone Event Warp', '0', '0', '0'],
+    ['Character Collaboration Warp', '0', '0', '0'],
+    ['Light Cone Collaboration Warp', '0', '0', '0'],
+  ]);
+  expect(reviewPanel().querySelector<HTMLElement>('.conflicts')!.hidden).toBe(true);
+  expect(reviewButton('Done').hidden).toBe(true);
+  expect(reviewButton('Discard').hidden).toBe(false);
+  const commit = pending();
+  serve({ commit_import: commit.handler });
+  reviewButton('Save to this device').click();
+  expect(extractionStatus()).toBe('Saving…');
+  expect(reviewButton('Save to this device').disabled).toBe(true);
+  expect(reviewButton('Discard').disabled).toBe(true);
+  expect(panel().getAttribute('aria-busy')).toBe('true');
+  commit.resolve({ inserted: 412, duplicates: 88, conflicts: 0 });
+  await settle();
+  expect(extractionStatus()).toBe('Saved 412 new rolls to this device. 88 were already saved.');
+  expect(reviewPanel().hidden).toBe(true);
+  expect(start().hidden).toBe(false);
+  expect(panel().getAttribute('aria-busy')).toBe('false');
   expect(document.activeElement).toBe(findButton());
+  // A later review starts with its buttons enabled again.
+  serve({ retrieve_history: () => review(1) });
+  findButton().click();
+  await settle();
+  expect(reviewButton('Save to this device').disabled).toBe(false);
+  expect(reviewButton('Discard').disabled).toBe(false);
+});
+
+test('one roll reads naturally, and a save with nothing already stored says only what was added', async () => {
+  serve({ retrieve_history: () => review(1), commit_import: () => ({ inserted: 1, duplicates: 1, conflicts: 0 }) });
+  selectStarRail();
+  findButton().click();
+  await settle();
+  expect(reviewHeading().textContent).toBe('Ready to save 1 new roll');
+  reviewButton('Save to this device').click();
+  await settle();
+  expect(extractionStatus()).toBe('Saved 1 new roll to this device. 1 was already saved.');
+  serve({ retrieve_history: () => review(3), commit_import: () => ({ inserted: 3, duplicates: 0, conflicts: 0 }) });
+  findButton().click();
+  await settle();
+  reviewButton('Save to this device').click();
+  await settle();
+  expect(extractionStatus()).toBe('Saved 3 new rolls to this device.');
+});
+
+test('discarding the review saves nothing', async () => {
+  const calls = serve({ retrieve_history: () => review(4) });
+  selectStarRail();
+  findButton().click();
+  await settle();
+  reviewButton('Discard').click();
+  await settle();
+  expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import']);
+  expect(extractionStatus()).toBe('Discarded the retrieved history. Nothing was saved.');
+  expect(reviewPanel().hidden).toBe(true);
+  expect(start().hidden).toBe(false);
+  expect(document.activeElement).toBe(findButton());
+});
+
+test('when everything is already saved, Done replaces Save and Discard', async () => {
+  const calls = serve({ retrieve_history: () => review(0, 5) });
+  selectStarRail();
+  findButton().click();
+  await settle();
+  expect(reviewHeading().textContent).toBe('Everything here is already saved');
+  expect(reviewButton('Save to this device').hidden).toBe(true);
+  expect(reviewButton('Discard').hidden).toBe(true);
+  expect(reviewButton('Done').hidden).toBe(false);
+  reviewButton('Done').click();
+  await settle();
+  expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import']);
+  expect(extractionStatus()).toBe('Your saved history is already up to date.');
+  expect(reviewPanel().hidden).toBe(true);
+});
+
+test('conflicting rolls are listed and cannot be saved', async () => {
+  serve({
+    retrieve_history: () => review(2, 0, [
+      { id: '1000000000000000001', gacha_type: '11', time: '2026-05-01 12:00:00' },
+      { id: '1000000000000000002', gacha_type: '1', time: '2026-05-02 13:00:00' },
+    ]),
+  });
+  selectStarRail();
+  findButton().click();
+  await settle();
+  expect(reviewHeading().textContent).toBe('Some rolls conflict with your saved history');
+  const conflicts = reviewPanel().querySelector<HTMLElement>('.conflicts')!;
+  expect(conflicts.hidden).toBe(false);
+  expect(conflicts.textContent).toContain('differ from saved rolls with the same ID, so nothing can be saved');
+  expect([...conflicts.querySelectorAll('li')].map(item => item.textContent)).toEqual([
+    'Character Event Warp · 2026-05-01 12:00:00 · ID 1000000000000000001',
+    'Stellar Warp · 2026-05-02 13:00:00 · ID 1000000000000000002',
+  ]);
+  const save = reviewButton('Save to this device');
+  expect(save.hidden).toBe(false);
+  expect(save.disabled).toBe(true);
+  expect(save.getAttribute('aria-describedby')).toBe(conflicts.querySelector('p')!.id);
+  expect(reviewButton('Discard').hidden).toBe(false);
+  // The next review lists only its own conflicts, and Save describes nothing.
+  reviewButton('Discard').click();
+  await settle();
+  serve({ retrieve_history: () => review(2) });
+  findButton().click();
+  await settle();
+  expect(conflicts.querySelectorAll('li')).toHaveLength(0);
+  expect(conflicts.hidden).toBe(true);
+  expect(save.hasAttribute('aria-describedby')).toBe(false);
+});
+
+test('each save failure explains what happened and returns to the start', async () => {
+  selectStarRail();
+  for (const [kind, message] of [
+    ['conflict', 'Some retrieved rolls differ from ones already saved. Nothing was saved.'],
+    ['stale_preview', 'Your saved history changed since this review. Start retrieval again.'],
+    ['no_preview', 'Nothing is waiting to be saved. Start retrieval again.'],
+    ['storage', 'We couldn’t open the history saved on this device. Nothing was changed.'],
+    ['context_mismatch', 'Saved history for this account uses a different time zone than HoYoverse reports.'],
+    ['something_new', 'Something went wrong. Please try again.'],
+  ]) {
+    serve({ retrieve_history: () => review(2), commit_import: () => { throw { kind }; } });
+    findButton().click();
+    await settle();
+    reviewButton('Save to this device').click();
+    await settle();
+    expect(extractionStatus()).toBe(message.endsWith('reports.') ? `${message} Nothing was saved.` : message);
+    expect(reviewPanel().hidden).toBe(true);
+    expect(start().hidden).toBe(false);
+  }
 });
 
 test('each category is named in progress, and one new roll reads naturally', async () => {
@@ -161,7 +309,7 @@ test('each category is named in progress, and one new roll reads naturally', asy
     'Retrieving Character Collaboration Warp, page 1 · 0 rolls so far',
     'Retrieving Light Cone Collaboration Warp, page 1 · 0 rolls so far',
   ]);
-  expect(extractionStatus()).toBe('Found 1 new roll. Saving is coming next.');
+  expect(reviewHeading().textContent).toBe('Ready to save 1 new roll');
 });
 
 test('no history is reported without anything to save', async () => {
@@ -259,7 +407,7 @@ test('a cancel that arrives as retrieval finishes keeps nothing', async () => {
   serve({ retrieve_history: () => review(2) });
   findButton().click();
   await settle();
-  expect(extractionStatus()).toBe('Found 2 new rolls. Saving is coming next.');
+  expect(reviewHeading().textContent).toBe('Ready to save 2 new rolls');
 });
 
 test('if cancelling cannot be sent, retrieval carries on and can be cancelled again', async () => {
@@ -279,7 +427,7 @@ test('if cancelling cannot be sent, retrieval carries on and can be cancelled ag
   expect(extractionStatus()).toBe('Retrieving Departure Warp, page 1 · 0 rolls so far');
   retrieval.resolve(review(5));
   await settle();
-  expect(extractionStatus()).toBe('Found 5 new rolls. Saving is coming next.');
+  expect(reviewHeading().textContent).toBe('Ready to save 5 new rolls');
 });
 
 test('each automatic failure explains what to do next', async () => {
@@ -310,8 +458,10 @@ test('choosing a cache file extracts from it without an automatic search first',
   expect(extractionStatus()).toBe('Reading the file, then checking with HoYoverse…');
   expect(start().hidden).toBe(true);
   await settle();
-  expect(calls).toEqual(['extract_from_file', 'retrieve_history', 'discard_import']);
-  expect(extractionStatus()).toBe('Found 7 new rolls. Saving is coming next.');
+  expect(calls).toEqual(['extract_from_file', 'retrieve_history']);
+  expect(reviewHeading().textContent).toBe('Ready to save 7 new rolls');
+  reviewButton('Discard').click();
+  await settle();
   expect(document.activeElement).toBe(fileInput());
   for (const [failure, message] of [
     ['no_request', 'doesn’t contain a warp history request'],
@@ -367,5 +517,5 @@ test('switching back to Genshin Impact hides the Star Rail controls', () => {
   select.value = 'genshin-impact';
   select.dispatchEvent(new Event('change'));
   expect(panel().hidden).toBe(true);
-  expect(document.body.textContent).toContain('History retrieval is coming next.');
+  expect(document.body.textContent).toContain('Showing saved history is coming next.');
 });
