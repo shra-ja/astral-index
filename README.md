@@ -133,17 +133,21 @@ is required for Windows builds.
 
 ## Where history is stored
 
-Imported history is kept in one SQLite file, `history.sqlite`, in the local app
+Imported history is kept in one SQLite file, `history.sqlite`, in the app's local
 data folder:
 
 | Platform | Folder |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\com.shra-ja.roll-tracker` |
-| Linux, including a Linux build run in WSL | `~/.local/share/com.shra-ja.roll-tracker` (or `$XDG_DATA_HOME`) |
+| Windows | `%LOCALAPPDATA%\Roll-Tracker` |
+| Linux, including a Linux build run in WSL | `~/.local/share/roll-tracker` (or `$XDG_DATA_HOME/roll-tracker`) |
+
+The same folder holds the window's browser profile (cache and similar files):
+`EBWebView` on Windows, `webview` on Linux. It holds no roll history.
 
 **Portable mode:** if a folder named `data` sits next to the application
-executable, the database is kept in that folder instead, for example
-`D:\RollTracker\data\history.sqlite` beside `D:\RollTracker\roll-tracker.exe`.
+executable, the database and browser profile are kept in that folder instead,
+for example `D:\RollTracker\data\history.sqlite` beside
+`D:\RollTracker\roll-tracker.exe`.
 Create or remove the folder, then restart the app, to switch. If both locations
 hold a database, the portable one is used and the other is left untouched.
 

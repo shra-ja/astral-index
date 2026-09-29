@@ -1,7 +1,9 @@
 # 0009 — Local database location
 
 Date: 2026-09-28
-Status: Accepted for the local-database step of milestone 3; no command uses it yet.
+Status: Accepted for the local-database step of milestone 3. Amended 2026-09-29:
+the folder is named for the app rather than its identifier, and holds the webview
+profile.
 
 ## Context
 
@@ -12,14 +14,27 @@ and does not block the async workers that run IPC commands and HTTPS requests.
 
 ## Decision
 
-Keep the history database at `history.sqlite` in Tauri's local app data folder
-(`app_local_data_dir`) for the application identifier `com.shra-ja.roll-tracker`:
+Keep the history database at `history.sqlite` in the app's folder inside the
+platform's local data folder (Tauri's `local_data_dir`):
 
 | Platform | Folder |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\com.shra-ja.roll-tracker` |
-| Linux, including WSL | `$XDG_DATA_HOME/com.shra-ja.roll-tracker`, by default `~/.local/share/com.shra-ja.roll-tracker` |
-| macOS | `~/Library/Application Support/com.shra-ja.roll-tracker` |
+| Windows | `%LOCALAPPDATA%\Roll-Tracker` |
+| Linux, including WSL | `$XDG_DATA_HOME/roll-tracker`, by default `~/.local/share/roll-tracker` |
+| macOS | `~/Library/Application Support/Roll-Tracker` |
+
+The user chose `Roll-Tracker`, and lowercase on Linux, where folders
+conventionally are, over Tauri's default of the bundle identifier
+(`com.shra-ja.roll-tracker`), which looked out of place among other apps' folders.
+Test builds before this amendment used the identifier folder; history saved
+there is moved by hand, as for portable mode (decision 0010).
+
+The same folder holds the webview's profile (cache, cookies, storage and crash
+data; never roll history). `desktop::register` creates the main window in the setup
+hook, rather than from `tauri.conf.json`, so it can set the webview's data
+directory: the folder itself on Windows, where WebView2 adds its own `EBWebView`
+folder, and a `webview` subfolder elsewhere, since WebKitGTK writes its folders
+directly into the one it is given. macOS WebKit ignores the setting.
 
 The user chose the local folder so history never roams with a Windows profile.
 Only Windows distinguishes local from roaming app data. A Linux build run inside
@@ -55,7 +70,7 @@ from the Windows build of the same version.
 Unit tests use the filesystem and SQL doubles to cover opening on first use,
 reuse, a missing or occupied folder, a failed open, running on another thread
 and a panic. A registration test runs Tauri's setup hook under the mock runtime
-and checks the managed path. On Linux the local and roaming folders coincide, so
+and checks the managed path and the opened window. On Linux the local and roaming folders coincide, so
 the Windows location still needs checking on Windows after the first import. An
 integration test opens real SQLite in a new nested temporary folder, confirms
 nothing exists before first use, and runs twice against the same database.

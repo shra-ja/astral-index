@@ -217,17 +217,18 @@ category order without depending on acquisition. Individual records are not in
 the review yet; a record list, such as highlighted 5-star rolls, can be added
 as a field later.
 
-The desktop layer keeps the database at `history.sqlite` in Tauri's local app
-data folder (`%LOCALAPPDATA%` on Windows, never the roaming profile; the XDG data
-folder on Linux, including WSL), resolved at setup but created and opened only on
-first use. A `data` folder beside the executable switches on portable mode, and
-the database then lives there instead; `database::location` chooses, and a portable
-database is used even if the local folder also has one
-([decision 0010](decisions/0010-portable-mode.md)).
+The desktop layer keeps the database at `history.sqlite` in the app's folder in
+the local data folder (`%LOCALAPPDATA%\Roll-Tracker` on Windows, never the roaming
+profile; `roll-tracker` in the XDG data folder on Linux, including WSL), resolved
+at setup but created and opened only on first use. A `data` folder beside the
+executable switches on portable mode, and the database then lives there instead;
+`database::location` chooses, and a portable database is used even if the local
+folder also has one ([decision 0010](decisions/0010-portable-mode.md)). The setup
+hook also opens the main window, pointing the webview's profile into the same
+folder (`webview` on Linux; WebView2 adds `EBWebView` itself on Windows).
 `desktop::Database::run` runs SQLite work on Tokio's blocking pool, reusing the
 open store; failures are the safe storage `Database` error. See
-[decision 0009](decisions/0009-local-database-location.md). No command uses it
-yet.
+[decision 0009](decisions/0009-local-database-location.md).
 
 Schema version 2 has accounts, unique rolls, compact import summaries and database
 identity/revision metadata. Keys include game, UID, server and string record ID.

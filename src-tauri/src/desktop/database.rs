@@ -1,4 +1,4 @@
-//! The local history database, opened on first use in the local app data folder
+//! The local history database, opened on first use in the app's local data folder
 //! ([decision 0009](../../../docs/decisions/0009-local-database-location.md)).
 #[cfg(test)]
 use super::tests::blocking::spawn_blocking;
@@ -14,13 +14,32 @@ use std::{
 #[cfg(not(test))]
 use tokio::task::spawn_blocking;
 
-/// The database file inside the local app data folder.
+/// The database file inside the app's folder.
 pub const FILE_NAME: &str = "history.sqlite";
 /// A folder with this name beside the executable switches on portable mode.
 pub const PORTABLE_FOLDER: &str = "data";
+/// The app's folder inside the platform's local data folder, named as the
+/// platform's own folders usually are.
+#[cfg(target_os = "linux")]
+pub const FOLDER_NAME: &str = "roll-tracker";
+#[cfg(not(target_os = "linux"))]
+pub const FOLDER_NAME: &str = "Roll-Tracker";
+
+/// Where the webview keeps its profile within the app's folder. WebView2 makes its
+/// own `EBWebView` folder inside the one it is given.
+#[cfg(windows)]
+pub fn webview_folder(folder: &Path) -> PathBuf {
+    folder.to_path_buf()
+}
+/// WebKit writes its storage folders straight into the one it is given, so give
+/// it its own.
+#[cfg(not(windows))]
+pub fn webview_folder(folder: &Path) -> PathBuf {
+    folder.join("webview")
+}
 
 /// Where to keep the database: the `data` folder beside the executable if one
-/// exists (portable mode), otherwise the local app data folder. A portable
+/// exists (portable mode), otherwise the app's local data folder. A portable
 /// database is used even when the local folder also has one; nothing is merged.
 pub fn location(executable: Option<&Path>, local: Option<PathBuf>) -> Option<PathBuf> {
     let portable = executable
@@ -40,7 +59,7 @@ pub struct Database {
     store: Arc<Mutex<Option<Store>>>,
 }
 impl Database {
-    /// `folder` is the local app data folder, or `None` if the platform gave none.
+    /// `folder` is the app's folder, or `None` if the platform gave none.
     pub fn new(folder: Option<PathBuf>) -> Self {
         Self {
             folder,
@@ -111,6 +130,13 @@ mod tests {
         let mut steps = vec![open(path)];
         steps.extend(setup(true));
         steps
+    }
+
+    #[test]
+    fn the_webview_profile_sits_in_its_own_folder_beside_the_history() {
+        assert_eq!(FOLDER_NAME, "roll-tracker");
+        let folder = Path::new("/local/roll-tracker");
+        assert_eq!(webview_folder(folder), folder.join("webview"));
     }
 
     #[test]
