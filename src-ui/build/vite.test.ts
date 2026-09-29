@@ -1,8 +1,10 @@
+// @vitest-environment node
+// The config runs in Node, so its test does too.
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
-import { viteConfig } from '../../vite-config';
+import { viteConfig } from './vite';
 
-const src = fileURLToPath(new URL('../../../src', import.meta.url));
+const src = fileURLToPath(new URL('../src', import.meta.url));
 
 test('the build compiles Vue single-file components and resolves @ to src', () => {
   const config = viteConfig({});
@@ -32,19 +34,17 @@ test('builds target each platform webview, with source maps only for debug build
   expect(viteConfig({ TAURI_ENV_DEBUG: 'true' }).build).toEqual({ target: 'safari13', minify: false, sourcemap: true });
 });
 
-test('UI tests run in jsdom, tooling and gate tests in Node, with 100% per-file coverage', () => {
-  const tests = viteConfig({}).test!;
-  expect(tests.projects).toEqual([
-    { extends: true, test: { name: 'ui', environment: 'jsdom', include: ['src/**/*.test.ts'] } },
-    { extends: true, test: { name: 'tooling', environment: 'node', include: ['scripts/tests/unit/**/*.test.ts'] } },
-    { extends: true, test: { name: 'gates', environment: 'node', include: ['tests/**/*.test.ts', 'scripts/tests/*.test.ts'] } },
-  ]);
-  expect(tests.coverage).toEqual({
-    provider: 'v8',
-    reportsDirectory: 'coverage/frontend',
-    include: ['src/**/*.{ts,vue}', 'scripts/**/*.ts'],
-    exclude: ['src/tests/**', 'scripts/tests/**', '**/*.d.ts'],
-    reporter: ['text', 'json', 'json-summary'],
-    thresholds: { perFile: true, 100: true },
+test('frontend tests run in jsdom, with 100% per-file coverage reported to the repository', () => {
+  expect(viteConfig({}).test).toEqual({
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: '../coverage/frontend',
+      include: ['src/**/*.{ts,vue}', 'build/**/*.ts'],
+      exclude: ['**/*.test.ts', 'tests/**', '**/*.d.ts'],
+      reporter: ['text', 'json', 'json-summary'],
+      thresholds: { perFile: true, 100: true },
+    },
   });
 });

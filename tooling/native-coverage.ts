@@ -46,7 +46,7 @@ export function nativeUnitCoverage(html: boolean): void {
 
 /** Regenerate authoritative evidence after all mutations have been restored. */
 export function refreshProbeCoverage(): void {
-  for (const directory of ['coverage/frontend', 'coverage/native-unit', 'coverage/native']) {
+  for (const directory of ['coverage/frontend', 'coverage/tooling', 'coverage/native-unit', 'coverage/native']) {
     rmSync(directory, { recursive: true, force: true });
   }
   for (const command of ['coverage', 'test:offline', 'coverage:verify']) {

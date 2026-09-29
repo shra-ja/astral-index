@@ -5,7 +5,7 @@ import type { Channel } from '@tauri-apps/api/core';
 beforeEach(async () => {
   document.body.innerHTML = '<main></main>';
   vi.resetModules();
-  await import('../main');
+  await import('../src/main');
 });
 afterEach(clearMocks);
 

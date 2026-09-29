@@ -55,9 +55,9 @@ internet access; stored-history operations remain local. See
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr` | Focused synthetic Rust HSR response tests |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage` | SQLite migration, preview, transaction, isolation and restart tests |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage::tests` | SQLite internal failure-injection tests |
-| `npm test` | UI behavior and coverage-validator tests |
-| `npm run coverage` | Fresh frontend/tooling coverage with 100% per-file thresholds |
-| `npm run coverage:json` | The same frontend/tooling gate without HTML rendering |
+| `npm test` | The frontend's tests (run in `src-ui/`), then the repository-tooling tests |
+| `npm run coverage` | Fresh frontend and tooling coverage, each with 100% per-file thresholds, as JSON and HTML |
+| `npm run coverage:json` | The same frontend and tooling gates without HTML rendering |
 | `npm run typecheck` | `vue-tsc --build` over the app, UI-test and Node projects, including templates |
 | `npm run build` | The type check, then bundled web assets |
 | `npm run test:native` | Instrumented Rust build/tests, native UI/keyboard/close tests, LLVM reports |
@@ -78,10 +78,12 @@ JSON/HTML reports once, including after a failed probe. Tests and per-file
 coverage thresholds are unchanged. `test:probes` needs bundled frontend assets;
 run `npm run build` first when invoking it separately.
 
-Frontend tests live in `src/tests/`, Rust unit tests beside their implementation
-in `src-tauri/src/`, backend integration tests and fixtures in `src-tauri/tests/`,
-and tooling tests in `scripts/tests/`. Root `tests/` is reserved
-for application end-to-end tests spanning the frontend and backend. See
+The frontend is the `src-ui/` npm workspace and the backend the `src-tauri/`
+crate. Unit tests sit with their code: sibling `*.test.ts` files in `src-ui/`,
+inline `#[cfg(test)]` modules in `src-tauri/src/`. Integration tests live in
+`src-ui/tests/` and `src-tauri/tests/`, and the repository's own tooling in
+`tooling/`, with its tests beside it. Root `tests/` holds repository-level
+verification: the native end-to-end test and the coverage gates. See
 [contributor test layout](CONTRIBUTING.md#test-layout).
 
 Rust backend coverage is enforced at 100% from unit tests using mocked filesystem
@@ -101,7 +103,8 @@ source and restore it, then regenerate the real coverage reports. Inspect source
 if a probe is interrupted.
 
 The executable is `src-tauri/target/release/roll-tracker`. Reports live in
-`coverage/frontend/` and `coverage/native/`; the native screenshot is
+`coverage/frontend/`, `coverage/tooling/`, `coverage/native-unit/` and
+`coverage/native/`; the native screenshot is
 `test-results/native-shell.png`. These outputs are ignored by Git.
 
 ### Optional: Windows executable for manual verification

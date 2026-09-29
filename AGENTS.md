@@ -72,9 +72,10 @@ inspect actual code before assuming a feature exists.
 - Rust backend coverage must reach 100% from unit tests alone, with mocked
   filesystem/database APIs. Integration tests use real boundaries and cannot fill
   unit-coverage gaps. Only `src-tauri/src/main.rs` and `src-tauri/build.rs` retain
-  a separate 100% native gate while they remain minimal Tauri delegates, and
-  `vite.config.ts`, which Vitest never measures, only delegates to the unit-tested
-  `scripts/vite-config.ts`. The source-body guard in `scripts/tests/reports.test.ts`
+  a separate 100% native gate while they remain minimal Tauri delegates, and the
+  config files Vitest never measures, `src-ui/vite.config.ts` and
+  `vitest.config.ts`, only delegate to the unit-tested `src-ui/build/vite.ts` and
+  `tooling/vitest-config.ts`. The source-body guard in `tests/reports.test.ts`
   must fail if any of them changes. Reassess the exception before adding behavior
   to any of them.
 - Include unexecuted source files in coverage. Enforce thresholds per file and per

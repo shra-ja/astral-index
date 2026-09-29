@@ -75,6 +75,7 @@ jobs:
           name: coverage-and-native-smoke
           path: |
             coverage/frontend/
+            coverage/tooling/
             coverage/native/
             coverage/native-unit/
             test-results/

@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { nativeCargo, nativeEnvironment, nativeReport, nativeUnitCoverage, refreshProbeCoverage, resetNativeCoverage } from '../../native-coverage';
+import { nativeCargo, nativeEnvironment, nativeReport, nativeUnitCoverage, refreshProbeCoverage, resetNativeCoverage } from './native-coverage';
 
 vi.mock('node:child_process', () => {
   const api = { execFileSync: vi.fn() };
@@ -83,7 +83,7 @@ test('final regeneration runs coverage and the full offline suite before all rep
     ['npm', ['run', 'test:offline'], { stdio: 'inherit' }],
     ['npm', ['run', 'coverage:verify'], { stdio: 'inherit' }],
   ]);
-  expect(vi.mocked(rmSync).mock.calls.map(([path]) => path)).toEqual(['coverage/frontend', 'coverage/native-unit', 'coverage/native']);
+  expect(vi.mocked(rmSync).mock.calls.map(([path]) => path)).toEqual(['coverage/frontend', 'coverage/tooling', 'coverage/native-unit', 'coverage/native']);
 });
 
 test.each([0, 1, 2])('final regeneration fails closed at stage %s', stage => {
@@ -91,5 +91,5 @@ test.each([0, 1, 2])('final regeneration fails closed at stage %s', stage => {
   vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('validation failed'); });
   expect(refreshProbeCoverage).toThrow('validation failed');
   expect(execFileSync).toHaveBeenCalledTimes(stage + 1);
-  expect(rmSync).toHaveBeenCalledTimes(3);
+  expect(rmSync).toHaveBeenCalledTimes(4);
 });

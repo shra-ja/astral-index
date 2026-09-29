@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync, renameSync, statSync, utimesSync } from 'node:fs';
 import { afterAll, expect, test } from 'vitest';
-import { refreshProbeCoverage } from '../native-coverage';
+import { refreshProbeCoverage } from '../tooling/native-coverage';
 
 // Per-probe finally blocks restore files; even failed assertions reach this full refresh.
 afterAll(refreshProbeCoverage, 600000);
@@ -11,7 +11,7 @@ const unrelatedIntegration = '#[test] fn unrelated_must_not_run() { panic!("prob
 
 // Run one report check and require it to fail for the expected reason.
 function expectReportFailure(name: string, message: string): void {
-  const result = spawnSync('npx', ['vitest', 'run', 'scripts/tests/reports.test.ts', '-t', name], { encoding: 'utf8' });
+  const result = spawnSync('npx', ['vitest', 'run', 'tests/reports.test.ts', '-t', name], { encoding: 'utf8' });
   expect(result.status).not.toBe(0);
   expect(result.stdout + result.stderr).toContain(message);
 }
@@ -28,7 +28,7 @@ test('the unit gate rejects stale evidence', () => {
 }, 30000);
 
 test('the real coverage command rejects an unexecuted file and branch', () => {
-  const probe = 'src/coverage-probe.ts';
+  const probe = 'src-ui/src/coverage-probe.ts';
   expect(existsSync(probe)).toBe(false);
   try {
     writeFileSync(probe, 'export const probe = (value: boolean) => value ? 1 : 0;\n');
@@ -74,9 +74,9 @@ test('the report gate fails closed when a required report is missing or incomple
   const original = readFileSync(path, 'utf8');
   renameSync(path, backup);
   try {
-    expectReportFailure('^frontend and tooling coverage$', 'ENOENT');
+    expectReportFailure('^frontend coverage$', 'ENOENT');
     writeFileSync(path, '{}');
-    expectReportFailure('^frontend and tooling coverage$', 'Missing coverage');
+    expectReportFailure('^frontend coverage$', 'Missing coverage');
   } finally {
     writeFileSync(path, original);
     unlinkSync(backup);
@@ -85,21 +85,26 @@ test('the report gate fails closed when a required report is missing or incomple
 
 // Exercise the public commands so adding a suite cannot silently bypass either gate.
 test('test and coverage commands discover additional frontend and tooling suites', () => {
-  const paths = ['src/tests/discovery-probe.test.ts', 'scripts/tests/unit/discovery-probe.test.ts'];
+  // Sibling unit tests, frontend integration tests, build tests and tooling tests.
+  const paths = [
+    'src-ui/src/discovery-probe.test.ts', 'src-ui/tests/discovery-probe.test.ts',
+    'src-ui/build/discovery-probe.test.ts', 'tooling/discovery-probe.test.ts',
+  ];
   for (const path of paths) expect(existsSync(path)).toBe(false);
-  try {
-    for (const path of paths) {
+  // One suite at a time: the frontend's run stops the commands before tooling's.
+  for (const path of paths) {
+    try {
       writeFileSync(path, `import { test, expect } from 'vitest';\ntest('${path}', () => expect('discovery probe').toBe('must fail'));\n`);
+      for (const command of ['test', 'coverage:json']) {
+        const result = spawnSync('npm', ['run', command], { encoding: 'utf8' });
+        expect(result.status).not.toBe(0);
+        expect(result.stdout + result.stderr).toContain(path.replace(/^src-ui\//, ''));
+      }
+    } finally {
+      unlinkSync(path);
     }
-    for (const command of ['test', 'coverage:json']) {
-      const result = spawnSync('npm', ['run', command], { encoding: 'utf8' });
-      expect(result.status).not.toBe(0);
-      for (const path of paths) expect(result.stdout + result.stderr).toContain(path);
-    }
-  } finally {
-    for (const path of paths) unlinkSync(path);
   }
-}, 30000);
+}, 180000);
 
 // A network failure alone must not satisfy the native CSP assertion.
 test('the native CSP test rejects a permissive connection policy', () => {

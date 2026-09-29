@@ -4,7 +4,7 @@ import type { Channel } from '@tauri-apps/api/core';
 import {
   cancelAcquisition, commitImport, discardImport, extractAutomatically, extractFromFile, MAX_CACHE_BYTES,
   retrieveHistory,
-} from '../commands';
+} from './commands';
 
 afterEach(clearMocks);
 

@@ -1,5 +1,5 @@
 import { test } from 'vitest';
-import { nativeCargo, nativeReport, nativeUnitCoverage, resetNativeCoverage } from '../scripts/native-coverage';
+import { nativeCargo, nativeReport, nativeUnitCoverage, resetNativeCoverage } from '../tooling/native-coverage';
 
 // The full command freezes unit evidence before any integration or desktop execution.
 test('unit coverage', () => {

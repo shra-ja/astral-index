@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { mkdirSync, readFileSync, writeFileSync, rmSync, globSync } from 'node:fs';
 import { beforeAll, expect, test } from 'vitest';
 
-import { nativeCargo, nativeEnvironment } from '../scripts/native-coverage';
+import { nativeCargo, nativeEnvironment } from '../tooling/native-coverage';
 
 let nativeEnv: NodeJS.ProcessEnv;
 beforeAll(() => {

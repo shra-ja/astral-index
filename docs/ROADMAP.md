@@ -232,7 +232,7 @@ the order listed.
     - [x] Adopt Vue 3 with TypeScript 6 and `create-vue`/Tauri conventions
       ([decision 0011](decisions/0011-vue-frontend.md)): tooling, split type
       projects, the tested Vite config and the review screen as a component.
-    - [ ] Move the frontend into a self-contained `src-ui/` npm workspace beside
+    - [x] Move the frontend into a self-contained `src-ui/` npm workspace beside
       `src-tauri/`, with sibling `*.test.ts` unit tests and integration tests in
       `src-ui/tests/`; no behaviour change.
     - [ ] Move the rest of the UI to Vue: `App.vue`, Vue Router with a first

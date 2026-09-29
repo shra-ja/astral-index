@@ -1,10 +1,15 @@
-# Application end-to-end tests
+# Repository-level verification
 
-This directory contains tests that exercise the frontend and backend together.
-`native.test.ts` launches the real Tauri app and checks bundled UI, keyboard
-operation, network restrictions and graceful shutdown. `close-window.py` is its
-X11 helper.
+Tests that belong to neither the frontend nor the backend alone.
 
-Frontend tests belong in `../src/tests/`, backend tests and fixtures in
-`../src-tauri/tests/`, and development-tooling tests in `../scripts/tests/`.
-See [testing guidance](../docs/TESTING.md).
+- `native.test.ts` launches the real Tauri app and checks the bundled UI, keyboard
+  operation, network restrictions and graceful shutdown; `close-window.py` is its
+  X11 helper.
+- `native-coverage.test.ts` runs the instrumented Rust stages (unit, integration,
+  native smoke) and writes their coverage reports.
+- `reports.test.ts` holds the coverage gates, and `probes.test.ts` the mutation
+  probes proving each gate fails when it should.
+
+The check commands run these explicitly. Frontend tests live in `../src-ui/`,
+backend tests in `../src-tauri/`, and the tooling's unit tests beside it in
+`../tooling/`. See [testing guidance](../docs/TESTING.md).
