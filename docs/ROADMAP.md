@@ -196,7 +196,7 @@ the order listed.
     and add a `cancel_acquisition` command that stops the running operation
     (validation now, retrieval later) and drops the context. A cancelled or
     superseded operation keeps no late result.
-  - [x] Open the local database in the local app data folder on first use, running
+  - [x] Open the local database in the app's local data folder on first use, running
     SQLite calls off the async workers; record the location in a decision.
   - [x] Add a portable mode that keeps the database next to the application
     executable, with a seamless switch between it and the local app data folder
@@ -204,6 +204,9 @@ the order listed.
     and a safe way to move existing history between the two locations. Moved up
     from the deferred list at the user's request. A `data` folder beside the
     executable switches it on; moving history is a documented manual copy.
+  - [x] Name the app's data folder `Roll-Tracker` (`roll-tracker` on Linux)
+    rather than the bundle identifier, and keep the webview profile in it, or in
+    `data` in portable mode.
   - [x] Add a `retrieve_history` command: retrieve from the held context with
     its budget, cancellably, stream progress over a Tauri channel, resolve the
     account and preview it. Return the review or "no history found", with the

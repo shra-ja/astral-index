@@ -16,7 +16,9 @@ A folder named `data` beside the executable switches on portable mode. At startu
 `desktop::register` passes the executable's path from `std::env::current_exe` to
 `database::location`, which returns that `data` folder if it exists as a folder,
 and the local app data folder otherwise. The database file is still
-`history.sqlite`, now inside `data`. Creating or removing the folder switches modes
+`history.sqlite`, now inside `data`, and the webview's profile moves there too
+(decision 0009), so the app leaves nothing of its own on the machine outside
+`data`. Creating or removing the folder switches modes
 on the next start. VS Code's portable mode uses the same convention.
 
 The user chose these rules:

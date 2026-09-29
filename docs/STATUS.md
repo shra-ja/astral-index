@@ -944,7 +944,7 @@ states are covered by jsdom tests only; the offline native test cannot reach the
 
 ## Review and save controls (2026-09-29)
 
-Work is on `feat/review-controls`, branched from `main` at `b0c4489`: PR B, which
+Integrated through PR #37 (`975eb1c`), branched from `main` at `b0c4489`: PR B, which
 completes the review and commit controls. A retrieved preview now stays held and
 the panel shows a review: a heading that takes focus ("Ready to save 412 new
 rolls", "Everything here is already saved" or "Some rolls conflict with your saved
@@ -973,12 +973,47 @@ formatting and Clippy, peaking at about 2.9 GB used.
 `npm run tauri -- build --no-bundle` passed on Linux. The review is covered by
 jsdom tests and the mocked screenshot; the offline native test cannot reach it.
 
+## Data folder name (2026-09-29)
+
+Work is on `feat/data-folder`, branched from `main` at `975eb1c`, after the user
+tested PR B on Windows. Cancel, retrieval, the review, saving, the database under
+`%LOCALAPPDATA%` and a repeat retrieval all worked. Two follow-ups came out of it:
+both collaboration warps returned no records although the account has some (next
+task), and the folder name `com.shra-ja.roll-tracker`, Tauri's default from the
+bundle identifier, looked out of place.
+
+The folder is now `Roll-Tracker` in the platform's local data folder
+(`roll-tracker` on Linux, at the user's choice). The setup hook now opens the main
+window, instead of `tauri.conf.json`, so it can put the webview's profile in the
+same folder: WebView2 adds its `EBWebView` folder there on Windows, and WebKitGTK
+gets a `webview` subfolder, since it writes its folders straight into the one it
+is given. In portable mode the profile moves into `data` with the database, so
+the app leaves nothing of its own outside it. History saved in the old folder is
+moved by hand. Decision 0009 is amended, and decision 0010, ARCHITECTURE and the
+README follow.
+
+TDD: three unit tests (the folder name and webview subfolder, the registration
+test now expecting the named folder and an opened window, and a window without a
+data folder) failed against stubs, then passed. The IPC test helper now uses the
+window the setup hook opens.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: 135 Rust unit tests, 60 frontend/tooling tests, offline native execution
+(the window opened from code, with its title, and WebKit created
+`~/.local/share/roll-tracker/webview`), nine probes and five report checks, all
+at 100% per file, plus TypeScript/build, formatting and Clippy, peaking at about
+3.2 GB used. One 320-byte default-named `.profraw` file appeared in `src-tauri/`
+during the probes; it did not recur in a rerun of the probes or the native smoke
+test, and was deleted. `npm run tauri -- build --no-bundle` passed on Linux, and
+the `cargo-xwin` Windows build succeeded.
+
 ## Next
 
-The framework and visual-design decision (a new decision record), then the
+The collaboration warps: confirm from a cache or a user-made request that `21`
+and `22` use the `getLdGachaLog` endpoint, then request them there and accept it
+in extraction. Then the framework and visual-design decision, and the
 stored-history display. Account/server verification remains a milestone-closing
-requirement. A live retrieve and save on Windows would be the first real check of
-the new controls and of the database location.
+requirement.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

@@ -10,9 +10,10 @@ use crate::discovery::{
 };
 use crate::storage::{self, Preview, Review, Summary};
 use serde::Serialize;
+use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
-    Builder, Manager, Runtime, State,
+    AppHandle, Builder, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder,
     ipc::{Channel, InvokeBody, Request},
 };
 use tokio_util::sync::CancellationToken;
@@ -232,13 +233,28 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         // Portable mode, or else local, not roaming, app data: history never
         // leaves the machine with a roaming Windows profile.
         let executable = std::env::current_exe().ok();
-        let local = app.path().app_local_data_dir().ok();
-        app.manage(Database::new(database::location(
+        let local = app.path().local_data_dir().ok();
+        let folder = database::location(
             executable.as_deref(),
-            local,
-        )));
-        Ok(())
+            local.map(|local| local.join(database::FOLDER_NAME)),
+        );
+        let opened = open_window(app.handle(), folder.as_deref());
+        app.manage(Database::new(folder));
+        opened.map_err(Into::into)
     })
+}
+
+/// Open the main window, keeping the webview's profile in the app's folder, so
+/// portable mode leaves nothing of the app's behind on the machine.
+fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::Result<()> {
+    let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+        .title("Roll Tracker")
+        .inner_size(1000.0, 760.0)
+        .min_inner_size(360.0, 580.0);
+    if let Some(folder) = folder {
+        window = window.data_directory(database::webview_folder(folder));
+    }
+    window.build().map(drop)
 }
 
 impl From<ExtractionError> for Failure {
@@ -546,12 +562,11 @@ mod tests {
         let mut app = register(mock_builder())
             .build(mock_context(noop_assets()))
             .unwrap();
-        // Run the setup hook, which manages the database (see the registration test).
+        // Run the setup hook, which manages the database and opens the window
+        // (see the registration test).
         #[allow(deprecated)]
         app.run_iteration(events::ignore);
-        WebviewWindowBuilder::new(&app, "main", Default::default())
-            .build()
-            .unwrap()
+        app.get_webview_window("main").unwrap()
     }
     // IPC commands run on Tauri's worker threads, which cannot see the thread-local
     // doubles; IPC tests therefore cover only failures before any request.
@@ -634,7 +649,7 @@ mod tests {
     }
 
     #[test]
-    fn registration_keeps_the_database_in_the_local_app_data_folder() {
+    fn registration_opens_the_window_with_its_data_in_the_named_local_folder() {
         let mut app = register(mock_builder())
             .build(mock_context(noop_assets()))
             .unwrap();
@@ -642,11 +657,19 @@ mod tests {
         // runtime, only this deprecated call runs them. It is called once here.
         #[allow(deprecated)]
         app.run_iteration(events::ignore);
-        let folder = app.path().app_local_data_dir().unwrap();
+        let folder = app.path().local_data_dir().unwrap().join("roll-tracker");
         assert_eq!(
             app.state::<Database>().path(),
             Some(folder.join(database::FILE_NAME))
         );
+        assert!(app.get_webview_window("main").is_some());
+    }
+
+    #[test]
+    fn the_window_opens_even_without_a_data_folder() {
+        let app = mock_builder().build(mock_context(noop_assets())).unwrap();
+        open_window(app.handle(), None).unwrap();
+        assert!(app.get_webview_window("main").is_some());
     }
 
     #[test]
