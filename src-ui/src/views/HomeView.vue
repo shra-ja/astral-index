@@ -1,36 +1,26 @@
 <script setup lang="ts">
 // The home screen: the collection for the chosen game and, for Honkai: Star Rail,
 // retrieval. The retrieval flow's state comes from useRetrieval; this view wires
-// it to the page and moves focus as the flow changes.
+// it to the components and moves focus as the flow changes.
 import { ref, useTemplateRef, watch } from 'vue';
+import EmptyState from '../components/EmptyState.vue';
+import GameSelect from '../components/GameSelect.vue';
+import RetrievalStart from '../components/RetrievalStart.vue';
 import ReviewPanel from '../components/ReviewPanel.vue';
 import { useRetrieval } from '../composables/useRetrieval';
+import { games, type Game } from '../format';
 
-const games = { 'genshin-impact': 'Genshin Impact', 'honkai-star-rail': 'Honkai: Star Rail' };
-const game = ref<keyof typeof games>('genshin-impact');
-
+const game = ref<Game>('genshin-impact');
 const { phase, source, status, review, cancelling, searchDevice, readFile, cancel, save, discard, done } = useRetrieval();
-const find = useTemplateRef('find');
-const cacheFile = useTemplateRef('cacheFile');
+const start = useTemplateRef('start');
 const cancelButton = useTemplateRef('cancelButton');
 
 // Cancel takes focus while retrieval runs; the control that started it gets focus
 // back when it ends. The review takes focus itself as it appears.
 watch(phase, now => {
   if (now === 'acquiring') cancelButton.value!.focus();
-  if (now === 'idle') (source.value === 'device' ? find : cacheFile).value!.focus();
+  if (now === 'idle') start.value!.focus(source.value);
 }, { flush: 'post' });
-
-// Clear only as the dialog opens: the chosen file stays shown with its result,
-// and choosing the same file again still fires a change.
-function clearFile() {
-  cacheFile.value!.value = '';
-}
-
-function chooseFile() {
-  const file = cacheFile.value!.files![0];
-  if (file) readFile(file);
-}
 </script>
 
 <template>
@@ -41,33 +31,12 @@ function chooseFile() {
   </section>
   <section class="collection" aria-label="Roll history">
     <div class="toolbar">
-      <div>
-        <label for="game">Your game</label>
-        <select id="game" v-model="game">
-          <option v-for="(name, id) in games" :key="id" :value="id">{{ name }}</option>
-        </select>
-      </div>
+      <GameSelect v-model="game" />
       <span class="collection-label">Your collection starts here</span>
     </div>
-    <div class="empty" role="status" aria-live="polite" aria-atomic="true">
-      <span class="empty-icon" aria-hidden="true">✧</span>
-      <h2>No {{ games[game] }} rolls yet</h2>
-      <p>Showing saved history is coming next.</p>
-      <p class="detail">Your history will stay on this device. No account needed.</p>
-    </div>
+    <EmptyState :game="games[game]" />
     <div class="retrieval" :aria-busy="phase === 'acquiring' || phase === 'saving'" :hidden="game !== 'honkai-star-rail'">
-      <div class="start" :hidden="phase !== 'idle'">
-        <p>Retrieval starts with the warp history link the game saved on this device.
-          The app finds it, then checks it with HoYoverse, so you need to be online.</p>
-        <button ref="find" type="button" @click="searchDevice">Start retrieval</button>
-        <div class="fallback">
-          <label for="cache-file">Or choose the game’s <code>data_2</code> cache file</label>
-          <p class="detail" id="cache-file-hint">It’s in the game’s <code>webCaches</code> folder,
-            under <code>Cache\Cache_Data</code>.</p>
-          <input ref="cacheFile" type="file" id="cache-file" aria-describedby="cache-file-hint"
-            @click="clearFile" @change="chooseFile">
-        </div>
-      </div>
+      <RetrievalStart ref="start" :hidden="phase !== 'idle'" @search="searchDevice" @choose="readFile" />
       <p class="extraction-status" role="status" aria-live="polite" aria-atomic="true">{{ status }}</p>
       <button ref="cancelButton" type="button" class="cancel" :hidden="phase !== 'acquiring'"
         :disabled="cancelling" @click="cancel">Cancel</button>

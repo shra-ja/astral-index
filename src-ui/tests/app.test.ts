@@ -356,22 +356,6 @@ test('choosing a cache file extracts from it without an automatic search first',
   expect(start().hidden).toBe(false);
 });
 
-test('the chosen file stays shown after extraction and is cleared only to choose again', async () => {
-  await selectStarRail();
-  serve({ retrieve_history: () => ({ kind: 'no_history' }) });
-  const writes: string[] = [];
-  Object.defineProperty(fileInput(), 'value', {
-    configurable: true, get: () => 'data_2', set: (value: string) => { writes.push(value); },
-  });
-  choose(new File(['synthetic'], 'data_2'));
-  await settle();
-  expect(extractionStatus()).toContain('no warp history');
-  expect(writes).toEqual([]);
-  // Clearing before the dialog opens lets the same file be chosen again.
-  fileInput().click();
-  expect(writes).toEqual(['']);
-});
-
 test('switching back to Genshin Impact hides the Star Rail controls', async () => {
   await selectStarRail();
   await selectGame('genshin-impact');

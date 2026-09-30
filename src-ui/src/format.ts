@@ -9,3 +9,7 @@ export const warps: Record<string, string> = {
 /** "1 roll", "1,532 rolls". */
 export const plural = (count: number, noun: string) =>
   `${count.toLocaleString('en')} ${noun}${count === 1 ? '' : 's'}`;
+
+/** Supported games by ID, as their names are written. */
+export const games = { 'genshin-impact': 'Genshin Impact', 'honkai-star-rail': 'Honkai: Star Rail' } as const;
+export type Game = keyof typeof games;
