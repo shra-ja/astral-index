@@ -1,5 +1,18 @@
 export type Metric = { total: number; covered: number }
 export type FileCoverage = Record<'lines' | 'statements' | 'functions' | 'branches', Metric>
+/** The parts of an LLVM (`cargo llvm-cov`) JSON export that the gates read. */
+export type LlvmCoverageExport = {
+  type: string
+  data: {
+    files: {
+      filename: string
+      summary: Record<
+        'lines' | 'regions' | 'functions' | 'branches',
+        { count: number; covered: number }
+      >
+    }[]
+  }[]
+}
 
 /** Fail closed when any inventoried source lacks valid, fully covered executable metrics. */
 export function assertCompleteCoverage(

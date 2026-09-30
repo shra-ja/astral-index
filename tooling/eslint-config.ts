@@ -25,6 +25,21 @@ export function eslintConfig() {
         },
       },
     },
-    { ...vitest.configs.recommended, files: ['**/*.test.ts'] },
+    {
+      ...vitest.configs.recommended,
+      files: ['**/*.test.ts'],
+      rules: {
+        ...vitest.configs.recommended.rules,
+        // Vitest's expect takes an optional failure message.
+        'vitest/valid-expect': ['error', { maxArgs: 2 }],
+        // Helpers such as `expectReportFailure` assert on the test's behalf.
+        'vitest/expect-expect': ['error', { assertFunctionNames: ['expect', 'expect*'] }],
+      },
+    },
+    {
+      // Each stage is a named step that the npm scripts select; it fails by throwing.
+      files: ['tests/backend-coverage-stages.test.ts'],
+      rules: { 'vitest/expect-expect': 'off' },
+    },
   )
 }

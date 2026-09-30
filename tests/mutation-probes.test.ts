@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { afterAll, expect, test } from 'vitest'
 import { refreshProbeCoverage } from '../tooling/backend-coverage'
+import type { LlvmCoverageExport } from '../tooling/coverage'
 
 // Per-probe finally blocks restore files; even failed assertions reach this full refresh.
 afterAll(refreshProbeCoverage, 600000)
@@ -68,10 +69,12 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
       ),
     )
     execFileSync('npm', ['run', 'test:e2e-probe'], { stdio: 'pipe' })
-    const report = JSON.parse(readFileSync('coverage/backend/coverage.json', 'utf8'))
-    const summary = report.data[0].files.find((file: { filename: string }) =>
+    const report = JSON.parse(
+      readFileSync('coverage/backend/coverage.json', 'utf8'),
+    ) as LlvmCoverageExport
+    const summary = report.data[0].files.find((file) =>
       file.filename.endsWith('/src/main.rs'),
-    ).summary
+    )!.summary
     expect(summary.branches.count).toBeGreaterThan(summary.branches.covered)
     expectReportFailure('^backend wrapper coverage$', 'Uncovered')
   } finally {
@@ -103,7 +106,7 @@ test('the report gate fails closed when a required report is missing or incomple
 }, 30000)
 
 // Exercise the public commands so adding a suite cannot silently bypass either gate.
-test('test and coverage commands discover additional frontend and tooling suites', () => {
+test('the test and coverage commands discover additional frontend and tooling suites', () => {
   // Sibling unit tests, frontend integration tests, build tests and tooling tests.
   const paths = [
     'src-ui/src/discovery-probe.test.ts',
@@ -169,12 +172,11 @@ test('backend coverage requires unit execution even when integration tests cover
       '#[test]\nfn covers_only_in_integration() { assert_eq!(roll_tracker::unit_coverage_probe(true), 1); assert_eq!(roll_tracker::unit_coverage_probe(false), 0); }\n',
     )
     execFileSync('npm', ['run', 'test:backend-probe'], { stdio: 'pipe' })
-    const unit = JSON.parse(readFileSync('coverage/backend-unit/coverage.json', 'utf8'))
-    const combined = JSON.parse(readFileSync('coverage/backend/coverage.json', 'utf8'))
-    const metric = (report: typeof unit) =>
-      report.data[0].files.find((file: { filename: string }) =>
-        file.filename.endsWith('/src/lib.rs'),
-      ).summary.functions
+    const read = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as LlvmCoverageExport
+    const unit = read('coverage/backend-unit/coverage.json')
+    const combined = read('coverage/backend/coverage.json')
+    const metric = (report: LlvmCoverageExport) =>
+      report.data[0].files.find((file) => file.filename.endsWith('/src/lib.rs'))!.summary.functions
     expect(metric(unit).covered).toBeLessThan(metric(unit).count)
     expect(metric(combined).covered).toBe(metric(combined).count)
     expectReportFailure('^backend unit coverage$', 'Uncovered')
@@ -193,7 +195,7 @@ test('the unit-only report is mandatory and cannot be replaced by boundary cover
   try {
     renameSync(path, backup)
     expectReportFailure('^backend unit coverage$', 'ENOENT')
-    const incomplete = JSON.parse(original)
+    const incomplete = JSON.parse(original) as LlvmCoverageExport
     incomplete.data[0].files = []
     writeFileSync(path, JSON.stringify(incomplete))
     expectReportFailure('^backend unit coverage$', 'Missing coverage')

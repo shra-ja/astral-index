@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 
 const workflow = readFileSync('.github/workflows/check.yml', 'utf8')
-const steps = workflow.split(/^      - /m).slice(1)
+const steps = workflow.split(/^ {6}- /m).slice(1)
 
 test('CI caches reusable dependencies with toolchain and lockfile invalidation', () => {
   const npm = steps.find((step) => step.includes('uses: actions/cache@'))

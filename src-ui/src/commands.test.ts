@@ -11,6 +11,11 @@ import {
   retrieveHistory,
 } from './commands'
 
+// Tauri rejects a command with the native failure as plain data, not an Error.
+function reject(failure: unknown): never {
+  throw failure
+}
+
 afterEach(clearMocks)
 
 test('automatic extraction resolves without detail on success', async () => {
@@ -46,14 +51,10 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'stale_preview',
     'no_preview',
   ]) {
-    mockIPC(() => {
-      throw { kind }
-    })
+    mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })
   }
-  mockIPC(() => {
-    throw { kind: 'api_error', code: -100 }
-  })
+  mockIPC(() => reject({ kind: 'api_error', code: -100 }))
   expect(await extractAutomatically()).toEqual({ kind: 'api_error', code: -100 })
   // Only API errors carry a code, and it must be an integer.
   for (const unexpected of [
@@ -68,9 +69,7 @@ test('known native kinds pass through and anything else becomes unavailable', as
     { kind: 'api_error', code: 1.5 },
     { kind: 'network', code: 1 },
   ]) {
-    mockIPC(() => {
-      throw unexpected
-    })
+    mockIPC(() => reject(unexpected))
     expect(await extractAutomatically()).toEqual({ kind: 'unavailable' })
   }
 })
@@ -102,9 +101,7 @@ test('file extraction rejects oversized files before reading them', async () => 
   })
   expect(await extractFromFile(file)).toEqual({ kind: 'file_too_large' })
   expect(called).toBe(false)
-  mockIPC(() => {
-    throw { kind: 'no_request' }
-  })
+  mockIPC(() => reject({ kind: 'no_request' }))
   expect(await extractFromFile(new File(['x'], 'data_2'))).toEqual({ kind: 'no_request' })
 })
 
@@ -122,9 +119,7 @@ test('cancelling asks the native side to stop and reports only unexpected failur
   })
   expect(await cancelAcquisition()).toBeUndefined()
   expect(calls).toEqual(['cancel_acquisition'])
-  mockIPC(() => {
-    throw 'cancel_acquisition not allowed'
-  })
+  mockIPC(() => reject('cancel_acquisition not allowed'))
   expect(await cancelAcquisition()).toEqual({ kind: 'unavailable' })
 })
 
@@ -148,9 +143,7 @@ test('retrieval streams progress, then returns the review or no history', async 
 })
 
 test('retrieval failures keep only a valid category and page', async () => {
-  mockIPC(() => {
-    throw { kind: 'expired_key', gacha_type: '2', page: 1 }
-  })
+  mockIPC(() => reject({ kind: 'expired_key', gacha_type: '2', page: 1 }))
   expect(await retrieveHistory(() => undefined)).toEqual({
     failure: { kind: 'expired_key', location: { gacha_type: '2', page: 1 } },
   })
@@ -160,9 +153,7 @@ test('retrieval failures keep only a valid category and page', async () => {
     { gacha_type: '2', page: 0 },
     { gacha_type: '2', page: 1.5 },
   ]) {
-    mockIPC(() => {
-      throw { kind: 'network', ...location }
-    })
+    mockIPC(() => reject({ kind: 'network', ...location }))
     expect(await retrieveHistory(() => undefined)).toEqual({ failure: { kind: 'network' } })
   }
 })
@@ -176,9 +167,7 @@ test('committing returns what was added, and failures stay safe categories', asy
   })
   expect(await commitImport()).toEqual({ summary })
   expect(calls).toEqual(['commit_import'])
-  mockIPC(() => {
-    throw { kind: 'stale_preview' }
-  })
+  mockIPC(() => reject({ kind: 'stale_preview' }))
   expect(await commitImport()).toEqual({ failure: { kind: 'stale_preview' } })
 })
 

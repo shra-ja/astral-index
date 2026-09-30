@@ -13,7 +13,15 @@ export function eslintConfig() {
     globalIgnores(['**/dist/**']),
     vue.configs['flat/recommended'],
     vueTsConfigs.recommendedTypeChecked,
-    { ...vitest.configs.recommended, files: ['**/*.test.ts', 'tests/**'] },
+    {
+      ...vitest.configs.recommended,
+      files: ['**/*.test.ts', 'tests/**'],
+      // Vitest's expect takes an optional failure message.
+      rules: {
+        ...vitest.configs.recommended.rules,
+        'vitest/valid-expect': ['error', { maxArgs: 2 }],
+      },
+    },
     // Formatting belongs to Prettier, so rules that would fight it are off.
     skipFormatting,
   )

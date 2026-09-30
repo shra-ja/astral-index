@@ -35,13 +35,13 @@ defineExpose({
     <button ref="searchButton" type="button" @click="emit('search')">Start retrieval</button>
     <div class="fallback">
       <label for="cache-file">Or choose the game’s <code>data_2</code> cache file</label>
-      <p class="detail" id="cache-file-hint">
+      <p id="cache-file-hint" class="detail">
         It’s in the game’s <code>webCaches</code> folder, under <code>Cache\Cache_Data</code>.
       </p>
       <input
+        id="cache-file"
         ref="fileInput"
         type="file"
-        id="cache-file"
         aria-describedby="cache-file-hint"
         @click="clear"
         @change="chosen"

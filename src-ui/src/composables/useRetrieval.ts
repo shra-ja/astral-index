@@ -110,12 +110,12 @@ export function useRetrieval() {
       ),
     // Progress stops showing once the user asks to cancel; if the request cannot be
     // sent, retrieval carries on and can be cancelled again.
-    async cancel() {
+    cancel: async () => {
       cancelling.value = true
       status.value = 'Cancelling…'
       if (await cancelAcquisition()) cancelling.value = false
     },
-    async save() {
+    save: async () => {
       phase.value = 'saving'
       status.value = 'Saving…'
       const result = await commitImport()

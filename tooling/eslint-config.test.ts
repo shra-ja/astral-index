@@ -45,3 +45,15 @@ test('the frontend lints itself, and generated output is not linted', async () =
   expect(await eslint.isPathIgnored('tooling/coverage.ts')).toBe(false)
   expect(await eslint.isPathIgnored('eslint.config.ts')).toBe(false)
 })
+
+test('an expectation may carry a failure message, and expect… helpers count as assertions', async () => {
+  const code =
+    "import { expect, test } from 'vitest'\nfunction expectFailure() {}\nconst why = 'reason'\ntest('a', () => { expect(1, why).toBe(1) })\ntest('b', () => { expectFailure() })\n"
+  expect(await rules(code, 'tooling/coverage.test.ts')).toEqual([])
+})
+
+test('only the backend stage runners, which fail by throwing, need no assertions', async () => {
+  const stage = "import { test } from 'vitest'\ntest('stage', () => { run() })\nfunction run() {}\n"
+  expect(await rules(stage, 'tests/backend-coverage-stages.test.ts')).toEqual([])
+  expect(await rules(stage, 'tests/coverage-reports.test.ts')).toContain('vitest/expect-expect')
+})

@@ -64,3 +64,9 @@ test('build output is not linted', async () => {
   expect(await eslint.isPathIgnored('dist/assets/index.js')).toBe(true)
   expect(await eslint.isPathIgnored('src/main.ts')).toBe(false)
 })
+
+test('an expectation may carry a failure message', async () => {
+  const code =
+    "import { expect, test } from 'vitest'\nconst why = 'reason'\ntest('a', () => { expect(1, why).toBe(1) })\n"
+  expect(await rules(code, 'src/messages.test.ts')).toEqual([])
+})

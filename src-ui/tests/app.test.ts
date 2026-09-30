@@ -3,6 +3,11 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { Channel } from '@tauri-apps/api/core'
 
+// Tauri rejects a command with the native failure as plain data, not an Error.
+function reject(failure: unknown): never {
+  throw failure
+}
+
 // Resolve the mocked IPC and the UI's follow-up rendering.
 const settle = () => new Promise((resolve) => setTimeout(resolve))
 
@@ -295,9 +300,7 @@ test('conflicting rolls are listed and cannot be saved', async () => {
 test('a failed save explains what happened and returns to the start', async () => {
   serve({
     retrieve_history: () => review(2),
-    commit_import: () => {
-      throw { kind: 'conflict' }
-    },
+    commit_import: () => reject({ kind: 'conflict' }),
   })
   await selectStarRail()
   findButton().click()
@@ -314,9 +317,7 @@ test('a failed save explains what happened and returns to the start', async () =
 
 test('a failed retrieval explains itself and where it stopped', async () => {
   const calls = serve({
-    retrieve_history: () => {
-      throw { kind: 'network', gacha_type: '12', page: 2 }
-    },
+    retrieve_history: () => reject({ kind: 'network', gacha_type: '12', page: 2 }),
   })
   await selectStarRail()
   findButton().click()
@@ -353,9 +354,7 @@ test('if cancelling cannot be sent, retrieval carries on and can be cancelled ag
       progress = progressOf(args)
       return retrieval.handler()
     },
-    cancel_acquisition: () => {
-      throw 'cancel_acquisition not allowed'
-    },
+    cancel_acquisition: () => reject('cancel_acquisition not allowed'),
   })
   await selectStarRail()
   findButton().click()
@@ -373,9 +372,7 @@ test('if cancelling cannot be sent, retrieval carries on and can be cancelled ag
 
 test('a failed automatic search explains what to do next', async () => {
   const calls = serve({
-    extract_automatically: () => {
-      throw { kind: 'no_cache' }
-    },
+    extract_automatically: () => reject({ kind: 'no_cache' }),
   })
   await selectStarRail()
   findButton().click()
@@ -398,9 +395,7 @@ test('choosing a cache file extracts from it without an automatic search first',
   reviewButton('Discard').click()
   await settle()
   expect(document.activeElement).toBe(fileInput())
-  mockIPC(() => {
-    throw { kind: 'invalid_file' }
-  })
+  mockIPC(() => reject({ kind: 'invalid_file' }))
   await choose(new File(['synthetic'], 'data_2'))
   await settle()
   expect(extractionStatus()).toBe('That file couldn’t be read. Try choosing it again.')

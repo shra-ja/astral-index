@@ -15,7 +15,7 @@ beforeAll(() => {
     .slice(2)
     .map((line) => line.split(':')[0].trim())
     .filter(Boolean)
-  expect(interfaces, 'run the native test through test:offline').toEqual(['lo'])
+  if (interfaces.join() !== 'lo') throw new Error('run the native test through test:offline')
   backendEnv = backendEnvironment()
   backendCargo(['build', '--locked', '--offline'])
 }, 600000)
@@ -29,17 +29,18 @@ test('the bundled native shell works offline, supports keyboard selection, and c
   })
   let session = ''
   // Surface WebDriver failures at the request boundary instead of later UI assertions.
-  const request = async (path: string, method = 'GET', body?: unknown) => {
+  const request = async <T = unknown>(path: string, method = 'GET', body?: unknown) => {
     const response = await fetch(`http://127.0.0.1:4444${path}`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     })
-    // A WebDriver response's `value` has a different shape for each command.
-    const result = (await response.json()) as { value?: any }
+    // A WebDriver response's `value` has a different shape for each command, and
+    // carries an `error` when the command failed.
+    const result = (await response.json()) as { value?: { error?: unknown } }
     expect(result.value?.error, JSON.stringify(result)).toBeUndefined()
-    return result.value
+    return result.value as T
   }
   try {
     await expect
@@ -54,7 +55,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
         { timeout: 10000 },
       )
       .toBe(true)
-    const created = await request('/session', 'POST', {
+    const created = await request<{ sessionId: string }>('/session', 'POST', {
       capabilities: {
         alwaysMatch: {
           'tauri:options': {
@@ -110,7 +111,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       disposition: 'enforce',
     })
     // The capability grants only the manifest commands; results carry categories, never contexts.
-    const commands = await request(`/session/${session}/execute/async`, 'POST', {
+    const commands = await request<string[]>(`/session/${session}/execute/async`, 'POST', {
       script: `
         const done = arguments[arguments.length - 1];
         const invoke = window.__TAURI_INTERNALS__.invoke;
@@ -161,7 +162,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       cachePath,
       '1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0',
     )
-    const input = await request(`/session/${session}/element`, 'POST', {
+    const input = await request<Record<string, string>>(`/session/${session}/element`, 'POST', {
       using: 'css selector',
       value: '#cache-file',
     })
@@ -173,7 +174,7 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       .toContain('We couldn’t reach HoYoverse.')
     expect(await execute('return document.querySelector("#cache-file").files.length')).toBe(1)
     rmSync(cachePath)
-    const screenshot = await request(`/session/${session}/screenshot`)
+    const screenshot = await request<string>(`/session/${session}/screenshot`)
     writeFileSync('test-results/e2e-smoke.png', Buffer.from(screenshot, 'base64'))
     const windowId = execFileSync('xdotool', ['search', '--name', '^Roll Tracker$'], {
       encoding: 'utf8',

@@ -1,7 +1,11 @@
 import { globSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from 'vitest'
-import { assertCompleteCoverage, type FileCoverage } from '../tooling/coverage'
+import {
+  assertCompleteCoverage,
+  type FileCoverage,
+  type LlvmCoverageExport,
+} from '../tooling/coverage'
 
 // Vitest never measures config files, so each only delegates to a unit-tested module
 // (`src-ui/build/vite.ts`, `src-ui/build/eslint.ts`, `tooling/vitest-config.ts`,
@@ -66,46 +70,43 @@ function assertFresh(report: string, files: string[]): void {
   }
 }
 
-for (const [name, report, globs] of typeScriptReports) {
-  test(name, () => {
-    const inventory = sources(globs)
-    assertCompleteCoverage(inventory, JSON.parse(readFileSync(report, 'utf8')))
-    assertFresh(report, inventory)
-  })
-}
+test.each(typeScriptReports)('%s', (_name, report, globs) => {
+  const inventory = sources(globs)
+  const summary = JSON.parse(readFileSync(report, 'utf8')) as Record<string, FileCoverage>
+  expect(() => assertCompleteCoverage(inventory, summary)).not.toThrow()
+  assertFresh(report, inventory)
+})
 
-for (const [name, reportPath, boundary] of [
+test.each([
   ['backend unit coverage', 'coverage/backend-unit/coverage.json', false],
   ['backend wrapper coverage', 'coverage/backend/coverage.json', true],
-] as const) {
-  test(name, () => {
-    const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], {
-      exclude: ['src-tauri/src/**/tests/**'],
-    }).map((file) => resolve(file))
-    const inventory = boundary ? wrappers : rust.filter((file) => !wrappers.includes(file))
-    const native = JSON.parse(readFileSync(reportPath, 'utf8'))
-    expect(native.type).toBe('llvm.coverage.json.export')
-    expect(native.data).toHaveLength(1)
-    const rustReport: Record<string, FileCoverage> = {}
-    for (const file of native.data[0].files) {
-      const metrics = {} as FileCoverage
-      for (const [name, nativeName] of [
-        ['lines', 'lines'],
-        ['statements', 'regions'],
-        ['functions', 'functions'],
-        ['branches', 'branches'],
-      ] as const) {
-        metrics[name] = {
-          total: file.summary[nativeName].count,
-          covered: file.summary[nativeName].covered,
-        }
+] as const)('%s', (_name, reportPath, boundary) => {
+  const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], {
+    exclude: ['src-tauri/src/**/tests/**'],
+  }).map((file) => resolve(file))
+  const inventory = boundary ? wrappers : rust.filter((file) => !wrappers.includes(file))
+  const native = JSON.parse(readFileSync(reportPath, 'utf8')) as LlvmCoverageExport
+  expect(native.type).toBe('llvm.coverage.json.export')
+  expect(native.data).toHaveLength(1)
+  const rustReport: Record<string, FileCoverage> = {}
+  for (const file of native.data[0].files) {
+    const metrics = {} as FileCoverage
+    for (const [name, nativeName] of [
+      ['lines', 'lines'],
+      ['statements', 'regions'],
+      ['functions', 'functions'],
+      ['branches', 'branches'],
+    ] as const) {
+      metrics[name] = {
+        total: file.summary[nativeName].count,
+        covered: file.summary[nativeName].covered,
       }
-      rustReport[resolve(file.filename)] = metrics
     }
-    assertCompleteCoverage(inventory, rustReport)
-    assertFresh(reportPath, inventory)
-  })
-}
+    rustReport[resolve(file.filename)] = metrics
+  }
+  assertCompleteCoverage(inventory, rustReport)
+  assertFresh(reportPath, inventory)
+})
 
 // These are the only unit-coverage exceptions. Any added logic requires an explicit review.
 test('startup/build exceptions remain minimal third-party delegates', () => {
