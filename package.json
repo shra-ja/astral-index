@@ -13,6 +13,10 @@
     "dev": "npm run dev --workspace src-ui",
     "build": "npm run typecheck && npm run build --workspace src-ui",
     "typecheck": "vue-tsc --build",
+    "lint": "npm run lint --workspace src-ui && eslint . --fix --cache",
+    "lint:check": "npm run lint:check --workspace src-ui && eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "npm test --workspace src-ui && vitest run --project tooling",
     "coverage": "npm run coverage --workspace src-ui -- --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html && vitest run --project tooling --coverage --coverage.reporter=text --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=html",
     "coverage:json": "npm run coverage --workspace src-ui && vitest run --project tooling --coverage",
@@ -32,11 +36,17 @@
     "tauri": "tauri"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@tauri-apps/cli": "2.12.0",
     "@tsconfig/node26": "26.0.1",
     "@types/node": "26.6.3",
     "@vitest/coverage-v8": "5.0.2",
+    "@vitest/eslint-plugin": "1.6.27",
+    "eslint": "10.11.0",
+    "jiti": "2.7.0",
+    "prettier": "3.9.9",
     "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
     "vitest": "5.0.2",
     "vue-tsc": "3.3.11"
   }

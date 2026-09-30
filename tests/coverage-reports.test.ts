@@ -4,8 +4,10 @@ import { expect, test } from 'vitest';
 import { assertCompleteCoverage, type FileCoverage } from '../tooling/coverage';
 
 // Vitest never measures config files, so each only delegates to a unit-tested module
-// (`src-ui/build/vite.ts`, `tooling/vitest-config.ts`); the guard below pins them.
-const configDelegates = ['src-ui/vite.config.ts', 'vitest.config.ts'].map(file => resolve(file));
+// (`src-ui/build/vite.ts`, `src-ui/build/eslint.ts`, `tooling/vitest-config.ts`,
+// `tooling/eslint-config.ts`); the guard below pins them.
+const configDelegates = ['src-ui/vite.config.ts', 'src-ui/eslint.config.ts', 'vitest.config.ts', 'eslint.config.ts']
+  .map(file => resolve(file));
 
 // Unit tests sit beside their source as `*.test.ts`; the rest live in test folders.
 const testFiles = ['**/*.test.ts', 'src-ui/tests/**', 'tests/**'];
@@ -83,6 +85,12 @@ export default defineConfig(() => viteConfig(process.env));`);
 import { vitestConfig } from './tooling/vitest-config.ts';
 
 export default defineConfig(vitestConfig());`);
+  expect(readFileSync('src-ui/eslint.config.ts', 'utf8').trim()).toBe(`import { eslintConfig } from './build/eslint.ts'
+
+export default eslintConfig()`);
+  expect(readFileSync('eslint.config.ts', 'utf8').trim()).toBe(`import { eslintConfig } from './tooling/eslint-config.ts'
+
+export default eslintConfig()`);
   // Registration and the command list live in unit-tested library code; these only delegate.
   // The attribute only selects the Windows GUI subsystem for release builds; no code runs.
   expect(readFileSync('src-tauri/src/main.rs', 'utf8').trim()).toBe(`#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]

@@ -2,7 +2,7 @@
 // tests, and the repository-level verification in `tests/`.
 {
   "extends": "@tsconfig/node26/tsconfig.json",
-  "include": ["vitest.config.ts", "tooling/**/*.ts", "tests/**/*.ts"],
+  "include": ["vitest.config.ts", "eslint.config.ts", "tooling/**/*.ts", "tests/**/*.ts"],
   "compilerOptions": {
     "noEmit": true,
     "allowImportingTsExtensions": true,
