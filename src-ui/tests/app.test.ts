@@ -1,11 +1,17 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { nextTick } from 'vue';
 import type { Channel } from '@tauri-apps/api/core';
 
+// Resolve the mocked IPC and the UI's follow-up rendering.
+const settle = () => new Promise(resolve => setTimeout(resolve));
+
+// Mount the whole app afresh, and wait for the router to show the first view.
 beforeEach(async () => {
-  document.body.innerHTML = '<main></main>';
+  document.body.innerHTML = '<div id="app"></div>';
   vi.resetModules();
   await import('../src/main');
+  await settle();
 });
 afterEach(clearMocks);
 
@@ -15,14 +21,22 @@ const fallback = () => panel().querySelector<HTMLElement>('.fallback')!;
 const fileInput = () => fallback().querySelector<HTMLInputElement>('input[type="file"]')!;
 const extractionStatus = () => panel().querySelector('[role="status"]')!.textContent;
 
-function selectStarRail() {
+// Vue updates the page on the next tick, so each helper waits for it.
+function selectGame(value: string) {
   const select = document.querySelector('select')!;
-  select.value = 'honkai-star-rail';
+  select.value = value;
   select.dispatchEvent(new Event('change'));
+  return nextTick();
 }
+const selectStarRail = () => selectGame('honkai-star-rail');
 function choose(file: File) {
   Object.defineProperty(fileInput(), 'files', { value: [file], configurable: true });
   fileInput().dispatchEvent(new Event('change'));
+  return nextTick();
+}
+function click(element: HTMLElement) {
+  element.click();
+  return nextTick();
 }
 // Validation failures read the same for automatic and file extraction.
 const validationFailures = [
@@ -33,8 +47,6 @@ const validationFailures = [
   ['invalid_response', 'HoYoverse sent a response we couldn’t read'],
   ['internal', 'couldn’t start the connection to HoYoverse. Nothing was sent'],
 ];
-// Resolve the mocked IPC and the UI's follow-up rendering.
-const settle = () => new Promise(resolve => setTimeout(resolve));
 const cancelButton = () => panel().querySelector<HTMLButtonElement>('.cancel')!;
 const start = () => panel().querySelector<HTMLElement>('.start')!;
 const reviewPanel = () => panel().querySelector<HTMLElement>('.review')!;
@@ -91,19 +103,16 @@ test('starts with accessible game selection and a local-app empty state', () => 
   expect(panel().hidden).toBe(true);
 });
 
-test('switches games and switches back without inventing history or statistics', () => {
-  const select = document.querySelector('select')!;
-  select.value = 'honkai-star-rail';
-  select.dispatchEvent(new Event('change'));
+test('switches games and switches back without inventing history or statistics', async () => {
+  await selectStarRail();
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Honkai: Star Rail rolls yet');
-  select.value = 'genshin-impact';
-  select.dispatchEvent(new Event('change'));
+  await selectGame('genshin-impact');
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Genshin Impact rolls yet');
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i);
 });
 
-test('Star Rail offers retrieval, automatically or from a file, and says it contacts HoYoverse', () => {
-  selectStarRail();
+test('Star Rail offers retrieval, automatically or from a file, and says it contacts HoYoverse', async () => {
+  await selectStarRail();
   expect(panel().hidden).toBe(false);
   expect(findButton().textContent).toBe('Start retrieval');
   expect(findButton().type).toBe('button');
@@ -124,9 +133,9 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
     extract_automatically: extraction.handler,
     retrieve_history: args => { progress = progressOf(args); return retrieval.handler(); },
   });
-  selectStarRail();
+  await selectStarRail();
   findButton().focus();
-  findButton().click();
+  await click(findButton());
   expect(start().hidden).toBe(true);
   expect(cancelButton().hidden).toBe(false);
   expect(document.activeElement).toBe(cancelButton());
@@ -136,10 +145,13 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
   await settle();
   expect(extractionStatus()).toBe('Retrieving your warp history…');
   progress.onmessage({ kind: 'requesting', gacha_type: '11', page: 2, pages: 1, records: 1532 });
+  await nextTick();
   expect(extractionStatus()).toBe('Retrieving Character Event Warp, page 2 · 1,532 rolls so far');
   progress.onmessage({ kind: 'retry_pending', delay_ms: 1000 });
+  await nextTick();
   expect(extractionStatus()).toBe('HoYoverse didn’t respond, so we’ll try again in a moment…');
   progress.onmessage({ kind: 'requesting', gacha_type: '1', page: 1, pages: 0, records: 1 });
+  await nextTick();
   expect(extractionStatus()).toBe('Retrieving Stellar Warp, page 1 · 1 roll so far');
   retrieval.resolve(review(412, 88));
   await settle();
@@ -167,7 +179,7 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
   expect(reviewButton('Discard').hidden).toBe(false);
   const commit = pending();
   serve({ commit_import: commit.handler });
-  reviewButton('Save to this device').click();
+  await click(reviewButton('Save to this device'));
   expect(extractionStatus()).toBe('Saving…');
   // The review panel re-renders on the next tick.
   await settle();
@@ -191,7 +203,7 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
 
 test('one roll reads naturally, and a save with nothing already stored says only what was added', async () => {
   serve({ retrieve_history: () => review(1), commit_import: () => ({ inserted: 1, duplicates: 1, conflicts: 0 }) });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   expect(reviewHeading().textContent).toBe('Ready to save 1 new roll');
@@ -208,7 +220,7 @@ test('one roll reads naturally, and a save with nothing already stored says only
 
 test('discarding the review saves nothing', async () => {
   const calls = serve({ retrieve_history: () => review(4) });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   reviewButton('Discard').click();
@@ -222,7 +234,7 @@ test('discarding the review saves nothing', async () => {
 
 test('when everything is already saved, Done replaces Save and Discard', async () => {
   const calls = serve({ retrieve_history: () => review(0, 5) });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   expect(reviewHeading().textContent).toBe('Everything here is already saved');
@@ -243,7 +255,7 @@ test('conflicting rolls are listed and cannot be saved', async () => {
       { id: '1000000000000000002', gacha_type: '1', time: '2026-05-02 13:00:00' },
     ]),
   });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   expect(reviewHeading().textContent).toBe('Some rolls conflict with your saved history');
@@ -273,7 +285,7 @@ test('conflicting rolls are listed and cannot be saved', async () => {
 });
 
 test('each save failure explains what happened and returns to the start', async () => {
-  selectStarRail();
+  await selectStarRail();
   for (const [kind, message] of [
     ['conflict', 'Some retrieved rolls differ from ones already saved. Nothing was saved.'],
     ['stale_preview', 'Your saved history changed since this review. Start retrieval again.'],
@@ -297,14 +309,17 @@ test('each category is named in progress, and one new roll reads naturally', asy
   const names: string[] = [];
   serve({
     retrieve_history: args => {
-      for (const gacha_type of ['1', '2', '11', '12', '21', '22']) {
-        progressOf(args).onmessage({ kind: 'requesting', gacha_type, page: 1, pages: 0, records: 0 });
-        names.push(extractionStatus()!);
-      }
-      return review(1);
+      return (async () => {
+        for (const gacha_type of ['1', '2', '11', '12', '21', '22']) {
+          progressOf(args).onmessage({ kind: 'requesting', gacha_type, page: 1, pages: 0, records: 0 });
+          await nextTick();
+          names.push(extractionStatus()!);
+        }
+        return review(1);
+      })();
     },
   });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   expect(names).toEqual([
@@ -320,7 +335,7 @@ test('each category is named in progress, and one new roll reads naturally', asy
 
 test('no history is reported without anything to save', async () => {
   const calls = serve({ retrieve_history: () => ({ kind: 'no_history' }) });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   expect(extractionStatus()).toBe('HoYoverse returned no warp history for this account. Nothing was saved.');
@@ -328,7 +343,7 @@ test('no history is reported without anything to save', async () => {
 });
 
 test('each retrieval failure explains itself and where retrieval stopped', async () => {
-  selectStarRail();
+  await selectStarRail();
   for (const [kind, message] of [
     ['cancelled', 'Retrieval cancelled. Nothing was saved.'],
     ['history_too_large', 'Your history is larger than the 16 MiB we can retrieve at once. Nothing was saved.'],
@@ -368,9 +383,9 @@ test('each retrieval failure explains itself and where retrieval stopped', async
 test('cancelling during validation stops before retrieval', async () => {
   const extraction = pending();
   const calls = serve({ extract_automatically: extraction.handler });
-  selectStarRail();
-  findButton().click();
-  cancelButton().click();
+  await selectStarRail();
+  await click(findButton());
+  await click(cancelButton());
   expect(cancelButton().disabled).toBe(true);
   expect(extractionStatus()).toBe('Cancelling…');
   await settle();
@@ -385,7 +400,7 @@ test('cancelling during validation stops before retrieval', async () => {
 test('a cancel that arrives as validation succeeds still stops before retrieval', async () => {
   const extraction = pending();
   const calls = serve({ extract_automatically: extraction.handler });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   cancelButton().click();
   extraction.resolve(undefined);
@@ -398,12 +413,13 @@ test('a cancel that arrives as retrieval finishes keeps nothing', async () => {
   const retrieval = pending();
   let progress!: Progress;
   const calls = serve({ retrieve_history: args => { progress = progressOf(args); return retrieval.handler(); } });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
-  cancelButton().click();
+  await click(cancelButton());
   // Progress already on its way no longer replaces the cancelling message.
   progress.onmessage({ kind: 'requesting', gacha_type: '1', page: 2, pages: 1, records: 1000 });
+  await nextTick();
   expect(extractionStatus()).toBe('Cancelling…');
   retrieval.resolve(review(3));
   await settle();
@@ -423,13 +439,14 @@ test('if cancelling cannot be sent, retrieval carries on and can be cancelled ag
     retrieve_history: args => { progress = progressOf(args); return retrieval.handler(); },
     cancel_acquisition: () => { throw 'cancel_acquisition not allowed'; },
   });
-  selectStarRail();
+  await selectStarRail();
   findButton().click();
   await settle();
   cancelButton().click();
   await settle();
   expect(cancelButton().disabled).toBe(false);
   progress.onmessage({ kind: 'requesting', gacha_type: '2', page: 1, pages: 0, records: 0 });
+  await nextTick();
   expect(extractionStatus()).toBe('Retrieving Departure Warp, page 1 · 0 rolls so far');
   retrieval.resolve(review(5));
   await settle();
@@ -437,7 +454,7 @@ test('if cancelling cannot be sent, retrieval carries on and can be cancelled ag
 });
 
 test('each automatic failure explains what to do next', async () => {
-  selectStarRail();
+  await selectStarRail();
   for (const [failure, message] of [
     ['unsupported_host', 'Automatic search needs Windows'],
     ['discovery_failed', 'couldn’t look up your Windows user folder'],
@@ -457,10 +474,10 @@ test('each automatic failure explains what to do next', async () => {
 });
 
 test('choosing a cache file extracts from it without an automatic search first', async () => {
-  selectStarRail();
+  await selectStarRail();
   const calls = serve({ retrieve_history: () => review(7) });
   fileInput().focus();
-  choose(new File(['synthetic'], 'data_2'));
+  await choose(new File(['synthetic'], 'data_2'));
   expect(extractionStatus()).toBe('Reading the file, then checking with HoYoverse…');
   expect(start().hidden).toBe(true);
   await settle();
@@ -489,7 +506,7 @@ test('choosing a cache file extracts from it without an automatic search first',
 });
 
 test('an API error shows its code with the next step', async () => {
-  selectStarRail();
+  await selectStarRail();
   mockIPC(() => { throw { kind: 'api_error', code: -100 }; });
   findButton().click();
   await settle();
@@ -502,7 +519,7 @@ test('an API error shows its code with the next step', async () => {
 });
 
 test('the chosen file stays shown after extraction and is cleared only to choose again', async () => {
-  selectStarRail();
+  await selectStarRail();
   serve({ retrieve_history: () => ({ kind: 'no_history' }) });
   const writes: string[] = [];
   Object.defineProperty(fileInput(), 'value', {
@@ -517,11 +534,9 @@ test('the chosen file stays shown after extraction and is cleared only to choose
   expect(writes).toEqual(['']);
 });
 
-test('switching back to Genshin Impact hides the Star Rail controls', () => {
-  selectStarRail();
-  const select = document.querySelector('select')!;
-  select.value = 'genshin-impact';
-  select.dispatchEvent(new Event('change'));
+test('switching back to Genshin Impact hides the Star Rail controls', async () => {
+  await selectStarRail();
+  await selectGame('genshin-impact');
   expect(panel().hidden).toBe(true);
   expect(document.body.textContent).toContain('Showing saved history is coming next.');
 });

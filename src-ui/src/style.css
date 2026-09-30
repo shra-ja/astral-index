@@ -7,7 +7,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 1080px; margin: auto; padding: 32px 48px; }
+#app { max-width: 1080px; margin: auto; padding: 32px 48px; }
 header, .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
 .wordmark { color: inherit; font-size: 13px; font-weight: 750; letter-spacing: .16em; text-decoration: none; }
 .local-app { color: #b7d5bd; font-size: 13px; border: 1px solid #3d5145; border-radius: 20px; padding: 7px 12px; }
@@ -55,7 +55,7 @@ code { font-family: ui-monospace, monospace; font-size: .92em; color: #ecece7; }
 .extraction-status:empty { display: none; }
 footer { color: #adb7af; font-size: 12px; margin: 24px 0; }
 @media (max-width: 600px) {
-  main { padding: 24px 20px; }
+  #app { padding: 24px 20px; }
   .intro { margin-top: 48px; }
   .toolbar { align-items: flex-start; flex-direction: column; gap: 16px; }
   .review th, .review td { padding: 8px 4px; }
