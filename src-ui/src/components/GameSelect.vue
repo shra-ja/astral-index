@@ -13,3 +13,7 @@ const game = defineModel<Game>({ required: true });
     </select>
   </div>
 </template>
+
+<style scoped>
+select { font: inherit; color: inherit; background: #131a19; border: 1px solid #526257; border-radius: 7px; padding: 10px 36px 10px 12px; }
+</style>

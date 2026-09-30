@@ -40,3 +40,10 @@ defineExpose({
     </div>
   </div>
 </template>
+
+<style scoped>
+.start > p { color: #c6cfc7; line-height: 1.5; margin: 0 auto 20px; max-width: 460px; }
+.fallback { margin: 28px auto 0; max-width: 460px; text-align: left; }
+.fallback .detail { color: #adb7af; font-size: 13px; line-height: 1.5; margin: 0 0 12px; }
+input[type="file"] { font: inherit; color: #c6cfc7; max-width: 100%; }
+</style>

@@ -30,7 +30,8 @@ conventions regardless of the app's current size, so the structure guides growth
   workspace beside `src-tauri/`, so each half of the app is self-contained; the
   user chose the name to mirror `src-tauri/`. Inside it: `components/`, `App.vue`, `views/` behind Vue Router
   with hash history (no server fallback is needed under Tauri's custom protocol,
-  and no one sees the URL), `composables/` and `assets/`.
+  and no one sees the URL), `composables/` and `assets/`. Base styles live in
+  `assets/main.css` and each component carries scoped styles.
 - **Test layout, mirroring the Rust side:** unit tests are sibling `*.test.ts`
   files beside the code they test (the user preferred them to `__tests__/` for
   findability, and because they encourage grouping source into folders);

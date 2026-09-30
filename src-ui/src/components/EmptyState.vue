@@ -11,3 +11,11 @@ defineProps<{ game: string }>();
     <p class="detail">Your history will stay on this device. No account needed.</p>
   </div>
 </template>
+
+<style scoped>
+.empty { text-align: center; padding: 48px 24px 56px; }
+.empty-icon { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; background: #2c382d; color: #d3c48e; font-size: 42px; }
+h2 { font-size: 21px; font-weight: 550; margin-top: 24px; }
+p { color: #c6cfc7; line-height: 1.5; }
+.detail { color: #adb7af; font-size: 14px; }
+</style>
