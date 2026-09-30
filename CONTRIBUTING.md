@@ -112,7 +112,10 @@ The config files are the other exceptions ([decision 0011](docs/decisions/0011-v
 Vitest always excludes config files from coverage, with no setting to override
 it, so `src-ui/vite.config.ts` only passes `process.env` to `viteConfig` in
 `src-ui/build/vite.ts`, and the root `vitest.config.ts` only calls `vitestConfig`
-in `tooling/vitest-config.ts`. Those modules hold every setting and are
+in `tooling/vitest-config.ts`. The ESLint configs follow the same pattern
+([decision 0012](docs/decisions/0012-linting-and-formatting.md)):
+`src-ui/eslint.config.ts` and `eslint.config.ts` only call `eslintConfig` in
+`src-ui/build/eslint.ts` and `tooling/eslint-config.ts`. Those modules hold every setting and are
 unit-tested at 100%. Unlike the Rust wrappers, the delegates have no coverage of
 their own; the same guard pins their bodies.
 
@@ -214,6 +217,8 @@ bypassable and are not a substitute for protected-branch checks.
 - Task branch and scope identified; no code authored directly on `main`.
 - Expected test failure observed before implementation; regression tests included.
 - Full test suite and all applicable 100% coverage gates passed on the final code.
+- Formatting and lint pass (`npm run format:check`, `npm run lint:check`); fix
+  findings rather than disabling rules.
 - Coverage exclusions unchanged or justified within the allowed categories.
 - Documentation and `docs/STATUS.md` updated with real commands/results.
 - Remaining platform or tooling limitations stated; unrun checks never reported

@@ -8,6 +8,9 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
+[*.{ts,vue,css,json,html}]
+max_line_length = 100
+
 [*.rs]
 indent_size = 4
 

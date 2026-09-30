@@ -67,7 +67,7 @@ probe selections require the JSON preparation commands first.
 | `tooling/**/*.ts` | Vitest V8, the root `tooling` project, to `coverage/tooling/` | Lines, statements, functions, branches: 100% |
 | Backend `src-tauri/src/**/*.rs` (except `main.rs`) | cargo-llvm-cov, **unit execution only** | Lines, regions, functions, branches: 100% |
 | `src-tauri/src/main.rs`, `src-tauri/build.rs` | Separate native boundary coverage; guarded minimal delegates | Lines, regions, functions, branches: 100% |
-| `src-ui/vite.config.ts`, `vitest.config.ts` | None: Vitest always excludes config files; guarded one-line delegates to `src-ui/build/vite.ts` and `tooling/vitest-config.ts` | Not measurable; the delegated modules are at 100% |
+| `src-ui/vite.config.ts`, `src-ui/eslint.config.ts`, `vitest.config.ts`, `eslint.config.ts` | None: Vitest always excludes config files; guarded one-line delegates to `src-ui/build/vite.ts`, `src-ui/build/eslint.ts`, `tooling/vitest-config.ts` and `tooling/eslint-config.ts` | Not measurable; the delegated modules are at 100% |
 
 LLVM uses executable regions rather than a distinct Rust statement metric. Zero
 branch points means there are no branches to cover; startup has no handwritten

@@ -30,7 +30,8 @@ inspect actual code before assuming a feature exists.
 - Use Vue 3 with TypeScript 6, Vite, npm, and Tauri 2 (decisions 0001 and 0011).
   Follow `create-vue` and Tauri conventions regardless of app size, and keep UI
   components small and presentational: props in, events out, native calls and
-  flow logic outside them. Manage Node.js
+  flow logic outside them. Format with Prettier and lint with type-aware ESLint
+  (decision 0012); fix findings rather than disabling rules. Manage Node.js
   and Rust with asdf and `.tool-versions`. Use pinned rusqlite with bundled SQLite (decision 0003). Record consequential choices in
   `docs/decisions/` and update setup instructions when scaffolding the app.
 - Keep UI presentation, game rules, parsing, persistence, and OS discovery separate.
@@ -73,9 +74,10 @@ inspect actual code before assuming a feature exists.
   filesystem/database APIs. Integration tests use real boundaries and cannot fill
   unit-coverage gaps. Only `src-tauri/src/main.rs` and `src-tauri/build.rs` retain
   a separate 100% native gate while they remain minimal Tauri delegates, and the
-  config files Vitest never measures, `src-ui/vite.config.ts` and
-  `vitest.config.ts`, only delegate to the unit-tested `src-ui/build/vite.ts` and
-  `tooling/vitest-config.ts`. The source-body guard in `tests/coverage-reports.test.ts`
+  config files Vitest never measures, `src-ui/vite.config.ts`,
+  `src-ui/eslint.config.ts`, `vitest.config.ts` and `eslint.config.ts`, only
+  delegate to the unit-tested `src-ui/build/vite.ts`, `src-ui/build/eslint.ts`,
+  `tooling/vitest-config.ts` and `tooling/eslint-config.ts`. The source-body guard in `tests/coverage-reports.test.ts`
   must fail if any of them changes. Reassess the exception before adding behavior
   to any of them.
 - Include unexecuted source files in coverage. Enforce thresholds per file and per

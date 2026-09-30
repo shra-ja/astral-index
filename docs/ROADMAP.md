@@ -238,6 +238,8 @@ the order listed.
     - [x] Move the rest of the UI to Vue: `App.vue`, Vue Router with a first
       view, composables for the retrieval flow, small presentational components
       and styles in `assets/`.
+    - [x] Lint with type-aware ESLint and format with Prettier in both workspaces
+      ([decision 0012](decisions/0012-linting-and-formatting.md)).
     - [ ] Review the visual design with a mockup of the stored-history display.
   - [ ] Display stored history from local storage without triggering acquisition.
 - [ ] Optional, not blocking the milestone: incremental retrieval, so a repeat
