@@ -235,7 +235,7 @@ the order listed.
     - [x] Move the frontend into a self-contained `src-ui/` npm workspace beside
       `src-tauri/`, with sibling `*.test.ts` unit tests and integration tests in
       `src-ui/tests/`; no behaviour change.
-    - [ ] Move the rest of the UI to Vue: `App.vue`, Vue Router with a first
+    - [x] Move the rest of the UI to Vue: `App.vue`, Vue Router with a first
       view, composables for the retrieval flow, small presentational components
       and styles in `assets/`.
     - [ ] Review the visual design with a mockup of the stored-history display.

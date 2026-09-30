@@ -160,7 +160,7 @@ In the webview, `src-ui/src/commands.ts` wraps the commands through `@tauri-apps
 maps any rejection that is not exactly a native failure shape to `unavailable`,
 keeps a failure's category and page only when both are valid, streams retrieval
 progress through a `Channel`,
-and rejects files over 16 MiB before reading them. `src-ui/src/main.ts` shows the Star
+and rejects files over 16 MiB before reading them. The home view shows the Star
 Rail retrieval panel, which says the app checks the saved link with HoYoverse
 and needs a connection: "Start retrieval" first, with the file chooser always
 available below it as the fallback. While either runs, both are hidden and a
@@ -176,12 +176,29 @@ what was added; Discard, or Done when nothing is new, drops it. Conflicts are
 listed by warp, time and ID with Save disabled, since the native commit refuses
 them. Saving, discarding and failures return to the start controls.
 
-The review is the first Vue component ([decision 0011](decisions/0011-vue-frontend.md)):
-`src-ui/src/components/ReviewPanel.vue` is presentational, taking a review and a busy
-flag and emitting `save`, `discard` and `done`, and focusing its heading as it
-mounts. `src-ui/src/main.ts` renders it only while reviewing and makes the native calls
-for its choices. Warp names and plurals come from `src-ui/src/format.ts`. The rest of
-the page moves to Vue components, a router and composables next.
+The webview is a Vue app ([decision 0011](decisions/0011-vue-frontend.md)) in three
+layers, so screens can be rearranged without rewriting the flow:
+
+- **Shell and routes:** `src-ui/src/main.ts` mounts `App.vue`, which holds the
+  header and footer around a `RouterView`. `src-ui/src/router/index.ts` uses hash
+  history with one route so far, `views/HomeView.vue`.
+- **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and is the only
+  frontend code that makes native calls. It exposes read-only state (the phase —
+  idle, acquiring, reviewing, saving or leaving — how the link was found, the
+  status text, the review and whether a cancel is pending) and actions (search the
+  device, read a file, cancel, save, discard, done). `src-ui/src/messages.ts` turns
+  failures, progress and save results into text.
+- **View and components:** the view wires that state to presentational
+  components, which take props and emit events: `GameSelect` (`v-model`),
+  `EmptyState`, `RetrievalStart` (emits `search` or `choose` with the file, and
+  exposes `focus` for the control that started retrieval) and `ReviewPanel`
+  (emits `save`, `discard` and `done`, and focuses its heading as it mounts). The
+  view moves focus as the phase changes. Warp and game names come from
+  `src-ui/src/format.ts`.
+
+Base styles live in `src-ui/src/assets/main.css`; each component carries its own
+scoped styles. Everything is bundled, so the production CSP needs no inline
+styles or scripts.
 
 ## Statistics
 

@@ -63,3 +63,23 @@ onMounted(() => headingElement.value!.focus());
     </div>
   </section>
 </template>
+
+<style scoped>
+.review { margin: 0 auto; max-width: 620px; text-align: left; }
+h3 { font-size: 19px; font-weight: 550; margin: 0 0 6px; }
+h3:focus { outline: none; }
+h3:focus-visible { outline: 3px solid #d3c48e; }
+.detail { color: #adb7af; font-size: 13px; margin: 0 0 20px; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 9px 8px; border-bottom: 1px solid #37433d; }
+thead th { color: #adb7af; font-size: 12px; font-weight: 500; }
+th[scope="row"] { font-weight: 500; text-align: left; }
+th[scope="col"]:first-child { text-align: left; }
+th[scope="col"], td { text-align: right; font-variant-numeric: tabular-nums; }
+.conflicts { margin-top: 20px; color: #e5c8a8; line-height: 1.5; }
+.conflicts ul { color: #c6cfc7; font-family: ui-monospace, monospace; font-size: 13px; padding-left: 20px; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+@media (max-width: 600px) {
+  th, td { padding: 8px 4px; }
+}
+</style>
