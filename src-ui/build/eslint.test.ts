@@ -27,27 +27,36 @@ const component = (template: string, script = '') =>
   `<script setup lang="ts">\n${script}\n</script>\n\n<template>\n${template}\n</template>\n`
 
 test('Vue templates follow the recommended rules', async () => {
-  expect(await rules(component('<ul><li v-for="n in 3">{{ n }}</li></ul>'), vueFile))
-    .toContain('vue/require-v-for-key')
-  expect(await rules(component('<div v-bind:hidden="true" />'), vueFile))
-    .toContain('vue/v-bind-style')
+  expect(await rules(component('<ul><li v-for="n in 3">{{ n }}</li></ul>'), vueFile)).toContain(
+    'vue/require-v-for-key',
+  )
+  expect(await rules(component('<div v-bind:hidden="true" />'), vueFile)).toContain(
+    'vue/v-bind-style',
+  )
 })
 
 test('type-aware rules catch unawaited promises in scripts and components', async () => {
   const floating = 'export async function load() {}\nload()\n'
-  expect(await rules(floating, 'src/format.ts')).toContain('@typescript-eslint/no-floating-promises')
-  expect(await rules(component('<p />', floating.replace('export ', '')), vueFile))
-    .toContain('@typescript-eslint/no-floating-promises')
+  expect(await rules(floating, 'src/format.ts')).toContain(
+    '@typescript-eslint/no-floating-promises',
+  )
+  expect(await rules(component('<p />', floating.replace('export ', '')), vueFile)).toContain(
+    '@typescript-eslint/no-floating-promises',
+  )
 })
 
 test('tests follow the Vitest rules', async () => {
-  const duplicate = "import { expect, test } from 'vitest'\ntest('a', () => { expect(1).toBe(1) })\ntest('a', () => { expect(2).toBe(2) })\n"
+  const duplicate =
+    "import { expect, test } from 'vitest'\ntest('a', () => { expect(1).toBe(1) })\ntest('a', () => { expect(2).toBe(2) })\n"
   expect(await rules(duplicate, 'src/messages.test.ts')).toContain('vitest/no-identical-title')
   expect(await rules(duplicate, 'tests/app.test.ts')).toContain('vitest/no-identical-title')
 })
 
 test('formatting is left to Prettier', async () => {
-  const crowded = component('<input\n    id="a" v-model="d" type="text" class="b" aria-label="c">', "import { ref } from 'vue'\nconst d = ref('')")
+  const crowded = component(
+    '<input\n    id="a" v-model="d" type="text" class="b" aria-label="c">',
+    "import { ref } from 'vue'\nconst d = ref('')",
+  )
   expect(await rules(crowded, vueFile)).toEqual([])
 })
 

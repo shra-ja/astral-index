@@ -1,11 +1,11 @@
 // The frontend's Vite and Vitest configuration, kept here so it is unit-tested:
 // Vitest never measures `vite.config.ts` itself, which only delegates to this module.
-import vue from '@vitejs/plugin-vue';
-import { fileURLToPath } from 'node:url';
-import type { ViteUserConfig } from 'vitest/config';
+import vue from '@vitejs/plugin-vue'
+import { fileURLToPath } from 'node:url'
+import type { ViteUserConfig } from 'vitest/config'
 
 /** Tauri's dev URL expects this port; live reload uses the next one. */
-const DEV_PORT = 1420;
+const DEV_PORT = 1420
 
 /**
  * The configuration for the given environment, following Tauri's Vite guide.
@@ -13,8 +13,8 @@ const DEV_PORT = 1420;
  * `TAURI_ENV_*` variables are set by the Tauri CLI during builds.
  */
 export function viteConfig(env: NodeJS.ProcessEnv): ViteUserConfig {
-  const host = env.TAURI_DEV_HOST;
-  const debug = Boolean(env.TAURI_ENV_DEBUG);
+  const host = env.TAURI_DEV_HOST
+  const debug = Boolean(env.TAURI_ENV_DEBUG)
   return {
     // Vue templates compile ahead of time, so the runtime-only build needs no `eval`
     // under the production CSP (decision 0011).
@@ -51,5 +51,5 @@ export function viteConfig(env: NodeJS.ProcessEnv): ViteUserConfig {
         thresholds: { perFile: true, 100: true },
       },
     },
-  };
+  }
 }

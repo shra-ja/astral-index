@@ -16,18 +16,30 @@ async function rules(code: string, filePath: string) {
 
 test('type-aware rules catch unawaited promises in tooling and verification', async () => {
   const floating = 'export async function load() {}\nload()\n'
-  expect(await rules(floating, 'tooling/coverage.ts')).toContain('@typescript-eslint/no-floating-promises')
-  expect(await rules(floating, 'tests/coverage-reports.test.ts')).toContain('@typescript-eslint/no-floating-promises')
+  expect(await rules(floating, 'tooling/coverage.ts')).toContain(
+    '@typescript-eslint/no-floating-promises',
+  )
+  expect(await rules(floating, 'tests/coverage-reports.test.ts')).toContain(
+    '@typescript-eslint/no-floating-promises',
+  )
 })
 
 test('tests follow the Vitest rules', async () => {
-  const duplicate = "import { expect, test } from 'vitest'\ntest('a', () => { expect(1).toBe(1) })\ntest('a', () => { expect(2).toBe(2) })\n"
+  const duplicate =
+    "import { expect, test } from 'vitest'\ntest('a', () => { expect(1).toBe(1) })\ntest('a', () => { expect(2).toBe(2) })\n"
   expect(await rules(duplicate, 'tooling/coverage.test.ts')).toContain('vitest/no-identical-title')
-  expect(await rules(duplicate, 'tests/coverage-reports.test.ts')).toContain('vitest/no-identical-title')
+  expect(await rules(duplicate, 'tests/coverage-reports.test.ts')).toContain(
+    'vitest/no-identical-title',
+  )
 })
 
 test('the frontend lints itself, and generated output is not linted', async () => {
-  for (const path of ['src-ui/src/main.ts', 'src-tauri/gen/x.ts', 'coverage/tooling/x.js', 'test-results/x.ts']) {
+  for (const path of [
+    'src-ui/src/main.ts',
+    'src-tauri/gen/x.ts',
+    'coverage/tooling/x.js',
+    'test-results/x.ts',
+  ]) {
     expect(await eslint.isPathIgnored(path), path).toBe(true)
   }
   expect(await eslint.isPathIgnored('tooling/coverage.ts')).toBe(false)

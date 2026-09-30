@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Presentational: picks the game, bound with v-model.
-import { games, type Game } from '../format';
+import { games, type Game } from '../format'
 
-const game = defineModel<Game>({ required: true });
+const game = defineModel<Game>({ required: true })
 </script>
 
 <template>
@@ -15,5 +15,12 @@ const game = defineModel<Game>({ required: true });
 </template>
 
 <style scoped>
-select { font: inherit; color: inherit; background: #131a19; border: 1px solid #526257; border-radius: 7px; padding: 10px 36px 10px 12px; }
+select {
+  font: inherit;
+  color: inherit;
+  background: #131a19;
+  border: 1px solid #526257;
+  border-radius: 7px;
+  padding: 10px 36px 10px 12px;
+}
 </style>

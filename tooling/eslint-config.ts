@@ -19,7 +19,10 @@ export function eslintConfig() {
       files: ['**/*.ts'],
       extends: [js.configs.recommended, tseslint.configs.recommendedTypeChecked],
       languageOptions: {
-        parserOptions: { projectService: true, tsconfigRootDir: fileURLToPath(new URL('..', import.meta.url)) },
+        parserOptions: {
+          projectService: true,
+          tsconfigRootDir: fileURLToPath(new URL('..', import.meta.url)),
+        },
       },
     },
     { ...vitest.configs.recommended, files: ['**/*.test.ts'] },

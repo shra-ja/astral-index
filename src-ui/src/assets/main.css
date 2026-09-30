@@ -7,15 +7,53 @@
   font-synthesis: none;
   color-scheme: dark;
 }
-* { box-sizing: border-box; }
-body { margin: 0; }
-#app { max-width: 1080px; margin: auto; padding: 32px 48px; }
-label { display: block; color: #adb7af; font-size: 12px; margin-bottom: 8px; }
-:focus-visible { outline: 3px solid #d3c48e; outline-offset: 4px; }
-button { font: inherit; font-weight: 600; color: #131a19; background: #d3c48e; border: 0; border-radius: 8px; padding: 11px 20px; cursor: pointer; }
-button:disabled { opacity: .6; cursor: progress; }
-button.secondary { color: #ecece7; background: transparent; border: 1px solid #526257; }
-code { font-family: ui-monospace, monospace; font-size: .92em; color: #ecece7; }
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+#app {
+  max-width: 1080px;
+  margin: auto;
+  padding: 32px 48px;
+}
+label {
+  display: block;
+  color: #adb7af;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+:focus-visible {
+  outline: 3px solid #d3c48e;
+  outline-offset: 4px;
+}
+button {
+  font: inherit;
+  font-weight: 600;
+  color: #131a19;
+  background: #d3c48e;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 20px;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+button.secondary {
+  color: #ecece7;
+  background: transparent;
+  border: 1px solid #526257;
+}
+code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.92em;
+  color: #ecece7;
+}
 @media (max-width: 600px) {
-  #app { padding: 24px 20px; }
+  #app {
+    padding: 24px 20px;
+  }
 }
