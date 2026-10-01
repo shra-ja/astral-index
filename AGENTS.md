@@ -35,14 +35,21 @@ inspect actual code before assuming a feature exists.
   and Rust with asdf and `.tool-versions`. Use pinned rusqlite with bundled SQLite (decision 0003). Record consequential choices in
   `docs/decisions/` and update setup instructions when scaffolding the app.
 - Keep UI presentation, game rules, parsing, persistence, and OS discovery separate.
+- Keep layouts fluid: place components relative to each other with flex and grid,
+  wrapping, `minmax`/auto-fill tracks and max-width containers, not fixed pixel
+  positions or sizes, so screens scale to any window size and new features slot
+  in without reworking neighbours. Reserve fixed sizes for content that needs
+  them, such as icons and numeric columns.
 - Prefer Rust for file access, import validation, persistence, and authoritative
   domain logic. The frontend calls a narrow, typed command interface.
 - Treat files as untrusted input. Bound input sizes, validate formats, provide
   actionable errors, and avoid exposing sensitive source content in errors/logs.
 - Imports must be transactional and safe to repeat. Preserve source IDs as strings;
   never deduplicate only by timestamp or localized item name.
-- Keep accounts, servers, games, and banner/pity groups separate. Do not infer
-  complete history, guarantees, or exact pity from incomplete evidence.
+- Keep accounts, servers, games, and banner/pity groups separate. Calculate pity
+  as though each pity group's stored rolls were complete, and recalculate it for
+  later rolls whenever earlier rolls are imported. Do not infer guarantees or
+  50/50 outcomes without verified banner metadata.
 - Never modify game installations. Limit file access to the source locations
   needed for the user-selected import; avoid broad filesystem scans.
 - Keep automated tests local and self-contained. Mock HoYoverse requests with

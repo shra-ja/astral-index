@@ -1343,11 +1343,39 @@ all at 100% per file, plus the type check, build, Rust formatting and Clippy.
 `npm run tauri -- build --no-bundle` passed on Linux, and the `cargo-xwin`
 Windows build succeeded.
 
+## Visual design review (2026-10-01)
+
+A new visual design replaces the placeholder UI. The mockups live on a design
+canvas outside the repository, built with synthetic data. They cover the Warp
+and Wish history screens, the empty state, and the import flow: choose a
+source (retrieval or a manually chosen `data_2` cache file; history-file import
+is shown disabled as coming soon), progress, review, saved, and two failures (expired link, game files not found).
+The history list has rarity filters, search, list/grid/icon layouts, a pity
+column with soft-pity or 50/50 colouring, and styled tooltips.
+
+Decisions from the review:
+
+- Pity treats each pity group's stored rolls as complete and is recalculated
+  when older rolls are imported. It is derived on read, not stored; see
+  [architecture](ARCHITECTURE.md#statistics). `AGENTS.md` now states this rule.
+- Soft-pity colour thresholds are per banner category. 50/50 colouring is
+  disabled with a tooltip until banner metadata exists.
+- Item icons and banner art stay placeholders. Obtaining real art without
+  committing game assets is an open decision that may relax the local-only rule.
+- Layouts are fluid: screens fill the window, wrap, collapse the sidebar to
+  icons at 900px and drop list columns as space shrinks (Type, then Banner, then
+  Time). The minimum window is 480×560, which excludes phones in either
+  orientation; mobile is out of scope for now.
+- The typeface is Hanken Grotesk, chosen over IBM Plex Sans, Manrope, DM Sans
+  and Figtree, and will be bundled. Dark theme only for now.
+
+Documentation only: no code changed and no checks were run.
+
 ## Next
 
-The visual-design mockup of the stored-history display, then the display itself,
-on its own screen apart from retrieval. Incremental retrieval is an optional
-design step.
+Build the stored-history display to the visual design
+([decision 0013](decisions/0013-visual-design.md)), on its own screen apart from
+retrieval. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

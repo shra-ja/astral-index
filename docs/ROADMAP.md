@@ -241,7 +241,25 @@ the order listed.
     - [x] Lint with type-aware ESLint and format with Prettier in both workspaces
       ([decision 0012](decisions/0012-linting-and-formatting.md)).
     - [ ] Review the visual design with a mockup of the stored-history display.
+      - [x] Mock up the history and import screens on a design canvas (outside
+        the repository): sidebar game and screen switching, banner category tabs,
+        a toolbar with rarity filters, search and list, grid and icon layouts,
+        a pity column, the import flow with progress, review, saved and failure
+        states, and styled tooltips. Icons and banner art stay placeholders.
+      - [x] Choose the UI typeface: Hanken Grotesk, with tabular figures for
+        numbers, after comparing IBM Plex Sans, Manrope, DM Sans and Figtree.
+      - [ ] Bundle Hanken Grotesk with the app (open font licence); no remote
+        fonts.
+      - [x] Record the visual design as a decision
+        ([decision 0013](decisions/0013-visual-design.md)).
+  - [ ] Set the app window's minimum size to 480×560 where the window is
+    created. It excludes phones in either orientation; layouts are fluid above
+    it, so the minimum can be lowered if mobile is ever targeted.
   - [ ] Display stored history from local storage without triggering acquisition.
+  - [ ] Expose the latest import (time, source, account and rolls saved) from the
+    stored batch summaries, for the Import screen's "Last import" line.
+  - [ ] Show per-category page counts in retrieval progress, derived from the
+    existing progress events (category and page); no native change expected.
 - [ ] Optional, not blocking the milestone: incremental retrieval, so a repeat
   retrieval stops each category once it reaches rolls already saved, instead of
   fetching the whole history. Full retrieval takes noticeably longer since
@@ -282,7 +300,19 @@ acquisition. This is the first implemented import feature. See
 - [ ] Add account/server switching, filters, totals, and rarity breakdowns.
 - [ ] Source banner metadata mapping HSR `gacha_id` pool IDs to banners; keep
   initial imports independent of metadata lookup.
-- [ ] Implement verified banner grouping and coverage-aware pity calculations.
+- [ ] Implement verified banner grouping and pity calculations that treat each
+  pity group's stored rolls as complete, recalculating later rolls after older
+  rolls are imported. Derive pity on read rather than storing it
+  ([architecture](ARCHITECTURE.md#statistics)).
+- [ ] Colour 5★ pity by closeness to soft pity, with thresholds per banner
+  category (the mockup uses 1–49, 50–74 and 75+ as placeholders).
+- [ ] Colour 5★ pity by 50/50 outcome (won, lost, guaranteed) once banner
+  metadata identifies featured items; until then the control stays disabled
+  with an explanatory tooltip.
+- [ ] Decide how to obtain item icons and banner art without committing game
+  assets, so the repository can be licensed. Fetching them on demand would
+  further relax the local-only rule and needs its own decision; placeholders
+  stay until then.
 
 Done when both games coexist without shared identity/rule assumptions, supported
 history files reuse the import pipeline, and partial histories display appropriate
