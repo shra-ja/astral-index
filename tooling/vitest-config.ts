@@ -1,6 +1,6 @@
 // The repository's test configuration, kept here so it is unit-tested: Vitest never
 // measures `vitest.config.ts` itself, which only delegates to this module.
-import type { ViteUserConfig } from 'vitest/config';
+import type { ViteUserConfig } from 'vitest/config'
 
 /**
  * Repository tooling, whose unit tests sit beside it in `tooling/`, and the
@@ -24,5 +24,5 @@ export function vitestConfig(): ViteUserConfig {
         thresholds: { perFile: true, 100: true },
       },
     },
-  };
+  }
 }

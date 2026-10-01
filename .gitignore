@@ -30,3 +30,6 @@ playwright-report/
 Thumbs.db
 *.swp
 *.swo
+
+# Tool caches
+.eslintcache

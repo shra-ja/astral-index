@@ -68,11 +68,14 @@ internet access; stored-history operations remain local. See
 | `npm run coverage:backend-report` | Render JSON/HTML from the current backend execution counters |
 | `npm run test:probes` | Prepare JSON evidence, run scoped enforcement probes, then regenerate and validate full coverage |
 | `npm run coverage:verify` | Validate frontend, Rust unit-only and startup/build coverage against source inventories and modification times |
+| `npm run format` / `npm run format:check` | Format with Prettier, or only check the formatting |
+| `npm run lint` / `npm run lint:check` | Fix what ESLint can in `src-ui/` and the root, or only check, failing on warnings |
 | `npm run check` | All coverage, build/type, offline native, probe, format and lint gates |
 | `npm run tauri -- build --no-bundle` | Production executable; installer packaging is deferred |
 
-`npm run check` builds the frontend, runs the probe pipeline and its final full
-test/coverage validation, then checks reports, formatting and Clippy. Probes
+`npm run check` checks formatting and lint, builds the frontend, runs the probe
+pipeline and its final full test/coverage validation, then checks reports, Rust
+formatting and Clippy. Probes
 restore each mutation immediately; their final hook regenerates authoritative
 JSON/HTML reports once, including after a failed probe. Tests and per-file
 coverage thresholds are unchanged. `test:probes` needs bundled frontend assets;

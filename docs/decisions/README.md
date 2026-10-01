@@ -42,3 +42,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0009 — Local database location](0009-local-database-location.md)
 - [0010 — Portable mode](0010-portable-mode.md)
 - [0011 — Vue frontend](0011-vue-frontend.md)
+- [0012 — Linting and formatting](0012-linting-and-formatting.md)

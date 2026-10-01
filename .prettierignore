@@ -1,0 +1,7 @@
+# Prettier also skips everything in .gitignore.
+# Synthetic API responses whose exact bytes the parser tests depend on.
+src-tauri/tests/fixtures/
+# Agent skills, kept as written.
+.agents/
+# Markdown keeps its hand-written layout.
+*.md
