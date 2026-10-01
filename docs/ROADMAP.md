@@ -310,9 +310,9 @@ acquisition. This is the first implemented import feature. See
   metadata identifies featured items; until then the control stays disabled
   with an explanatory tooltip.
 - [ ] Decide how to obtain item icons and banner art without committing game
-  assets, so the repository can be licensed. Fetching them on demand would
-  further relax the local-only rule and needs its own decision; placeholders
-  stay until then.
+  assets to the MIT-licensed repository. Fetching them on demand would further
+  relax the local-only rule and needs its own decision; placeholders stay until
+  then.
 
 Done when both games coexist without shared identity/rule assumptions, supported
 history files reuse the import pipeline, and partial histories display appropriate
@@ -331,7 +331,9 @@ Done when a fresh profile can recover the same records and metadata from a backu
 - [ ] Check accessibility, large histories, native permissions, and bundled resources.
 - [ ] Verify local workflows, requested fetching, network failures, upgrades, backups,
   and packaging on each release OS.
-- [ ] Choose license/distribution, document supported formats, and provide recovery help.
+- [ ] Choose distribution, document supported formats, and provide recovery help.
+  The code is MIT-licensed; ship bundled third-party files, such as the font,
+  with their own licences.
 
 
 ## Deferred low-priority follow-ups

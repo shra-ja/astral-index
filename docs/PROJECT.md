@@ -74,9 +74,9 @@ User-requested HoYoverse history acquisition is in scope; see
 - Exact supported input formats and available local sources, verified with
   documentation and synthetic or redacted samples before compatibility claims.
 - How users identify accounts and resolve ambiguous imports.
-- Visual design, branding, and distribution/license choices. A design mockup
-  exists and uses Hanken Grotesk; the source of item icons and banner art is
-  open.
+- Visual design, branding, and distribution choices. The code is MIT-licensed.
+  A design mockup exists and uses Hanken Grotesk; the source of item icons and
+  banner art is open.
 
 These are open decisions, not implied user preferences. Implementation may choose
 reversible technical defaults and record the reasoning.

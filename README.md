@@ -224,3 +224,9 @@ Connecting the native helpers into this flow remains pending.
 The automated suites substitute synthetic helpers and require neither Windows
 interop nor installed games. Native Windows/real-installation verification is
 still pending; see [discovery architecture](docs/ARCHITECTURE.md#current-user-system-discovery).
+
+## License
+
+Roll Tracker is released under the [MIT License](LICENSE). Bundled third-party
+files keep their own licences. Roll Tracker is not affiliated with or endorsed
+by HoYoverse; game names belong to their owners.
