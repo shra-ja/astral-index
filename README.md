@@ -51,6 +51,7 @@ internet access; stored-history operations remain local. See
 | Command | Purpose |
 | --- | --- |
 | `npm run tauri -- dev` | Native development; Vite uses loopback port 1420 |
+| `npm run tauri:mock` | The same, running the mock debug binary against a synthetic HoYoverse; set `ROLL_TRACKER_MOCK_SCENARIO` to `history` (default), `expired-link`, `network-failure`, `rate-limited` or `no-history` |
 | `npm run dev` | Browser preview only; does not verify native behavior |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr` | Focused synthetic Rust HSR response tests |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage` | SQLite migration, preview, transaction, isolation and restart tests |
@@ -91,9 +92,9 @@ verification: the native end-to-end test and the coverage gates. See
 
 Rust backend coverage is enforced at 100% from unit tests using mocked filesystem
 and SQLite APIs, before integration tests run. `coverage/backend-unit/` contains
-that independent report. Only the minimal Tauri `main.rs` and `build.rs` delegates
-use the separate backend wrapper gate in `coverage/backend/`; a source-body guard requires
-review if either wrapper changes. Real-file, SQLite and desktop integration tests
+that independent report. Only the minimal Tauri `main.rs`, mock binary and `build.rs`
+delegates use the separate backend wrapper gate in `coverage/backend/`; a source-body
+guard requires review if any wrapper changes. Real-file, SQLite and desktop integration tests
 remain mandatory additional checks and cannot compensate for unit-test gaps.
 
 
@@ -109,8 +110,9 @@ The executable is `src-tauri/target/release/roll-tracker`. Reports live in
 `coverage/frontend/`, `coverage/tooling/`, `coverage/backend-unit/` and
 `coverage/backend/`; the end-to-end screenshots are
 `test-results/e2e-history.png` and `test-results/e2e-import.png` (History and
-Import at the default window size) and `test-results/e2e-smoke.png` (a failed
-retrieval at the minimum size). These outputs are
+Import at the default window size), `test-results/e2e-smoke.png` (a failed
+retrieval at the minimum size) and `test-results/e2e-mock-*.png` (the mock
+binary's progress, review, saved and failed screens). These outputs are
 ignored by Git.
 
 ### Optional: Windows executable for manual verification

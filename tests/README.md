@@ -3,8 +3,11 @@
 Tests that belong to neither the frontend nor the backend alone.
 
 - `e2e-smoke.test.ts` launches the real Tauri app and checks the bundled UI,
-  keyboard operation, network restrictions and graceful shutdown;
-  `close-window-helper.py` closes its window as a user would.
+  keyboard operation, network restrictions and graceful shutdown. It then runs
+  the mock debug binary (decision 0014) through retrieval, review, saving and a
+  failed retrieval against a synthetic HoYoverse. `app-driver.ts` drives each app
+  through tauri-driver and WebDriver; `close-window-helper.py` closes its window
+  as a user would.
 - `backend-coverage-stages.test.ts` holds named stages, selected by the npm
   scripts, that run the instrumented Rust tests (unit, integration) and write
   their coverage reports.

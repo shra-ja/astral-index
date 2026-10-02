@@ -60,7 +60,11 @@ test('every executable source is inventoried', () => {
   ).toEqual(allExecutable.sort())
 })
 
-const wrappers = ['src-tauri/src/main.rs', 'src-tauri/build.rs'].map((file) => resolve(file))
+const wrappers = [
+  'src-tauri/src/main.rs',
+  'src-tauri/src/bin/roll-tracker-mock.rs',
+  'src-tauri/build.rs',
+].map((file) => resolve(file))
 
 function assertFresh(report: string, files: string[]): void {
   for (const file of files) {
@@ -138,6 +142,15 @@ fn main() {
     roll_tracker::desktop::register(tauri::Builder::default())
         .run(tauri::generate_context!())
         .expect("failed to run Roll Tracker");
+}`)
+  // The mock debug binary only reads its scenario and delegates (decision 0014).
+  expect(readFileSync('src-tauri/src/bin/roll-tracker-mock.rs', 'utf8').trim()).toBe(`fn main() {
+    let scenario = std::env::var(roll_tracker::acquisition::mock::VARIABLE).ok();
+    let scenario = roll_tracker::desktop::Scenario::named(scenario.as_deref())
+        .expect("unknown ROLL_TRACKER_MOCK_SCENARIO");
+    roll_tracker::desktop::register_mock(tauri::Builder::default(), scenario)
+        .run(tauri::generate_context!())
+        .expect("failed to run Roll Tracker's mock");
 }`)
   expect(readFileSync('src-tauri/build.rs', 'utf8').trim()).toBe(`fn main() {
     let commands = tauri_build::AppManifest::new().commands(include!("src/desktop/commands.in"));

@@ -8,6 +8,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::{collections::HashSet, fmt, io::Read, path::Path};
 
 mod cancel;
+pub mod mock;
 mod outcome;
 mod pace;
 mod pagination;

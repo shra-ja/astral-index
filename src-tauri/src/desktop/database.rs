@@ -24,6 +24,12 @@ pub const PORTABLE_FOLDER: &str = "data";
 pub const FOLDER_NAME: &str = "roll-tracker";
 #[cfg(not(target_os = "linux"))]
 pub const FOLDER_NAME: &str = "Roll-Tracker";
+/// The mock debug binary's own folder, so synthetic history never mixes with real
+/// history ([decision 0014](../../../docs/decisions/0014-mock-debug-binary.md)).
+#[cfg(target_os = "linux")]
+pub const MOCK_FOLDER_NAME: &str = "roll-tracker-mock";
+#[cfg(not(target_os = "linux"))]
+pub const MOCK_FOLDER_NAME: &str = "Roll-Tracker-Mock";
 
 /// Where the webview keeps its profile within the app's folder. WebView2 makes its
 /// own `EBWebView` folder inside the one it is given.
@@ -135,6 +141,7 @@ mod tests {
     #[test]
     fn the_webview_profile_sits_in_its_own_folder_beside_the_history() {
         assert_eq!(FOLDER_NAME, "roll-tracker");
+        assert_eq!(MOCK_FOLDER_NAME, "roll-tracker-mock");
         let folder = Path::new("/local/roll-tracker");
         assert_eq!(webview_folder(folder), folder.join("webview"));
     }

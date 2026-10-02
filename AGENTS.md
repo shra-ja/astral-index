@@ -79,8 +79,9 @@ inspect actual code before assuming a feature exists.
   these metrics rather than silently omitting an unsupported metric.
 - Rust backend coverage must reach 100% from unit tests alone, with mocked
   filesystem/database APIs. Integration tests use real boundaries and cannot fill
-  unit-coverage gaps. Only `src-tauri/src/main.rs` and `src-tauri/build.rs` retain
-  a separate 100% native gate while they remain minimal Tauri delegates, and the
+  unit-coverage gaps. Only `src-tauri/src/main.rs`, the mock debug binary
+  `src-tauri/src/bin/roll-tracker-mock.rs` (decision 0014) and `src-tauri/build.rs`
+  retain a separate 100% native gate while they remain minimal Tauri delegates, and the
   config files Vitest never measures, `src-ui/vite.config.ts`,
   `src-ui/eslint.config.ts`, `vitest.config.ts` and `eslint.config.ts`, only
   delegate to the unit-tested `src-ui/build/vite.ts`, `src-ui/build/eslint.ts`,

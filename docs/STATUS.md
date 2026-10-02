@@ -1446,13 +1446,44 @@ passed: formatting, lint, build, 142 Rust unit tests, 160 frontend and 36
 tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` also passed.
 
+## Mock debug binary (2026-10-02)
+
+Work is on `feat/mock-binary`. A second debug binary, `roll-tracker-mock`, runs
+the app against an in-process synthetic HoYoverse
+([decision 0014](decisions/0014-mock-debug-binary.md)); the shipped binary is
+unchanged. Commands take their transport from a managed `Network` (HTTPS or the
+mock); the mock keeps history in its own `roll-tracker-mock` folder, never in
+portable mode. Scenarios cover multi-page history, an expired link, a network
+failure partway through, a rate limit and no history. `npm run tauri:mock` runs
+it by hand. The native smoke test now drives it through retrieval, review,
+saving, a second retrieval that finds everything saved, and a network failure,
+with screenshots (`test-results/e2e-mock-*.png`); a shared `tests/app-driver.ts`
+drives each app. The screenshots showed focus outlines on announced headings,
+now removed, and the raw server ID (`prod_official_asia`), now a roadmap item.
+Lucide icons are also on the roadmap.
+
+TDD: the mock transport's tests failed on `todo!()` placeholders, then passed;
+the desktop tests for the mock network and its separate data folder failed to
+compile before `Network` and `register_mock` existed. The coverage gate now lists
+and pins the mock binary as a native delegate. A plain `cargo build` had left
+uninstrumented binaries, so the first native run found no coverage data until
+`cargo clean -p roll-tracker`; the full suite cleans before building. A first
+release build also produced the mock binary, so it now needs the `mock` Cargo
+feature (`required-features`), which the native tests, `npm run tauri:mock` and
+Clippy (`--all-features`) enable; `npm run tauri -- build --no-bundle` builds
+only the real app.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 150 Rust unit tests, 160 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file (the mock
+binary and `main.rs` at 100% native coverage), Rust formatting and Clippy.
+`npm run test:offline` passed, including all three native tests.
+
 ## Next
 
 Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)): next, a mock HoYoverse
-debug binary so the full flow, including the Progress, Review and Saved screens,
-can be tested natively without a real retrieval; then the new 5★ and 4★ counts
-on the Saved screen, and the native command for a page of stored rolls. Incremental retrieval is an optional design step.
+([decision 0013](decisions/0013-visual-design.md)): next, the new 5★ and 4★
+counts on the Saved screen, then the native command for a page of stored rolls. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
