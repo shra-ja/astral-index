@@ -77,7 +77,8 @@ button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-button.secondary {
+button.secondary,
+.button.secondary {
   color: var(--text);
   background: var(--control);
   border: 1px solid var(--rim-strong);

@@ -97,6 +97,8 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     await expect
       .poll(() => execute('return document.querySelector("h1").textContent'), { timeout: 5000 })
       .toBe('Import')
+    const sources = await request<string>(`/session/${session}/screenshot`)
+    writeFileSync('test-results/e2e-import.png', Buffer.from(sources, 'base64'))
     expect(await execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(true)
     // The bundled typeface loads offline and styles the page (decision 0013).
     const font = await request(`/session/${session}/execute/async`, 'POST', {
@@ -161,7 +163,6 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     expect(commands[5]).toBe('resolved')
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
-    expect(await execute('return document.querySelector(".fallback").hidden')).toBe(false)
     await execute('document.querySelector(".retrieval button").focus()')
     await request(`/session/${session}/actions`, 'POST', {
       actions: [
@@ -175,9 +176,9 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
         },
       ],
     })
-    const extractionStatus = 'return document.querySelector(".extraction-status").textContent'
+    const failure = 'return document.querySelector(".failed")?.textContent'
     await expect
-      .poll(() => execute(extractionStatus), { timeout: 10000 })
+      .poll(() => execute(failure), { timeout: 10000 })
       .toContain('Automatic search needs Windows')
     mkdirSync('test-results', { recursive: true })
     const cachePath = resolve('test-results/synthetic-data_2')
@@ -187,21 +188,18 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     )
     const input = await request<Record<string, string>>(`/session/${session}/element`, 'POST', {
       using: 'css selector',
-      value: '#cache-file',
+      value: '#retry-cache-file',
     })
     await request(`/session/${session}/element/${Object.values(input)[0]}/value`, 'POST', {
       text: cachePath,
     })
     await expect
-      .poll(() => execute(extractionStatus), { timeout: 10000 })
+      .poll(() => execute(failure), { timeout: 10000 })
       .toContain('We couldn’t reach HoYoverse.')
-    // Hidden controls stay hidden under the app's styles, and the narrow window
-    // collapses the sidebar to icons.
-    const displayOf = (selector: string) =>
-      execute(`return getComputedStyle(document.querySelector("${selector}")).display`)
-    expect(await displayOf('.cancel')).toBe('none')
-    expect(await displayOf('nav .local .text')).toBe('none')
-    expect(await execute('return document.querySelector("#cache-file").files.length')).toBe(1)
+    // The narrow window collapses the sidebar to icons.
+    expect(
+      await execute('return getComputedStyle(document.querySelector("nav .local .text")).display'),
+    ).toBe('none')
     rmSync(cachePath)
     const screenshot = await request<string>(`/session/${session}/screenshot`)
     writeFileSync('test-results/e2e-smoke.png', Buffer.from(screenshot, 'base64'))

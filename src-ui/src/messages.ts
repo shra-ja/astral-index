@@ -54,6 +54,44 @@ export const fileMessages: Messages = {
   invalid_file: 'That file couldn’t be read. Try choosing it again.',
 }
 
+const gameFiles = 'Couldn’t Find the Game Files'
+const unreadable = 'Couldn’t Read That File'
+const unreachable = 'Couldn’t Reach HoYoverse'
+const unexpectedResponse = 'HoYoverse Sent an Unexpected Response'
+const unsaved = 'Nothing Was Saved'
+const unfinished = 'Retrieval Didn’t Finish'
+/** Headings for the failure screen, by failure kind. */
+const titles: Record<Kind, string> = {
+  unsupported_host: gameFiles,
+  discovery_failed: gameFiles,
+  no_game_data: gameFiles,
+  no_cache: gameFiles,
+  no_request: 'Couldn’t Find a Warp History Link',
+  file_too_large: unreadable,
+  invalid_file: unreadable,
+  expired_key: 'The Warp History Link Has Expired',
+  api_error: 'HoYoverse Didn’t Accept the Link',
+  rate_limited: 'HoYoverse Is Busy',
+  network: unreachable,
+  internal: unreachable,
+  rejected: unexpectedResponse,
+  invalid_response: unexpectedResponse,
+  cancelled: 'Retrieval Cancelled',
+  no_context: unfinished,
+  history_too_large: unfinished,
+  mixed_accounts: unfinished,
+  missing_server: unfinished,
+  storage: unsaved,
+  context_mismatch: unsaved,
+  conflict: unsaved,
+  stale_preview: unsaved,
+  no_preview: unsaved,
+  unavailable: 'Something Went Wrong',
+}
+
+/** The failure screen's heading for a failure. */
+export const titleOf = (failure: Failure) => titles[failure.kind]
+
 /** The message for a failure at the step whose messages are given. */
 export function describe(failure: Failure, messages: Messages) {
   if (failure.kind === 'api_error') {
@@ -78,10 +116,23 @@ export function progressText(progress: Progress) {
     : 'HoYoverse didn’t respond, so we’ll try again in a moment…'
 }
 
-export function savedText({ inserted, duplicates }: Counts) {
+/** What a save reports: the counts and the account the rolls were added to. */
+interface Saved {
+  summary: Counts
+  uid: string
+  server: string
+}
+
+/** "214 Rolls Saved". */
+export const savedTitle = ({ summary }: Saved) =>
+  `${summary.inserted.toLocaleString('en')} Roll${summary.inserted === 1 ? '' : 's'} Saved`
+
+/** Where the rolls went, and what was already saved when there was some. */
+export function savedDetail({ summary, uid, server }: Saved) {
+  const { duplicates } = summary
   const already =
     duplicates === 0
       ? ''
-      : ` ${duplicates.toLocaleString('en')} ${duplicates === 1 ? 'was' : 'were'} already saved.`
-  return `Saved ${plural(inserted, 'new roll')} to this device.${already}`
+      : ` ${plural(duplicates, 'roll')} you already had ${duplicates === 1 ? 'was left as it was' : 'were left as they were'}.`
+  return `Added to UID ${uid} (${server}).${already}`
 }

@@ -9,6 +9,7 @@ import {
   extractAutomatically,
   extractFromFile,
   retrieveHistory,
+  type Counts,
   type Failure,
   type Review,
 } from '../commands'
@@ -20,7 +21,7 @@ import {
   fileMessages,
   progressText,
   retrievalFailure,
-  savedText,
+  titleOf,
   type Messages,
 } from '../messages'
 
@@ -31,12 +32,29 @@ import {
 export type Phase = 'idle' | 'acquiring' | 'reviewing' | 'saving' | 'leaving'
 /** How the warp history link was found: by searching this device, or from a chosen file. */
 export type Source = 'device' | 'file'
+/** While acquiring: still finding and checking the link, or downloading history. */
+export type Stage = 'finding' | 'downloading'
+/** How the last retrieval ended: saved, failed, or a note such as a cancel. */
+export type Outcome =
+  | { kind: 'saved'; summary: Counts; uid: string; server: string }
+  | { kind: 'failed'; title: string; message: string }
+  | { kind: 'note'; message: string }
+
+const note = (message: string): Outcome => ({ kind: 'note', message })
+// A cancel is the user's choice, so it ends with a note rather than a failure.
+function failed(failure: Failure, message: string): Outcome {
+  return failure.kind === 'cancelled'
+    ? note(cancelled)
+    : { kind: 'failed', title: titleOf(failure), message }
+}
 
 export function useRetrieval() {
   const phase = ref<Phase>('idle')
   const source = ref<Source>('device')
+  const stage = ref<Stage>('finding')
   const status = ref('')
   const review = ref<Review>()
+  const outcome = ref<Outcome>()
   // Set while the user has asked to stop the running acquisition.
   const cancelling = ref(false)
 
@@ -49,50 +67,59 @@ export function useRetrieval() {
   ) {
     source.value = from
     cancelling.value = false
+    outcome.value = undefined
+    stage.value = 'finding'
     phase.value = 'acquiring'
     status.value = searching
-    const outcome = await run(extract, messages)
-    if (typeof outcome === 'string') return finish(outcome)
+    const result = await run(extract, messages)
+    if (!('review' in result)) return finish(result)
     phase.value = 'reviewing'
     status.value = ''
-    review.value = outcome
+    review.value = result.review
   }
 
   // Validate, then retrieve. A cancel that races a success still keeps nothing.
-  async function run(extract: () => Promise<Failure | undefined>, messages: Messages) {
+  async function run(
+    extract: () => Promise<Failure | undefined>,
+    messages: Messages,
+  ): Promise<Outcome | { review: Review }> {
     const failure = await extract()
-    if (failure) return describe(failure, messages)
-    if (cancelling.value) return cancelled
+    if (failure) return failed(failure, describe(failure, messages))
+    if (cancelling.value) return note(cancelled)
+    stage.value = 'downloading'
     status.value = 'Retrieving your warp history…'
     const result = await retrieveHistory((progress) => {
       if (!cancelling.value) status.value = progressText(progress)
     })
-    if ('failure' in result) return retrievalFailure(result.failure)
+    if ('failure' in result) return failed(result.failure, retrievalFailure(result.failure))
     if (result.retrieved.kind === 'no_history')
-      return 'HoYoverse returned no warp history for this account. Nothing was saved.'
-    if (!cancelling.value) return result.retrieved
+      return note('HoYoverse returned no warp history for this account. Nothing was saved.')
+    if (!cancelling.value) return { review: result.retrieved }
     await discardImport()
-    return cancelled
+    return note(cancelled)
   }
 
-  function finish(message: string) {
+  function finish(ending: Outcome) {
     review.value = undefined
     phase.value = 'idle'
-    status.value = message
+    status.value = ''
+    outcome.value = ending
   }
 
   // Leave the review without saving; the native side drops the retrieved history.
-  async function leave(message: string) {
+  async function leave(ending: Outcome) {
     phase.value = 'leaving'
     await discardImport()
-    finish(message)
+    finish(ending)
   }
 
   return {
     phase: readonly(phase),
     source: readonly(source),
+    stage: readonly(stage),
     status: readonly(status),
     review: shallowReadonly(review),
+    outcome: shallowReadonly(outcome),
     cancelling: readonly(cancelling),
     searchDevice: () =>
       acquire(
@@ -116,14 +143,21 @@ export function useRetrieval() {
       if (await cancelAcquisition()) cancelling.value = false
     },
     save: async () => {
+      const { uid, server } = review.value!
       phase.value = 'saving'
       status.value = 'Saving…'
       const result = await commitImport()
       finish(
-        'failure' in result ? describe(result.failure, commitMessages) : savedText(result.summary),
+        'failure' in result
+          ? failed(result.failure, describe(result.failure, commitMessages))
+          : { kind: 'saved', summary: result.summary, uid, server },
       )
     },
-    discard: () => leave('Discarded the retrieved history. Nothing was saved.'),
-    done: () => leave('Your saved history is already up to date.'),
+    discard: () => leave(note('Discarded the retrieved history. Nothing was saved.')),
+    done: () => leave(note('Your saved history is already up to date.')),
+    /** Leave the saved or failed screen for the start. */
+    dismiss: () => {
+      outcome.value = undefined
+    },
   }
 }

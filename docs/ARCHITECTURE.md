@@ -160,21 +160,23 @@ In the webview, `src-ui/src/commands.ts` wraps the commands through `@tauri-apps
 maps any rejection that is not exactly a native failure shape to `unavailable`,
 keeps a failure's category and page only when both are valid, streams retrieval
 progress through a `Channel`,
-and rejects files over 16 MiB before reading them. The home view shows the Star
-Rail retrieval panel, which says the app checks the saved link with HoYoverse
-and needs a connection: "Start retrieval" first, with the file chooser always
-available below it as the fallback. While either runs, both are hidden and a
-Cancel button takes focus, so results cannot arrive out of order; focus returns
-to the starting control afterwards. Validation failures read the same for both
-actions. After validation the panel retrieves history, naming the warp, page and
-rolls so far, and says where retrieval stopped when it fails. Once Cancel is
-pressed, progress no longer shows, and a success that races the cancel keeps
-nothing. A retrieved preview is then reviewed in the panel: its heading takes
-focus, and it shows the account, server-time date range and a table of new,
-already saved and conflicting rolls for each warp. Save commits it and reports
-what was added; Discard, or Done when nothing is new, drops it. Conflicts are
-listed by warp, time and ID with Save disabled, since the native commit refuses
-them. Saving, discarding and failures return to the start controls.
+and rejects files over 16 MiB before reading them. Star Rail's Import screen
+shows one step at a time ([decision 0013](decisions/0013-visual-design.md)). The
+sources offer "Retrieve history" and "Choose cache file…", say the app contacts
+HoYoverse only when asked, and show file import as coming soon; Genshin Impact's
+are disabled. While retrieval runs, a progress screen marks its steps (finding
+and checking the link are one native step, so they are marked together), names
+the warp, page and rolls so far, and gives Cancel focus. Once Cancel is pressed,
+progress no longer shows, and a success that races the cancel keeps nothing. A
+retrieved preview is then reviewed: its heading takes focus, and it shows the
+account, a summary of new, already saved and conflicting rolls, the server-time
+period and a table per warp, with Save and Discard (or Done when nothing is new)
+in a fixed footer. Conflicts are listed by warp, time and ID with Save disabled,
+since the native commit refuses them. A save opens a Saved screen with a link to
+the history; a failure opens a Failed screen headed by its kind, with Try again
+for a device search, "Choose cache file…" and Back. Cancelling, discarding and
+up-to-date or empty retrievals return to the sources with a note, and focus
+returns to the control that started retrieval.
 
 The webview is a Vue app ([decision 0011](decisions/0011-vue-frontend.md)) in three
 layers, so screens can be rearranged without rewriting the flow:
@@ -189,19 +191,26 @@ layers, so screens can be rearranged without rewriting the flow:
 - **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and is the only
   frontend code that makes native calls. It exposes read-only state (the phase —
   idle, acquiring, reviewing, saving or leaving — how the link was found, the
-  status text, the review and whether a cancel is pending) and actions (search the
-  device, read a file, cancel, save, discard, done). `src-ui/src/messages.ts` turns
-  failures, progress and save results into text.
+  stage while acquiring, the status text, the review, how the last retrieval
+  ended and whether a cancel is pending) and actions (search the device, read a
+  file, cancel, save, discard, done, dismiss). The outcome is a save with its
+  account, a failure with a title and message, or a note (cancelled, discarded,
+  up to date, no history). `src-ui/src/messages.ts` turns failures, progress and
+  save results into text and failure kinds into titles.
 - **Views and components:** `views/HistoryView.vue` shows a game's history (an
   empty state until stored history is displayed) and `views/ImportView.vue`
   wires the retrieval flow to presentational components, which take props and
   emit events: `AppSidebar` (game and screen links, marking the current ones,
   collapsing to icons below a 900px app width), `ScreenHeader`, `EmptyState`,
-  `RetrievalStart` (emits `search` or `choose` with the file, and exposes `focus`
-  for the control that started retrieval) and `ReviewPanel` (emits `save`,
-  `discard` and `done`, and focuses its heading as it mounts). The Import view
-  moves focus as the phase changes; Genshin Impact's says retrieval is coming
-  soon. Warp, game and history names come from `src-ui/src/format.ts`.
+  `ImportSources` (emits `search` or `choose` with the file, and exposes `focus`
+  for the control that started retrieval), `CachePicker` (a button-styled label
+  over a visually hidden file input), `RetrievalProgress` (emits `cancel`),
+  `ReviewPanel` (emits `save`, `discard` and `done`), `ImportSaved` (emits
+  `done`, with the caller's history link) and `ImportFailed` (emits `retry`,
+  `choose` and `back`). Progress focuses Cancel and the review, saved and failed
+  screens focus their headings as they mount; the Import view refocuses the
+  starting control when the sources return. Warp, game and history names and
+  server dates come from `src-ui/src/format.ts`.
 
 Base styles and the decision 0013 colour tokens live in
 `src-ui/src/assets/main.css`; each component carries its own scoped styles. A

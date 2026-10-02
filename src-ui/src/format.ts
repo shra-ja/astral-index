@@ -35,3 +35,10 @@ export const monograms: Record<Game, string> = {
   'genshin-impact': 'GI',
   'honkai-star-rail': 'SR',
 }
+
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** "2 Apr 2026", from a server time such as "2026-04-02 10:00:00", read as written. */
+export function serverDate(time: string) {
+  const [year, month, day] = time.slice(0, 10).split('-')
+  return `${Number(day)} ${months[Number(month) - 1]} ${year}`
+}
