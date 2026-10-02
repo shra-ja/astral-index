@@ -94,6 +94,25 @@ test('the bundled native shell works offline, supports keyboard selection, and c
       'No Honkai: Star Rail rolls yet',
     )
     expect(await execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(true)
+    // The bundled typeface loads offline and styles the page (decision 0013).
+    const font = await request(`/session/${session}/execute/async`, 'POST', {
+      script: `
+        const done = arguments[arguments.length - 1];
+        document.fonts.ready.then(() => done({
+          family: getComputedStyle(document.body).fontFamily.split(',')[0].trim(),
+          loaded: [...document.fonts].some(
+            face => face.family.includes('Hanken Grotesk') && face.status === 'loaded'),
+        }));
+      `,
+      args: [],
+    })
+    expect(font).toEqual({ family: '"Hanken Grotesk Variable"', loaded: true })
+    // The window never shrinks below the 480×560 design minimum (decision 0013).
+    await request(`/session/${session}/window/rect`, 'POST', { width: 320, height: 320 })
+    expect(await execute('return { width: innerWidth, height: innerHeight }')).toEqual({
+      width: 480,
+      height: 560,
+    })
     const network = await request(`/session/${session}/execute/async`, 'POST', {
       script: `
         const done = arguments[arguments.length - 1];

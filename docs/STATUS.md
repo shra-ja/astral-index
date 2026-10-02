@@ -1371,11 +1371,34 @@ Decisions from the review:
 
 Documentation only: no code changed and no checks were run.
 
+## Font and minimum window (2026-10-02)
+
+Work is on `feat/ui-foundation`. Hanken Grotesk is bundled from the pinned
+`@fontsource-variable/hanken-grotesk` 5.3.0 package (Open Font License): Vite
+copies its WOFF2 files into the build, and the base style uses it with a system
+fallback. No remote font is requested. The main window's minimum size is now
+480×560 (decision 0013), up from 360×580. The roadmap now breaks the
+stored-history display into three tracked steps (shell, native page command,
+History screen) and moves filters, search, the summary strip, the extra layouts
+and pity to milestone 4. The completed API-contract item is ticked.
+
+TDD: the native smoke test now shrinks the window to 320×320 through WebDriver
+and checks the webview stays 480×560; it failed at 360×580 before the change.
+It also checks, offline, that the page's computed font is Hanken Grotesk and
+that the face has loaded; that failed before the package was added.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 142 Rust unit tests, 120 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` also passed, including the
+backend integration tests and the native smoke test.
+
 ## Next
 
 Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)), on its own screen apart from
-retrieval. Incremental retrieval is an optional design step.
+([decision 0013](decisions/0013-visual-design.md)), starting with the app shell:
+the sidebar and separate History and Import screens, with retrieval moved to
+Import. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

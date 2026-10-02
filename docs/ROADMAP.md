@@ -145,7 +145,7 @@ the order listed.
   - [x] Verify automatic extraction against a real installation from WSL.
   - [x] Record supported and unsupported sources with evidence
     ([HSR API research](HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27)).
-- [ ] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
+- [x] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
   native client: the two history endpoints (collaboration warps use
   `getLdGachaLog`), 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry
@@ -226,7 +226,7 @@ the order listed.
     - [x] Chain retrieval after validation, with progress, Cancel and a message
       for every retrieval failure and "no history found".
     - [x] Show the review with Save and Discard, conflicts and the save result.
-  - [ ] Decide whether the webview adopts a component framework, and review the
+  - [x] Decide whether the webview adopts a component framework, and review the
     visual design, before the stored-history display. Record the choice as a
     decision; weigh 100% branch coverage of compiled templates and dependency size.
     - [x] Adopt Vue 3 with TypeScript 6 and `create-vue`/Tauri conventions
@@ -240,7 +240,7 @@ the order listed.
       and styles in `assets/`.
     - [x] Lint with type-aware ESLint and format with Prettier in both workspaces
       ([decision 0012](decisions/0012-linting-and-formatting.md)).
-    - [ ] Review the visual design with a mockup of the stored-history display.
+    - [x] Review the visual design with a mockup of the stored-history display.
       - [x] Mock up the history and import screens on a design canvas (outside
         the repository): sidebar game and screen switching, banner category tabs,
         a toolbar with rarity filters, search and list, grid and icon layouts,
@@ -248,14 +248,25 @@ the order listed.
         states, and styled tooltips. Icons and banner art stay placeholders.
       - [x] Choose the UI typeface: Hanken Grotesk, with tabular figures for
         numbers, after comparing IBM Plex Sans, Manrope, DM Sans and Figtree.
-      - [ ] Bundle Hanken Grotesk with the app (open font licence); no remote
+      - [x] Bundle Hanken Grotesk with the app (open font licence); no remote
         fonts.
       - [x] Record the visual design as a decision
         ([decision 0013](decisions/0013-visual-design.md)).
-  - [ ] Set the app window's minimum size to 480×560 where the window is
+  - [x] Set the app window's minimum size to 480×560 where the window is
     created. It excludes phones in either orientation; layouts are fluid above
     it, so the minimum can be lowered if mobile is ever targeted.
   - [ ] Display stored history from local storage without triggering acquisition.
+    - [ ] Add the app shell from [decision 0013](decisions/0013-visual-design.md):
+      a sidebar with the game switcher and separate History and Import screens.
+      Move the retrieval flow to the Import screen, restyled to the design;
+      Genshin Impact's Import screen says retrieval is coming soon.
+    - [ ] Add a native command returning one page of an account's stored rolls
+      for one banner category, newest first. Order by time, then by numeric roll
+      ID within the same second, matching the observed descending API order;
+      page in Rust.
+    - [ ] Show the History screen: category tabs (a dropdown when they do not
+      fit), the paged list with item, rarity, type and time, and the empty state.
+      Show the most recently imported account; switching accounts is milestone 4.
   - [ ] Expose the latest import (time, source, account and rolls saved) from the
     stored batch summaries, for the Import screen's "Last import" line.
   - [ ] Show per-category page counts in retrieval progress, derived from the
@@ -297,13 +308,19 @@ acquisition. This is the first implemented import feature. See
   pipeline, independently verifying each file format.
 - [ ] Add the second game's independently verified adapter, acquisition sources,
   response/file fixtures, and request mocks.
-- [ ] Add account/server switching, filters, totals, and rarity breakdowns.
+- [ ] Add account/server switching, filters, totals, and rarity breakdowns:
+  the account switcher, rarity filters and item search, and the summary strip
+  ([decision 0013](decisions/0013-visual-design.md)).
+- [ ] Add the Grid and Icons layouts and the icons-and-banner-art toggle, with
+  placeholder art and styled tooltips.
 - [ ] Source banner metadata mapping HSR `gacha_id` pool IDs to banners; keep
   initial imports independent of metadata lookup.
 - [ ] Implement verified banner grouping and pity calculations that treat each
   pity group's stored rolls as complete, recalculating later rolls after older
   rolls are imported. Derive pity on read rather than storing it
-  ([architecture](ARCHITECTURE.md#statistics)).
+  ([architecture](ARCHITECTURE.md#statistics)). Until verified metadata defines
+  pity groups, each banner category keeps its own count. Show it in a Pity
+  column.
 - [ ] Colour 5★ pity by closeness to soft pity, with thresholds per banner
   category (the mockup uses 1–49, 50–74 and 75+ as placeholders).
 - [ ] Colour 5★ pity by 50/50 outcome (won, lost, guaranteed) once banner

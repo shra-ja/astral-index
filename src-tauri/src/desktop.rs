@@ -250,7 +250,8 @@ fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::
     let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
         .title("Roll Tracker")
         .inner_size(1000.0, 760.0)
-        .min_inner_size(360.0, 580.0);
+        // The design's minimum, which excludes phones (decision 0013).
+        .min_inner_size(480.0, 560.0);
     if let Some(folder) = folder {
         window = window.data_directory(database::webview_folder(folder));
     }
