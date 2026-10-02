@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Extraction and acquisition commands for the main window only.",
+  "description": "Extraction, acquisition and stored-history commands for the main window only.",
   "local": true,
   "windows": ["main"],
   "permissions": [
@@ -10,6 +10,7 @@
     "allow-cancel-acquisition",
     "allow-retrieve-history",
     "allow-commit-import",
-    "allow-discard-import"
+    "allow-discard-import",
+    "allow-history-page"
   ]
 }

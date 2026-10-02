@@ -10,7 +10,7 @@ use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
 };
-use crate::storage::{self, Preview, Review, Summary};
+use crate::storage::{self, Account, HistoryPage, Preview, Review, Summary};
 use serde::Serialize;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -69,6 +69,8 @@ pub enum Failure {
     StalePreview,
     /// There is no retrieved history awaiting commit.
     NoPreview,
+    /// A history request named an unknown category, page or page size.
+    InvalidRequest,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -257,7 +259,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         cancel_acquisition,
         retrieve_history,
         commit_import,
-        discard_import
+        discard_import,
+        history_page
     ])
 }
 
@@ -531,6 +534,68 @@ async fn commit_import(
     .await
 }
 
+/// The account an import last went into, with one page of its rolls in a category;
+/// empty when nothing has been imported yet.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct StoredHistory {
+    account: Option<Account>,
+    #[serde(flatten)]
+    page: HistoryPage,
+}
+
+/// The largest page the history list asks for.
+const MAX_PAGE_SIZE: usize = 100;
+
+/// Read one page of saved history. The request is checked before the database is
+/// opened; nothing is ever requested from HoYoverse.
+async fn history_into(
+    database: &Database,
+    category: &str,
+    page: usize,
+    page_size: usize,
+) -> Result<StoredHistory, Failure> {
+    let category = Category::ALL
+        .into_iter()
+        .find(|candidate| candidate.code() == category);
+    let offset = page
+        .checked_sub(1)
+        .and_then(|before| before.checked_mul(page_size));
+    let (Some(category), Some(offset), 1..=MAX_PAGE_SIZE) = (category, offset, page_size) else {
+        return Err(Failure::InvalidRequest);
+    };
+    database
+        .run(move |store| {
+            let Some(account) = store.latest_account()? else {
+                return Ok(StoredHistory {
+                    account: None,
+                    page: HistoryPage {
+                        total: 0,
+                        rolls: Vec::new(),
+                    },
+                });
+            };
+            let page = store.page(&account.uid, &account.server, category, offset, page_size)?;
+            Ok(StoredHistory {
+                account: Some(account),
+                page,
+            })
+        })
+        .await
+        .and_then(|history| history)
+        .map_err(Failure::from)
+}
+
+/// Stored history only: never contacts HoYoverse.
+#[tauri::command]
+async fn history_page(
+    database: State<'_, Database>,
+    category: String,
+    page: usize,
+    page_size: usize,
+) -> Result<StoredHistory, Failure> {
+    history_into(&database, &category, page, page_size).await
+}
+
 /// Drop the held preview without writing anything.
 #[tauri::command]
 fn discard_import(session: State<'_, Session>) {
@@ -572,8 +637,10 @@ mod tests {
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
-        commit_script, preview, preview_script, setup, stale_commit_script, step, text,
+        commit_script, latest_row, latest_step, page_rows, page_script, preview, preview_script,
+        setup, stale_commit_script, step, text,
     };
+    use rusqlite::types::Value;
     use std::path::PathBuf;
     use tauri::{
         Manager, WebviewWindow, WebviewWindowBuilder,
@@ -682,8 +749,26 @@ mod tests {
                 "cancel_acquisition",
                 "retrieve_history",
                 "commit_import",
-                "discard_import"
+                "discard_import",
+                "history_page"
             ]
+        );
+        // History requests are checked before any database access, and need every argument.
+        for (body, argument) in [
+            (serde_json::json!({}), "category"),
+            (serde_json::json!({ "category": "11" }), "page"),
+            (
+                serde_json::json!({ "category": "11", "page": 1 }),
+                "pageSize",
+            ),
+        ] {
+            let missing = invoke(&window, COMMANDS[6], InvokeBody::Json(body));
+            assert!(missing.unwrap_err().contains(argument));
+        }
+        let request = serde_json::json!({ "category": "99", "page": 1, "pageSize": 20 });
+        assert_eq!(
+            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // Nothing was retrieved, so there is nothing to commit; discarding is harmless.
         assert_eq!(
@@ -1497,5 +1582,74 @@ mod tests {
         ] {
             assert_eq!(Failure::from(fetch), failure);
         }
+    }
+
+    #[test]
+    fn history_requests_are_checked_before_the_database_is_opened() {
+        let database = database();
+        sql::expect(vec![]);
+        for (category, page, size) in [
+            ("99", 1, 20),
+            ("11", 0, 20),
+            ("11", 1, 0),
+            ("11", 1, 101),
+            ("11", usize::MAX, 100),
+        ] {
+            assert_eq!(
+                run(history_into(&database, category, page, size)),
+                Err(Failure::InvalidRequest)
+            );
+        }
+        sql::finish();
+        assert_eq!(
+            json(Failure::InvalidRequest),
+            serde_json::json!({ "kind": "invalid_request" })
+        );
+    }
+
+    #[test]
+    fn history_reads_a_page_of_the_latest_account() {
+        let database = database();
+        let mut script = opening();
+        script.push(latest_step(vec![latest_row()]));
+        script.extend(page_script(5, 2, 2, page_rows()));
+        sql::expect(script);
+        let history = run(history_into(&database, "11", 2, 2)).unwrap();
+        sql::finish();
+        let history = json(history);
+        assert_eq!(
+            history["account"],
+            serde_json::json!({ "uid": "100000002", "server": "synthetic-server", "timezone": 8 })
+        );
+        assert_eq!(history["total"], 5);
+        assert_eq!(history["rolls"][0]["number"], 3);
+        assert_eq!(history["rolls"][1]["id"], "9007199254740992");
+    }
+
+    #[test]
+    fn without_an_account_history_is_empty_and_damage_is_a_storage_failure() {
+        let database = database();
+        let mut script = opening();
+        script.push(latest_step(vec![]));
+        sql::expect(script);
+        assert_eq!(
+            json(run(history_into(&database, "1", 1, 20)).unwrap()),
+            serde_json::json!({ "account": null, "total": 0, "rolls": [] })
+        );
+        sql::finish();
+        sql::expect(vec![latest_step(vec![vec![Value::Null]])]);
+        assert_eq!(
+            run(history_into(&database, "11", 1, 20)),
+            Err(Failure::Storage)
+        );
+        sql::finish();
+        let mut script = vec![latest_step(vec![latest_row()])];
+        script.extend(page_script(5, 2, 2, vec![vec![text("1"), text("{")]]));
+        sql::expect(script);
+        assert_eq!(
+            run(history_into(&database, "11", 2, 2)),
+            Err(Failure::Storage)
+        );
+        sql::finish();
     }
 }

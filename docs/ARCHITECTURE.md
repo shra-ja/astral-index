@@ -213,6 +213,15 @@ layers, so screens can be rearranged without rewriting the flow:
   starting control when the sources return. Warp, game and history names and
   server dates come from `src-ui/src/format.ts`.
 
+`history_page` reads stored history without any network access: for the account
+the latest import went into, one page of a category's rolls, newest first by
+server time then numeric roll ID, each numbered by its position in the category
+(1 is the oldest stored). It checks the category, the page (from 1) and the page
+size (1 to 100) before opening the database and returns `invalid_request`
+otherwise; with no import yet it returns no account and no rolls. Storage counts
+and orders rows with `json_extract` on the stored payloads and validates each row
+again before returning it.
+
 Commands take their transport from a managed `Network`: HTTPS to HoYoverse in the
 app, or the synthetic HoYoverse of the mock debug binary
 ([decision 0014](decisions/0014-mock-debug-binary.md)). `acquisition::mock`
