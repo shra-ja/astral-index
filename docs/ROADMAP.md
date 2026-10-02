@@ -256,10 +256,15 @@ the order listed.
     created. It excludes phones in either orientation; layouts are fluid above
     it, so the minimum can be lowered if mobile is ever targeted.
   - [ ] Display stored history from local storage without triggering acquisition.
-    - [ ] Add the app shell from [decision 0013](decisions/0013-visual-design.md):
-      a sidebar with the game switcher and separate History and Import screens.
-      Move the retrieval flow to the Import screen, restyled to the design;
-      Genshin Impact's Import screen says retrieval is coming soon.
+    - [x] Add the app shell from [decision 0013](decisions/0013-visual-design.md):
+      a sidebar with the game switcher and separate History and Import screens
+      per game, opening on Star Rail's History. Move the existing retrieval flow
+      onto the Import screen; Genshin Impact's Import screen says retrieval is
+      coming soon.
+    - [ ] Restyle the Import screens to the design: sources, progress, review,
+      saved and failure screens, with the retrieval flow reporting its outcome.
+      The review's roll preview and the per-category progress counts follow
+      their own items.
     - [ ] Add a native command returning one page of an account's stored rolls
       for one banner category, newest first. Order by time, then by numeric roll
       ID within the same second, matching the observed descending API order;

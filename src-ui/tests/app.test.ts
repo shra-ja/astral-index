@@ -14,6 +14,8 @@ const settle = () => new Promise((resolve) => setTimeout(resolve))
 // Mount the whole app afresh, and wait for the router to show the first view.
 beforeEach(async () => {
   document.body.innerHTML = '<div id="app"></div>'
+  // The address outlives each app, so every test starts from the opening screen.
+  history.replaceState(null, '', '/')
   vi.resetModules()
   await import('../src/main')
   await settle()
@@ -26,14 +28,25 @@ const fallback = () => panel().querySelector<HTMLElement>('.fallback')!
 const fileInput = () => fallback().querySelector<HTMLInputElement>('input[type="file"]')!
 const extractionStatus = () => panel().querySelector('[role="status"]')!.textContent
 
-// Vue updates the page on the next tick, so each helper waits for it.
-function selectGame(value: string) {
-  const select = document.querySelector('select')!
-  select.value = value
-  select.dispatchEvent(new Event('change'))
-  return nextTick()
+const sidebar = () => document.querySelector<HTMLElement>('nav[aria-label="Main"]')!
+// A link's accessible name: its label when it has one, else its text.
+const nameOf = (link: Element) => link.getAttribute('aria-label') ?? link.textContent?.trim()
+const named = (container: HTMLElement, name: string) =>
+  [...container.querySelectorAll<HTMLAnchorElement>('a')].find((link) => nameOf(link) === name)!
+// Following a link navigates asynchronously, then the new view renders.
+async function follow(link: HTMLAnchorElement) {
+  link.click()
+  await settle()
 }
-const selectStarRail = () => selectGame('honkai-star-rail')
+const openImport = () => follow(named(sidebar(), 'Import'))
+const heading = () => document.querySelector('h1')?.textContent
+const current = (container: HTMLElement) =>
+  [...container.querySelectorAll('a[aria-current]')].map((link) => [
+    nameOf(link),
+    link.getAttribute('aria-current'),
+  ])
+
+// Vue updates the page on the next tick, so each helper waits for it.
 function choose(file: File) {
   Object.defineProperty(fileInput(), 'files', { value: [file], configurable: true })
   fileInput().dispatchEvent(new Event('change'))
@@ -99,38 +112,71 @@ function pending() {
   return { handler: () => promise, resolve, reject }
 }
 
-test('starts with accessible game selection and a local-app empty state', () => {
-  expect(document.querySelector('h1')?.textContent).toBe('Your rolls, kept local.')
-  const select = document.querySelector('select')!
-  expect(document.querySelector('label')?.htmlFor).toBe(select.id)
-  expect([...select.options].map((option) => option.textContent)).toEqual([
-    'Genshin Impact',
-    'Honkai: Star Rail',
+test('opens on Star Rail’s warp history, with the games and screens in a sidebar', () => {
+  expect(location.hash).toBe('#/honkai-star-rail/history')
+  expect(heading()).toBe('Warp History')
+  expect(document.querySelector('header')?.textContent).toContain('Honkai: Star Rail')
+  expect(current(sidebar())).toEqual([
+    ['Honkai: Star Rail', 'true'],
+    ['Warp History', 'page'],
   ])
-  expect(select.value).toBe('genshin-impact')
-  expect(document.querySelector('[role="status"]')?.textContent).toContain(
-    'No Genshin Impact rolls yet',
-  )
-  expect(document.body.textContent).toContain('Showing saved history is coming next.')
-  expect(document.body.textContent).toContain('Local app')
-  expect(document.body.textContent).not.toContain('Offline')
-  expect(panel().hidden).toBe(true)
-})
-
-test('switches games and switches back without inventing history or statistics', async () => {
-  await selectStarRail()
-  expect(document.querySelector('[role="status"]')?.textContent).toContain(
-    'No Honkai: Star Rail rolls yet',
-  )
-  await selectGame('genshin-impact')
-  expect(document.querySelector('[role="status"]')?.textContent).toContain(
-    'No Genshin Impact rolls yet',
-  )
+  expect(named(sidebar(), 'Genshin Impact').getAttribute('href')).toBe('#/genshin-impact/history')
+  expect(named(sidebar(), 'Import').getAttribute('href')).toBe('#/honkai-star-rail/import')
+  expect(sidebar().textContent).toContain('Stored on this device')
+  expect(document.querySelector('[role="status"]')?.textContent).toContain('No Warp History Yet')
+  expect(document.querySelector('.retrieval')).toBeNull()
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
 })
 
+test('switching games keeps the screen, and each game names its own history', async () => {
+  await follow(named(sidebar(), 'Genshin Impact'))
+  expect(location.hash).toBe('#/genshin-impact/history')
+  expect(heading()).toBe('Wish History')
+  expect(current(sidebar())).toEqual([
+    ['Genshin Impact', 'true'],
+    ['Wish History', 'page'],
+  ])
+  expect(document.querySelector('[role="status"]')?.textContent).toContain('No Wish History Yet')
+  await openImport()
+  expect(location.hash).toBe('#/genshin-impact/import')
+  expect(heading()).toBe('Import')
+  expect(document.querySelector('main')?.textContent).toContain(
+    'Retrieval for Genshin Impact is coming soon.',
+  )
+  expect(panel().hidden).toBe(true)
+  await follow(named(sidebar(), 'Honkai: Star Rail'))
+  expect(location.hash).toBe('#/honkai-star-rail/import')
+  expect(panel().hidden).toBe(false)
+})
+
+test('the empty history leads to the Import screen', async () => {
+  await follow(named(document.querySelector('main')!, 'Go to Import'))
+  expect(location.hash).toBe('#/honkai-star-rail/import')
+  expect(heading()).toBe('Import')
+})
+
+test('a retrieval keeps running while another screen is shown', async () => {
+  await openImport()
+  const retrieval = pending()
+  serve({ retrieve_history: retrieval.handler })
+  findButton().click()
+  await settle()
+  await follow(named(sidebar(), 'Warp History'))
+  retrieval.resolve(review(3))
+  await settle()
+  await openImport()
+  expect(reviewHeading().textContent).toBe('Ready to save 3 new rolls')
+})
+
+test('an unknown address returns to Star Rail’s history', async () => {
+  const { default: router } = await import('../src/router')
+  await router.push('/somewhere/else')
+  await settle()
+  expect(location.hash).toBe('#/honkai-star-rail/history')
+})
+
 test('Star Rail offers retrieval, automatically or from a file, and says it contacts HoYoverse', async () => {
-  await selectStarRail()
+  await openImport()
   expect(panel().hidden).toBe(false)
   expect(findButton().textContent).toBe('Start retrieval')
   expect(findButton().type).toBe('button')
@@ -154,7 +200,7 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
       return retrieval.handler()
     },
   })
-  await selectStarRail()
+  await openImport()
   findButton().focus()
   await click(findButton())
   expect(start().hidden).toBe(true)
@@ -230,7 +276,7 @@ test('starting retrieval validates, retrieves with progress, then reviews and sa
 
 test('discarding the review saves nothing', async () => {
   const calls = serve({ retrieve_history: () => review(4) })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   reviewButton('Discard').click()
@@ -244,7 +290,7 @@ test('discarding the review saves nothing', async () => {
 
 test('when everything is already saved, Done replaces Save and Discard', async () => {
   const calls = serve({ retrieve_history: () => review(0, 5) })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   expect(reviewHeading().textContent).toBe('Everything here is already saved')
@@ -266,7 +312,7 @@ test('conflicting rolls are listed and cannot be saved', async () => {
         { id: '1000000000000000002', gacha_type: '1', time: '2026-05-02 13:00:00' },
       ]),
   })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   expect(reviewHeading().textContent).toBe('Some rolls conflict with your saved history')
@@ -302,7 +348,7 @@ test('a failed save explains what happened and returns to the start', async () =
     retrieve_history: () => review(2),
     commit_import: () => reject({ kind: 'conflict' }),
   })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   reviewButton('Save to this device').click()
@@ -319,7 +365,7 @@ test('a failed retrieval explains itself and where it stopped', async () => {
   const calls = serve({
     retrieve_history: () => reject({ kind: 'network', gacha_type: '12', page: 2 }),
   })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   expect(extractionStatus()).toBe(
@@ -332,7 +378,7 @@ test('a failed retrieval explains itself and where it stopped', async () => {
 test('cancelling during validation stops before retrieval', async () => {
   const extraction = pending()
   const calls = serve({ extract_automatically: extraction.handler })
-  await selectStarRail()
+  await openImport()
   await click(findButton())
   await click(cancelButton())
   expect(cancelButton().disabled).toBe(true)
@@ -356,7 +402,7 @@ test('if cancelling cannot be sent, retrieval carries on and can be cancelled ag
     },
     cancel_acquisition: () => reject('cancel_acquisition not allowed'),
   })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   cancelButton().click()
@@ -374,7 +420,7 @@ test('a failed automatic search explains what to do next', async () => {
   const calls = serve({
     extract_automatically: () => reject({ kind: 'no_cache' }),
   })
-  await selectStarRail()
+  await openImport()
   findButton().click()
   await settle()
   expect(extractionStatus()).toContain('found the game, but not its web cache')
@@ -383,7 +429,7 @@ test('a failed automatic search explains what to do next', async () => {
 })
 
 test('choosing a cache file extracts from it without an automatic search first', async () => {
-  await selectStarRail()
+  await openImport()
   const calls = serve({ retrieve_history: () => review(7) })
   fileInput().focus()
   await choose(new File(['synthetic'], 'data_2'))
@@ -405,11 +451,4 @@ test('choosing a cache file extracts from it without an automatic search first',
   fileInput().dispatchEvent(new Event('change'))
   expect(extractionStatus()).toContain('couldn’t be read')
   expect(start().hidden).toBe(false)
-})
-
-test('switching back to Genshin Impact hides the Star Rail controls', async () => {
-  await selectStarRail()
-  await selectGame('genshin-impact')
-  expect(panel().hidden).toBe(true)
-  expect(document.body.textContent).toContain('Showing saved history is coming next.')
 })

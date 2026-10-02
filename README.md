@@ -107,8 +107,10 @@ if a probe is interrupted.
 
 The executable is `src-tauri/target/release/roll-tracker`. Reports live in
 `coverage/frontend/`, `coverage/tooling/`, `coverage/backend-unit/` and
-`coverage/backend/`; the end-to-end screenshot is
-`test-results/e2e-smoke.png`. These outputs are ignored by Git.
+`coverage/backend/`; the end-to-end screenshots are
+`test-results/e2e-history.png` (History at the default window size) and
+`test-results/e2e-smoke.png` (Import at the minimum size). These outputs are
+ignored by Git.
 
 ### Optional: Windows executable for manual verification
 
