@@ -1393,12 +1393,38 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` also passed, including the
 backend integration tests and the native smoke test.
 
+## App shell (2026-10-02)
+
+Work is on `feat/app-shell`. The webview now has the design's shell: a sidebar
+with game and screen links (current ones marked; icons only below a 900px app
+width) beside per-game History and Import screens. The app opens on Star Rail's
+Warp History, which shows an empty state linking to Import until stored history
+is displayed. The existing retrieval flow moved onto Star Rail's Import screen,
+unchanged apart from base styles; Genshin Impact's Import screen says retrieval
+is coming soon. The shell owns the flow, so a retrieval and its review survive
+switching screens. Base styles use the decision 0013 colour tokens. The old
+home screen and game dropdown are gone.
+
+TDD: the new shell, routing, persistence and empty-state tests failed before the
+sidebar, routes and views existed; the retrieval tests now reach the flow through
+the sidebar. The native smoke test opens Import with Enter on the sidebar link.
+Its screenshots showed the Cancel button visible after a failure, because a
+display style overrode the `hidden` attribute, and the collapsed sidebar still
+showing its storage note; computed-style checks failed for both before the fixes.
+A temporary canvas measurement confirmed the bundled font renders. The smoke
+test now also saves `test-results/e2e-history.png` at the default window size.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 142 Rust unit tests, 124 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` also passed.
+
 ## Next
 
 Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)), starting with the app shell:
-the sidebar and separate History and Import screens, with retrieval moved to
-Import. Incremental retrieval is an optional design step.
+([decision 0013](decisions/0013-visual-design.md)): next, restyle the Import
+screens (sources, progress, review, saved and failure screens), with the
+retrieval flow reporting its outcome. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

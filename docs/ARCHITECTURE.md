@@ -179,25 +179,34 @@ them. Saving, discarding and failures return to the start controls.
 The webview is a Vue app ([decision 0011](decisions/0011-vue-frontend.md)) in three
 layers, so screens can be rearranged without rewriting the flow:
 
-- **Shell and routes:** `src-ui/src/main.ts` mounts `App.vue`, which holds the
-  header and footer around a `RouterView`. `src-ui/src/router/index.ts` uses hash
-  history with one route so far, `views/HomeView.vue`.
+- **Shell and routes:** `src-ui/src/main.ts` mounts `App.vue`, which places the
+  `AppSidebar` beside a `RouterView` ([decision 0013](decisions/0013-visual-design.md)).
+  `src-ui/src/router/index.ts` uses hash history with a History and an Import
+  route per game (`/:game/history`, `/:game/import`); the app opens on Star
+  Rail's history and any other address returns there. The shell creates the
+  retrieval flow and provides it to the screens, so a running retrieval and its
+  review survive switching screens.
 - **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and is the only
   frontend code that makes native calls. It exposes read-only state (the phase —
   idle, acquiring, reviewing, saving or leaving — how the link was found, the
   status text, the review and whether a cancel is pending) and actions (search the
   device, read a file, cancel, save, discard, done). `src-ui/src/messages.ts` turns
   failures, progress and save results into text.
-- **View and components:** the view wires that state to presentational
-  components, which take props and emit events: `GameSelect` (`v-model`),
-  `EmptyState`, `RetrievalStart` (emits `search` or `choose` with the file, and
-  exposes `focus` for the control that started retrieval) and `ReviewPanel`
-  (emits `save`, `discard` and `done`, and focuses its heading as it mounts). The
-  view moves focus as the phase changes. Warp and game names come from
-  `src-ui/src/format.ts`.
+- **Views and components:** `views/HistoryView.vue` shows a game's history (an
+  empty state until stored history is displayed) and `views/ImportView.vue`
+  wires the retrieval flow to presentational components, which take props and
+  emit events: `AppSidebar` (game and screen links, marking the current ones,
+  collapsing to icons below a 900px app width), `ScreenHeader`, `EmptyState`,
+  `RetrievalStart` (emits `search` or `choose` with the file, and exposes `focus`
+  for the control that started retrieval) and `ReviewPanel` (emits `save`,
+  `discard` and `done`, and focuses its heading as it mounts). The Import view
+  moves focus as the phase changes; Genshin Impact's says retrieval is coming
+  soon. Warp, game and history names come from `src-ui/src/format.ts`.
 
-Base styles live in `src-ui/src/assets/main.css`; each component carries its own
-scoped styles. Everything is bundled, so the production CSP needs no inline
+Base styles and the decision 0013 colour tokens live in
+`src-ui/src/assets/main.css`; each component carries its own scoped styles. A
+base rule keeps elements with the `hidden` attribute hidden whatever display a
+style sets. Everything is bundled, so the production CSP needs no inline
 styles or scripts.
 
 ## Statistics

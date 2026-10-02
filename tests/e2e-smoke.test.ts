@@ -21,7 +21,7 @@ beforeAll(() => {
 }, 600000)
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
-test('the bundled native shell works offline, supports keyboard selection, and closes cleanly', async () => {
+test('the bundled native shell works offline, supports keyboard navigation, and closes cleanly', async () => {
   // Keep automatic discovery deterministic: never start Windows helpers from a WSL test host.
   const driver = spawn('tauri-driver', [], {
     env: { ...backendEnv, WSL_DISTRO_NAME: '' },
@@ -69,30 +69,34 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     const execute = (script: string) =>
       request(`/session/${session}/execute/sync`, 'POST', { script, args: [] })
     expect(await execute('return location.protocol')).toBe('tauri:')
-    expect(await execute('return document.querySelector("h1").textContent')).toBe(
-      'Your rolls, kept local.',
-    )
+    expect(await execute('return document.querySelector("h1").textContent')).toBe('Warp History')
     expect(await execute('return document.querySelector("[role=status]").textContent')).toContain(
-      'No Genshin Impact rolls yet',
+      'No Warp History Yet',
     )
-    await execute('document.querySelector("select").focus()')
+    mkdirSync('test-results', { recursive: true })
+    await request(`/session/${session}/execute/async`, 'POST', {
+      script: 'document.fonts.ready.then(() => arguments[arguments.length - 1]())',
+      args: [],
+    })
+    const history = await request<string>(`/session/${session}/screenshot`)
+    writeFileSync('test-results/e2e-history.png', Buffer.from(history, 'base64'))
+    // The sidebar works from the keyboard: Enter on the Import link opens that screen.
+    await execute('document.querySelector("nav a[aria-label=Import]").focus()')
     await request(`/session/${session}/actions`, 'POST', {
       actions: [
         {
           type: 'key',
           id: 'keyboard',
           actions: [
-            { type: 'keyDown', value: '\uE015' },
-            { type: 'keyUp', value: '\uE015' },
             { type: 'keyDown', value: '\uE007' },
             { type: 'keyUp', value: '\uE007' },
           ],
         },
       ],
     })
-    expect(await execute('return document.querySelector("[role=status]").textContent')).toContain(
-      'No Honkai: Star Rail rolls yet',
-    )
+    await expect
+      .poll(() => execute('return document.querySelector("h1").textContent'), { timeout: 5000 })
+      .toBe('Import')
     expect(await execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(true)
     // The bundled typeface loads offline and styles the page (decision 0013).
     const font = await request(`/session/${session}/execute/async`, 'POST', {
@@ -191,6 +195,12 @@ test('the bundled native shell works offline, supports keyboard selection, and c
     await expect
       .poll(() => execute(extractionStatus), { timeout: 10000 })
       .toContain('We couldn’t reach HoYoverse.')
+    // Hidden controls stay hidden under the app's styles, and the narrow window
+    // collapses the sidebar to icons.
+    const displayOf = (selector: string) =>
+      execute(`return getComputedStyle(document.querySelector("${selector}")).display`)
+    expect(await displayOf('.cancel')).toBe('none')
+    expect(await displayOf('nav .local .text')).toBe('none')
     expect(await execute('return document.querySelector("#cache-file").files.length')).toBe(1)
     rmSync(cachePath)
     const screenshot = await request<string>(`/session/${session}/screenshot`)

@@ -20,3 +20,18 @@ export const games = {
   'honkai-star-rail': 'Honkai: Star Rail',
 } as const
 export type Game = keyof typeof games
+
+/** The screens each game has. */
+export type Screen = 'history' | 'import'
+
+/** What each game calls a roll, as in "Warp History". */
+export const terms: Record<Game, 'Wish' | 'Warp'> = {
+  'genshin-impact': 'Wish',
+  'honkai-star-rail': 'Warp',
+}
+
+/** Short marks that stand for each game where its name does not fit. */
+export const monograms: Record<Game, string> = {
+  'genshin-impact': 'GI',
+  'honkai-star-rail': 'SR',
+}
