@@ -1,7 +1,7 @@
 /* Base styles shared by every screen; components carry their own scoped styles.
    Everything is bundled: no remote fonts or assets. */
 :root {
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Hanken Grotesk Variable', system-ui, sans-serif;
   color: #ecece7;
   background: #131a19;
   font-synthesis: none;
