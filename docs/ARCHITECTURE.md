@@ -169,11 +169,12 @@ and checking the link are one native step, so they are marked together), names
 the warp, page and rolls so far, and gives Cancel focus. Once Cancel is pressed,
 progress no longer shows, and a success that races the cancel keeps nothing. A
 retrieved preview is then reviewed: its heading takes focus, and it shows the
-account, a summary of new, already saved and conflicting rolls, the server-time
+account, a summary of new, skipped (already saved) and conflicting rolls, the server-time
 period and a table per warp, with Save and Discard (or Done when nothing is new)
 in a fixed footer. Conflicts are listed by warp, time and ID with Save disabled,
-since the native commit refuses them. A save opens a Saved screen with a link to
-the history; a failure opens a Failed screen headed by its kind, with Try again
+since the native commit refuses them. The review also counts the new 5★ and 4★
+rows (per row, not per item, among the rolls being added only); a save opens a
+Saved screen with those counts, the existing rolls skipped and a link to the history; a failure opens a Failed screen headed by its kind, with Try again
 for a device search, "Choose cache file…" and Back. Cancelling, discarding and
 up-to-date or empty retrievals return to the sources with a note, and focus
 returns to the control that started retrieval.

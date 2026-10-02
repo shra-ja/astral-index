@@ -170,6 +170,12 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.screenshot('e2e-mock-review')
     await click(app, '.review', 'Save 2,060 rolls')
     await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    // The mock's history has 32 five-star and 206 four-star rows (decision 0014).
+    expect(
+      await app.execute(
+        'return [...document.querySelectorAll(".saved .stat-value")].map(value => value.textContent)',
+      ),
+    ).toEqual(['32', '206', '0'])
     await app.screenshot('e2e-mock-saved')
     expect(existsSync(database)).toBe(true)
     // A second retrieval finds everything already saved.

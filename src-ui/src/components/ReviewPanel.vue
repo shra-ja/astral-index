@@ -23,7 +23,7 @@ const footnote = computed(() => {
 })
 const stats = computed(() => [
   ['New rolls', props.review.summary.inserted],
-  ['Already saved', props.review.summary.duplicates],
+  ['Existing rolls skipped', props.review.summary.duplicates],
   ['Conflicts', props.review.summary.conflicts],
 ])
 
@@ -63,7 +63,7 @@ onMounted(() => headingElement.value!.focus())
             <tr>
               <th scope="col">Category</th>
               <th scope="col">New</th>
-              <th scope="col">Already saved</th>
+              <th scope="col">Skipped</th>
             </tr>
           </thead>
           <tbody>

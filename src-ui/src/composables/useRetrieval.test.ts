@@ -30,6 +30,8 @@ const review = (inserted: number): Review => ({
   server: 'synthetic-server',
   timezone: 8,
   summary: { inserted, duplicates: 0, conflicts: 0 },
+  new_five_star: 1,
+  new_four_star: 3,
   categories: [{ gacha_type: '1', inserted, duplicates: 0, conflicts: 0 }],
   earliest: '2026-04-02 10:00:00',
   latest: '2026-09-28 21:30:00',
@@ -241,6 +243,8 @@ test('saving reports what was added and ends the review', async () => {
   expect(flow.outcome.value).toEqual({
     kind: 'saved',
     summary: { inserted: 2, duplicates: 88, conflicts: 0 },
+    fiveStar: 1,
+    fourStar: 3,
     uid: '100000001',
     server: 'synthetic-server',
   })

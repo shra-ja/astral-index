@@ -96,6 +96,8 @@ const review = (inserted: number, duplicates = 0, conflicts: Conflict[] = []) =>
   server: 'synthetic-server',
   timezone: 8,
   summary: { inserted, duplicates, conflicts: conflicts.length },
+  new_five_star: inserted === 0 ? 0 : 1,
+  new_four_star: inserted === 0 ? 0 : 2,
   categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type, index) =>
     index === 0
       ? { gacha_type, inserted, duplicates, conflicts: conflicts.length }
@@ -257,14 +259,14 @@ test('starting retrieval shows progress, then the review, then what was saved', 
     ]),
   ).toEqual([
     ['New rolls', '412'],
-    ['Already saved', '88'],
+    ['Existing rolls skipped', '88'],
     ['Conflicts', '0'],
     ['Retrieved period', '2 Apr 2026 – 28 Sep 2026'],
   ])
   expect([...reviewPanel().querySelectorAll('thead th')].map((cell) => cell.textContent)).toEqual([
     'Category',
     'New',
-    'Already saved',
+    'Skipped',
   ])
   expect(rows()).toEqual([
     ['Stellar Warp', '412', '88'],
@@ -289,9 +291,17 @@ test('starting retrieval shows progress, then the review, then what was saved', 
   const saved = screen('saved')!
   expect(saved.querySelector('h2')?.textContent).toBe('412 Rolls Saved')
   expect(document.activeElement).toBe(saved.querySelector('h2'))
-  expect(saved.textContent).toContain(
-    'Added to UID 100000001 (synthetic-server). 88 rolls you already had were left as they were.',
-  )
+  expect(saved.querySelector('p')?.textContent).toBe('Added to UID 100000001 (synthetic-server).')
+  expect(
+    [...saved.querySelectorAll('.stat')].map((stat) => [
+      stat.querySelector('.stat-value')?.textContent,
+      stat.querySelector('.stat-label')?.textContent,
+    ]),
+  ).toEqual([
+    ['1', 'New 5★'],
+    ['2', 'New 4★'],
+    ['88', 'Existing rolls skipped'],
+  ])
   await click(button(saved, 'Done'))
   await nextTick()
   expect(shown('saved')).toBe(false)

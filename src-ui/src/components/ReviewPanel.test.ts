@@ -10,6 +10,8 @@ const review = (inserted: number, conflicts: Conflict[] = []): Review => ({
   server: 'synthetic-server',
   timezone: 8,
   summary: { inserted, duplicates: 3, conflicts: conflicts.length },
+  new_five_star: 0,
+  new_four_star: 0,
   categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type, index) =>
     index === 0
       ? { gacha_type, inserted, duplicates: 3, conflicts: conflicts.length }
@@ -39,7 +41,7 @@ test('a review shows the account, a summary, the period and counts for every war
       .map((stat) => [stat.get('.stat-label').text(), stat.get('.stat-value').text()]),
   ).toEqual([
     ['New rolls', '412'],
-    ['Already saved', '3'],
+    ['Existing rolls skipped', '3'],
     ['Conflicts', '0'],
     ['Retrieved period', '2 Apr 2026 – 28 Sep 2026'],
   ])
@@ -47,7 +49,7 @@ test('a review shows the account, a summary, the period and counts for every war
   expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
     'Category',
     'New',
-    'Already saved',
+    'Skipped',
   ])
   expect(
     wrapper.findAll('tbody tr').map((row) => row.findAll('th, td').map((cell) => cell.text())),

@@ -150,7 +150,7 @@ test('progress names each warp and page with the rolls so far, or a pending retr
   )
 })
 
-test('a save is headed by what was added, and says what was already saved only when there was some', () => {
+test('a save is headed by what was added, and says which account it went to', () => {
   const saved = (inserted: number, duplicates: number) => ({
     summary: { inserted, duplicates, conflicts: 0 },
     uid: '100000001',
@@ -159,13 +159,8 @@ test('a save is headed by what was added, and says what was already saved only w
   expect(savedTitle(saved(214, 1816))).toBe('214 Rolls Saved')
   expect(savedTitle(saved(1, 0))).toBe('1 Roll Saved')
   expect(savedTitle(saved(1200, 0))).toBe('1,200 Rolls Saved')
-  expect(savedDetail(saved(214, 1816))).toBe(
-    'Added to UID 100000001 (synthetic-server). 1,816 rolls you already had were left as they were.',
-  )
-  expect(savedDetail(saved(2, 1))).toBe(
-    'Added to UID 100000001 (synthetic-server). 1 roll you already had was left as it was.',
-  )
-  expect(savedDetail(saved(3, 0))).toBe('Added to UID 100000001 (synthetic-server).')
+  // The rolls already saved have their own tile, so the sentence leaves them out.
+  expect(savedDetail(saved(214, 1816))).toBe('Added to UID 100000001 (synthetic-server).')
 })
 
 test.each<[Kind, string]>([

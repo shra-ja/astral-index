@@ -85,6 +85,9 @@ pub struct Review {
     /// UTC offset in hours of the server-local times, when the responses gave one.
     timezone: Option<i32>,
     summary: Summary,
+    /// New rows of each highlighted rarity, counted per row, not per item.
+    new_five_star: usize,
+    new_four_star: usize,
     /// Counts for each known category, in fetch order, including empty ones.
     categories: Vec<CategoryCounts>,
     /// Earliest and latest server-local record times in the import.
@@ -174,7 +177,7 @@ impl Store {
         // None means no page seen; Some(None) means a page with unknown offset.
         let mut timezone: Option<Option<i32>> = None;
         let mut records = Vec::new();
-        // Each record's category and time, for the review.
+        // Each record's category, time and rarity, for the review.
         let mut details = Vec::new();
         for bytes in bytes {
             let page = parse_response(bytes)?;
@@ -193,7 +196,11 @@ impl Store {
                     return Err(Error::Context);
                 }
                 records.push((roll.id.clone(), serde_json::json!(roll).to_string()));
-                details.push((roll.gacha_type.clone(), roll.time.clone()));
+                details.push((
+                    roll.gacha_type.clone(),
+                    roll.time.clone(),
+                    roll.rank_type.clone(),
+                ));
             }
             timezone = Some(page.region_time_zone);
         }
@@ -207,8 +214,18 @@ impl Store {
         let summary = Summary::of(&statuses);
         let mut by_category: BTreeMap<&str, Summary> = BTreeMap::new();
         let mut conflicts = Vec::new();
-        for (((id, _), (gacha_type, time)), status) in records.iter().zip(&details).zip(statuses) {
+        let (mut new_five_star, mut new_four_star) = (0, 0);
+        for (((id, _), (gacha_type, time, rarity)), status) in
+            records.iter().zip(&details).zip(statuses)
+        {
             by_category.entry(gacha_type).or_default().count(status);
+            if status == Status::New {
+                match rarity.as_str() {
+                    "5" => new_five_star += 1,
+                    "4" => new_four_star += 1,
+                    _ => {}
+                }
+            }
             if status == Status::Conflict {
                 conflicts.push(Conflict {
                     id: id.clone(),
@@ -219,12 +236,14 @@ impl Store {
         }
         // Validated times share one canonical format and offset, so text order is
         // time order.
-        let times = details.iter().map(|(_, time)| time);
+        let times = details.iter().map(|(_, time, _)| time);
         let review = Review {
             uid: uid.to_owned(),
             server: server.to_owned(),
             timezone,
             summary,
+            new_five_star,
+            new_four_star,
             categories: Category::ALL
                 .iter()
                 .map(|category| CategoryCounts {
@@ -722,16 +741,19 @@ pub(crate) mod tests {
     fn the_review_counts_each_category_and_locates_conflicts() {
         let bytes = page(|value| {
             let list = value["data"]["list"].as_array_mut().unwrap();
-            let mut new = list[0].clone();
-            new["id"] = serde_json::json!("1000000000000000001");
-            new["gacha_type"] = serde_json::json!("1");
-            new["time"] = serde_json::json!("2023-01-01 00:00:00");
-            list.push(new);
+            for (id, rarity) in [("1", "5"), ("2", "4"), ("3", "3")] {
+                let mut new = list[0].clone();
+                new["id"] = serde_json::json!(format!("100000000000000000{id}"));
+                new["gacha_type"] = serde_json::json!("1");
+                new["time"] = serde_json::json!("2023-01-01 00:00:00");
+                new["rank_type"] = serde_json::json!(rarity);
+                list.push(new);
+            }
         });
         let rolls = parse_response(&bytes).unwrap().list;
         let payload = |index: usize| serde_json::json!(rolls[index]).to_string();
         // The first record is already stored, the second differs from its stored
-        // copy, and the third is new.
+        // copy, and the rest are new: a 5-star, a 4-star and a 3-star.
         database::expect(vec![
             done("BEGIN Deferred"),
             timezone(None),
@@ -739,6 +761,8 @@ pub(crate) mod tests {
             lookup(&rolls[0].id, Some(&payload(0))),
             lookup(&rolls[1].id, Some("stored differently")),
             lookup(&rolls[2].id, None),
+            lookup(&rolls[3].id, None),
+            lookup(&rolls[4].id, None),
             identity(),
             done("COMMIT"),
         ]);
@@ -754,9 +778,12 @@ pub(crate) mod tests {
             serde_json::to_value(preview.review()).unwrap(),
             serde_json::json!({
                 "uid": UID, "server": SERVER, "timezone": 8,
-                "summary": { "inserted": 1, "duplicates": 1, "conflicts": 1 },
+                "summary": { "inserted": 3, "duplicates": 1, "conflicts": 1 },
+                // Only new rows count: the stored and conflicting 5-stars do not.
+                "new_five_star": 1,
+                "new_four_star": 1,
                 "categories": [
-                    counts("1", 1, 0, 0), counts("2", 0, 0, 0), counts("11", 0, 1, 1),
+                    counts("1", 3, 0, 0), counts("2", 0, 0, 0), counts("11", 0, 1, 1),
                     counts("12", 0, 0, 0), counts("21", 0, 0, 0), counts("22", 0, 0, 0),
                 ],
                 "earliest": "2023-01-01 00:00:00",
