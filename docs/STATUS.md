@@ -1479,11 +1479,32 @@ tooling tests, the mutation probes and report checks at 100% per file (the mock
 binary and `main.rs` at 100% native coverage), Rust formatting and Clippy.
 `npm run test:offline` passed, including all three native tests.
 
+## Saved rarity counts (2026-10-02)
+
+Work is on `feat/rarity-counts`. The import review now counts the new 5★ and
+4★ rows (`new_five_star`, `new_four_star`): rows with that rarity among the
+rolls being added, not unique items, and never stored or conflicting rows. A
+save can only commit the reviewed counts, so the Saved screen shows them in
+tiles beside "Existing rolls skipped"; its sentence now names only the account.
+
+TDD: the storage review test, extended with a new 4★ and 3★ beside the stored,
+conflicting and new 5★, failed on the missing counts, then passed; the
+composable, Saved screen and app tests failed before the counts were carried
+through. The end-to-end test checks the mock's 32 five-star and 206 four-star
+rows on the Saved screen.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 150 Rust unit tests, 160 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests.
+
 ## Next
 
 Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)): next, the new 5★ and 4★
-counts on the Saved screen, then the native command for a page of stored rolls. Incremental retrieval is an optional design step.
+([decision 0013](decisions/0013-visual-design.md)): next, the native command for
+a page of an account's stored rolls for a banner category, newest first, paged in
+Rust. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

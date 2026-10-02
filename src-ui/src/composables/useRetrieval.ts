@@ -36,7 +36,14 @@ export type Source = 'device' | 'file'
 export type Stage = 'finding' | 'downloading'
 /** How the last retrieval ended: saved, failed, or a note such as a cancel. */
 export type Outcome =
-  | { kind: 'saved'; summary: Counts; uid: string; server: string }
+  | {
+      kind: 'saved'
+      summary: Counts
+      fiveStar: number
+      fourStar: number
+      uid: string
+      server: string
+    }
   | { kind: 'failed'; title: string; message: string }
   | { kind: 'note'; message: string }
 
@@ -143,14 +150,21 @@ export function useRetrieval() {
       if (await cancelAcquisition()) cancelling.value = false
     },
     save: async () => {
-      const { uid, server } = review.value!
+      const { uid, server, new_five_star, new_four_star } = review.value!
       phase.value = 'saving'
       status.value = 'Saving…'
       const result = await commitImport()
       finish(
         'failure' in result
           ? failed(result.failure, describe(result.failure, commitMessages))
-          : { kind: 'saved', summary: result.summary, uid, server },
+          : {
+              kind: 'saved',
+              summary: result.summary,
+              fiveStar: new_five_star,
+              fourStar: new_four_star,
+              uid,
+              server,
+            },
       )
     },
     discard: () => leave(note('Discarded the retrieved history. Nothing was saved.')),

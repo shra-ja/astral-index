@@ -278,7 +278,7 @@ the order listed.
     - [ ] Replace the hand-drawn inline SVG icons with Lucide
       (`lucide-vue-next`, ISC licence, bundled per icon), keeping the brand mark
       and game monograms custom. No behaviour change.
-    - [ ] Count the new 5★ and 4★ rolls in a save, as rows with that rarity
+    - [x] Count the new 5★ and 4★ rolls in a save, as rows with that rarity
       among the rolls being added (not unique items), and show them on the
       Saved screen.
     - [ ] Add a native command returning one page of an account's stored rolls

@@ -60,6 +60,9 @@ export interface Review {
   server: string
   timezone: number | null
   summary: Counts
+  /** New rows of each highlighted rarity, counted per row, not per item. */
+  new_five_star: number
+  new_four_star: number
   categories: (Counts & { gacha_type: string })[]
   earliest: string
   latest: string

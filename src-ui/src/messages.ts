@@ -127,12 +127,5 @@ interface Saved {
 export const savedTitle = ({ summary }: Saved) =>
   `${summary.inserted.toLocaleString('en')} Roll${summary.inserted === 1 ? '' : 's'} Saved`
 
-/** Where the rolls went, and what was already saved when there was some. */
-export function savedDetail({ summary, uid, server }: Saved) {
-  const { duplicates } = summary
-  const already =
-    duplicates === 0
-      ? ''
-      : ` ${plural(duplicates, 'roll')} you already had ${duplicates === 1 ? 'was left as it was' : 'were left as they were'}.`
-  return `Added to UID ${uid} (${server}).${already}`
-}
+/** Which account the rolls were added to; the counts have tiles of their own. */
+export const savedDetail = ({ uid, server }: Saved) => `Added to UID ${uid} (${server}).`
