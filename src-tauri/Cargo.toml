@@ -3,6 +3,8 @@ name = "roll-tracker"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+# The real app; the mock debug binary is built only with `--features mock` (decision 0014).
+default-run = "roll-tracker"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.0", features = [] }
@@ -25,6 +27,8 @@ libc = "=0.2.189"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+# Builds the mock debug binary; the library and the real app are unchanged.
+mock = []
 
 [lib]
 path = "src/lib.rs"
@@ -33,3 +37,9 @@ path = "src/lib.rs"
 tauri = { version = "=2.12.0", features = ["test"] }
 rusqlite = { version = "=0.40.2", features = ["hooks", "limits"] }
 tokio = { version = "=1.53.1", features = ["test-util"] }
+
+
+[[bin]]
+name = "roll-tracker-mock"
+path = "src/bin/roll-tracker-mock.rs"
+required-features = ["mock"]

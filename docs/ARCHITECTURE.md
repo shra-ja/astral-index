@@ -212,6 +212,13 @@ layers, so screens can be rearranged without rewriting the flow:
   starting control when the sources return. Warp, game and history names and
   server dates come from `src-ui/src/format.ts`.
 
+Commands take their transport from a managed `Network`: HTTPS to HoYoverse in the
+app, or the synthetic HoYoverse of the mock debug binary
+([decision 0014](decisions/0014-mock-debug-binary.md)). `acquisition::mock`
+generates pages from each request's category, cursor and size for a scenario
+chosen by `ROLL_TRACKER_MOCK_SCENARIO`, sending nothing; the mock binary keeps its
+history in its own `roll-tracker-mock` folder and never uses portable mode.
+
 Base styles and the decision 0013 colour tokens live in
 `src-ui/src/assets/main.css`; each component carries its own scoped styles. A
 base rule keeps elements with the `hidden` attribute hidden whatever display a
@@ -588,6 +595,6 @@ to validate real file behavior, persistence, constraints and rollback.
 
 The test harness records backend coverage immediately after `cargo test --lib`,
 before integration execution. Every backend source file defaults to the 100%
-unit gate. Only the existing minimal `main.rs` and `build.rs` delegates use the
+unit gate. Only the minimal `main.rs`, mock binary and `build.rs` delegates use the
 separate 100% native gate, with a source-body guard preventing unnoticed expansion.
 No I/O/database functionality is exempted. See CONTRIBUTING for the mandatory policy.

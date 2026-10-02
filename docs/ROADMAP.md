@@ -265,12 +265,19 @@ the order listed.
       saved and failure screens, with the retrieval flow reporting its outcome.
       The review's roll preview and the per-category progress counts follow
       their own items.
-    - [ ] Add a mock HoYoverse debug binary, `roll-tracker-mock`: the same app
+    - [x] Add a mock HoYoverse debug binary, `roll-tracker-mock`: the same app
       with an in-process mock transport serving synthetic scenarios chosen by an
       environment variable (multi-page success, expired link, network failure,
       rate limit, no history). The shipped binary keeps no test hooks. Add a
       native smoke test that runs the full flow through it with screenshots of
-      each screen, and a command to run it by hand. Record it as a decision.
+      each screen, and a command to run it by hand. Record it as a decision
+      ([decision 0014](decisions/0014-mock-debug-binary.md)).
+    - [ ] Show friendly server names (for example "Asia" for
+      `prod_official_asia`) wherever the account's server appears, falling back
+      to the raw value for unknown servers.
+    - [ ] Replace the hand-drawn inline SVG icons with Lucide
+      (`lucide-vue-next`, ISC licence, bundled per icon), keeping the brand mark
+      and game monograms custom. No behaviour change.
     - [ ] Count the new 5★ and 4★ rolls in a save, as rows with that rarity
       among the rolls being added (not unique items), and show them on the
       Saved screen.

@@ -33,8 +33,9 @@
     "test:e2e-probe": "bwrap --unshare-net --dev-bind / / --proc /proc npm run test:e2e-probe:stages",
     "test:e2e-probe:stages": "vitest run tests/backend-coverage-stages.test.ts -t '^reset backend probe$' && npm run test:e2e-smoke && vitest run tests/backend-coverage-stages.test.ts -t '^backend JSON report$'",
     "coverage:verify": "vitest run tests/coverage-reports.test.ts",
-    "check": "npm run format:check && npm run lint:check && npm run build && npm run test:probes && npm run coverage:verify && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings",
-    "tauri": "tauri"
+    "check": "npm run format:check && npm run lint:check && npm run build && npm run test:probes && npm run coverage:verify && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings",
+    "tauri": "tauri",
+    "tauri:mock": "tauri dev --features mock -- --bin roll-tracker-mock"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

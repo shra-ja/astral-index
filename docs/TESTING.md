@@ -66,7 +66,7 @@ probe selections require the JSON preparation commands first.
 | `src-ui/src/**/*.{ts,vue}`, `src-ui/build/**/*.ts` | Vitest V8, the frontend's own run, to `coverage/frontend/` | Lines, statements, functions, branches: 100% |
 | `tooling/**/*.ts` | Vitest V8, the root `tooling` project, to `coverage/tooling/` | Lines, statements, functions, branches: 100% |
 | Backend `src-tauri/src/**/*.rs` (except `main.rs`) | cargo-llvm-cov, **unit execution only** | Lines, regions, functions, branches: 100% |
-| `src-tauri/src/main.rs`, `src-tauri/build.rs` | Separate native boundary coverage; guarded minimal delegates | Lines, regions, functions, branches: 100% |
+| `src-tauri/src/main.rs`, `src-tauri/src/bin/roll-tracker-mock.rs`, `src-tauri/build.rs` | Separate native boundary coverage; guarded minimal delegates | Lines, regions, functions, branches: 100% |
 | `src-ui/vite.config.ts`, `src-ui/eslint.config.ts`, `vitest.config.ts`, `eslint.config.ts` | None: Vitest always excludes config files; guarded one-line delegates to `src-ui/build/vite.ts`, `src-ui/build/eslint.ts`, `tooling/vitest-config.ts` and `tooling/eslint-config.ts` | Not measurable; the delegated modules are at 100% |
 
 LLVM uses executable regions rather than a distinct Rust statement metric. Zero
@@ -422,8 +422,9 @@ remain separate. There are 39 backend unit tests and 27 backend integration test
 `tests/native.test.ts` clears profiles, runs `cargo test --lib --locked --offline`,
 and saves JSON/HTML under `coverage/native-unit/` **before** running integration
 or desktop tests. The report gate checks every backend source file against that
-unit-only report. Subsequent execution produces `coverage/native/` for the two
-explicit exceptions: `src-tauri/src/main.rs` and `src-tauri/build.rs`. Each still
+unit-only report. Subsequent execution produces `coverage/native/` for the three
+explicit exceptions: `src-tauri/src/main.rs`, the mock debug binary
+`src-tauri/src/bin/roll-tracker-mock.rs` and `src-tauri/build.rs`. Each still
 requires 100% coverage. Exact source-body assertions guard these minimal delegates;
 adding behavior forces review of the exception. New Rust source defaults to the
 unit-only gate, including I/O and database functionality. This exception was

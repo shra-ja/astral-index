@@ -1,8 +1,10 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
+use crate::acquisition::mock::MockTransport;
+pub use crate::acquisition::mock::Scenario;
 use crate::acquisition::{
     AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
     HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, Transport,
-    extract_request_contexts, fetch_history, validate,
+    TransportError, extract_request_contexts, fetch_history, validate,
 };
 use crate::discovery::{
     ExtractionError,
@@ -26,7 +28,7 @@ pub const COMMANDS: &[&str] = include!("desktop/commands.in");
 
 /// Safe failure categories for the webview, sent as `{"kind": ..., "code"?: ...}`.
 /// Paths, URLs, source text, credentials and response text never cross IPC.
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", content = "code", rename_all = "snake_case")]
 pub enum Failure {
     UnsupportedHost,
@@ -214,6 +216,39 @@ impl Session {
     }
 }
 
+/// Where history requests go: HoYoverse over HTTPS in the app, or the mock debug
+/// binary's synthetic HoYoverse
+/// ([decision 0014](../../docs/decisions/0014-mock-debug-binary.md)).
+pub enum Network {
+    Https,
+    Mock(Scenario),
+}
+impl Network {
+    /// A transport for one operation; the HTTPS client is built afresh each time.
+    fn client(&self) -> Result<Client, Failure> {
+        match self {
+            Self::Https => HttpTransport::new()
+                .map(Client::Https)
+                .map_err(|_| Failure::Internal),
+            Self::Mock(scenario) => Ok(Client::Mock(MockTransport::new(*scenario))),
+        }
+    }
+}
+/// The transport a command uses: one type, so each tested function has one
+/// instantiation, which coverage scores as a whole.
+enum Client {
+    Https(HttpTransport),
+    Mock(MockTransport),
+}
+impl Transport for Client {
+    async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
+        match self {
+            Self::Https(transport) => transport.get(url).await,
+            Self::Mock(transport) => transport.get(url).await,
+        }
+    }
+}
+
 // Separate from state management so tests can check commands fail safely without it.
 fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
@@ -227,16 +262,38 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
 }
 
 /// Register the desktop commands, their in-memory session and the local database,
-/// which stays unopened until first used.
+/// which stays unopened until first used. Requests go to HoYoverse over HTTPS.
 pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
-    handle_commands(builder.manage(Session::default())).setup(|app| {
+    register_with(builder, Network::Https, database::FOLDER_NAME, true)
+}
+
+/// Register the app for the mock debug binary: requests go to a synthetic
+/// HoYoverse, and history stays in its own folder, never in portable mode, so
+/// synthetic history cannot mix with real history.
+pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Builder<R> {
+    register_with(
+        builder,
+        Network::Mock(scenario),
+        database::MOCK_FOLDER_NAME,
+        false,
+    )
+}
+
+fn register_with<R: Runtime>(
+    builder: Builder<R>,
+    network: Network,
+    folder_name: &'static str,
+    portable: bool,
+) -> Builder<R> {
+    let builder = builder.manage(Session::default()).manage(network);
+    handle_commands(builder).setup(move |app| {
         // Portable mode, or else local, not roaming, app data: history never
         // leaves the machine with a roaming Windows profile.
-        let executable = std::env::current_exe().ok();
+        let executable = std::env::current_exe().ok().filter(|_| portable);
         let local = app.path().local_data_dir().ok();
         let folder = database::location(
             executable.as_deref(),
-            local.map(|local| local.join(database::FOLDER_NAME)),
+            local.map(|local| local.join(folder_name)),
         );
         let opened = open_window(app.handle(), folder.as_deref());
         app.manage(Database::new(folder));
@@ -320,11 +377,12 @@ impl From<storage::Error> for Failure {
 /// every cached URL is dropped when this returns.
 async fn acquire(
     session: &Session,
+    network: &Network,
     extracted: Result<Vec<CachedRequest>, Failure>,
 ) -> Result<(), Failure> {
     let token = session.begin();
     let requests = extracted?;
-    let transport = HttpTransport::new().map_err(|_| Failure::Internal)?;
+    let transport = network.client()?;
     validate_into(session, &transport, &token, requests).await
 }
 
@@ -345,15 +403,20 @@ async fn validate_into(
 }
 
 // Bounded cache and log reads run synchronously on the async worker running this command.
-async fn extract_into(session: &Session) -> Result<(), Failure> {
+async fn extract_into(session: &Session, network: &Network) -> Result<(), Failure> {
     acquire(
         session,
+        network,
         extract_current_user_contexts().await.map_err(Failure::from),
     )
     .await
 }
 
-async fn extract_file_into(session: &Session, body: &InvokeBody) -> Result<(), Failure> {
+async fn extract_file_into(
+    session: &Session,
+    network: &Network,
+    body: &InvokeBody,
+) -> Result<(), Failure> {
     let extracted = match body {
         InvokeBody::Raw(bytes) => extract_request_contexts(bytes).map_err(|error| {
             if error == CacheError::TooLarge {
@@ -364,13 +427,16 @@ async fn extract_file_into(session: &Session, body: &InvokeBody) -> Result<(), F
         }),
         InvokeBody::Json(_) => Err(Failure::InvalidFile),
     };
-    acquire(session, extracted).await
+    acquire(session, network, extracted).await
 }
 
 /// Contacts HoYoverse to validate the extracted auth keys.
 #[tauri::command]
-async fn extract_automatically(session: State<'_, Session>) -> Result<(), Failure> {
-    extract_into(&session).await
+async fn extract_automatically(
+    session: State<'_, Session>,
+    network: State<'_, Network>,
+) -> Result<(), Failure> {
+    extract_into(&session, &network).await
 }
 
 /// Stop the running extraction or acquisition and drop the held context.
@@ -476,10 +542,11 @@ fn discard_import(session: State<'_, Session>) {
 async fn retrieve_history(
     session: State<'_, Session>,
     database: State<'_, Database>,
+    network: State<'_, Network>,
     on_progress: Channel<ProgressEvent>,
 ) -> Result<Retrieved, RetrievalFailure> {
-    let transport = HttpTransport::new();
-    let transport = transport.as_ref().map_err(|_| Failure::Internal);
+    let transport = network.client();
+    let transport = transport.as_ref().map_err(Clone::clone);
     retrieve_into(&session, &database, transport, &forward(&on_progress)).await
 }
 
@@ -489,8 +556,9 @@ async fn retrieve_history(
 async fn extract_from_file(
     request: Request<'_>,
     session: State<'_, Session>,
+    network: State<'_, Network>,
 ) -> Result<(), Failure> {
-    extract_file_into(&session, request.body()).await
+    extract_file_into(&session, &network, request.body()).await
 }
 
 #[cfg(test)]
@@ -669,6 +737,57 @@ mod tests {
     }
 
     #[test]
+    fn the_mock_app_keeps_its_own_data_folder_and_network() {
+        let mut app = register_mock(mock_builder(), Scenario::History)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        #[allow(deprecated)]
+        app.run_iteration(events::ignore);
+        let folder = app
+            .path()
+            .local_data_dir()
+            .unwrap()
+            .join(database::MOCK_FOLDER_NAME);
+        assert_eq!(
+            app.state::<Database>().path(),
+            Some(folder.join(database::FILE_NAME))
+        );
+        assert!(matches!(
+            *app.state::<Network>(),
+            Network::Mock(Scenario::History)
+        ));
+        assert!(app.get_webview_window("main").is_some());
+    }
+
+    #[test]
+    fn the_mock_network_validates_and_serves_history_without_any_request() {
+        http::install(Default::default());
+        let session = Session::default();
+        let network = Network::Mock(Scenario::History);
+        assert_eq!(
+            run(extract_file_into(
+                &session,
+                &network,
+                &raw(cache(&["synthetic"]))
+            )),
+            Ok(())
+        );
+        let client = network.client().unwrap();
+        let history = run(fetch_history(&client, &context("synthetic"), &|_| {})).unwrap();
+        assert_eq!(history.account().unwrap().uid(), "100000001");
+        let expired = Network::Mock(Scenario::ExpiredLink);
+        assert_eq!(
+            run(extract_file_into(
+                &session,
+                &expired,
+                &raw(cache(&["synthetic"]))
+            )),
+            Err(Failure::ExpiredKey)
+        );
+        assert!(requested().is_empty());
+    }
+
+    #[test]
     fn the_window_opens_even_without_a_data_folder() {
         let app = mock_builder().build(mock_context(noop_assets())).unwrap();
         open_window(app.handle(), None).unwrap();
@@ -706,6 +825,20 @@ mod tests {
     }
 
     #[test]
+    fn requesting_commands_fail_safely_without_a_managed_network() {
+        let app = handle_commands(mock_builder().manage(Session::default()))
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+        for command in ["extract_automatically", "extract_from_file"] {
+            let error = invoke(&window, command, raw(cache(&["synthetic"])));
+            assert!(error.unwrap_err().contains("state not managed"));
+        }
+    }
+
+    #[test]
     fn failures_cross_ipc_as_kinds_with_only_an_api_code() {
         for (failure, json) in [
             (Failure::ExpiredKey, r#"{"kind":"expired_key"}"#),
@@ -724,7 +857,10 @@ mod tests {
         respond(&[EXPIRED, PAGE]);
         let session = Session::default();
         let body = raw(cache(&["untried", "valid", "expired"]));
-        assert_eq!(run(extract_file_into(&session, &body)), Ok(()));
+        assert_eq!(
+            run(extract_file_into(&session, &Network::Https, &body)),
+            Ok(())
+        );
         assert_eq!(requested(), [url("expired"), url("valid")]);
         assert_eq!(stored(&session), Some(context("valid")));
     }
@@ -749,7 +885,10 @@ mod tests {
         });
         let session = Session::default();
         let body = raw(cache(&["valid", "expired"]));
-        assert_eq!(run(extract_file_into(&session, &body)), Ok(()));
+        assert_eq!(
+            run(extract_file_into(&session, &Network::Https, &body)),
+            Ok(())
+        );
         assert_eq!(
             requested(),
             [url("expired"), url("expired"), url("valid"), url("valid")]
@@ -1254,14 +1393,21 @@ mod tests {
         ] {
             http::install(Default::default());
             earlier();
-            assert_eq!(run(extract_file_into(&session, &body)), Err(failure));
+            assert_eq!(
+                run(extract_file_into(&session, &Network::Https, &body)),
+                Err(failure)
+            );
             assert_eq!(stored(&session), None);
             assert!(requested().is_empty());
         }
         respond(&[EXPIRED]);
         earlier();
         assert_eq!(
-            run(extract_file_into(&session, &raw(cache(&["synthetic"])))),
+            run(extract_file_into(
+                &session,
+                &Network::Https,
+                &raw(cache(&["synthetic"]))
+            )),
             Err(Failure::ExpiredKey)
         );
         assert_eq!(stored(&session), None);
@@ -1271,7 +1417,11 @@ mod tests {
         });
         earlier();
         assert_eq!(
-            run(extract_file_into(&session, &raw(cache(&["synthetic"])))),
+            run(extract_file_into(
+                &session,
+                &Network::Https,
+                &raw(cache(&["synthetic"]))
+            )),
             Err(Failure::Internal)
         );
         assert_eq!(stored(&session), None);
@@ -1313,7 +1463,7 @@ mod tests {
         });
         respond(&[PAGE]);
         let session = Session::default();
-        assert_eq!(run(extract_into(&session)), Ok(()));
+        assert_eq!(run(extract_into(&session, &Network::Https)), Ok(()));
         assert_eq!(requested(), [url("discovered")]);
         assert_eq!(stored(&session), Some(context("discovered")));
     }

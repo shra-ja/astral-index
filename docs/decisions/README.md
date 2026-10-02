@@ -44,3 +44,4 @@ offline-only acquisition assumption with user-requested HoYoverse fetching.
 - [0011 — Vue frontend](0011-vue-frontend.md)
 - [0012 — Linting and formatting](0012-linting-and-formatting.md)
 - [0013 — Visual design](0013-visual-design.md)
+- [0014 — Mock debug binary](0014-mock-debug-binary.md)

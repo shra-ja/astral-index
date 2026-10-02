@@ -1,12 +1,13 @@
-import { spawn, execFileSync } from 'node:child_process'
-import { once } from 'node:events'
+import { readFileSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { mkdirSync, readFileSync, writeFileSync, rmSync, globSync } from 'node:fs'
 import { beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
+import { ENTER, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
+// A synthetic cache file holding one warp history request.
+const cachePath = resolve('test-results/synthetic-data_2')
 beforeAll(() => {
   // Extraction now validates with HoYoverse: refuse to run where the synthetic key
   // could reach the live endpoint. The network namespace must have only loopback.
@@ -17,142 +18,87 @@ beforeAll(() => {
     .filter(Boolean)
   if (interfaces.join() !== 'lo') throw new Error('run the native test through test:offline')
   backendEnv = backendEnvironment()
-  backendCargo(['build', '--locked', '--offline'])
+  // The mock feature also builds the mock debug binary (decision 0014).
+  backendCargo(['build', '--locked', '--offline', '--features', 'mock'])
+  mkdirSync('test-results', { recursive: true })
+  writeFileSync(
+    cachePath,
+    '1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0',
+  )
 }, 600000)
+
+// Keep automatic discovery deterministic: never start Windows helpers from a WSL test host.
+const environment = (extra: NodeJS.ProcessEnv = {}) => ({
+  ...backendEnv,
+  WSL_DISTRO_NAME: '',
+  ...extra,
+})
+const textOf = (app: AppSession, selector: string) =>
+  app.execute<string | undefined>(`return document.querySelector("${selector}")?.textContent`)
+const heading = (app: AppSession) => textOf(app, 'h1')
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
 test('the bundled native shell works offline, supports keyboard navigation, and closes cleanly', async () => {
-  // Keep automatic discovery deterministic: never start Windows helpers from a WSL test host.
-  const driver = spawn('tauri-driver', [], {
-    env: { ...backendEnv, WSL_DISTRO_NAME: '' },
-    stdio: 'inherit',
-  })
-  let session = ''
-  // Surface WebDriver failures at the request boundary instead of later UI assertions.
-  const request = async <T = unknown>(path: string, method = 'GET', body?: unknown) => {
-    const response = await fetch(`http://127.0.0.1:4444${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
-    })
-    // A WebDriver response's `value` has a different shape for each command, and
-    // carries an `error` when the command failed.
-    const result = (await response.json()) as { value?: { error?: unknown } }
-    expect(result.value?.error, JSON.stringify(result)).toBeUndefined()
-    return result.value as T
-  }
+  const app = await launch('roll-tracker', environment())
   try {
-    await expect
-      .poll(
-        async () => {
-          try {
-            return (await fetch('http://127.0.0.1:4444/status')).ok
-          } catch {
-            return false
-          }
-        },
-        { timeout: 10000 },
-      )
-      .toBe(true)
-    const created = await request<{ sessionId: string }>('/session', 'POST', {
-      capabilities: {
-        alwaysMatch: {
-          'tauri:options': {
-            application: resolve('src-tauri/target/debug/roll-tracker'),
-          },
-        },
-      },
-    })
-    session = created.sessionId
     // Inspect the real webview through its active native session.
-    const execute = (script: string) =>
-      request(`/session/${session}/execute/sync`, 'POST', { script, args: [] })
-    expect(await execute('return location.protocol')).toBe('tauri:')
-    expect(await execute('return document.querySelector("h1").textContent')).toBe('Warp History')
-    expect(await execute('return document.querySelector("[role=status]").textContent')).toContain(
-      'No Warp History Yet',
-    )
-    mkdirSync('test-results', { recursive: true })
-    await request(`/session/${session}/execute/async`, 'POST', {
-      script: 'document.fonts.ready.then(() => arguments[arguments.length - 1]())',
-      args: [],
-    })
-    const history = await request<string>(`/session/${session}/screenshot`)
-    writeFileSync('test-results/e2e-history.png', Buffer.from(history, 'base64'))
+    expect(await app.execute('return location.protocol')).toBe('tauri:')
+    expect(await heading(app)).toBe('Warp History')
+    expect(await textOf(app, '[role=status]')).toContain('No Warp History Yet')
+    await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
+    await app.screenshot('e2e-history')
     // The sidebar works from the keyboard: Enter on the Import link opens that screen.
-    await execute('document.querySelector("nav a[aria-label=Import]").focus()')
-    await request(`/session/${session}/actions`, 'POST', {
-      actions: [
-        {
-          type: 'key',
-          id: 'keyboard',
-          actions: [
-            { type: 'keyDown', value: '\uE007' },
-            { type: 'keyUp', value: '\uE007' },
-          ],
-        },
-      ],
-    })
-    await expect
-      .poll(() => execute('return document.querySelector("h1").textContent'), { timeout: 5000 })
-      .toBe('Import')
-    const sources = await request<string>(`/session/${session}/screenshot`)
-    writeFileSync('test-results/e2e-import.png', Buffer.from(sources, 'base64'))
-    expect(await execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(true)
+    await app.execute('document.querySelector("nav a[aria-label=Import]").focus()')
+    await app.press(ENTER)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    await app.screenshot('e2e-import')
+    expect(await app.execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(
+      true,
+    )
     // The bundled typeface loads offline and styles the page (decision 0013).
-    const font = await request(`/session/${session}/execute/async`, 'POST', {
-      script: `
-        const done = arguments[arguments.length - 1];
-        document.fonts.ready.then(() => done({
-          family: getComputedStyle(document.body).fontFamily.split(',')[0].trim(),
-          loaded: [...document.fonts].some(
-            face => face.family.includes('Hanken Grotesk') && face.status === 'loaded'),
-        }));
-      `,
-      args: [],
-    })
+    const font = await app.executeAsync(`
+      const done = arguments[arguments.length - 1];
+      document.fonts.ready.then(() => done({
+        family: getComputedStyle(document.body).fontFamily.split(',')[0].trim(),
+        loaded: [...document.fonts].some(
+          face => face.family.includes('Hanken Grotesk') && face.status === 'loaded'),
+      }));
+    `)
     expect(font).toEqual({ family: '"Hanken Grotesk Variable"', loaded: true })
     // The window never shrinks below the 480×560 design minimum (decision 0013).
-    await request(`/session/${session}/window/rect`, 'POST', { width: 320, height: 320 })
-    expect(await execute('return { width: innerWidth, height: innerHeight }')).toEqual({
+    await app.command('/window/rect', 'POST', { width: 320, height: 320 })
+    expect(await app.execute('return { width: innerWidth, height: innerHeight }')).toEqual({
       width: 480,
       height: 560,
     })
-    const network = await request(`/session/${session}/execute/async`, 'POST', {
-      script: `
-        const done = arguments[arguments.length - 1];
-        const timeout = setTimeout(() => done(null), 1000);
-        document.addEventListener('securitypolicyviolation', event => {
-          clearTimeout(timeout);
-          done({ directive: event.effectiveDirective, disposition: event.disposition });
-        }, { once: true });
-        fetch('http://127.0.0.1:43199/csp-probe').catch(() => {});
-      `,
-      args: [],
-    })
+    const network = await app.executeAsync(`
+      const done = arguments[arguments.length - 1];
+      const timeout = setTimeout(() => done(null), 1000);
+      document.addEventListener('securitypolicyviolation', event => {
+        clearTimeout(timeout);
+        done({ directive: event.effectiveDirective, disposition: event.disposition });
+      }, { once: true });
+      fetch('http://127.0.0.1:43199/csp-probe').catch(() => {});
+    `)
     expect(network, 'CSP must block webview connections').toEqual({
       directive: 'connect-src',
       disposition: 'enforce',
     })
     // The capability grants only the manifest commands; results carry categories, never contexts.
-    const commands = await request<string[]>(`/session/${session}/execute/async`, 'POST', {
-      script: `
-        const done = arguments[arguments.length - 1];
-        const invoke = window.__TAURI_INTERNALS__.invoke;
-        Promise.all([
-          invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', JSON.stringify),
-          invoke('read_arbitrary_file').then(() => 'resolved', String),
-          invoke('cancel_acquisition').then(() => 'resolved', String),
-          invoke('retrieve_history', {
-            onProgress: '__CHANNEL__:' + window.__TAURI_INTERNALS__.transformCallback(() => {}),
-          }).then(() => 'resolved', JSON.stringify),
-          invoke('commit_import').then(() => 'resolved', JSON.stringify),
-          invoke('discard_import').then(() => 'resolved', String),
-        ]).then(done);
-      `,
-      args: [],
-    })
+    const commands = await app.executeAsync<string[]>(`
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      Promise.all([
+        invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', JSON.stringify),
+        invoke('read_arbitrary_file').then(() => 'resolved', String),
+        invoke('cancel_acquisition').then(() => 'resolved', String),
+        invoke('retrieve_history', {
+          onProgress: '__CHANNEL__:' + window.__TAURI_INTERNALS__.transformCallback(() => {}),
+        }).then(() => 'resolved', JSON.stringify),
+        invoke('commit_import').then(() => 'resolved', JSON.stringify),
+        invoke('discard_import').then(() => 'resolved', String),
+      ]).then(done);
+    `)
     expect(commands[0]).toBe('{"kind":"no_request"}')
     expect(commands[1]).toContain('not allowed')
     expect(commands[2]).toBe('resolved')
@@ -163,63 +109,100 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     expect(commands[5]).toBe('resolved')
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
-    await execute('document.querySelector(".retrieval button").focus()')
-    await request(`/session/${session}/actions`, 'POST', {
-      actions: [
-        {
-          type: 'key',
-          id: 'keyboard',
-          actions: [
-            { type: 'keyDown', value: '\uE007' },
-            { type: 'keyUp', value: '\uE007' },
-          ],
-        },
-      ],
-    })
-    const failure = 'return document.querySelector(".failed")?.textContent'
+    await app.execute('document.querySelector(".retrieval button").focus()')
+    await app.press(ENTER)
     await expect
-      .poll(() => execute(failure), { timeout: 10000 })
+      .poll(() => textOf(app, '.failed'), { timeout: 10000 })
       .toContain('Automatic search needs Windows')
-    mkdirSync('test-results', { recursive: true })
-    const cachePath = resolve('test-results/synthetic-data_2')
-    writeFileSync(
-      cachePath,
-      '1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0',
-    )
-    const input = await request<Record<string, string>>(`/session/${session}/element`, 'POST', {
-      using: 'css selector',
-      value: '#retry-cache-file',
-    })
-    await request(`/session/${session}/element/${Object.values(input)[0]}/value`, 'POST', {
-      text: cachePath,
-    })
+    await app.chooseFile('#retry-cache-file', cachePath)
     await expect
-      .poll(() => execute(failure), { timeout: 10000 })
+      .poll(() => textOf(app, '.failed'), { timeout: 10000 })
       .toContain('We couldn’t reach HoYoverse.')
     // The narrow window collapses the sidebar to icons.
     expect(
-      await execute('return getComputedStyle(document.querySelector("nav .local .text")).display'),
+      await app.execute(
+        'return getComputedStyle(document.querySelector("nav .local .text")).display',
+      ),
     ).toBe('none')
-    rmSync(cachePath)
-    const screenshot = await request<string>(`/session/${session}/screenshot`)
-    writeFileSync('test-results/e2e-smoke.png', Buffer.from(screenshot, 'base64'))
-    const windowId = execFileSync('xdotool', ['search', '--name', '^Roll Tracker$'], {
-      encoding: 'utf8',
-    })
-      .trim()
-      .split('\n')[0]
-    const pid = execFileSync('xdotool', ['getwindowpid', windowId], { encoding: 'utf8' }).trim()
-    execFileSync('python3', ['tests/close-window-helper.py', windowId])
-    await expect
-      .poll(() => globSync(`src-tauri/target/src-tauri-${pid}-*.profraw`).length, {
-        timeout: 10000,
-      })
-      .toBeGreaterThan(0)
+    await app.screenshot('e2e-smoke')
+    await app.close()
   } finally {
-    if (session) {
-      await fetch(`http://127.0.0.1:4444/session/${session}`, { method: 'DELETE' }).catch(() => {})
-    }
-    driver.kill('SIGTERM')
-    await once(driver, 'exit')
+    await app.dispose()
+  }
+}, 60000)
+
+// The mock debug binary answers from a synthetic HoYoverse (decision 0014), so the whole
+// flow runs with no network. Its history goes to its own folder in a fresh data home.
+async function launchMock(scenario: string) {
+  const data = resolve('test-results/mock-data')
+  rmSync(data, { recursive: true, force: true })
+  const app = await launch(
+    'roll-tracker-mock',
+    environment({ XDG_DATA_HOME: data, ROLL_TRACKER_MOCK_SCENARIO: scenario }),
+  )
+  return { app, database: resolve(data, 'roll-tracker-mock/history.sqlite') }
+}
+async function retrieveFromFile(app: AppSession) {
+  // The first screen renders once the router has resolved it.
+  await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+  await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
+  await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+  await app.chooseFile('#cache-file', cachePath)
+}
+const click = (app: AppSession, container: string, name: string) =>
+  app.execute(
+    `[...document.querySelectorAll("${container} button")].find(b => b.textContent.trim() === ${JSON.stringify(name)}).click()`,
+  )
+
+test('the mock binary retrieves, reviews and saves synthetic history, which persists', async () => {
+  const { app, database } = await launchMock('history')
+  try {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.progress [role=status]'), { timeout: 10000 })
+      .toContain('Retrieving')
+    await app.screenshot('e2e-mock-progress')
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Ready to save 2,060 new rolls')
+    expect(await heading(app)).toBe('Review Import')
+    expect(await textOf(app, '.review .account')).toContain('100000001')
+    await app.screenshot('e2e-mock-review')
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    await app.screenshot('e2e-mock-saved')
+    expect(existsSync(database)).toBe(true)
+    // A second retrieval finds everything already saved.
+    await click(app, '.saved', 'Done')
+    await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Everything here is already saved')
+    await click(app, '.review', 'Done')
+    await expect
+      .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
+      .toContain('Your saved history is already up to date.')
+    await app.close()
+  } finally {
+    await app.dispose()
+  }
+}, 120000)
+
+test('a mock retrieval that loses the network says where it stopped and saves nothing', async () => {
+  const { app, database } = await launchMock('network-failure')
+  try {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.failed h2'), { timeout: 30000 })
+      .toBe('Couldn’t Reach HoYoverse')
+    expect(await textOf(app, '.failed')).toContain(
+      'Retrieval stopped at Light Cone Event Warp, page 1.',
+    )
+    await app.screenshot('e2e-mock-failed')
+    expect(existsSync(database)).toBe(false)
+    await app.close()
+  } finally {
+    await app.dispose()
+    rmSync(cachePath, { force: true })
   }
 }, 60000)

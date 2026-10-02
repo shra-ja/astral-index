@@ -63,11 +63,9 @@ h2 {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+/* The heading takes focus only so it is announced; it is not a control. */
 h2:focus {
   outline: none;
-}
-h2:focus-visible {
-  outline: 2px solid var(--accent);
 }
 p {
   margin: 0;
