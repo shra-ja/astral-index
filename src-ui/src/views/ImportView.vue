@@ -1,20 +1,28 @@
 <script setup lang="ts">
-// The Import screen. Star Rail offers retrieval; Genshin Impact's is coming soon.
-// The retrieval flow's state comes from the shell, so it survives leaving this
-// screen; this view wires it to the components and moves focus as the flow changes.
-import { inject, useTemplateRef, watch } from 'vue'
-import RetrievalStart from '../components/RetrievalStart.vue'
+// The Import screen: the sources, then retrieval's progress, review and outcome, one
+// screen at a time. Only Star Rail has retrieval; Genshin Impact's sources say it is
+// coming soon. The flow's state comes from the shell, so it survives leaving this
+// screen. Each step focuses itself as it appears; the start refocuses the control
+// that began retrieval when it returns.
+import { computed, inject, useTemplateRef, watch } from 'vue'
+import { RouterLink } from 'vue-router'
+import ImportFailed from '../components/ImportFailed.vue'
+import ImportSaved from '../components/ImportSaved.vue'
+import ImportSources from '../components/ImportSources.vue'
+import RetrievalProgress from '../components/RetrievalProgress.vue'
 import ReviewPanel from '../components/ReviewPanel.vue'
 import ScreenHeader from '../components/ScreenHeader.vue'
 import { retrievalKey } from '../composables/retrieval'
-import { games, type Game } from '../format'
+import { games, terms, type Game } from '../format'
 
-defineProps<{ game: Game }>()
+const props = defineProps<{ game: Game }>()
 const {
   phase,
   source,
+  stage,
   status,
   review,
+  outcome,
   cancelling,
   searchDevice,
   readFile,
@@ -22,17 +30,27 @@ const {
   save,
   discard,
   done,
+  dismiss,
 } = inject(retrievalKey)!
-const start = useTemplateRef('start')
-const cancelButton = useTemplateRef('cancelButton')
 
-// Cancel takes focus while retrieval runs; the control that started it gets focus
-// back when it ends. The review takes focus itself as it appears.
+const available = computed(() => props.game === 'honkai-star-rail')
+const step = computed(() => {
+  if (!available.value) return 'start'
+  if (phase.value === 'acquiring') return 'progress'
+  if (review.value) return 'review'
+  return outcome.value?.kind === 'saved' || outcome.value?.kind === 'failed'
+    ? outcome.value.kind
+    : 'start'
+})
+const note = computed(() =>
+  available.value && outcome.value?.kind === 'note' ? outcome.value.message : undefined,
+)
+
+const sources = useTemplateRef('sources')
 watch(
-  phase,
+  step,
   (now) => {
-    if (now === 'acquiring') cancelButton.value!.focus()
-    if (now === 'idle') start.value!.focus(source.value)
+    if (now === 'start') sources.value!.focus(source.value)
   },
   { flush: 'post' },
 )
@@ -40,76 +58,65 @@ watch(
 
 <template>
   <main>
-    <ScreenHeader title="Import" :game="games[game]" />
-    <div class="body">
-      <p class="soon" :hidden="game === 'honkai-star-rail'">
-        Retrieval for {{ games[game] }} is coming soon.
-      </p>
-      <div
-        class="retrieval"
-        :aria-busy="phase === 'acquiring' || phase === 'saving'"
-        :hidden="game !== 'honkai-star-rail'"
-      >
-        <RetrievalStart
-          ref="start"
-          :hidden="phase !== 'idle'"
-          @search="searchDevice"
-          @choose="readFile"
-        />
-        <p class="extraction-status" role="status" aria-live="polite" aria-atomic="true">
-          {{ status }}
-        </p>
-        <button
-          ref="cancelButton"
-          type="button"
-          class="cancel secondary"
-          :hidden="phase !== 'acquiring'"
-          :disabled="cancelling"
-          @click="cancel"
-        >
-          Cancel
-        </button>
-        <ReviewPanel
-          v-if="review"
-          :review
-          :busy="phase !== 'reviewing'"
-          @save="save"
-          @discard="discard"
-          @done="done"
-        />
-      </div>
+    <ScreenHeader :title="step === 'review' ? 'Review Import' : 'Import'" :game="games[game]" />
+    <div class="retrieval" :class="step" :aria-busy="phase === 'acquiring' || phase === 'saving'">
+      <ImportSources
+        v-if="step === 'start'"
+        ref="sources"
+        :term="terms[game]"
+        :game="games[game]"
+        :available
+        :note
+        @search="searchDevice"
+        @choose="readFile"
+      />
+      <RetrievalProgress
+        v-else-if="step === 'progress'"
+        :term="terms[game]"
+        :source
+        :stage
+        :status
+        :cancelling
+        @cancel="cancel"
+      />
+      <ReviewPanel
+        v-else-if="step === 'review'"
+        :review="review!"
+        :busy="phase !== 'reviewing'"
+        @save="save"
+        @discard="discard"
+        @done="done"
+      />
+      <ImportSaved v-else-if="outcome?.kind === 'saved'" :saved="outcome" @done="dismiss">
+        <RouterLink class="button" :to="{ name: 'history', params: { game } }" @click="dismiss">
+          View {{ terms[game].toLowerCase() }} history
+        </RouterLink>
+      </ImportSaved>
+      <ImportFailed
+        v-else-if="outcome?.kind === 'failed'"
+        :title="outcome.title"
+        :message="outcome.message"
+        :source
+        @retry="searchDevice"
+        @choose="readFile"
+        @back="dismiss"
+      />
     </div>
   </main>
 </template>
 
 <style scoped>
-.body {
+.retrieval {
+  display: flex;
+  flex-direction: column;
   flex-grow: 1;
+  min-height: 0;
   padding: clamp(24px, 4vh, 40px) var(--gutter);
   overflow-y: auto;
 }
-.soon {
-  color: var(--text-secondary);
-  font-size: 15px;
-}
-.retrieval {
-  max-width: 640px;
-  padding: 28px 24px 32px;
-  border: 1px solid var(--rim);
-  border-radius: 14px;
-  background: var(--panel);
-  text-align: center;
-}
-.extraction-status {
-  max-width: 460px;
-  margin: 20px auto 0;
-  color: var(--text-soft);
-  line-height: 1.5;
-}
-.extraction-status:empty {
-  display: none;
-}
-.cancel {
-  margin-top: 16px;
+/* The review lays out its own scrolling body and fixed footer. */
+.retrieval.review {
+  padding: 0;
+  overflow: hidden;
 }
 </style>

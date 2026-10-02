@@ -1419,12 +1419,40 @@ passed: formatting, lint, build, 142 Rust unit tests, 124 frontend and 36
 tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` also passed.
 
+## Import screens (2026-10-02)
+
+Work is on `feat/import-screens`. The Import screen now follows decision 0013,
+one step at a time: the sources (retrieval by search or a chosen cache file;
+file import shown as coming soon; Genshin Impact's disabled), a progress screen
+marking each step with the live status and Cancel, the review (account, summary
+strip, server-time period, per-warp table, conflicts, and a fixed footer with
+Save, Discard or Done), a Saved screen linking to the history, and a Failed
+screen headed by the failure's kind with Try again (device searches), "Choose
+cache file…" and Back. Cancels, discards and up-to-date or empty retrievals
+return to the sources with a note. The retrieval composable now reports its
+stage and outcome instead of a closing status sentence, and failure kinds have
+titles. The review's roll preview and per-category progress counts remain their
+own roadmap items.
+
+TDD: the composable and message tests failed on the previous code (39 red); the
+component tests for the sources, picker, progress, saved and failed screens and
+the restyled review failed before the components existed, as did the rewritten
+app tests (21 red in total). The native smoke test now reaches the Failed screen
+from the automatic search and chooses the cache file there, through WebDriver's
+file upload to the visually hidden input. It saves `test-results/e2e-import.png`.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 142 Rust unit tests, 160 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` also passed.
+
 ## Next
 
 Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)): next, restyle the Import
-screens (sources, progress, review, saved and failure screens), with the
-retrieval flow reporting its outcome. Incremental retrieval is an optional design step.
+([decision 0013](decisions/0013-visual-design.md)): next, a mock HoYoverse
+debug binary so the full flow, including the Progress, Review and Saved screens,
+can be tested natively without a real retrieval; then the new 5★ and 4★ counts
+on the Saved screen, and the native command for a page of stored rolls. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

@@ -7,7 +7,9 @@ import {
   fileMessages,
   progressText,
   retrievalFailure,
-  savedText,
+  savedDetail,
+  savedTitle,
+  titleOf,
 } from './messages'
 
 // Validation failures read the same for automatic and file extraction.
@@ -148,17 +150,50 @@ test('progress names each warp and page with the rolls so far, or a pending retr
   )
 })
 
-test('a save says what was added, and what was already saved only when there was some', () => {
-  expect(savedText({ inserted: 412, duplicates: 88, conflicts: 0 })).toBe(
-    'Saved 412 new rolls to this device. 88 were already saved.',
+test('a save is headed by what was added, and says what was already saved only when there was some', () => {
+  const saved = (inserted: number, duplicates: number) => ({
+    summary: { inserted, duplicates, conflicts: 0 },
+    uid: '100000001',
+    server: 'synthetic-server',
+  })
+  expect(savedTitle(saved(214, 1816))).toBe('214 Rolls Saved')
+  expect(savedTitle(saved(1, 0))).toBe('1 Roll Saved')
+  expect(savedTitle(saved(1200, 0))).toBe('1,200 Rolls Saved')
+  expect(savedDetail(saved(214, 1816))).toBe(
+    'Added to UID 100000001 (synthetic-server). 1,816 rolls you already had were left as they were.',
   )
-  expect(savedText({ inserted: 1, duplicates: 1, conflicts: 0 })).toBe(
-    'Saved 1 new roll to this device. 1 was already saved.',
+  expect(savedDetail(saved(2, 1))).toBe(
+    'Added to UID 100000001 (synthetic-server). 1 roll you already had was left as it was.',
   )
-  expect(savedText({ inserted: 3, duplicates: 0, conflicts: 0 })).toBe(
-    'Saved 3 new rolls to this device.',
-  )
-  expect(savedText({ inserted: 1200, duplicates: 1500, conflicts: 0 })).toBe(
-    'Saved 1,200 new rolls to this device. 1,500 were already saved.',
-  )
+  expect(savedDetail(saved(3, 0))).toBe('Added to UID 100000001 (synthetic-server).')
+})
+
+test.each<[Kind, string]>([
+  ['expired_key', 'The Warp History Link Has Expired'],
+  ['api_error', 'HoYoverse Didn’t Accept the Link'],
+  ['unsupported_host', 'Couldn’t Find the Game Files'],
+  ['discovery_failed', 'Couldn’t Find the Game Files'],
+  ['no_game_data', 'Couldn’t Find the Game Files'],
+  ['no_cache', 'Couldn’t Find the Game Files'],
+  ['no_request', 'Couldn’t Find a Warp History Link'],
+  ['file_too_large', 'Couldn’t Read That File'],
+  ['invalid_file', 'Couldn’t Read That File'],
+  ['network', 'Couldn’t Reach HoYoverse'],
+  ['internal', 'Couldn’t Reach HoYoverse'],
+  ['rate_limited', 'HoYoverse Is Busy'],
+  ['rejected', 'HoYoverse Sent an Unexpected Response'],
+  ['invalid_response', 'HoYoverse Sent an Unexpected Response'],
+  ['conflict', 'Nothing Was Saved'],
+  ['stale_preview', 'Nothing Was Saved'],
+  ['no_preview', 'Nothing Was Saved'],
+  ['storage', 'Nothing Was Saved'],
+  ['context_mismatch', 'Nothing Was Saved'],
+  ['history_too_large', 'Retrieval Didn’t Finish'],
+  ['mixed_accounts', 'Retrieval Didn’t Finish'],
+  ['missing_server', 'Retrieval Didn’t Finish'],
+  ['no_context', 'Retrieval Didn’t Finish'],
+  ['cancelled', 'Retrieval Cancelled'],
+  ['unavailable', 'Something Went Wrong'],
+])('a %s failure is headed %s', (kind, title) => {
+  expect(titleOf({ kind })).toBe(title)
 })

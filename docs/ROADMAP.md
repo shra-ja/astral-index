@@ -261,10 +261,19 @@ the order listed.
       per game, opening on Star Rail's History. Move the existing retrieval flow
       onto the Import screen; Genshin Impact's Import screen says retrieval is
       coming soon.
-    - [ ] Restyle the Import screens to the design: sources, progress, review,
+    - [x] Restyle the Import screens to the design: sources, progress, review,
       saved and failure screens, with the retrieval flow reporting its outcome.
       The review's roll preview and the per-category progress counts follow
       their own items.
+    - [ ] Add a mock HoYoverse debug binary, `roll-tracker-mock`: the same app
+      with an in-process mock transport serving synthetic scenarios chosen by an
+      environment variable (multi-page success, expired link, network failure,
+      rate limit, no history). The shipped binary keeps no test hooks. Add a
+      native smoke test that runs the full flow through it with screenshots of
+      each screen, and a command to run it by hand. Record it as a decision.
+    - [ ] Count the new 5★ and 4★ rolls in a save, as rows with that rarity
+      among the rolls being added (not unique items), and show them on the
+      Saved screen.
     - [ ] Add a native command returning one page of an account's stored rolls
       for one banner category, newest first. Order by time, then by numeric roll
       ID within the same second, matching the observed descending API order;

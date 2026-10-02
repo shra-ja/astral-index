@@ -70,6 +70,7 @@ test('starts idle, with nothing to say or review', () => {
   expect(flow.phase.value).toBe('idle')
   expect(flow.status.value).toBe('')
   expect(flow.review.value).toBeUndefined()
+  expect(flow.outcome.value).toBeUndefined()
   expect(flow.cancelling.value).toBe(false)
 })
 
@@ -81,9 +82,11 @@ test('searching the device validates, retrieves with progress, then shows the re
   void flow.searchDevice()
   expect(flow.phase.value).toBe('acquiring')
   expect(flow.source.value).toBe('device')
+  expect(flow.stage.value).toBe('finding')
   expect(flow.status.value).toBe('Searching this device, then checking with HoYoverse…')
   extraction.resolve(undefined)
   await settle()
+  expect(flow.stage.value).toBe('downloading')
   expect(flow.status.value).toBe('Retrieving your warp history…')
   retrieval.progress({ kind: 'requesting', gacha_type: '11', page: 2, pages: 1, records: 1532 })
   expect(flow.status.value).toBe('Retrieving Character Event Warp, page 2 · 1,532 rolls so far')
@@ -107,7 +110,11 @@ test('a chosen file is read instead of searching, and its failures are explained
   expect(extractAutomatically).not.toHaveBeenCalled()
   expect(retrieveHistory).not.toHaveBeenCalled()
   expect(flow.phase.value).toBe('idle')
-  expect(flow.status.value).toContain('That file doesn’t contain a warp history request.')
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Couldn’t Find a Warp History Link',
+    message: expect.stringContaining('That file doesn’t contain a warp history request.'),
+  })
 })
 
 test('a failed search is explained, and nothing is retrieved', async () => {
@@ -116,7 +123,11 @@ test('a failed search is explained, and nothing is retrieved', async () => {
   void flow.searchDevice()
   await settle()
   expect(flow.phase.value).toBe('idle')
-  expect(flow.status.value).toContain('We found the game, but not its web cache.')
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Couldn’t Find the Game Files',
+    message: expect.stringContaining('We found the game, but not its web cache.'),
+  })
   expect(retrieveHistory).not.toHaveBeenCalled()
 })
 
@@ -128,9 +139,12 @@ test('a failed retrieval says where it stopped', async () => {
   void flow.searchDevice()
   await settle()
   expect(flow.phase.value).toBe('idle')
-  expect(flow.status.value).toBe(
-    'Retrieval stopped at Stellar Warp, page 3. We couldn’t reach HoYoverse. Check your internet connection, then try again.',
-  )
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Couldn’t Reach HoYoverse',
+    message:
+      'Retrieval stopped at Stellar Warp, page 3. We couldn’t reach HoYoverse. Check your internet connection, then try again.',
+  })
 })
 
 test('no history is reported without a review', async () => {
@@ -140,9 +154,10 @@ test('no history is reported without a review', async () => {
   await settle()
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
-  expect(flow.status.value).toBe(
-    'HoYoverse returned no warp history for this account. Nothing was saved.',
-  )
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'HoYoverse returned no warp history for this account. Nothing was saved.',
+  })
 })
 
 test('cancelling during validation stops before retrieval, even if validation succeeds', async () => {
@@ -158,7 +173,21 @@ test('cancelling during validation stops before retrieval, even if validation su
   await settle()
   expect(retrieveHistory).not.toHaveBeenCalled()
   expect(flow.phase.value).toBe('idle')
-  expect(flow.status.value).toBe('Retrieval cancelled. Nothing was saved.')
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'Retrieval cancelled. Nothing was saved.',
+  })
+})
+
+test('a cancel that the native side reports as a failure is a note, not a failure', async () => {
+  vi.mocked(extractAutomatically).mockResolvedValue({ kind: 'cancelled' })
+  const flow = useRetrieval()
+  void flow.searchDevice()
+  await settle()
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'Retrieval cancelled. Nothing was saved.',
+  })
 })
 
 test('a cancel that arrives as retrieval finishes discards it, and the next attempt starts afresh', async () => {
@@ -174,10 +203,11 @@ test('a cancel that arrives as retrieval finishes discards it, and the next atte
   await settle()
   expect(discardImport).toHaveBeenCalledOnce()
   expect(flow.review.value).toBeUndefined()
-  expect(flow.status.value).toBe('Retrieval cancelled. Nothing was saved.')
+  expect(flow.outcome.value?.kind).toBe('note')
   vi.mocked(retrieveHistory).mockResolvedValue(retrieved(2))
   void flow.searchDevice()
   expect(flow.cancelling.value).toBe(false)
+  expect(flow.outcome.value).toBeUndefined()
   await settle()
   expect(flow.review.value?.summary.inserted).toBe(2)
 })
@@ -208,7 +238,14 @@ test('saving reports what was added and ends the review', async () => {
   await settle()
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
-  expect(flow.status.value).toBe('Saved 2 new rolls to this device. 88 were already saved.')
+  expect(flow.outcome.value).toEqual({
+    kind: 'saved',
+    summary: { inserted: 2, duplicates: 88, conflicts: 0 },
+    uid: '100000001',
+    server: 'synthetic-server',
+  })
+  flow.dismiss()
+  expect(flow.outcome.value).toBeUndefined()
 })
 
 test('a failed save is explained and ends the review', async () => {
@@ -217,9 +254,11 @@ test('a failed save is explained and ends the review', async () => {
   await flow.save()
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
-  expect(flow.status.value).toBe(
-    'Your saved history changed since this review. Start retrieval again.',
-  )
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Nothing Was Saved',
+    message: 'Your saved history changed since this review. Start retrieval again.',
+  })
 })
 
 test.each([
@@ -236,5 +275,5 @@ test.each([
   expect(commitImport).not.toHaveBeenCalled()
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
-  expect(flow.status.value).toBe(message)
+  expect(flow.outcome.value).toEqual({ kind: 'note', message })
 })
