@@ -281,7 +281,7 @@ the order listed.
     - [x] Count the new 5★ and 4★ rolls in a save, as rows with that rarity
       among the rolls being added (not unique items), and show them on the
       Saved screen.
-    - [ ] Add a native command returning one page of an account's stored rolls
+    - [x] Add a native command returning one page of an account's stored rolls
       for one banner category, newest first. Order by time, then by numeric roll
       ID within the same second, matching the observed descending API order;
       page in Rust.

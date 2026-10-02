@@ -5,4 +5,5 @@
     "retrieve_history",
     "commit_import",
     "discard_import",
+    "history_page",
 ]

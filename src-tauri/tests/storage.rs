@@ -1,4 +1,5 @@
-use roll_tracker::storage::{Error, Store, Summary};
+use roll_tracker::acquisition::Category;
+use roll_tracker::storage::{Account, Error, Store, Summary};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -723,4 +724,91 @@ fn ambiguous_stored_json_is_rejected_before_deserialization() {
         )
         .unwrap();
     assert_eq!(store.history(UID, SERVER), Err(Error::InvalidStoredData));
+}
+
+#[test]
+fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
+    let db = Database::new();
+    let mut store = db.store();
+    assert_eq!(store.latest_account().unwrap(), None);
+    // Same-second rolls order by numeric ID, so a longer ID is newer.
+    let rolls = [
+        ("1000000000000000000", "11", "2026-09-28 21:14:03"),
+        ("999999999999999999", "11", "2026-09-28 21:14:03"),
+        ("1000000000000000005", "11", "2026-09-27 10:00:00"),
+        ("1000000000000000009", "11", "2026-09-29 08:30:00"),
+        ("1000000000000000010", "1", "2026-09-30 12:00:00"),
+    ];
+    let bytes = page(|p| {
+        let template = p["data"]["list"][0].clone();
+        p["data"]["list"] = rolls
+            .iter()
+            .map(|(id, gacha_type, time)| {
+                let mut roll = template.clone();
+                roll["id"] = json!(id);
+                roll["gacha_type"] = json!(gacha_type);
+                roll["time"] = json!(time);
+                roll
+            })
+            .collect();
+    });
+    import(&mut store, &bytes);
+    let listed = |offset, limit| {
+        let page = store
+            .page(UID, SERVER, Category::CharacterEvent, offset, limit)
+            .unwrap();
+        let rolls: Vec<_> = page
+            .rolls
+            .iter()
+            .map(|roll| (roll.number, roll.id.clone()))
+            .collect();
+        (page.total, rolls)
+    };
+    assert_eq!(
+        listed(0, 2),
+        (
+            4,
+            vec![
+                (4, "1000000000000000009".into()),
+                (3, "1000000000000000000".into())
+            ]
+        )
+    );
+    assert_eq!(
+        listed(2, 2),
+        (
+            4,
+            vec![
+                (2, "999999999999999999".into()),
+                (1, "1000000000000000005".into())
+            ]
+        )
+    );
+    assert_eq!(listed(4, 2), (4, vec![]));
+    let stellar = store.page(UID, SERVER, Category::Stellar, 0, 20).unwrap();
+    assert_eq!((stellar.total, stellar.rolls.len()), (1, 1));
+    // Another account's history stays apart, and becomes the latest once imported.
+    assert_eq!(
+        store
+            .page("100000003", SERVER, Category::CharacterEvent, 0, 20)
+            .unwrap()
+            .total,
+        0
+    );
+    assert_eq!(
+        store.latest_account().unwrap(),
+        Some(Account {
+            uid: UID.into(),
+            server: SERVER.into(),
+            timezone: Some(8)
+        })
+    );
+    let other = page(|p| {
+        for roll in p["data"]["list"].as_array_mut().unwrap() {
+            roll["uid"] = json!("100000003");
+        }
+    });
+    let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
+    store.commit(preview, 1235).unwrap();
+    assert_eq!(store.latest_account().unwrap().unwrap().uid, "100000003");
 }

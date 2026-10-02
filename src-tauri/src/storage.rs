@@ -128,6 +128,35 @@ impl Preview {
     }
 }
 
+/// The account an import last went into. Holds a player identifier: never log it.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Account {
+    pub uid: String,
+    pub server: String,
+    /// UTC offset in hours of the server-local times, when known.
+    pub timezone: Option<i32>,
+}
+
+/// One page of an account's rolls in one category, newest first, for display.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct HistoryPage {
+    /// Rolls in the category altogether, so callers can page through them.
+    pub total: usize,
+    pub rolls: Vec<StoredRoll>,
+}
+
+/// A stored roll as the history list shows it. `number` is its position in the
+/// category, counting from 1 at the oldest stored roll.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct StoredRoll {
+    pub number: usize,
+    pub id: String,
+    pub name: String,
+    pub item_type: String,
+    pub rank_type: String,
+    pub time: String,
+}
+
 /// Keeps local history access and transactional import rules behind one boundary.
 pub struct Store {
     connection: Connection,
@@ -328,15 +357,89 @@ impl Store {
         let mut records = Vec::new();
         for row in rows {
             let (id, payload) = row?;
-            crate::validate_json(payload.as_bytes())?;
-            let record: Roll = serde_json::from_str(&payload)?;
-            if record.uid != uid || record.id != id || !crate::hsr::valid_roll(&record) {
-                return Err(Error::InvalidStoredData);
-            }
-            records.push(record);
+            records.push(stored(uid, &id, &payload)?);
         }
         Ok(records)
     }
+
+    /// The account an import last went into, if any.
+    pub fn latest_account(&self) -> Result<Option<Account>, Error> {
+        Ok(self
+            .connection
+            .query_row(
+                "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1",
+                params![GAME],
+                |row| {
+                    Ok(Account {
+                        uid: row.get(0)?,
+                        server: row.get(1)?,
+                        timezone: row.get(2)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    /// One page of an account's rolls in `category`, newest first: by server time,
+    /// then by numeric roll ID within the same second, which matches the descending
+    /// order HoYoverse lists them in. Digit-only IDs order numerically by length,
+    /// then text.
+    pub fn page(
+        &self,
+        uid: &str,
+        server: &str,
+        category: Category,
+        offset: usize,
+        limit: usize,
+    ) -> Result<HistoryPage, Error> {
+        let code = category.code();
+        let total: i64 = self.connection.query_row(
+            "SELECT count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4",
+            params![GAME, uid, server, code],
+            |row| row.get(0),
+        )?;
+        // A count is never negative.
+        let total = usize::try_from(total).unwrap_or_default();
+        let mut statement = self.connection.prepare(
+            "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6",
+        )?;
+        let (limit, offset_value) = (
+            i64::try_from(limit).unwrap_or(i64::MAX),
+            i64::try_from(offset).unwrap_or(i64::MAX),
+        );
+        let rows = statement.query_map(
+            params![GAME, uid, server, code, limit, offset_value],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )?;
+        let mut rolls = Vec::new();
+        for (index, row) in rows.enumerate() {
+            let (id, payload) = row?;
+            let roll = stored(uid, &id, &payload)?;
+            if roll.gacha_type != code {
+                return Err(Error::InvalidStoredData);
+            }
+            rolls.push(StoredRoll {
+                number: total.saturating_sub(offset + index),
+                id: roll.id,
+                name: roll.name,
+                item_type: roll.item_type,
+                rank_type: roll.rank_type,
+                time: roll.time,
+            });
+        }
+        Ok(HistoryPage { total, rolls })
+    }
+}
+
+/// A stored roll, checked against its row's identity and the roll rules again, so
+/// a damaged database is reported rather than shown.
+fn stored(uid: &str, id: &str, payload: &str) -> Result<Roll, Error> {
+    crate::validate_json(payload.as_bytes())?;
+    let record: Roll = serde_json::from_str(payload)?;
+    if record.uid != uid || record.id != id || !crate::hsr::valid_roll(&record) {
+        return Err(Error::InvalidStoredData);
+    }
+    Ok(record)
 }
 
 /// Block merges that would silently change how an account's source times are interpreted.
@@ -423,6 +526,9 @@ pub(crate) mod tests {
         "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
     const HISTORY: &str =
         "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
+    const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
+    const COUNT: &str = "SELECT count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4";
+    const PAGE_ROWS: &str = "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6";
     pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
     }
@@ -1031,5 +1137,147 @@ pub(crate) mod tests {
     }
     fn text_json(value: &str) -> serde_json::Value {
         serde_json::Value::String(value.into())
+    }
+
+    #[test]
+    fn the_latest_account_is_the_one_most_recently_imported_into() {
+        let latest = |found: Vec<Vec<Value>>| {
+            database::expect(vec![latest_step(found)]);
+            let account = store().latest_account();
+            database::finish();
+            account
+        };
+        assert_eq!(
+            latest(vec![vec![text(UID), text(SERVER), Value::Integer(8)]]),
+            Ok(Some(Account {
+                uid: UID.into(),
+                server: SERVER.into(),
+                timezone: Some(8),
+            }))
+        );
+        assert_eq!(
+            latest(vec![vec![text(UID), text(SERVER), Value::Null]]),
+            Ok(Some(Account {
+                uid: UID.into(),
+                server: SERVER.into(),
+                timezone: None,
+            }))
+        );
+        assert_eq!(latest(vec![]), Ok(None));
+        for unreadable in [
+            vec![Value::Null, text(SERVER), Value::Integer(8)],
+            vec![text(UID), Value::Null, Value::Integer(8)],
+            vec![text(UID), text(SERVER), text("8")],
+        ] {
+            assert_eq!(latest(vec![unreadable]), Err(Error::Database));
+        }
+        fail_each(
+            &|| vec![rows(LATEST, vec![text(GAME)], vec![])],
+            None,
+            &mut || store().latest_account().map(|_| ()),
+        );
+    }
+
+    /// The SQL for finding the latest account, answered with `found`.
+    pub(crate) fn latest_step(found: Vec<Vec<Value>>) -> Step {
+        rows(LATEST, vec![text(GAME)], found)
+    }
+    /// The latest account as the fixture's: its UID, server and offset.
+    pub(crate) fn latest_row() -> Vec<Value> {
+        vec![text(UID), text(SERVER), Value::Integer(8)]
+    }
+    /// The SQL for a Character Event Warp page of the fixture account.
+    pub(crate) fn page_script(
+        total: i64,
+        offset: i64,
+        limit: i64,
+        rows_data: Vec<Vec<Value>>,
+    ) -> Vec<Step> {
+        let mut count = scope();
+        count.push(text("11"));
+        let mut bindings = count.clone();
+        bindings.extend([Value::Integer(limit), Value::Integer(offset)]);
+        vec![
+            rows(COUNT, count, vec![vec![Value::Integer(total)]]),
+            done(&format!("PREPARE {PAGE_ROWS}")),
+            rows(PAGE_ROWS, bindings, rows_data),
+        ]
+    }
+    /// The fixture page's rolls as stored rows.
+    pub(crate) fn page_rows() -> Vec<Vec<Value>> {
+        parse_response(PAGE)
+            .unwrap()
+            .list
+            .iter()
+            .map(|roll| vec![text(&roll.id), text(&serde_json::json!(roll).to_string())])
+            .collect()
+    }
+
+    #[test]
+    fn a_page_lists_one_category_newest_first_numbered_from_its_total() {
+        database::expect(page_script(5, 2, 2, page_rows()));
+        let page = store()
+            .page(UID, SERVER, Category::CharacterEvent, 2, 2)
+            .unwrap();
+        database::finish();
+        let roll = |number, id: &str| StoredRoll {
+            number,
+            id: id.into(),
+            name: "Synthetic item".into(),
+            item_type: "Synthetic category".into(),
+            rank_type: "5".into(),
+            time: "2024-02-29 12:34:56".into(),
+        };
+        assert_eq!(
+            page,
+            HistoryPage {
+                total: 5,
+                rolls: vec![roll(3, "9007199254740993"), roll(2, "9007199254740992")],
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(&page.rolls[0]).unwrap(),
+            serde_json::json!({
+                "number": 3, "id": "9007199254740993", "name": "Synthetic item",
+                "item_type": "Synthetic category", "rank_type": "5",
+                "time": "2024-02-29 12:34:56",
+            })
+        );
+    }
+
+    #[test]
+    fn page_query_and_row_failures_are_safe() {
+        fail_each(&|| page_script(5, 2, 2, vec![]), None, &mut || {
+            store()
+                .page(UID, SERVER, Category::CharacterEvent, 2, 2)
+                .map(|_| ())
+        });
+        for rows_data in [
+            vec![vec![Value::Null, text("{}")]],
+            vec![vec![text("1"), Value::Null]],
+        ] {
+            database::expect(page_script(5, 2, 2, rows_data));
+            assert_eq!(
+                store().page(UID, SERVER, Category::CharacterEvent, 2, 2),
+                Err(Error::Database)
+            );
+            database::finish();
+        }
+    }
+
+    #[test]
+    fn a_page_rejects_corrupt_rows_and_rows_of_another_category() {
+        let mut rows_data = page_rows();
+        let mut other = parse_response(PAGE).unwrap().list.remove(1);
+        other.gacha_type = "1".into();
+        rows_data[1][1] = text(&serde_json::json!(other).to_string());
+        for corrupt in [rows_data, vec![vec![text("1"), text("{")]]] {
+            database::expect(page_script(5, 2, 2, corrupt));
+            assert_eq!(
+                store().page(UID, SERVER, Category::CharacterEvent, 2, 2),
+                Err(Error::InvalidStoredData)
+            );
+            database::finish();
+        }
     }
 }

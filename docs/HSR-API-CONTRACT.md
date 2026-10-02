@@ -233,7 +233,12 @@ pages at 20. The echoed `size` cannot replace the request as the measure, becaus
 `getGachaLog` echoes `"0"`. Ending only on an empty page costs one request per
 category with records.)
 
-IDs are opaque: no numeric ordering or timestamp extraction is needed. Missing
+IDs are opaque for pagination: no numeric ordering or timestamp extraction is
+needed to fetch them. For display only, stored rolls are ordered newest first by
+server time, then by numeric ID within the same second, as ten-pulls share a
+second. Every sampled page listed IDs strictly descending in newest-first order
+([research](HSR-API-RESEARCH.md)), so numeric ID order matches HoYoverse's own
+order; digit-only IDs compare numerically by length, then text. Missing
 or malformed data and API errors abort rather than terminate successfully.
 Reject a repeated cursor or a cursor cycle; do not loop or restart. Cursors are
 tracked per category, so the same record ID in two categories is not a cycle.

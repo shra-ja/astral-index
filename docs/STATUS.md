@@ -1499,12 +1499,40 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests.
 
+## Stored history page command (2026-10-02)
+
+Work is on `feat/history-page`. A new `history_page` command reads one page of
+saved rolls for a banner category, for the account the latest import went into:
+newest first by server time, then by numeric roll ID within the same second (the
+HSR contract now records why), each with its position number, item, rarity, type
+and time, plus the category's total. Requests are checked before the database is
+opened; a bad category, page or page size returns the new `invalid_request`
+failure. With no import yet it returns no account and no rolls. It never
+contacts HoYoverse; the capability allows it for the main window.
+
+TDD: the storage and desktop unit tests failed to compile before `latest_account`,
+`page`, `history_into` and `InvalidRequest` existed. A real-SQLite integration test
+covers same-second rolls whose IDs differ in length, paging past the end, category
+and account separation, and the latest account switching; dropping the length
+tiebreak from the query made it fail. The end-to-end tests check that the
+capability refuses a bad request and that the mock's saved history reads back
+newest first, with the right total, numbers and last page.
+The unit coverage gate then caught untested row-reading failures in
+`latest_account`, a failing account query, and the generated checks for each
+`history_page` argument; tests now cover them.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 157 Rust unit tests, 160 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including the storage
+integration tests and all three end-to-end tests.
+
 ## Next
 
 Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)): next, the native command for
-a page of an account's stored rolls for a banner category, newest first, paged in
-Rust. Incremental retrieval is an optional design step.
+([decision 0013](decisions/0013-visual-design.md)): next, the History screen
+showing those pages: category tabs (a dropdown when they do not fit), the paged
+list and the empty state. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

@@ -97,6 +97,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
         }).then(() => 'resolved', JSON.stringify),
         invoke('commit_import').then(() => 'resolved', JSON.stringify),
         invoke('discard_import').then(() => 'resolved', String),
+        invoke('history_page', { category: '99', page: 1, pageSize: 20 }).then(() => 'resolved', JSON.stringify),
       ]).then(done);
     `)
     expect(commands[0]).toBe('{"kind":"no_request"}')
@@ -107,6 +108,8 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     // Nothing was retrieved, so nothing can be committed; discarding is harmless.
     expect(commands[4]).toBe('{"kind":"no_preview"}')
     expect(commands[5]).toBe('resolved')
+    // Stored history is readable through the capability; bad requests are refused.
+    expect(commands[6]).toBe('{"kind":"invalid_request"}')
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
     await app.execute('document.querySelector(".retrieval button").focus()')
@@ -176,6 +179,26 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         'return [...document.querySelectorAll(".saved .stat-value")].map(value => value.textContent)',
       ),
     ).toEqual(['32', '206', '0'])
+    // The saved history reads back a page at a time, newest first, never fetching.
+    const history = (page: number) =>
+      app.executeAsync<{
+        account: { uid: string }
+        total: number
+        rolls: { number: number; id: string; time: string; rank_type: string }[]
+      }>(
+        `window.__TAURI_INTERNALS__.invoke('history_page', { category: '11', page: ${page}, pageSize: 20 }).then(arguments[arguments.length - 1])`,
+      )
+    const first = await history(1)
+    expect([first.account.uid, first.total, first.rolls.length]).toEqual(['100000001', 1250, 20])
+    expect(first.rolls[0]).toEqual(
+      expect.objectContaining({
+        number: 1250,
+        id: '1800000000110000000',
+        time: '2026-09-28 21:03:03',
+      }),
+    )
+    const last = await history(63)
+    expect(last.rolls.map((roll) => roll.number)).toEqual([10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
     await app.screenshot('e2e-mock-saved')
     expect(existsSync(database)).toBe(true)
     // A second retrieval finds everything already saved.
