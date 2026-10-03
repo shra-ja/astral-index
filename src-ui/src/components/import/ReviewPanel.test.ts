@@ -26,6 +26,11 @@ const panel = (props: { review: Review; busy?: boolean }) =>
 const button = (wrapper: ReturnType<typeof panel>, name: string) =>
   wrapper.findAll('button').find((candidate) => candidate.text() === name)!
 
+test('the review names a known server as the game does', () => {
+  const wrapper = panel({ review: { ...review(412), server: 'prod_official_usa' } })
+  expect(wrapper.get('.account .chip').text()).toBe('America')
+})
+
 test('a review shows the account, a summary, the period and counts for every warp', () => {
   const wrapper = panel({ review: review(412) })
   expect(wrapper.get('h2').text()).toBe('Ready to save 412 new rolls')

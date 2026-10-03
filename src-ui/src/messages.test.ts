@@ -162,6 +162,9 @@ test('a save is headed by what was added, and says which account it went to', ()
   expect(savedTitle(saved(1200, 0))).toBe('1,200 Rolls Saved')
   // The rolls already saved have their own tile, so the sentence leaves them out.
   expect(savedDetail(saved(214, 1816))).toBe('Added to UID 100000001 (synthetic-server).')
+  expect(savedDetail({ ...saved(1, 0), server: 'prod_gf_cn' })).toBe(
+    'Added to UID 100000001 (China).',
+  )
 })
 
 test.each<[Kind, string]>([

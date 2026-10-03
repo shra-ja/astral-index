@@ -19,6 +19,8 @@ test('says how many rolls were saved and where, with the caller’s link and Don
   expect(wrapper.get('h2').text()).toBe('214 Rolls Saved')
   expect(document.activeElement).toBe(wrapper.get('h2').element)
   expect(wrapper.get('p').text()).toBe('Added to UID 100000001 (synthetic-server).')
+  await wrapper.setProps({ saved: { ...saved(214, 1816), server: 'prod_official_cht' } })
+  expect(wrapper.get('p').text()).toBe('Added to UID 100000001 (TW, HK, MO).')
   expect(
     wrapper
       .findAll('.stat')

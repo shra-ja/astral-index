@@ -1549,7 +1549,7 @@ integration tests and all three end-to-end tests.
 
 ## History screen (2026-10-03)
 
-Work is on `feat/history-screen`. Star Rail's History screen now shows saved
+Integrated through PR #55. Work was on `feat/history-screen`. Star Rail's History screen now shows saved
 history, read from this device only, never HoYoverse. The header shows the
 account the latest import went into (UID and server, as text until accounts can
 be switched). Category tabs carry their counts; the counts drop and then the tabs
@@ -1594,9 +1594,32 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests.
 
+## Server names (2026-10-03)
+
+Work is on `feat/server-names`. Star Rail servers now show as the game names them
+wherever the account appears (the History screen's account, the review's account
+and the Saved screen's sentence): `prod_official_usa` America,
+`prod_official_eur` Europe, `prod_official_asia` Asia, `prod_official_cht`
+TW, HK, MO, `prod_gf_cn` China and `prod_qd_cn` China (Bilibili). Any other
+server shows as given. Only the display changes; the reported value is stored
+and compared as before. The names follow the game's server list; only the mock's
+`prod_official_asia` is exercised end to end, and no real response is recorded
+for the others.
+
+TDD: the format, message and three component and app tests failed before
+`serverName` existed and was used (6 red); existing tests with the unknown
+`synthetic-server` cover the fallback. The end-to-end test checks "Asia" in the
+review, the Saved sentence and the History screen's account.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 159 Rust unit tests, 190 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests.
+
 ## Next
 
-Finish the stored-history display: friendly server names, then Lucide icons.
+Finish the stored-history display: Lucide icons.
 Then the remaining milestone 3 items: the Import screen's "Last import" line,
 per-category page counts in retrieval progress, and the end-to-end verification
 items. Incremental retrieval is an optional design step.

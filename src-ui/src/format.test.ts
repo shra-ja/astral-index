@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { categoryTabs, initials, serverDate, serverDateTime, utcOffset } from './format'
+import { categoryTabs, initials, serverDate, serverDateTime, serverName, utcOffset } from './format'
 
 test('server times read as written, in the server’s own time', () => {
   expect(serverDate('2026-04-02 10:00:00')).toBe('2 Apr 2026')
@@ -29,4 +29,26 @@ test('item placeholders show up to two initials', () => {
   expect(initials('Fine Fruit')).toBe('FF')
   expect(initials('Dan Heng • Imbibitor Lunae')).toBe('DH')
   expect(initials('march 7th')).toBe('M7')
+})
+
+test('servers read as the game names them, and unknown ones as given', () => {
+  expect(
+    [
+      'prod_official_usa',
+      'prod_official_eur',
+      'prod_official_asia',
+      'prod_official_cht',
+      'prod_gf_cn',
+      'prod_qd_cn',
+      'prod_official_new',
+    ].map(serverName),
+  ).toEqual([
+    'America',
+    'Europe',
+    'Asia',
+    'TW, HK, MO',
+    'China',
+    'China (Bilibili)',
+    'prod_official_new',
+  ])
 })
