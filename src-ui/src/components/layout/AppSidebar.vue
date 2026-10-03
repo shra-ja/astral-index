@@ -3,7 +3,7 @@
 // links stay within the game. The router does the rest. Below 900px the sidebar
 // collapses to icons, so every link carries its name as a label.
 import { RouterLink } from 'vue-router'
-import { games, monograms, terms, type Game, type Screen } from '../format'
+import { games, monograms, terms, type Game, type Screen } from '../../format'
 
 defineProps<{ game: Game; screen: Screen }>()
 const gameIds = Object.keys(games) as Game[]

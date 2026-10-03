@@ -2,8 +2,8 @@
 // Presentational: shows what saving would change and reports the user's choice.
 // The caller makes the native calls and renders the panel only while reviewing.
 import { computed, onMounted, useTemplateRef } from 'vue'
-import type { Review } from '../commands'
-import { plural, serverDate, warps } from '../format'
+import type { Review } from '../../commands'
+import { plural, serverDate, warps } from '../../format'
 
 const props = defineProps<{ review: Review; busy: boolean }>()
 const emit = defineEmits<{ save: []; discard: []; done: [] }>()

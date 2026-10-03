@@ -210,8 +210,10 @@ layers, so screens can be rearranged without rewriting the flow:
   import went into and a page of its saved rolls (Star Rail only; an empty state
   until something is saved, and for Genshin Impact) and `views/ImportView.vue`
   wires the retrieval flow to presentational components, which take props and
-  emit events: `AppSidebar` (game and screen links, marking the current ones,
-  collapsing to icons below a 900px app width), `ScreenHeader`, `EmptyState`,
+  emit events. They are grouped under `components/` by where they are used
+  (`layout/`, `history/`, `import/` and `shared/`): `AppSidebar` (game and
+  screen links, marking the current ones, collapsing to icons below a 900px app
+  width), `ScreenHeader`, `EmptyState`,
   `ImportSources` (emits `search` or `choose` with the file, and exposes `focus`
   for the control that started retrieval), `CachePicker` (a button-styled label
   over a visually hidden file input), `RetrievalProgress` (emits `cancel`),

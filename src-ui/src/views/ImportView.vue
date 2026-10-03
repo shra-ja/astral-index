@@ -6,12 +6,12 @@
 // that began retrieval when it returns.
 import { computed, inject, useTemplateRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import ImportFailed from '../components/ImportFailed.vue'
-import ImportSaved from '../components/ImportSaved.vue'
-import ImportSources from '../components/ImportSources.vue'
-import RetrievalProgress from '../components/RetrievalProgress.vue'
-import ReviewPanel from '../components/ReviewPanel.vue'
-import ScreenHeader from '../components/ScreenHeader.vue'
+import ImportFailed from '../components/import/ImportFailed.vue'
+import ImportSaved from '../components/import/ImportSaved.vue'
+import ImportSources from '../components/import/ImportSources.vue'
+import RetrievalProgress from '../components/import/RetrievalProgress.vue'
+import ReviewPanel from '../components/import/ReviewPanel.vue'
+import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { retrievalKey } from '../composables/retrieval'
 import { games, terms, type Game } from '../format'
 

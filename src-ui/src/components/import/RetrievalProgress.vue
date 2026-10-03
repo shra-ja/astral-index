@@ -3,7 +3,7 @@
 // native step, so both are marked together; the live status says what is happening.
 // Cancel takes focus as this appears and reports the user's choice.
 import { computed, onMounted, useTemplateRef } from 'vue'
-import type { Source, Stage } from '../composables/useRetrieval'
+import type { Source, Stage } from '../../composables/useRetrieval'
 
 const props = defineProps<{
   term: string

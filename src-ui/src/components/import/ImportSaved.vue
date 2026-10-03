@@ -2,8 +2,8 @@
 // Presentational: what a save added. The caller supplies the link to the history;
 // Done returns to the start. The heading takes focus so the result is announced.
 import { onMounted, useTemplateRef } from 'vue'
-import type { Counts } from '../commands'
-import { savedDetail, savedTitle } from '../messages'
+import type { Counts } from '../../commands'
+import { savedDetail, savedTitle } from '../../messages'
 
 defineProps<{
   saved: { summary: Counts; fiveStar: number; fourStar: number; uid: string; server: string }

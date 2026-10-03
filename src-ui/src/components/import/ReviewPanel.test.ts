@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import ReviewPanel from './ReviewPanel.vue'
-import type { Review } from '../commands'
+import type { Review } from '../../commands'
 
 type Conflict = Review['conflicts'][number]
 // A synthetic review with every count in Stellar Warp.

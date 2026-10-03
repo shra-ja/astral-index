@@ -3,8 +3,8 @@
 // device or from a chosen cache file; file import is coming soon. Reports the choice;
 // the caller runs retrieval. A note about the last retrieval can be shown above.
 import { useTemplateRef } from 'vue'
-import type { Source } from '../composables/useRetrieval'
-import CachePicker from './CachePicker.vue'
+import type { Source } from '../../composables/useRetrieval'
+import CachePicker from '../shared/CachePicker.vue'
 
 defineProps<{ term: string; game: string; available: boolean; note?: string }>()
 const emit = defineEmits<{ search: []; choose: [file: File] }>()

@@ -2,8 +2,8 @@
 // Presentational: a page of saved rolls, newest first. Columns keep stable widths
 // except Item, which takes the spare space; as the list narrows, Type and then Time
 // drop out. Rows scroll under a fixed header.
-import type { StoredRoll } from '../commands'
-import { initials, serverDateTime } from '../format'
+import type { StoredRoll } from '../../commands'
+import { initials, serverDateTime } from '../../format'
 
 defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
 </script>

@@ -22,7 +22,7 @@ async function rules(code: string, filePath: string) {
   return result.messages.map((message) => message.ruleId)
 }
 
-const vueFile = 'src/components/EmptyState.vue'
+const vueFile = 'src/components/history/EmptyState.vue'
 const component = (template: string, script = '') =>
   `<script setup lang="ts">\n${script}\n</script>\n\n<template>\n${template}\n</template>\n`
 

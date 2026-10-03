@@ -1566,6 +1566,11 @@ still links to Import. A failed read shows an alert with Try again. The
 Filters, search, the summary strip, the other layouts and pity stay in
 milestone 4.
 
+With 14 components, `src-ui/src/components/` is now grouped by where each is
+used: `layout/` (sidebar, screen header), `history/`, `import/` and `shared/`
+(the cache picker), each test still beside its component. The frontend README,
+which still described the old home screen, now describes the current layout.
+
 TDD: the command, message and format tests failed before `historyPage`,
 `invalid_request`, `historyFailure` and the new format helpers existed (8 red);
 the `useHistory` tests and the five component tests failed before their modules
