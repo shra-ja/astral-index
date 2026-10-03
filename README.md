@@ -53,6 +53,11 @@ internet access; stored-history operations remain local. See
 | `npm run tauri -- dev` | Native development; Vite uses loopback port 1420 |
 | `npm run tauri:mock` | The same, running the mock debug binary against a synthetic HoYoverse; set `ROLL_TRACKER_MOCK_SCENARIO` to `history` (default), `expired-link`, `network-failure`, `rate-limited` or `no-history` |
 | `npm run dev` | Browser preview only; does not verify native behavior |
+
+Development builds (both commands above) read `ROLL_TRACKER_ZOOM`, a webview
+zoom from 0.5 to 3, so the app can match the Windows display scale when it runs
+under WSL, which renders at 1×: for a monitor at 125%, run
+`ROLL_TRACKER_ZOOM=1.25 npm run tauri:mock`. Release builds ignore it.
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr` | Focused synthetic Rust HSR response tests |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage` | SQLite migration, preview, transaction, isolation and restart tests |
 | `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib storage::tests` | SQLite internal failure-injection tests |

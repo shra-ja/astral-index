@@ -346,6 +346,9 @@ mock debug binary removes its webview profile (`database::webview_profile`:
 `webview` on Linux, `EBWebView` on Windows, never the folder holding the
 database) before opening its window, so a run never reuses modules cached from an
 older dev server.
+Debug builds then zoom the webview by `ROLL_TRACKER_ZOOM` when it holds a number
+from 0.5 to 3, so development under WSL, which renders at 1×, can match the
+Windows display scale; release builds do not contain this.
 `desktop::Database::run` runs SQLite work on Tokio's blocking pool, reusing the
 open store; failures are the safe storage `Database` error. See
 [decision 0009](decisions/0009-local-database-location.md).

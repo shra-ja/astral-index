@@ -143,7 +143,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
 
 // The mock debug binary answers from a synthetic HoYoverse (decision 0014), so the whole
 // flow runs with no network. Its history goes to its own folder in a fresh data home.
-async function launchMock(scenario: string) {
+async function launchMock(scenario: string, extra: NodeJS.ProcessEnv = {}) {
   const data = resolve('test-results/mock-data')
   rmSync(data, { recursive: true, force: true })
   // A module cached by an earlier run, which the mock must not reuse.
@@ -152,7 +152,7 @@ async function launchMock(scenario: string) {
   writeFileSync(staleCache, 'cached before a refactor')
   const app = await launch(
     'roll-tracker-mock',
-    environment({ XDG_DATA_HOME: data, ROLL_TRACKER_MOCK_SCENARIO: scenario }),
+    environment({ XDG_DATA_HOME: data, ROLL_TRACKER_MOCK_SCENARIO: scenario, ...extra }),
   )
   return {
     app,
@@ -377,5 +377,22 @@ test('a mock retrieval that loses the network says where it stopped and saves no
   } finally {
     await app.dispose()
     rmSync(cachePath, { force: true })
+  }
+}, 60000)
+
+test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
+  const { app } = await launchMock('no-history', { ROLL_TRACKER_ZOOM: '1.25' })
+  try {
+    await expect
+      .poll(() => textOf(app, '[role=status] h2'), { timeout: 10000 })
+      .toBe('No Warp History Yet')
+    await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
+    // The window is 1000 pixels wide inside, so at 125% the page is 800 wide.
+    const width = await app.execute<number>('return window.innerWidth')
+    expect(Math.abs(width - 800)).toBeLessThanOrEqual(2)
+    await app.screenshot('e2e-mock-zoom')
+    await app.close()
+  } finally {
+    await app.dispose()
   }
 }, 60000)
