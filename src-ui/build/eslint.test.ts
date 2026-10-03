@@ -6,14 +6,18 @@ import { beforeAll, expect, test } from 'vitest'
 import { eslintConfig } from './eslint'
 
 let eslint: ESLint
-beforeAll(() => {
+// The first type-aware lint builds the TypeScript program, which takes seconds on
+// slow CI runners. Build it here, under its own timeout, so each test times only its
+// own checks.
+beforeAll(async () => {
   eslint = new ESLint({
     cwd: fileURLToPath(new URL('..', import.meta.url)),
     overrideConfigFile: true,
     // typescript-eslint types the same config objects more loosely than ESLint does.
     overrideConfig: eslintConfig() as Linter.Config[],
   })
-})
+  await eslint.lintText(component(''), { filePath: vueFile })
+}, 60_000)
 
 // The rules reported for source text linted in place of an existing file: type-aware
 // rules only lint files the TypeScript projects include, but take the text given.

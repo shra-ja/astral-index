@@ -1619,7 +1619,7 @@ end-to-end tests.
 
 ## Lucide icons (2026-10-03)
 
-Work is on `feat/lucide-icons`. The hand-drawn inline SVG icons are now Lucide
+Integrated through PR #57. Work was on `feat/lucide-icons`. The hand-drawn inline SVG icons are now Lucide
 icons from `@lucide/vue` 1.51.0 (ISC licence), pinned like the other
 dependencies; `lucide-vue-next`, named on the roadmap, is deprecated in its
 favour. Each icon is its own import, so only the ten used are bundled (the
@@ -1642,6 +1642,28 @@ passed: formatting, lint, build, 159 Rust unit tests, 190 frontend and 36
 tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests.
+
+## ESLint test warm-up (2026-10-03)
+
+Work is on `fix/eslint-test-warmup`. The `main` build after PR #57 (run #128)
+failed: the frontend ESLint config test's first case took 6.2 s against
+Vitest's 5 s limit. It was the first type-aware lint, which builds the
+TypeScript program; over the previous 16 CI runs it took 2.1–4.8 s, and the
+tooling config test's first case 2.0–3.8 s, against about 0.6 s locally. Nothing
+in PR #57 caused it; the same code passed on the PR. Both tests now build the
+program in `beforeAll` by linting a trivial file, under a 60 s hook timeout, so
+each test times only its own checks.
+
+Red/green: with `--testTimeout=400` standing in for a slow runner, the first
+case of each file timed out before the change (606 ms and 755 ms) and both files
+passed after it; locally the frontend's first case fell from about 600 ms to
+16 ms.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 159 Rust unit tests, 190 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed. Test-only change, so no
+release build was needed.
 
 ## Next
 
