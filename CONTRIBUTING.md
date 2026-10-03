@@ -44,7 +44,7 @@ The frontend (`src-ui/`) and the backend (`src-tauri/`) are each self-contained,
 with the same test rule ([decision 0011](docs/decisions/0011-vue-frontend.md)):
 
 - Frontend unit tests: a sibling `*.test.ts` file beside the code it tests, for
-  example `src-ui/src/components/ReviewPanel.test.ts` beside `ReviewPanel.vue`.
+  example `src-ui/src/components/import/ReviewPanel.test.ts` beside `ReviewPanel.vue`.
   They test one module or component in isolation and keep small data inline.
   Tests of the Vite config module sit beside it in `src-ui/build/` and opt into
   Node with a `// @vitest-environment node` comment.

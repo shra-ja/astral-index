@@ -189,8 +189,9 @@ layers, so screens can be rearranged without rewriting the flow:
   Rail's history and any other address returns there. The shell creates the
   retrieval flow and provides it to the screens, so a running retrieval and its
   review survive switching screens.
-- **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and is the only
-  frontend code that makes native calls. It exposes read-only state (the phase —
+- **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and makes its
+  native calls; `composables/useHistory.ts` is the only other caller, reading
+  saved history for the History screen. It exposes read-only state (the phase —
   idle, acquiring, reviewing, saving or leaving — how the link was found, the
   stage while acquiring, the status text, the review, how the last retrieval
   ended and whether a cancel is pending) and actions (search the device, read a
@@ -198,20 +199,39 @@ layers, so screens can be rearranged without rewriting the flow:
   account, a failure with a title and message, or a note (cancelled, discarded,
   up to date, no history). `src-ui/src/messages.ts` turns failures, progress and
   save results into text and failure kinds into titles.
-- **Views and components:** `views/HistoryView.vue` shows a game's history (an
-  empty state until stored history is displayed) and `views/ImportView.vue`
+- **Saved history:** `useHistory` holds the category, page and rows per page
+  (20, 50 or 100) and the page read for them. It opens on Character Event Warp,
+  or on the first category in tab order with rolls when that has none. Choosing
+  a category returns to its first page, and changing rows per page keeps the
+  first shown row in view. Only the latest read updates the screen, so a slow
+  earlier read never replaces a later one. It reads this device only, never
+  HoYoverse.
+- **Views and components:** `views/HistoryView.vue` shows the account the latest
+  import went into and a page of its saved rolls (Star Rail only; an empty state
+  until something is saved, and for Genshin Impact) and `views/ImportView.vue`
   wires the retrieval flow to presentational components, which take props and
-  emit events: `AppSidebar` (game and screen links, marking the current ones,
-  collapsing to icons below a 900px app width), `ScreenHeader`, `EmptyState`,
+  emit events. They are grouped under `components/` by where they are used
+  (`layout/`, `history/`, `import/` and `shared/`): `AppSidebar` (game and
+  screen links, marking the current ones, collapsing to icons below a 900px app
+  width), `ScreenHeader`, `EmptyState`,
   `ImportSources` (emits `search` or `choose` with the file, and exposes `focus`
   for the control that started retrieval), `CachePicker` (a button-styled label
   over a visually hidden file input), `RetrievalProgress` (emits `cancel`),
   `ReviewPanel` (emits `save`, `discard` and `done`), `ImportSaved` (emits
   `done`, with the caller's history link) and `ImportFailed` (emits `retry`,
-  `choose` and `back`). Progress focuses Cancel and the review, saved and failed
+  `choose` and `back`). The History screen adds `AccountChip` (UID and server,
+  text until accounts can be switched), `CategoryTabs` (tabs with counts that
+  drop their counts, then become a "Banner category" dropdown, when hidden
+  copies measured against the available width show they no longer fit; emits
+  `select`), `RollList` (#, item with an initials placeholder, rarity, type and
+  server time with the offset in its header; Type, then Time, drop out as the
+  list narrows, through container queries), `RollPager` (the shown range, page
+  numbers around the current page with the first and last, and rows per page;
+  emits `go` and `resize`) and `HistoryFailed` (emits `retry`). Progress focuses Cancel and the review, saved and failed
   screens focus their headings as they mount; the Import view refocuses the
-  starting control when the sources return. Warp, game and history names and
-  server dates come from `src-ui/src/format.ts`.
+  starting control when the sources return. Warp, game, history and tab names,
+  server dates and times, UTC offsets and item initials come from
+  `src-ui/src/format.ts`.
 
 `history_page` reads stored history without any network access: for the account
 the latest import went into, one page of a category's rolls, newest first by

@@ -86,6 +86,7 @@ const titles: Record<Kind, string> = {
   conflict: unsaved,
   stale_preview: unsaved,
   no_preview: unsaved,
+  invalid_request: 'Something Went Wrong',
   unavailable: 'Something Went Wrong',
 }
 
@@ -99,6 +100,12 @@ export function describe(failure: Failure, messages: Messages) {
   }
   return messages[failure.kind] ?? unexpected
 }
+
+/** Why saved history couldn’t be shown. */
+export const historyFailure = (failure: Failure) =>
+  describe(failure, {
+    storage: 'We couldn’t read the history saved on this device. Nothing was changed.',
+  })
 
 /** A retrieval failure, saying where retrieval stopped unless the user stopped it. */
 export function retrievalFailure(failure: Failure) {

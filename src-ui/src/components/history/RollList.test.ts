@@ -1,0 +1,58 @@
+import { mount } from '@vue/test-utils'
+import { expect, test } from 'vitest'
+import RollList from './RollList.vue'
+
+// A cell's text as assistive technology reads it, without decorative parts.
+function spoken(cell: Element) {
+  const copy = cell.cloneNode(true) as Element
+  copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
+  return copy.textContent?.trim()
+}
+const roll = (number: number, name: string, rank_type: string, item_type: string) => ({
+  number,
+  id: String(1000 + number),
+  name,
+  item_type,
+  rank_type,
+  time: '2026-09-28 21:14:03',
+})
+
+test('lists rolls newest first with number, item, rarity, type and server time', () => {
+  const wrapper = mount(RollList, {
+    props: {
+      rolls: [
+        roll(3, 'Synthetic Hero', '5', 'Character'),
+        roll(2, 'Synthetic Cone', '4', 'Light Cone'),
+        roll(1, 'Arrows', '3', 'Light Cone'),
+      ],
+      offset: 'UTC+8',
+      caption: 'Character Event Warp rolls, newest first',
+    },
+  })
+  const table = wrapper.get('[role="table"]')
+  expect(table.attributes('aria-label')).toBe('Character Event Warp rolls, newest first')
+  expect(wrapper.findAll('[role="columnheader"]').map((header) => header.text())).toEqual([
+    '#',
+    'Item',
+    'Rarity',
+    'Type',
+    'Time (UTC+8)',
+  ])
+  expect(wrapper.get('[aria-sort]').text()).toBe('Time (UTC+8)')
+  expect(wrapper.get('[aria-sort]').attributes('aria-sort')).toBe('descending')
+  const rows = wrapper.findAll('.body [role="row"]')
+  expect(
+    rows.map((row) => row.findAll('[role="cell"]').map((cell) => spoken(cell.element))),
+  ).toEqual([
+    ['3', 'Synthetic Hero', '5★', 'Character', '28 Sep 2026, 21:14:03'],
+    ['2', 'Synthetic Cone', '4★', 'Light Cone', '28 Sep 2026, 21:14:03'],
+    ['1', 'Arrows', '3★', 'Light Cone', '28 Sep 2026, 21:14:03'],
+  ])
+  // Rarity is in the text as well as the colour; the icon is decoration.
+  expect(rows.map((row) => row.classes().find((name) => name.startsWith('rarity-')))).toEqual([
+    'rarity-5',
+    'rarity-4',
+    'rarity-3',
+  ])
+  expect(rows.map((row) => row.get('.icon').text())).toEqual(['SH', 'SC', 'A'])
+})

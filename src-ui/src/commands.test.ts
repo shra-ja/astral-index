@@ -7,6 +7,7 @@ import {
   discardImport,
   extractAutomatically,
   extractFromFile,
+  historyPage,
   MAX_CACHE_BYTES,
   retrieveHistory,
 } from './commands'
@@ -50,6 +51,7 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'conflict',
     'stale_preview',
     'no_preview',
+    'invalid_request',
   ]) {
     mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })
@@ -178,4 +180,31 @@ test('discarding asks the native side to drop the preview', async () => {
   })
   expect(await discardImport()).toBeUndefined()
   expect(calls).toEqual(['discard_import'])
+})
+
+test('a history page is read by category, page and size, and never fetches', async () => {
+  const history = {
+    account: { uid: '100000001', server: 'synthetic-server', timezone: 8 },
+    total: 1,
+    categories: [{ gacha_type: '11', total: 1 }],
+    rolls: [
+      {
+        number: 1,
+        id: '1000',
+        name: 'Synthetic item',
+        item_type: 'Character',
+        rank_type: '5',
+        time: '2026-09-28 21:14:03',
+      },
+    ],
+  }
+  const calls: [string, unknown][] = []
+  mockIPC((cmd, args) => {
+    calls.push([cmd, args])
+    return history
+  })
+  expect(await historyPage('11', 2, 50)).toEqual({ history })
+  expect(calls).toEqual([['history_page', { category: '11', page: 2, pageSize: 50 }]])
+  mockIPC(() => reject({ kind: 'invalid_request' }))
+  expect(await historyPage('99', 1, 20)).toEqual({ failure: { kind: 'invalid_request' } })
 })

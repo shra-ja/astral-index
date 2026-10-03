@@ -1529,7 +1529,7 @@ integration tests and all three end-to-end tests.
 
 ## Category totals (2026-10-03)
 
-Work is on `feat/category-totals`. Each `history_page` result now also counts
+Integrated through PR #54. Work was on `feat/category-totals`. Each `history_page` result now also counts
 the account's rolls in every category, in `Category::ALL` order with zeros for
 empty ones, so the History screen's tabs can show their counts from one read.
 One grouped query replaces the selected category's count, which is taken from
@@ -1547,13 +1547,59 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including the storage
 integration tests and all three end-to-end tests.
 
+## History screen (2026-10-03)
+
+Work is on `feat/history-screen`. Star Rail's History screen now shows saved
+history, read from this device only, never HoYoverse. The header shows the
+account the latest import went into (UID and server, as text until accounts can
+be switched). Category tabs carry their counts; the counts drop and then the tabs
+become a "Banner category" dropdown when hidden copies of the tab row, measured
+against the available width, show they no longer fit. The list shows #, item
+(with a rarity-tinted initials placeholder), rarity, type and server time with
+the offset in its header, newest first; Type and then Time drop out as the list
+narrows. A pager shows the range, page numbers around the current page with the
+first and last, and 20, 50 or 100 rows per page. The screen opens on Character
+Event Warp, or on the first category with rolls when that has none. An empty
+category says so; with nothing saved, and for Genshin Impact, the empty state
+still links to Import. A failed read shows an alert with Try again. The
+`historyPage` command wrapper and the `invalid_request` failure kind are added.
+Filters, search, the summary strip, the other layouts and pity stay in
+milestone 4.
+
+With 14 components, `src-ui/src/components/` is now grouped by where each is
+used: `layout/` (sidebar, screen header), `history/`, `import/` and `shared/`
+(the cache picker), each test still beside its component. The frontend README,
+which still described the old home screen, now describes the current layout.
+
+TDD: the command, message and format tests failed before `historyPage`,
+`invalid_request`, `historyFailure` and the new format helpers existed (8 red);
+the `useHistory` tests and the five component tests failed before their modules
+existed, and the four new app tests failed on the old History screen. The
+end-to-end test now follows "View warp history" from the Saved screen of the
+mock binary, checks the account, the six tab counts, the time offset and the
+newest rows, pages forward, and saves `test-results/e2e-mock-history.png`.
+
+The History screen's read opens the database on launch, so an empty database now
+appears before the first import (the user accepted this over skipping reads
+without a file). The mock network-failure test now checks, through the app, that
+no rolls were saved, instead of that no file exists. In the end-to-end
+screenshots the tabs show their counts in a 1280px window and become the
+dropdown at the 480px minimum, where Type and Time have dropped out
+(`e2e-mock-history.png`, `e2e-mock-history-narrow.png`); the first run showed the
+counts already dropping at the default window size.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 159 Rust unit tests, 188 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests.
+
 ## Next
 
-Build the stored-history display to the visual design
-([decision 0013](decisions/0013-visual-design.md)): next, the History screen
-showing those pages: category tabs with their counts (a dropdown when they do
-not fit), the paged list and the empty state. Incremental retrieval is an
-optional design step.
+Finish the stored-history display: friendly server names, then Lucide icons.
+Then the remaining milestone 3 items: the Import screen's "Last import" line,
+per-category page counts in retrieval progress, and the end-to-end verification
+items. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

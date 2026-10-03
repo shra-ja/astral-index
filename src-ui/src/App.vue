@@ -3,7 +3,7 @@
 // so a retrieval keeps running while another screen is shown.
 import { computed, provide } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import AppSidebar from './components/AppSidebar.vue'
+import AppSidebar from './components/layout/AppSidebar.vue'
 import { retrievalKey } from './composables/retrieval'
 import { useRetrieval } from './composables/useRetrieval'
 import type { Game, Screen } from './format'

@@ -3,8 +3,8 @@
 // tried again; a cache file can be chosen instead either way. Back returns to the
 // start. The heading takes focus so the alert is read in full.
 import { onMounted, useTemplateRef } from 'vue'
-import type { Source } from '../composables/useRetrieval'
-import CachePicker from './CachePicker.vue'
+import type { Source } from '../../composables/useRetrieval'
+import CachePicker from '../shared/CachePicker.vue'
 
 defineProps<{ title: string; message: string; source: Source }>()
 const emit = defineEmits<{ retry: []; choose: [file: File]; back: [] }>()

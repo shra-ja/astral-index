@@ -30,6 +30,7 @@ const nativeKinds = [
   'conflict',
   'stale_preview',
   'no_preview',
+  'invalid_request',
 ] as const
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22']
@@ -142,6 +143,43 @@ export async function commitImport(): Promise<{ summary: Counts } | { failure: F
 /** Drop the retrieved history without writing anything. */
 export function discardImport(): Promise<Failure | undefined> {
   return run(() => invoke('discard_import'))
+}
+
+/** The account an import last went into. */
+export interface Account {
+  uid: string
+  server: string
+  /** UTC offset in hours of the server times, when known. */
+  timezone: number | null
+}
+/** A saved roll; `number` counts from 1 at the category's oldest saved roll. */
+export interface StoredRoll {
+  number: number
+  id: string
+  name: string
+  item_type: string
+  rank_type: string
+  time: string
+}
+/** One page of a category, with every category's count; no account until an import. */
+export interface StoredHistory {
+  account: Account | null
+  total: number
+  categories: { gacha_type: string; total: number }[]
+  rolls: StoredRoll[]
+}
+
+/** Read one page of saved history, newest first. Reads this device only; never fetches. */
+export async function historyPage(
+  category: string,
+  page: number,
+  pageSize: number,
+): Promise<{ history: StoredHistory } | { failure: Failure }> {
+  try {
+    return { history: await invoke<StoredHistory>('history_page', { category, page, pageSize }) }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
 }
 
 /** Check the size before reading, then send the bytes as a raw body for validation. */

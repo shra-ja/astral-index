@@ -5,6 +5,7 @@ import {
   commitMessages,
   describe,
   fileMessages,
+  historyFailure,
   progressText,
   retrievalFailure,
   savedDetail,
@@ -188,7 +189,17 @@ test.each<[Kind, string]>([
   ['missing_server', 'Retrieval Didn’t Finish'],
   ['no_context', 'Retrieval Didn’t Finish'],
   ['cancelled', 'Retrieval Cancelled'],
+  ['invalid_request', 'Something Went Wrong'],
   ['unavailable', 'Something Went Wrong'],
 ])('a %s failure is headed %s', (kind, title) => {
   expect(titleOf({ kind })).toBe(title)
+})
+
+test('reading saved history explains damage, and anything else asks to try again', () => {
+  expect(historyFailure({ kind: 'storage' })).toBe(
+    'We couldn’t read the history saved on this device. Nothing was changed.',
+  )
+  for (const kind of ['invalid_request', 'unavailable'] as const) {
+    expect(historyFailure({ kind })).toBe('Something went wrong. Please try again.')
+  }
 })

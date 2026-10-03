@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
-import router from '../router'
+import router from '../../router'
 import AppSidebar from './AppSidebar.vue'
 
 const sidebar = (game: 'genshin-impact' | 'honkai-star-rail', screen: 'history' | 'import') =>
