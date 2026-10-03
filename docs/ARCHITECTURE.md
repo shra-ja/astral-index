@@ -230,7 +230,7 @@ layers, so screens can be rearranged without rewriting the flow:
   emits `go` and `resize`) and `HistoryFailed` (emits `retry`). Progress focuses Cancel and the review, saved and failed
   screens focus their headings as they mount; the Import view refocuses the
   starting control when the sources return. Warp, game, history and tab names,
-  server dates and times, UTC offsets and item initials come from
+  server dates and times, UTC offsets, server names and item initials come from
   `src-ui/src/format.ts`.
 
 `history_page` reads stored history without any network access: for the account

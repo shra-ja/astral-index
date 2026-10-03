@@ -3,7 +3,7 @@
 // The caller makes the native calls and renders the panel only while reviewing.
 import { computed, onMounted, useTemplateRef } from 'vue'
 import type { Review } from '../../commands'
-import { plural, serverDate, warps } from '../../format'
+import { plural, serverDate, serverName, warps } from '../../format'
 
 const props = defineProps<{ review: Review; busy: boolean }>()
 const emit = defineEmits<{ save: []; discard: []; done: [] }>()
@@ -38,7 +38,7 @@ onMounted(() => headingElement.value!.focus())
       <h2 id="review-heading" ref="heading" tabindex="-1">{{ heading }}</h2>
       <p class="account">
         <span class="label">Account</span> <span>UID {{ review.uid }}</span>
-        <span class="chip">{{ review.server }}</span>
+        <span class="chip">{{ serverName(review.server) }}</span>
       </p>
 
       <div class="stats">

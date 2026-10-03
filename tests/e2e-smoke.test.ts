@@ -170,9 +170,12 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .toBe('Ready to save 2,060 new rolls')
     expect(await heading(app)).toBe('Review Import')
     expect(await textOf(app, '.review .account')).toContain('100000001')
+    // The mock's prod_official_asia server reads as the game names it.
+    expect(await textOf(app, '.review .account .chip')).toBe('Asia')
     await app.screenshot('e2e-mock-review')
     await click(app, '.review', 'Save 2,060 rolls')
     await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    expect(await textOf(app, '.saved p')).toBe('Added to UID 100000001 (Asia).')
     // The mock's history has 32 five-star and 206 four-star rows (decision 0014).
     expect(
       await app.execute(
@@ -223,7 +226,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     expect(
       await app.execute('return document.querySelector(".account").getAttribute("aria-label")'),
-    ).toBe('Account: UID 100000001, prod_official_asia server')
+    ).toBe('Account: UID 100000001, Asia server')
     // In a wide window the tabs show their counts.
     await app.command('/window/rect', 'POST', { width: 1280, height: 900 })
     const tabs = () =>

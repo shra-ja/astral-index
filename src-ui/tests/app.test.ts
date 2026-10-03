@@ -196,7 +196,7 @@ function savedHistory(args: Record<string, unknown>) {
   const total = savedCounts[category] ?? 0
   const first = total - (page - 1) * pageSize
   return {
-    account: { uid: '100000001', server: 'synthetic-server', timezone: 8 },
+    account: { uid: '100000001', server: 'prod_official_asia', timezone: 8 },
     total,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
@@ -242,7 +242,7 @@ const pageButton = (name: string) =>
 test('saved history shows its account, category counts and newest rolls first', async () => {
   const { calls, reads } = await openHistory(savedHistory)
   expect(main().querySelector('.account')?.getAttribute('aria-label')).toBe(
-    'Account: UID 100000001, synthetic-server server',
+    'Account: UID 100000001, Asia server',
   )
   expect(tabs()).toEqual([
     ['Character Event 45', 'true'],

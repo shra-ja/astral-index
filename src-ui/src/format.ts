@@ -72,3 +72,15 @@ export const initials = (name: string) =>
     .map((word) => word[0])
     .join('')
     .toUpperCase()
+
+/** Star Rail servers by the `region` HoYoverse reports, as the game names them. */
+const servers: Record<string, string> = {
+  prod_official_usa: 'America',
+  prod_official_eur: 'Europe',
+  prod_official_asia: 'Asia',
+  prod_official_cht: 'TW, HK, MO',
+  prod_gf_cn: 'China',
+  prod_qd_cn: 'China (Bilibili)',
+}
+/** "Asia" for `prod_official_asia`; a server we don't know shows as given. */
+export const serverName = (server: string) => servers[server] ?? server

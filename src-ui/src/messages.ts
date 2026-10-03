@@ -1,6 +1,6 @@
 // What the retrieval flow tells the user about failures, progress and saving.
 import type { Counts, Failure, Kind, Progress } from './commands'
-import { plural, warps } from './format'
+import { plural, serverName, warps } from './format'
 
 /** Messages by failure kind, for one step of the flow. */
 export type Messages = Partial<Record<Kind, string>>
@@ -135,4 +135,5 @@ export const savedTitle = ({ summary }: Saved) =>
   `${summary.inserted.toLocaleString('en')} Roll${summary.inserted === 1 ? '' : 's'} Saved`
 
 /** Which account the rolls were added to; the counts have tiles of their own. */
-export const savedDetail = ({ uid, server }: Saved) => `Added to UID ${uid} (${server}).`
+export const savedDetail = ({ uid, server }: Saved) =>
+  `Added to UID ${uid} (${serverName(server)}).`

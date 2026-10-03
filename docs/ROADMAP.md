@@ -272,7 +272,7 @@ the order listed.
       native smoke test that runs the full flow through it with screenshots of
       each screen, and a command to run it by hand. Record it as a decision
       ([decision 0014](decisions/0014-mock-debug-binary.md)).
-    - [ ] Show friendly server names (for example "Asia" for
+    - [x] Show friendly server names (for example "Asia" for
       `prod_official_asia`) wherever the account's server appears, falling back
       to the raw value for unknown servers.
     - [ ] Replace the hand-drawn inline SVG icons with Lucide
