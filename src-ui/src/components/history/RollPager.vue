@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Presentational: which rows are shown, the pages around the current one, and rows
 // per page. The first and last pages stay in reach; gaps stand for skipped pages.
+import { ChevronDown, ChevronLeft, ChevronRight } from '@lucide/vue'
 import { computed } from 'vue'
 
 const props = defineProps<{ page: number; pages: number; pageSize: number; total: number }>()
@@ -41,15 +42,7 @@ const items = computed(() => {
         :disabled="page === 1"
         @click="emit('go', page - 1)"
       >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path
-            d="M8.5 3.5 5 7l3.5 3.5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ChevronLeft :size="16" />
       </button>
       <template v-for="(item, index) in items" :key="index">
         <span v-if="item === 'gap'" class="gap" aria-hidden="true">…</span>
@@ -71,15 +64,7 @@ const items = computed(() => {
         :disabled="page === pages"
         @click="emit('go', page + 1)"
       >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path
-            d="M5.5 3.5 9 7l-3.5 3.5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ChevronRight :size="16" />
       </button>
     </nav>
     <label class="size">
@@ -91,15 +76,7 @@ const items = computed(() => {
         >
           <option v-for="size in sizes" :key="size" :value="size">{{ size }}</option>
         </select>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path
-            d="m3.5 5.5 3.5 3.5 3.5-3.5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ChevronDown :size="14" />
       </span>
     </label>
   </div>

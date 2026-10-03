@@ -1596,7 +1596,7 @@ end-to-end tests.
 
 ## Server names (2026-10-03)
 
-Work is on `feat/server-names`. Star Rail servers now show as the game names them
+Integrated through PR #56. Work was on `feat/server-names`. Star Rail servers now show as the game names them
 wherever the account appears (the History screen's account, the review's account
 and the Saved screen's sentence): `prod_official_usa` America,
 `prod_official_eur` Europe, `prod_official_asia` Asia, `prod_official_cht`
@@ -1617,10 +1617,35 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests.
 
+## Lucide icons (2026-10-03)
+
+Work is on `feat/lucide-icons`. The hand-drawn inline SVG icons are now Lucide
+icons from `@lucide/vue` 1.51.0 (ISC licence), pinned like the other
+dependencies; `lucide-vue-next`, named on the roadmap, is deprecated in its
+favour. Each icon is its own import, so only the ten used are bundled (the
+script grew by 0.8 kB), and each is hidden from assistive technology as before.
+The brand mark stays custom; the game monograms are text. Decision 0013 now
+names Lucide. No behaviour changes. This completes the stored-history display.
+`npm audit` reports four high-severity findings in `braces`, which only the
+dev tooling pulls in (through the ESLint TypeScript config); the lockfile change
+adds only `@lucide/vue`.
+
+TDD: a new app-test check that every icon on each screen (except the brand
+mark) is a decorative Lucide icon, with the expected names, failed on the
+hand-drawn icons in 6 tests, then passed.
+
+The end-to-end screenshots show the new icons in the sidebar, the sources,
+the pager and the selects.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 159 Rust unit tests, 190 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests.
+
 ## Next
 
-Finish the stored-history display: Lucide icons.
-Then the remaining milestone 3 items: the Import screen's "Last import" line,
+The remaining milestone 3 items: the Import screen's "Last import" line,
 per-category page counts in retrieval progress, and the end-to-end verification
 items. Incremental retrieval is an optional design step.
 

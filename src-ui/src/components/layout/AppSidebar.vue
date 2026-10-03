@@ -2,6 +2,7 @@
 // Presentational: the app's navigation. Game links keep the current screen; screen
 // links stay within the game. The router does the rest. Below 900px the sidebar
 // collapses to icons, so every link carries its name as a label.
+import { Download, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import { games, monograms, terms, type Game, type Screen } from '../../format'
 
@@ -52,14 +53,7 @@ const gameIds = Object.keys(games) as Game[]
             :aria-label="`${terms[game]} History`"
             :aria-current="screen === 'history' ? 'page' : undefined"
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path
-                d="M3 4.5h12M3 9h12M3 13.5h7"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              />
-            </svg>
+            <TextAlignStart :size="18" />
             <span class="text">{{ terms[game] }} History</span>
           </RouterLink>
         </li>
@@ -70,15 +64,7 @@ const gameIds = Object.keys(games) as Game[]
             aria-label="Import"
             :aria-current="screen === 'import' ? 'page' : undefined"
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path
-                d="M9 2.5v8.5m0 0 3.4-3.4M9 11 5.6 7.6M3 12.5v1.5A1.5 1.5 0 0 0 4.5 15.5h9A1.5 1.5 0 0 0 15 14v-1.5"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <Download :size="18" />
             <span class="text">Import</span>
           </RouterLink>
         </li>
@@ -86,18 +72,7 @@ const gameIds = Object.keys(games) as Game[]
     </div>
 
     <div class="local">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <rect
-          x="2"
-          y="7"
-          width="12"
-          height="7.5"
-          rx="1.6"
-          stroke="currentColor"
-          stroke-width="1.4"
-        />
-        <path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" />
-      </svg>
+      <Lock :size="16" :stroke-width="1.75" />
       <p class="text">
         <strong>Stored on this device</strong>
         <span>No account, no cloud sync</span>
