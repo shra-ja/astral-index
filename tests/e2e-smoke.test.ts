@@ -43,8 +43,12 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
   try {
     // Inspect the real webview through its active native session.
     expect(await app.execute('return location.protocol')).toBe('tauri:')
-    expect(await heading(app)).toBe('Warp History')
-    expect(await textOf(app, '[role=status]')).toContain('No Warp History Yet')
+    // The first screen renders once the router resolves, and its empty state once the
+    // saved history has been read, so wait for each rather than reading once.
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+    await expect
+      .poll(() => textOf(app, '[role=status]'), { timeout: 10000 })
+      .toContain('No Warp History Yet')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
     await app.screenshot('e2e-history')
     // The sidebar works from the keyboard: Enter on the Import link opens that screen.

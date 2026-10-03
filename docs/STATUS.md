@@ -1852,6 +1852,14 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy (also clean for a release build). `npm run test:offline`
 passed, including all four end-to-end tests.
 
+The PR's CI run then failed in the CSP mutation probe, whose end-to-end rerun
+broke before reaching the CSP check: the shell test read the History screen's
+empty state once, right after launch, but since the History screen (PR #55) that
+state appears only after saved history has been read, and on the slow runner it
+had not. The two mock tests after it failed as a consequence. The shell test now
+waits for the heading and the empty state, as the mock tests already did. The
+race never showed locally, so the CI run is the evidence.
+
 ## Next
 
 The remaining milestone 3 items: the end-to-end verification items (request,
