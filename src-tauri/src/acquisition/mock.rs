@@ -225,6 +225,7 @@ mod tests {
             &MockTransport::new(scenario),
             &context(),
             &ignore,
+            None,
         ))
     }
 

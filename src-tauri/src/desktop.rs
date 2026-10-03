@@ -3,7 +3,7 @@ use crate::acquisition::mock::MockTransport;
 pub use crate::acquisition::mock::Scenario;
 use crate::acquisition::{
     AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
-    HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, Transport,
+    HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, StopCheck, Transport,
     TransportError, extract_request_contexts, fetch_history, validate,
 };
 use crate::discovery::{
@@ -107,6 +107,9 @@ pub enum ProgressEvent {
     RetryPending {
         delay_ms: u64,
     },
+    UpToDate {
+        gacha_type: &'static str,
+    },
 }
 impl From<Progress> for ProgressEvent {
     fn from(progress: Progress) -> Self {
@@ -124,6 +127,9 @@ impl From<Progress> for ProgressEvent {
             },
             Progress::RetryPending { delay } => Self::RetryPending {
                 delay_ms: delay.as_millis() as u64,
+            },
+            Progress::UpToDate { category } => Self::UpToDate {
+                gacha_type: category.code(),
             },
         }
     }
@@ -456,10 +462,35 @@ async fn retrieve_into(
     session: &Session,
     database: &Database,
     transport: Result<&(impl Transport + Sync), Failure>,
+    mode: &str,
     progress: &(dyn Fn(ProgressEvent) + Sync),
 ) -> Result<Retrieved, RetrievalFailure> {
+    // A quick refresh stops at saved rolls; a full retrieval fetches everything.
+    let quick = match mode {
+        "new" => true,
+        "full" => false,
+        _ => return Err(Failure::InvalidRequest.into()),
+    };
     let (token, context, budget) = session.take_validated()?;
     let transport = transport?;
+    // Read before fetching, since the account is only known from the responses.
+    let saved = if quick {
+        Some(
+            database
+                .run(|store| store.saved_rolls())
+                .await
+                .and_then(|saved| saved)
+                .map_err(Failure::from)?,
+        )
+    } else {
+        None
+    };
+    let check = |uid: &str, server: &str, ids: &[&str]| {
+        saved
+            .as_ref()
+            .is_some_and(|saved| saved.any(uid, server, ids.iter().copied()))
+    };
+    let stop: Option<StopCheck<'_>> = saved.is_some().then_some(&check);
     // The last page requested locates a retrieval failure.
     let requesting = Mutex::new(None);
     let report = |event: Progress| {
@@ -470,7 +501,7 @@ async fn retrieve_into(
     };
     let retrying = Retrying::new(transport, &budget, &report);
     let paced = Paced::new(&retrying);
-    let fetched = fetch_history(&Cancellable::new(&paced, &token), &context, &report).await;
+    let fetched = fetch_history(&Cancellable::new(&paced, &token), &context, &report, stop).await;
     drop(context);
     let history = fetched.map_err(|error| {
         let location = requesting
@@ -621,11 +652,19 @@ async fn retrieve_history(
     session: State<'_, Session>,
     database: State<'_, Database>,
     network: State<'_, Network>,
+    mode: String,
     on_progress: Channel<ProgressEvent>,
 ) -> Result<Retrieved, RetrievalFailure> {
     let transport = network.client();
     let transport = transport.as_ref().map_err(Clone::clone);
-    retrieve_into(&session, &database, transport, &forward(&on_progress)).await
+    retrieve_into(
+        &session,
+        &database,
+        transport,
+        &mode,
+        &forward(&on_progress),
+    )
+    .await
 }
 
 /// The webview sends the selected file's bytes as a raw body; no path crosses IPC.
@@ -651,7 +690,8 @@ mod tests {
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
         commit_script, last_import_row, last_import_step, latest_row, latest_step, page_rows,
-        page_script, preview, preview_script, setup, stale_commit_script, step, text,
+        page_script, preview, preview_script, saved_rolls_script, setup, stale_commit_script, step,
+        text,
     };
     use rusqlite::types::Value;
     use std::path::PathBuf;
@@ -796,12 +836,20 @@ mod tests {
         );
         assert_eq!(invoke(&window, COMMANDS[5], InvokeBody::default()), Ok(()));
         assert_eq!(invoke(&window, COMMANDS[2], InvokeBody::default()), Ok(()));
-        // Nothing was validated, so retrieval sends nothing.
-        let channel = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
+        // Retrieval needs a known mode; nothing was validated, so it sends nothing.
+        let channel =
+            |mode: &str| serde_json::json!({ "onProgress": "__CHANNEL__:1", "mode": mode });
         assert_eq!(
-            invoke(&window, COMMANDS[3], InvokeBody::Json(channel)),
+            invoke(&window, COMMANDS[3], InvokeBody::Json(channel("full"))),
             Err(r#"{"kind":"no_context"}"#.into())
         );
+        assert_eq!(
+            invoke(&window, COMMANDS[3], InvokeBody::Json(channel("partial"))),
+            Err(r#"{"kind":"invalid_request"}"#.into())
+        );
+        let missing = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
+        let missing = invoke(&window, COMMANDS[3], InvokeBody::Json(missing));
+        assert!(missing.unwrap_err().contains("mode"));
         // Host discovery is unsupported here: the unit-test OS double reports plain Linux.
         assert_eq!(
             invoke(&window, COMMANDS[0], InvokeBody::default()),
@@ -816,7 +864,8 @@ mod tests {
             Err(r#"{"kind":"no_request"}"#.into())
         );
         // A progress channel is required.
-        let missing = invoke(&window, COMMANDS[3], InvokeBody::default());
+        let no_channel = InvokeBody::Json(serde_json::json!({ "mode": "full" }));
+        let missing = invoke(&window, COMMANDS[3], no_channel);
         assert!(missing.unwrap_err().contains("onProgress"));
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
@@ -877,7 +926,7 @@ mod tests {
             Ok(())
         );
         let client = network.client().unwrap();
-        let history = run(fetch_history(&client, &context("synthetic"), &|_| {})).unwrap();
+        let history = run(fetch_history(&client, &context("synthetic"), &|_| {}, None)).unwrap();
         assert_eq!(history.account().unwrap().uid(), "100000001");
         let expired = Network::Mock(Scenario::ExpiredLink);
         assert_eq!(
@@ -1054,7 +1103,13 @@ mod tests {
         let transport = Serving::new(responses);
         let events = std::sync::Mutex::new(Vec::new());
         let report = |event| events.lock().unwrap().push(event);
-        let retrieved = run(retrieve_into(&session, &database, Ok(&transport), &report));
+        let retrieved = run(retrieve_into(
+            &session,
+            &database,
+            Ok(&transport),
+            "full",
+            &report,
+        ));
         sql::finish();
         let review = json(retrieved.unwrap());
         assert_eq!(review["kind"], "review");
@@ -1093,12 +1148,93 @@ mod tests {
     }
 
     #[test]
+    fn a_retrieval_mode_other_than_new_or_full_is_refused_before_anything_is_taken() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let transport = Serving::new(vec![]);
+        sql::expect(vec![]);
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Ok(&transport),
+            "partial",
+            &ignore,
+        ));
+        sql::finish();
+        assert_eq!(failure.err().unwrap(), Failure::InvalidRequest.into());
+        assert!(transport.requested().is_empty());
+        // The validated context is still held for a correct request.
+        assert_eq!(holds(&session), (true, false));
+    }
+
+    #[test]
+    fn a_quick_refresh_stops_each_category_at_saved_rolls() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let database = database();
+        // The fixture page's first roll is saved for its account, so Stellar ends
+        // with that page instead of requesting an empty one.
+        let saved_id = page_rows()[0][0].clone();
+        let mut script = opening();
+        script.extend(saved_rolls_script(vec![vec![
+            text("100000002"),
+            text("synthetic-server"),
+            saved_id,
+        ]]));
+        script.extend(preview_script());
+        sql::expect(script);
+        let transport = Serving::new(pages());
+        let events = std::sync::Mutex::new(Vec::new());
+        let report = |event| events.lock().unwrap().push(event);
+        let retrieved = run(retrieve_into(
+            &session,
+            &database,
+            Ok(&transport),
+            "new",
+            &report,
+        ));
+        sql::finish();
+        assert_eq!(json(retrieved.unwrap())["kind"], "review");
+        assert_eq!(transport.requested().len(), 6);
+        let events = events.into_inner().unwrap();
+        assert_eq!(events[1], ProgressEvent::UpToDate { gacha_type: "1" });
+        assert_eq!(holds(&session), (false, true));
+    }
+
+    #[test]
+    fn a_quick_refresh_that_cannot_read_saved_rolls_sends_nothing() {
+        let session = Session::default();
+        validated(&session, RetryBudget::default());
+        let mut script = opening();
+        script.extend(saved_rolls_script(vec![vec![Value::Null]]));
+        sql::expect(script);
+        let transport = Serving::new(vec![]);
+        let failure = run(retrieve_into(
+            &session,
+            &database(),
+            Ok(&transport),
+            "new",
+            &ignore,
+        ));
+        sql::finish();
+        assert_eq!(failure.err().unwrap(), Failure::Storage.into());
+        assert!(transport.requested().is_empty());
+        assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
     fn no_records_means_no_history_and_no_database_access() {
         let session = Session::default();
         validated(&session, RetryBudget::default());
         let database = database();
         let transport = Serving::new((0..6).map(|_| Ok(EMPTY.to_vec())).collect());
-        let retrieved = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
+        let retrieved = run(retrieve_into(
+            &session,
+            &database,
+            Ok(&transport),
+            "full",
+            &ignore,
+        ));
         assert_eq!(
             json(retrieved.unwrap()),
             serde_json::json!({ "kind": "no_history" })
@@ -1125,7 +1261,7 @@ mod tests {
         let database = database();
         let retrieving = run(async {
             let started = tokio::time::Instant::now();
-            retrieve_into(&session, &database, Ok(&transport), &ignore)
+            retrieve_into(&session, &database, Ok(&transport), "full", &ignore)
                 .await
                 .unwrap();
             started.elapsed()
@@ -1142,6 +1278,7 @@ mod tests {
             &session,
             &database(),
             Ok(&transport),
+            "full",
             &ignore,
         ));
         assert_eq!(
@@ -1159,6 +1296,7 @@ mod tests {
             &session,
             &database(),
             Ok(&transport),
+            "full",
             &ignore,
         ));
         assert_eq!(failure.err().unwrap(), Failure::NoContext.into());
@@ -1168,6 +1306,7 @@ mod tests {
             &session,
             &database(),
             Err::<&Serving, _>(Failure::Internal),
+            "full",
             &ignore,
         ));
         assert_eq!(failure.err().unwrap(), Failure::Internal.into());
@@ -1184,7 +1323,13 @@ mod tests {
         failing.reply = Err(rusqlite::Error::InvalidQuery);
         sql::expect(vec![failing]);
         let transport = Serving::new(pages());
-        let failure = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
+        let failure = run(retrieve_into(
+            &session,
+            &database,
+            Ok(&transport),
+            "full",
+            &ignore,
+        ));
         sql::finish();
         assert_eq!(failure.err().unwrap(), Failure::Storage.into());
         assert_eq!(holds(&session), (false, false));
@@ -1199,6 +1344,7 @@ mod tests {
             &session,
             &database(),
             Ok(&transport),
+            "full",
             &ignore,
         ));
         assert_eq!(json(failure.err().unwrap())["kind"], "cancelled");
@@ -1235,6 +1381,7 @@ mod tests {
             &session,
             &database(),
             Ok(&transport),
+            "full",
             &ignore,
         ));
         assert_eq!(
@@ -1269,6 +1416,13 @@ mod tests {
         assert_eq!(
             json(requesting),
             serde_json::json!({ "kind": "requesting", "gacha_type": "12", "page": 3, "pages": 4, "records": 3000 })
+        );
+        let up_to_date = ProgressEvent::from(Progress::UpToDate {
+            category: Category::CharacterCollaboration,
+        });
+        assert_eq!(
+            json(up_to_date),
+            serde_json::json!({ "kind": "up_to_date", "gacha_type": "21" })
         );
     }
 
@@ -1461,7 +1615,13 @@ mod tests {
         sql::expect(script);
         // The last response still arrives, so the preview is built, then refused.
         let transport = Serving::cancelling(&session, 7, pages());
-        let failure = run(retrieve_into(&session, &database, Ok(&transport), &ignore));
+        let failure = run(retrieve_into(
+            &session,
+            &database,
+            Ok(&transport),
+            "full",
+            &ignore,
+        ));
         sql::finish();
         assert_eq!(failure.err().unwrap(), Failure::Cancelled.into());
         assert_eq!(holds(&session), (false, false));

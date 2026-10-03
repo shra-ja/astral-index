@@ -164,6 +164,7 @@ mod tests {
             &Cancellable::new(&transport, &token),
             &context,
             &ignore,
+            None,
         ));
         assert_eq!(
             result.unwrap_err(),

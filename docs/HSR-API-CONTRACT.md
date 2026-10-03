@@ -223,9 +223,18 @@ with page 1/cursor `0`. Validate each successful response, then:
 - An empty `list`: this is the final page for the category.
 - Any records, up to the requested `size`: retain them, advance both page and
   cursor using the last record ID exactly as supplied, and request the next page,
-  even if the page is shorter than requested. This also applies when every record
-  on the page is already stored; duplicate status is not a termination rule.
+  even if the page is shorter than requested. In a full retrieval this also
+  applies when every record on the page is already stored; duplicate status is
+  not a termination rule there.
 - More records than requested: the response is invalid, and acquisition stops.
+
+A quick refresh, the user's other choice
+([decision 0015](decisions/0015-incremental-retrieval.md)), adds one rule: after
+a page with records, if any of its roll IDs is already saved for the page's own
+account (its records' UID and its `region`), the category ends there, keeping
+that page. A page without a `region` never ends a category early. The rule
+trades completeness for speed: it never fills a gap older than the newest saved
+rolls, so only a full retrieval repairs an earlier failed or partial import.
 
 (Corrected 2026-09-29. A page shorter than requested used to end a category, which
 stopped each collaboration category after 20 records, since `getLdGachaLog` caps
