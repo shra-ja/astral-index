@@ -103,12 +103,12 @@ test('while downloading, shows the category reached, the rolls so far and each c
   )
   // Categories are listed in the order they are retrieved.
   expect(categoryRows(wrapper)).toEqual([
-    ['Stellar', '3 pages', 'Done', 'done'],
-    ['Departure', '1 page', 'Done', 'done'],
-    ['Character Event', 'page 7', 'Downloading…', 'active'],
-    ['Light Cone Event', '—', 'Waiting', 'waiting'],
-    ['Collab Character', '—', 'Waiting', 'waiting'],
-    ['Collab Light Cone', '—', 'Waiting', 'waiting'],
+    ['Stellar Warp', '3 pages', 'Done', 'done'],
+    ['Departure Warp', '1 page', 'Done', 'done'],
+    ['Character Event Warp', 'page 7', 'Downloading…', 'active'],
+    ['Light Cone Event Warp', '—', 'Waiting', 'waiting'],
+    ['Character Collaboration Warp', '—', 'Waiting', 'waiting'],
+    ['Light Cone Collaboration Warp', '—', 'Waiting', 'waiting'],
   ])
   expect(
     wrapper.get('.categories').element.closest('li')?.querySelector('.label')?.textContent,
@@ -141,8 +141,8 @@ test('a category passed without any page shows no count rather than failing', ()
     download: { category: '2', page: 1, pages: { '2': 1 }, records: 0, retrying: false },
   })
   expect(categoryRows(wrapper).slice(0, 2)).toEqual([
-    ['Stellar', '—', 'Done', 'done'],
-    ['Departure', 'page 1', 'Downloading…', 'active'],
+    ['Stellar Warp', '—', 'Done', 'done'],
+    ['Departure Warp', 'page 1', 'Downloading…', 'active'],
   ])
   wrapper.unmount()
 })

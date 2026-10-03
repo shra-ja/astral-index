@@ -173,12 +173,12 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         'return [...document.querySelectorAll(".categories .name")].map(name => name.textContent)',
       ),
     ).toEqual([
-      'Stellar',
-      'Departure',
-      'Character Event',
-      'Light Cone Event',
-      'Collab Character',
-      'Collab Light Cone',
+      'Stellar Warp',
+      'Departure Warp',
+      'Character Event Warp',
+      'Light Cone Event Warp',
+      'Character Collaboration Warp',
+      'Light Cone Collaboration Warp',
     ])
     await app.screenshot('e2e-mock-progress')
     await expect

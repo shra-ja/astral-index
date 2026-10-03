@@ -1701,17 +1701,19 @@ integration tests and all three end-to-end tests.
 
 Work is on `feat/progress-counts`. While downloading, the progress screen now
 follows decision 0013: a "Category 3 of 6 · 1,106 rolls so far" row, a bar
-counting categories done, and, under "Downloading your rolls", each category in
-the order retrieval requests it (Stellar, Departure, Character Event, Light Cone
-Event, then the two collaboration warps) with its pages: done ones show how many
+counting categories done, and, under "Downloading your rolls", each category by
+its full in-game name (Stellar Warp, Departure Warp, Character Event Warp, Light
+Cone Event Warp, Character Collaboration Warp, Light Cone Collaboration Warp),
+in the order retrieval requests it, with its pages: done ones show how many
 pages were requested, the active one its current page, waiting ones "—". It is
 derived in the frontend from the existing progress events; no native change.
 `useRetrieval` keeps the current category and page, each category's last page,
 the rolls so far and whether a retry is due, reset for each retrieval. The
 status sentence stays the polite live region, and is shown only before the first
 page, during a retry wait and while cancelling. A category passed without any
-page shows no count rather than failing. The user chose the fetch order and the
-row in place of the visible sentence.
+page shows no count rather than failing. The user chose the fetch order, the
+row in place of the visible sentence, and full names here (the short names stay
+on the History screen's tabs, where space is tight).
 
 TDD: the composable tests for the download state (2) and the component tests for
 the row, bar, list and status visibility (2, then 1 for a skipped category)

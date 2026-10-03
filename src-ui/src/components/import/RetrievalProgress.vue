@@ -7,7 +7,7 @@
 // Cancel takes focus as this appears and reports the user's choice.
 import { computed, onMounted, useTemplateRef } from 'vue'
 import type { Download, Source, Stage } from '../../composables/useRetrieval'
-import { plural, retrievalOrder } from '../../format'
+import { plural, retrievalOrder, warps } from '../../format'
 
 const props = defineProps<{
   term: string
@@ -43,11 +43,13 @@ const steps = computed((): { label: string; state: State }[] => {
 const reached = computed(() => {
   const { download } = props
   if (!download) return undefined
-  const current = retrievalOrder.findIndex((each) => each.gacha_type === download.category)
-  const rows = retrievalOrder.map((category, index) => {
+  const current = retrievalOrder.indexOf(download.category)
+  const rows = retrievalOrder.map((gacha_type, index) => {
+    // Each category by its full name, as the game shows it.
+    const category = { gacha_type, label: warps[gacha_type] }
     // Retrieval requests page 1 of every category, so a done one should have pages;
     // if one was skipped, show no count rather than fail.
-    const pages = download.pages[category.gacha_type]
+    const pages = download.pages[gacha_type]
     if (index < current) {
       const done = pages === undefined ? '—' : plural(pages, 'page')
       return { ...category, pages: done, state: 'done' as const }
