@@ -1732,7 +1732,7 @@ end-to-end tests; `e2e-mock-progress.png` shows the row and the list.
 
 ## Incremental retrieval, native side (2026-10-03)
 
-Work is on `feat/incremental-retrieval`. The roadmap step is no longer optional
+Integrated through PR #61. Work was on `feat/incremental-retrieval`. The roadmap step is no longer optional
 and is split into seven tasks; this covers the first four.
 [Decision 0015](decisions/0015-incremental-retrieval.md) and the HSR contract
 record the quick-refresh rule: a category ends after the first page holding a
@@ -1767,11 +1767,41 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including the storage and
 pagination integration tests and all three end-to-end tests.
 
+## Incremental retrieval, UI side (2026-10-03)
+
+Work is on `feat/incremental-ui`, completing the step (tasks 5–7). The Retrieve
+card has a "What to retrieve" switch, two real radios shown as a segmented
+control: "New rolls only" (the default) or "Full history", with a hint on the
+difference. It applies to both the device search and a chosen cache file, and
+lasts while the app is open. The card now says it downloads "your rolls". The
+webview sends the chosen mode; `up_to_date` progress is announced ("Light Cone
+Event Warp is up to date: it reached rolls already saved.") and the progress list
+marks such categories "Up to date" with their page counts, including the current
+category as soon as its event arrives. `progressText` now handles each progress
+kind explicitly, so the new event is not announced as a retry.
+
+TDD: the command, message and composable tests (8), the progress component tests
+(the up-to-date row, then the current category), the switch's component tests
+(3) and the app test for the mode failed before the change. The coverage gate
+caught the switch's "New rolls only" handler going unexercised; the component
+test now switches back as well. The end-to-end test, through the mock binary,
+saves the history, then runs a quick refresh that skips only each category's
+first page (1,792 rolls) and shows "Up to date" rows
+(`test-results/e2e-mock-refresh-progress.png`), then a full retrieval that
+skips all 2,060.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 167 Rust unit tests, 207 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests.
+
 ## Next
 
-Incremental retrieval, UI side: the "New rolls only" / "Full history" switch,
-"Up to date" in the progress list and the mock-binary check. Then the remaining
-milestone 3 items: the end-to-end verification items.
+The remaining milestone 3 items: the end-to-end verification items (request,
+preview, commit, restart and display; repeat and overlapping fetches, account
+isolation, cancellation and failure recovery) and the auth-key/account binding
+checks.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

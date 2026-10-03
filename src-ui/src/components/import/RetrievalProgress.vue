@@ -35,33 +35,47 @@ const steps = computed((): { label: string; state: State }[] => {
       label: found ? 'Downloading your rolls' : 'Download your rolls',
       state: found ? 'active' : 'waiting',
     },
-    { label: 'Prepare the review', state: 'waiting' as const },
+    { label: 'Prepare the review', state: 'waiting' },
   ]
 })
+
+const stateText = {
+  done: 'Done',
+  'up-to-date': 'Up to date',
+  active: 'Downloading…',
+  waiting: 'Waiting',
+}
+type RowState = keyof typeof stateText
+interface Row {
+  gacha_type: string
+  label: string
+  pages: string
+  state: RowState
+}
 
 // How far the download has got: the categories before the current one are done.
 const reached = computed(() => {
   const { download } = props
   if (!download) return undefined
   const current = retrievalOrder.indexOf(download.category)
-  const rows = retrievalOrder.map((gacha_type, index) => {
+  const rows = retrievalOrder.map((gacha_type, index): Row => {
     // Each category by its full name, as the game shows it.
     const category = { gacha_type, label: warps[gacha_type] }
     // Retrieval requests page 1 of every category, so a done one should have pages;
     // if one was skipped, show no count rather than fail.
     const pages = download.pages[gacha_type]
-    if (index < current) {
+    // A quick refresh ends a category at rolls already saved, even the current one.
+    const upToDate = download.upToDate.includes(gacha_type)
+    if (index < current || upToDate) {
       const done = pages === undefined ? '—' : plural(pages, 'page')
-      return { ...category, pages: done, state: 'done' as const }
+      return { ...category, pages: done, state: upToDate ? 'up-to-date' : 'done' }
     }
-    if (index === current)
-      return { ...category, pages: `page ${download.page}`, state: 'active' as const }
-    return { ...category, pages: '—', state: 'waiting' as const }
+    if (index === current) return { ...category, pages: `page ${download.page}`, state: 'active' }
+    return { ...category, pages: '—', state: 'waiting' }
   })
   return { current, records: download.records, rows }
 })
 const statusShown = computed(() => !reached.value || props.download!.retrying || props.cancelling)
-const stateText = { done: 'Done', active: 'Downloading…', waiting: 'Waiting' }
 
 const cancelButton = useTemplateRef('cancelButton')
 onMounted(() => cancelButton.value!.focus())
@@ -245,7 +259,8 @@ h2 {
   font-size: 13px;
   font-weight: 500;
 }
-.categories [data-state='done'] .state {
+.categories [data-state='done'] .state,
+.categories [data-state='up-to-date'] .state {
   color: var(--accent);
 }
 .categories [data-state='active'] {

@@ -11,6 +11,7 @@ import {
   retrieveHistory,
   type Counts,
   type Failure,
+  type Mode,
   type Progress,
   type Review,
 } from '../commands'
@@ -37,8 +38,8 @@ export type Source = 'device' | 'file'
 export type Stage = 'finding' | 'downloading'
 /**
  * Where the download has got to: the category and page being requested, the last
- * page requested in each category so far, the rolls received and whether a retry is
- * due.
+ * page requested in each category so far, the rolls received, whether a retry is
+ * due, and the categories a quick refresh ended at rolls already saved.
  */
 export interface Download {
   category: string
@@ -46,6 +47,7 @@ export interface Download {
   pages: Partial<Record<string, number>>
   records: number
   retrying: boolean
+  upToDate: string[]
 }
 /** How the last retrieval ended: saved, failed, or a note such as a cancel. */
 export type Outcome =
@@ -71,6 +73,8 @@ function failed(failure: Failure, message: string): Outcome {
 export function useRetrieval() {
   const phase = ref<Phase>('idle')
   const source = ref<Source>('device')
+  // New rolls only unless the user asks for the full history (decision 0015).
+  const mode = ref<Mode>('new')
   const stage = ref<Stage>('finding')
   const status = ref('')
   // Unset until the first page is requested.
@@ -111,7 +115,7 @@ export function useRetrieval() {
     if (cancelling.value) return note(cancelled)
     stage.value = 'downloading'
     status.value = 'Retrieving your warp history…'
-    const result = await retrieveHistory((progress) => {
+    const result = await retrieveHistory(mode.value, (progress) => {
       if (!cancelling.value) status.value = progressText(progress)
       track(progress)
     })
@@ -123,14 +127,20 @@ export function useRetrieval() {
     return note(cancelled)
   }
 
-  // Keep each category's last page; a retry waits on the current page.
+  // Keep each category's last page and whether it ended up to date; a retry waits
+  // on the current page.
   function track(progress: Progress) {
     const before = download.value
     if (progress.kind === 'requesting') {
       const { gacha_type, page, records } = progress
       const pages = { ...before?.pages, [gacha_type]: page }
-      download.value = { category: gacha_type, page, pages, records, retrying: false }
-    } else if (before) {
+      const upToDate = before?.upToDate ?? []
+      download.value = { category: gacha_type, page, pages, records, retrying: false, upToDate }
+    } else if (!before) {
+      return
+    } else if (progress.kind === 'up_to_date') {
+      download.value = { ...before, upToDate: [...before.upToDate, progress.gacha_type] }
+    } else {
       download.value = { ...before, retrying: true }
     }
   }
@@ -154,6 +164,7 @@ export function useRetrieval() {
     source: readonly(source),
     stage: readonly(stage),
     status: readonly(status),
+    mode: readonly(mode),
     download: shallowReadonly(download),
     review: shallowReadonly(review),
     outcome: shallowReadonly(outcome),
@@ -202,6 +213,10 @@ export function useRetrieval() {
     /** Leave the saved or failed screen for the start. */
     dismiss: () => {
       outcome.value = undefined
+    },
+    /** What the next retrieval asks for: new rolls only, or the full history. */
+    chooseMode: (next: Mode) => {
+      mode.value = next
     },
   }
 }

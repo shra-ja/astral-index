@@ -302,14 +302,43 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
     expect((await lastImport())[0]).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}$/)
     await app.screenshot('e2e-mock-last-import')
+    // A quick refresh, the default, stops each category at its first page: every
+    // category reaches saved rolls there, so only those pages are skipped.
+    const skipped = () =>
+      app.execute<string | undefined>(
+        'return [...document.querySelectorAll(".review .stat")].find(stat => stat.querySelector(".stat-label").textContent === "Existing rolls skipped")?.querySelector(".stat-value").textContent',
+      )
     await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(
+        () =>
+          app.execute<number>(
+            'return document.querySelectorAll(".categories [data-state=up-to-date]").length',
+          ),
+        { timeout: 10000 },
+      )
+      .toBeGreaterThan(0)
+    await app.screenshot('e2e-mock-refresh-progress')
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
       .toBe('Everything here is already saved')
+    // Stellar 300, Departure 50, Character Event 1,000, Light Cone Event 412 and
+    // the two collaboration warps' first 20 and 10.
+    expect(await skipped()).toBe('1,792')
     await click(app, '.review', 'Done')
     await expect
       .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
       .toContain('Your saved history is already up to date.')
+    // The full history still requests every page, skipping every saved roll.
+    await app.execute(
+      '[...document.querySelectorAll("fieldset label")].find(label => label.textContent.trim() === "Full history").click()',
+    )
+    await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe('Everything here is already saved')
+    expect(await skipped()).toBe('2,060')
+    await click(app, '.review', 'Done')
     await app.close()
   } finally {
     await app.dispose()

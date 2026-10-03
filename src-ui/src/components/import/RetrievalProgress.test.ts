@@ -69,13 +69,15 @@ test('Cancel takes focus as the progress appears', () => {
   wrapper.unmount()
 })
 
-// Stellar and Departure Warp are done; Character Event Warp is on its seventh page.
+// Stellar Warp is done, Departure Warp ended at saved rolls, and Character Event
+// Warp is on its seventh page.
 const downloading: Download = {
   category: '11',
   page: 7,
   pages: { '1': 3, '2': 1, '11': 7 },
   records: 1106,
   retrying: false,
+  upToDate: ['2'],
 }
 const categoryRows = (wrapper: ReturnType<typeof progress>) =>
   wrapper
@@ -104,7 +106,7 @@ test('while downloading, shows the category reached, the rolls so far and each c
   // Categories are listed in the order they are retrieved.
   expect(categoryRows(wrapper)).toEqual([
     ['Stellar Warp', '3 pages', 'Done', 'done'],
-    ['Departure Warp', '1 page', 'Done', 'done'],
+    ['Departure Warp', '1 page', 'Up to date', 'up-to-date'],
     ['Character Event Warp', 'page 7', 'Downloading…', 'active'],
     ['Light Cone Event Warp', '—', 'Waiting', 'waiting'],
     ['Character Collaboration Warp', '—', 'Waiting', 'waiting'],
@@ -138,11 +140,32 @@ test('the status shows until the first page, during retry waits and while cancel
 test('a category passed without any page shows no count rather than failing', () => {
   const wrapper = progress({
     stage: 'downloading',
-    download: { category: '2', page: 1, pages: { '2': 1 }, records: 0, retrying: false },
+    download: {
+      category: '2',
+      page: 1,
+      pages: { '2': 1 },
+      records: 0,
+      retrying: false,
+      upToDate: [],
+    },
   })
   expect(categoryRows(wrapper).slice(0, 2)).toEqual([
     ['Stellar Warp', '—', 'Done', 'done'],
     ['Departure Warp', 'page 1', 'Downloading…', 'active'],
+  ])
+  wrapper.unmount()
+})
+
+test('the current category shows up to date as soon as it ends at saved rolls', () => {
+  const wrapper = progress({
+    stage: 'downloading',
+    download: { ...downloading, category: '22', page: 1, pages: { '22': 1 }, upToDate: ['22'] },
+  })
+  expect(categoryRows(wrapper).at(-1)).toEqual([
+    'Light Cone Collaboration Warp',
+    '1 page',
+    'Up to date',
+    'up-to-date',
   ])
   wrapper.unmount()
 })

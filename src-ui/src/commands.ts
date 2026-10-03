@@ -70,10 +70,16 @@ export interface Review {
   conflicts: { id: string; gacha_type: string; time: string }[]
 }
 export type Retrieved = ({ kind: 'review' } & Review) | { kind: 'no_history' }
-/** Retrieval progress: the page about to be requested, with totals so far, or a pending retry. */
+/**
+ * Retrieval progress: the page about to be requested, with totals so far, a pending
+ * retry, or a category a quick refresh ended at rolls already saved.
+ */
 export type Progress =
   | { kind: 'requesting'; gacha_type: string; page: number; pages: number; records: number }
   | { kind: 'retry_pending'; delay_ms: number }
+  | { kind: 'up_to_date'; gacha_type: string }
+/** A quick refresh that stops at saved rolls, or the full history (decision 0015). */
+export type Mode = 'new' | 'full'
 
 // Accept only the native shape; only API errors carry a code, and it must be an integer.
 // A location is kept only when both its category and page are valid.
@@ -118,12 +124,13 @@ export function cancelAcquisition(): Promise<Failure | undefined> {
 
 /** Retrieve history from the validated context, reporting progress as it goes. */
 export async function retrieveHistory(
+  mode: Mode,
   onProgress: (progress: Progress) => void,
 ): Promise<{ retrieved: Retrieved } | { failure: Failure }> {
   try {
     return {
       retrieved: await invoke<Retrieved>('retrieve_history', {
-        mode: 'full',
+        mode,
         onProgress: new Channel(onProgress),
       }),
     }

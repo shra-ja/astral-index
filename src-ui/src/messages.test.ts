@@ -150,6 +150,9 @@ test('progress names each warp and page with the rolls so far, or a pending retr
   expect(progressText({ kind: 'retry_pending', delay_ms: 1000 })).toBe(
     'HoYoverse didn’t respond, so we’ll try again in a moment…',
   )
+  expect(progressText({ kind: 'up_to_date', gacha_type: '12' })).toBe(
+    'Light Cone Event Warp is up to date: it reached rolls already saved.',
+  )
 })
 
 test('a save is headed by what was added, and says which account it went to', () => {

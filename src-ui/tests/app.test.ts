@@ -359,7 +359,7 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   const start = screen('start')!
   expect(start.querySelector('h2')?.textContent).toBe('Add Warp History')
   expect(icons().slice(3)).toEqual(['cloud-download', 'file-text'])
-  expect(start.textContent).toContain('downloads your full history from HoYoverse')
+  expect(start.textContent).toContain('downloads your rolls from HoYoverse')
   expect(findButton().type).toBe('button')
   expect(
     start.querySelector<HTMLLabelElement>('label[for="cache-file"]')?.textContent?.trim(),
@@ -657,6 +657,33 @@ test('Star Rail’s Import screen shows the last import, read again after each s
   serve({ last_import: () => reject({ kind: 'storage' }) })
   await follow(named(sidebar(), 'Honkai: Star Rail'))
   expect(screen('start')!.querySelector('.last-import')).toBeNull()
+})
+
+test('retrieval asks for new rolls only by default, or the full history when chosen', async () => {
+  const modes: unknown[] = []
+  serve({
+    retrieve_history: (args) => {
+      modes.push(args.mode)
+      return { kind: 'no_history' }
+    },
+  })
+  await openImport()
+  const radio = (name: string) =>
+    [...screen('start')!.querySelectorAll<HTMLInputElement>('fieldset input')].find(
+      (input) => input.labels?.[0]?.textContent?.trim() === name,
+    )!
+  expect(radio('New rolls only').checked).toBe(true)
+  findButton().click()
+  await settle()
+  radio('Full history').click()
+  await nextTick()
+  findButton().click()
+  await settle()
+  expect(modes).toEqual(['new', 'full'])
+  // The choice stays while the app is open.
+  await follow(named(sidebar(), 'Warp History'))
+  await openImport()
+  expect(radio('Full history').checked).toBe(true)
 })
 
 test('a failed retrieval says where it stopped, and Try again starts over', async () => {

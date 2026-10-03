@@ -21,6 +21,7 @@ const props = defineProps<{ game: Game }>()
 const {
   phase,
   source,
+  mode,
   stage,
   status,
   download,
@@ -34,6 +35,7 @@ const {
   discard,
   done,
   dismiss,
+  chooseMode,
 } = inject(retrievalKey)!
 
 const available = computed(() => props.game === 'honkai-star-rail')
@@ -80,6 +82,8 @@ watch(
         :game="games[game]"
         :available
         :note
+        :mode
+        @update:mode="chooseMode"
         @search="searchDevice"
         @choose="readFile"
       >
