@@ -6,4 +6,5 @@
     "commit_import",
     "discard_import",
     "history_page",
+    "last_import",
 ]

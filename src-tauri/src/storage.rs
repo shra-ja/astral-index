@@ -137,6 +137,27 @@ pub struct Account {
     pub timezone: Option<i32>,
 }
 
+/// The newest import's summary, for the Import screen. Holds a player identifier:
+/// never log it.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct LastImport {
+    /// When it was saved, in Unix seconds by this device's clock.
+    pub imported_at: i64,
+    pub source: Source,
+    pub uid: String,
+    pub server: String,
+    /// Rolls it added; rolls already saved are not counted.
+    pub inserted: usize,
+}
+
+/// Where an import came from, without exposing internal adapter names.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Source {
+    /// Retrieved from HoYoverse's history API.
+    Hoyoverse,
+}
+
 /// One page of an account's rolls in one category, newest first, for display.
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct HistoryPage {
@@ -388,6 +409,41 @@ impl Store {
         Ok(records)
     }
 
+    /// The newest import of this game, if any.
+    pub fn last_import(&self) -> Result<Option<LastImport>, Error> {
+        let Some((imported_at, adapter, uid, server, inserted)) = self
+            .connection
+            .query_row(
+                "SELECT imported_at,adapter,uid,server,inserted FROM batches WHERE game=?1 ORDER BY id DESC LIMIT 1",
+                params![GAME],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, i64>(4)?,
+                    ))
+                },
+            )
+            .optional()?
+        else {
+            return Ok(None);
+        };
+        // Only known adapters write batches, so another is damage.
+        if adapter != "hsr-api-v1" {
+            return Err(Error::InvalidStoredData);
+        }
+        Ok(Some(LastImport {
+            imported_at,
+            source: Source::Hoyoverse,
+            uid,
+            server,
+            // The schema keeps counts non-negative.
+            inserted: usize::try_from(inserted).unwrap_or_default(),
+        }))
+    }
+
     /// The account an import last went into, if any.
     pub fn latest_account(&self) -> Result<Option<Account>, Error> {
         Ok(self
@@ -573,6 +629,7 @@ pub(crate) mod tests {
         "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
     const HISTORY: &str =
         "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
+    const LAST: &str = "SELECT imported_at,adapter,uid,server,inserted FROM batches WHERE game=?1 ORDER BY id DESC LIMIT 1";
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
     const PAGE_ROWS: &str = "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6";
@@ -1223,6 +1280,62 @@ pub(crate) mod tests {
             None,
             &mut || store().latest_account().map(|_| ()),
         );
+    }
+
+    #[test]
+    fn the_last_import_is_the_newest_batch_with_where_it_came_from() {
+        let last = |found: Vec<Vec<Value>>| {
+            database::expect(vec![last_import_step(found)]);
+            let last = store().last_import();
+            database::finish();
+            last
+        };
+        let found = last(vec![last_import_row()]).unwrap().unwrap();
+        assert_eq!(
+            found,
+            LastImport {
+                imported_at: 1_790_000_000,
+                source: Source::Hoyoverse,
+                uid: UID.into(),
+                server: SERVER.into(),
+                inserted: 96,
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(&found).unwrap(),
+            serde_json::json!({
+                "imported_at": 1_790_000_000, "source": "hoyoverse", "uid": UID,
+                "server": SERVER, "inserted": 96,
+            })
+        );
+        assert_eq!(last(vec![]), Ok(None));
+        // Only known adapters write batches, so another is damage.
+        let mut unknown = last_import_row();
+        unknown[1] = text("uigf-v4");
+        assert_eq!(last(vec![unknown]), Err(Error::InvalidStoredData));
+        for column in 0..5 {
+            let mut unreadable = last_import_row();
+            unreadable[column] = Value::Null;
+            assert_eq!(last(vec![unreadable]), Err(Error::Database));
+        }
+        fail_each(&|| vec![last_import_step(vec![])], None, &mut || {
+            store().last_import().map(|_| ())
+        });
+    }
+
+    /// The SQL for finding the last import, answered with `found`.
+    pub(crate) fn last_import_step(found: Vec<Vec<Value>>) -> Step {
+        rows(LAST, vec![text(GAME)], found)
+    }
+    /// A retrieval into the fixture account that saved 96 rolls.
+    pub(crate) fn last_import_row() -> Vec<Value> {
+        vec![
+            Value::Integer(1_790_000_000),
+            text("hsr-api-v1"),
+            text(UID),
+            text(SERVER),
+            Value::Integer(96),
+        ]
     }
 
     /// The SQL for finding the latest account, answered with `found`.

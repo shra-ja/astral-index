@@ -128,5 +128,5 @@ is shown as text as well as colour.
 - **Storing pity** was rejected; it is derived on read
   ([architecture](../ARCHITECTURE.md#statistics)).
 - A light theme, real item art and the history-file import flow are deferred;
-  the roadmap tracks them. The app's native data does not yet supply the Import
-  screen's "Last import" line.
+  the roadmap tracks them. The Import screen's "Last import" line comes from the
+  `last_import` command (added 2026-10-03).

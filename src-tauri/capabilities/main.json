@@ -11,6 +11,7 @@
     "allow-retrieve-history",
     "allow-commit-import",
     "allow-discard-import",
-    "allow-history-page"
+    "allow-history-page",
+    "allow-last-import"
   ]
 }

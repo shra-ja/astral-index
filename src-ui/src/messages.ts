@@ -1,6 +1,6 @@
 // What the retrieval flow tells the user about failures, progress and saving.
-import type { Counts, Failure, Kind, Progress } from './commands'
-import { plural, serverName, warps } from './format'
+import type { Counts, Failure, Kind, LastImport, Progress } from './commands'
+import { localDateTime, plural, serverName, warps } from './format'
 
 /** Messages by failure kind, for one step of the flow. */
 export type Messages = Partial<Record<Kind, string>>
@@ -137,3 +137,16 @@ export const savedTitle = ({ summary }: Saved) =>
 /** Which account the rolls were added to; the counts have tiles of their own. */
 export const savedDetail = ({ uid, server }: Saved) =>
   `Added to UID ${uid} (${serverName(server)}).`
+
+/** How each source of an import is described. */
+const sources: Record<LastImport['source'], string> = {
+  hoyoverse: 'Retrieved from HoYoverse',
+}
+
+/** The Import screen's "Last import" line, as separate parts: when, how, where, what. */
+export const lastImportParts = (last: LastImport, timeZone?: string) => [
+  localDateTime(last.imported_at, timeZone),
+  sources[last.source],
+  `UID ${last.uid} (${serverName(last.server)})`,
+  `${plural(last.inserted, 'new roll')} saved`,
+]

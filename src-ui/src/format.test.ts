@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest'
-import { categoryTabs, initials, serverDate, serverDateTime, serverName, utcOffset } from './format'
+import {
+  categoryTabs,
+  initials,
+  localDateTime,
+  serverDate,
+  serverDateTime,
+  serverName,
+  utcOffset,
+} from './format'
 
 test('server times read as written, in the server’s own time', () => {
   expect(serverDate('2026-04-02 10:00:00')).toBe('2 Apr 2026')
@@ -51,4 +59,10 @@ test('servers read as the game names them, and unknown ones as given', () => {
     'China (Bilibili)',
     'prod_official_new',
   ])
+})
+
+test('device times read in local time, here given as UTC', () => {
+  expect(localDateTime(1790000000, 'UTC')).toBe('21 Sep 2026, 14:13')
+  expect(localDateTime(1790000000, 'Asia/Tokyo')).toBe('21 Sep 2026, 23:13')
+  expect(localDateTime(0, 'UTC')).toBe('1 Jan 1970, 00:00')
 })

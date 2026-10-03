@@ -6,6 +6,7 @@ import {
   describe,
   fileMessages,
   historyFailure,
+  lastImportParts,
   progressText,
   retrievalFailure,
   savedDetail,
@@ -205,4 +206,21 @@ test('reading saved history explains damage, and anything else asks to try again
   for (const kind of ['invalid_request', 'unavailable'] as const) {
     expect(historyFailure({ kind })).toBe('Something went wrong. Please try again.')
   }
+})
+
+test('the last import says where it came from, which account and how many rolls it added', () => {
+  const last = {
+    imported_at: 1790000000,
+    source: 'hoyoverse' as const,
+    uid: '100000001',
+    server: 'prod_official_asia',
+    inserted: 96,
+  }
+  expect(lastImportParts(last, 'UTC')).toEqual([
+    '21 Sep 2026, 14:13',
+    'Retrieved from HoYoverse',
+    'UID 100000001 (Asia)',
+    '96 new rolls saved',
+  ])
+  expect(lastImportParts({ ...last, inserted: 1 }, 'UTC')[3]).toBe('1 new roll saved')
 })

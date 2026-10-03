@@ -81,6 +81,7 @@ defineExpose({
         </div>
       </section>
     </div>
+    <slot />
   </div>
 </template>
 

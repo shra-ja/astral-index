@@ -182,6 +182,24 @@ export async function historyPage(
   }
 }
 
+/** The newest import's summary. `imported_at` is in Unix seconds by this device's clock. */
+export interface LastImport {
+  imported_at: number
+  source: 'hoyoverse'
+  uid: string
+  server: string
+  inserted: number
+}
+
+/** Read the newest import's summary, or null before the first. Reads this device only. */
+export async function lastImport(): Promise<{ last: LastImport | null } | { failure: Failure }> {
+  try {
+    return { last: await invoke<LastImport | null>('last_import') }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
+}
+
 /** Check the size before reading, then send the bytes as a raw body for validation. */
 export async function extractFromFile(file: File): Promise<Failure | undefined> {
   if (file.size > MAX_CACHE_BYTES) return { kind: 'file_too_large' }
