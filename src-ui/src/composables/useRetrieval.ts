@@ -1,7 +1,7 @@
 // The retrieval flow: validate the saved warp history link, retrieve history with
 // progress, then save or discard it after review. Components render its state and
 // call its actions; only this flow makes the native calls.
-import { readonly, ref, shallowReadonly } from 'vue'
+import { readonly, ref, shallowReadonly, shallowRef } from 'vue'
 import {
   cancelAcquisition,
   commitImport,
@@ -11,6 +11,7 @@ import {
   retrieveHistory,
   type Counts,
   type Failure,
+  type Progress,
   type Review,
 } from '../commands'
 import {
@@ -34,6 +35,18 @@ export type Phase = 'idle' | 'acquiring' | 'reviewing' | 'saving' | 'leaving'
 export type Source = 'device' | 'file'
 /** While acquiring: still finding and checking the link, or downloading history. */
 export type Stage = 'finding' | 'downloading'
+/**
+ * Where the download has got to: the category and page being requested, the last
+ * page requested in each category so far, the rolls received and whether a retry is
+ * due.
+ */
+export interface Download {
+  category: string
+  page: number
+  pages: Partial<Record<string, number>>
+  records: number
+  retrying: boolean
+}
 /** How the last retrieval ended: saved, failed, or a note such as a cancel. */
 export type Outcome =
   | {
@@ -60,6 +73,8 @@ export function useRetrieval() {
   const source = ref<Source>('device')
   const stage = ref<Stage>('finding')
   const status = ref('')
+  // Unset until the first page is requested.
+  const download = shallowRef<Download>()
   const review = ref<Review>()
   const outcome = ref<Outcome>()
   // Set while the user has asked to stop the running acquisition.
@@ -78,6 +93,7 @@ export function useRetrieval() {
     stage.value = 'finding'
     phase.value = 'acquiring'
     status.value = searching
+    download.value = undefined
     const result = await run(extract, messages)
     if (!('review' in result)) return finish(result)
     phase.value = 'reviewing'
@@ -97,6 +113,7 @@ export function useRetrieval() {
     status.value = 'Retrieving your warp history…'
     const result = await retrieveHistory((progress) => {
       if (!cancelling.value) status.value = progressText(progress)
+      track(progress)
     })
     if ('failure' in result) return failed(result.failure, retrievalFailure(result.failure))
     if (result.retrieved.kind === 'no_history')
@@ -104,6 +121,18 @@ export function useRetrieval() {
     if (!cancelling.value) return { review: result.retrieved }
     await discardImport()
     return note(cancelled)
+  }
+
+  // Keep each category's last page; a retry waits on the current page.
+  function track(progress: Progress) {
+    const before = download.value
+    if (progress.kind === 'requesting') {
+      const { gacha_type, page, records } = progress
+      const pages = { ...before?.pages, [gacha_type]: page }
+      download.value = { category: gacha_type, page, pages, records, retrying: false }
+    } else if (before) {
+      download.value = { ...before, retrying: true }
+    }
   }
 
   function finish(ending: Outcome) {
@@ -125,6 +154,7 @@ export function useRetrieval() {
     source: readonly(source),
     stage: readonly(stage),
     status: readonly(status),
+    download: shallowReadonly(download),
     review: shallowReadonly(review),
     outcome: shallowReadonly(outcome),
     cancelling: readonly(cancelling),

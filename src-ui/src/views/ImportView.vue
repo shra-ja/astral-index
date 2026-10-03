@@ -23,6 +23,7 @@ const {
   source,
   stage,
   status,
+  download,
   review,
   outcome,
   cancelling,
@@ -90,6 +91,7 @@ watch(
         :source
         :stage
         :status
+        :download
         :cancelling
         @cancel="cancel"
       />

@@ -100,6 +100,45 @@ test('searching the device validates, retrieves with progress, then shows the re
   expect(extractFromFile).not.toHaveBeenCalled()
 })
 
+test('downloading keeps each category’s last page, the rolls so far and any retry wait', async () => {
+  const retrieval = pendingRetrieval()
+  const flow = useRetrieval()
+  void flow.searchDevice()
+  await settle()
+  // Nothing has been requested yet.
+  expect(flow.download.value).toBeUndefined()
+  for (const page of [1, 2, 3]) {
+    retrieval.progress({ kind: 'requesting', gacha_type: '1', page, pages: page - 1, records: 0 })
+  }
+  retrieval.progress({ kind: 'requesting', gacha_type: '2', page: 1, pages: 3, records: 45 })
+  retrieval.progress({ kind: 'retry_pending', delay_ms: 2000 })
+  expect(flow.download.value).toEqual({
+    category: '2',
+    page: 1,
+    pages: { '1': 3, '2': 1 },
+    records: 45,
+    retrying: true,
+  })
+  retrieval.progress({ kind: 'requesting', gacha_type: '2', page: 1, pages: 3, records: 45 })
+  expect(flow.download.value?.retrying).toBe(false)
+  retrieval.resolve(retrieved(45))
+  await settle()
+  // The next retrieval starts from nothing.
+  void flow.discard()
+  await settle()
+  void flow.searchDevice()
+  expect(flow.download.value).toBeUndefined()
+})
+
+test('a retry before the first page leaves nothing to show', async () => {
+  const retrieval = pendingRetrieval()
+  const flow = useRetrieval()
+  void flow.searchDevice()
+  await settle()
+  retrieval.progress({ kind: 'retry_pending', delay_ms: 2000 })
+  expect(flow.download.value).toBeUndefined()
+})
+
 test('a chosen file is read instead of searching, and its failures are explained as a file', async () => {
   const file = new File(['synthetic'], 'data_2')
   vi.mocked(extractFromFile).mockResolvedValue({ kind: 'no_request' })

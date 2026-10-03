@@ -27,8 +27,8 @@ test('history tabs list the event warps first, with short names', () => {
     ['12', 'Light Cone Event'],
     ['1', 'Stellar'],
     ['2', 'Departure'],
-    ['21', 'Collab Character'],
-    ['22', 'Collab Light Cone'],
+    ['21', 'Character Collab'],
+    ['22', 'Light Cone Collab'],
   ])
 })
 

@@ -78,7 +78,7 @@ const fileInput = () => screen('start')!.querySelector<HTMLInputElement>('#cache
 const note = () => screen('start')!.querySelector('.note')?.textContent?.trim()
 const progressStatus = () => screen('progress')!.querySelector('[role="status"]')!.textContent
 const steps = () =>
-  [...screen('progress')!.querySelectorAll('li')].map((step) => [
+  [...screen('progress')!.querySelectorAll<HTMLElement>('.steps > li')].map((step) => [
     step.querySelector('.label')!.textContent?.trim(),
     step.dataset.state,
   ])
@@ -270,8 +270,8 @@ test('saved history shows its account, category counts and newest rolls first', 
     ['Light Cone Event 0', 'false'],
     ['Stellar 3', 'false'],
     ['Departure 0', 'false'],
-    ['Collab Character 0', 'false'],
-    ['Collab Light Cone 0', 'false'],
+    ['Character Collab 0', 'false'],
+    ['Light Cone Collab 0', 'false'],
   ])
   expect(main().querySelector('[role="table"]')?.getAttribute('aria-label')).toBe(
     'Character Event Warp rolls, newest first',
@@ -409,12 +409,41 @@ test('starting retrieval shows progress, then the review, then what was saved', 
     ['Downloading your rolls', 'active'],
     ['Prepare the review', 'waiting'],
   ])
-  progress.onmessage({ kind: 'requesting', gacha_type: '11', page: 2, pages: 1, records: 1532 })
+  // Stellar and Departure Warp come first, as retrieval requests them.
+  progress.onmessage({ kind: 'requesting', gacha_type: '1', page: 1, pages: 0, records: 0 })
+  progress.onmessage({ kind: 'requesting', gacha_type: '2', page: 1, pages: 1, records: 20 })
+  progress.onmessage({ kind: 'requesting', gacha_type: '11', page: 1, pages: 2, records: 30 })
+  progress.onmessage({ kind: 'requesting', gacha_type: '11', page: 2, pages: 3, records: 1532 })
   await nextTick()
   expect(progressStatus()).toBe('Retrieving Character Event Warp, page 2 · 1,532 rolls so far')
+  expect(
+    [...screen('progress')!.querySelectorAll('.categories .pages')].map(
+      (pages) => pages.textContent,
+    ),
+  ).toEqual(['1 page', '1 page', 'page 2', '—', '—', '—'])
+  // The row, bar and category list show progress; the status is only announced.
+  const progressPanel = screen('progress')!
+  expect(progressPanel.querySelector('.summary')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    'Category 3 of 6 1,532 rolls so far',
+  )
+  expect(progressPanel.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe(
+    '2',
+  )
+  expect(
+    [...progressPanel.querySelectorAll('.categories li')].map((row) =>
+      row.getAttribute('data-state'),
+    ),
+  ).toEqual(['done', 'done', 'active', 'waiting', 'waiting', 'waiting'])
+  expect(
+    progressPanel.querySelector('[role="status"]')?.classList.contains('visually-hidden'),
+  ).toBe(true)
   progress.onmessage({ kind: 'retry_pending', delay_ms: 1000 })
   await nextTick()
   expect(progressStatus()).toBe('HoYoverse didn’t respond, so we’ll try again in a moment…')
+  // A retry wait is shown as well as announced.
+  expect(
+    screen('progress')!.querySelector('[role="status"]')?.classList.contains('visually-hidden'),
+  ).toBe(false)
   retrieval.resolve(review(412, 88))
   await settle()
   expect(flow(calls)).toEqual(['extract_automatically', 'retrieve_history'])

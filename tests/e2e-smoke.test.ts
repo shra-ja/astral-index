@@ -164,6 +164,22 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await expect
       .poll(() => textOf(app, '.progress [role=status]'), { timeout: 10000 })
       .toContain('Retrieving')
+    // The download shows the category reached and each category's state.
+    await expect
+      .poll(() => textOf(app, '.progress .summary'), { timeout: 10000 })
+      .toMatch(/^Category [1-6] of 6\s*[\d,]+ rolls? so far$/)
+    expect(
+      await app.execute(
+        'return [...document.querySelectorAll(".categories .name")].map(name => name.textContent)',
+      ),
+    ).toEqual([
+      'Stellar Warp',
+      'Departure Warp',
+      'Character Event Warp',
+      'Light Cone Event Warp',
+      'Character Collaboration Warp',
+      'Light Cone Collaboration Warp',
+    ])
     await app.screenshot('e2e-mock-progress')
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
@@ -240,8 +256,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         'Light Cone Event 412',
         'Stellar 300',
         'Departure 50',
-        'Collab Character 38',
-        'Collab Light Cone 10',
+        'Character Collab 38',
+        'Light Cone Collab 10',
       ])
     expect(await textOf(app, '[aria-sort]')).toBe('Time (UTC+8)')
     expect(
