@@ -3,9 +3,13 @@ import { beforeAll, expect, test } from 'vitest'
 import { eslintConfig } from './eslint-config'
 
 let eslint: ESLint
-beforeAll(() => {
+// The first type-aware lint builds the TypeScript program, which takes seconds on
+// slow CI runners. Build it here, under its own timeout, so each test times only its
+// own checks.
+beforeAll(async () => {
   eslint = new ESLint({ overrideConfigFile: true, overrideConfig: eslintConfig() })
-})
+  await eslint.lintText('', { filePath: 'tooling/coverage.ts' })
+}, 60_000)
 
 // The rules reported for source text linted in place of an existing file: type-aware
 // rules only lint files the TypeScript projects include, but take the text given.
