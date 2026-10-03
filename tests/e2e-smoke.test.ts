@@ -213,8 +213,58 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(last.rolls.map((roll) => roll.number)).toEqual([10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
     await app.screenshot('e2e-mock-saved')
     expect(existsSync(database)).toBe(true)
+    // The History screen shows what was saved, read from this device.
+    await app.execute(
+      `[...document.querySelectorAll(".saved a")].find(a => a.textContent.trim() === "View warp history").click()`,
+    )
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
+    expect(
+      await app.execute('return document.querySelector(".account").getAttribute("aria-label")'),
+    ).toBe('Account: UID 100000001, prod_official_asia server')
+    // In a wide window the tabs show their counts.
+    await app.command('/window/rect', 'POST', { width: 1280, height: 900 })
+    const tabs = () =>
+      app.execute<string[]>(
+        `return [...document.querySelectorAll('[aria-label="Banner category"] button')].map(tab => tab.textContent.replace(/\\s+/g, " ").trim())`,
+      )
+    await expect
+      .poll(tabs, { timeout: 5000 })
+      .toEqual([
+        'Character Event 1,250',
+        'Light Cone Event 412',
+        'Stellar 300',
+        'Departure 50',
+        'Collab Character 38',
+        'Collab Light Cone 10',
+      ])
+    expect(await textOf(app, '[aria-sort]')).toBe('Time (UTC+8)')
+    expect(
+      await app.execute(
+        `return [...document.querySelectorAll(".roll-list .body [role=row]")].slice(0, 2).map(row => [...row.querySelectorAll("[role=cell]")].map(cell => cell.textContent.trim()).filter((_, index) => index !== 1))`,
+      ),
+    ).toEqual([
+      ['1250', expect.stringMatching(/^[345]★$/), expect.any(String), '28 Sep 2026, 21:03:03'],
+      ['1249', expect.stringMatching(/^[345]★$/), expect.any(String), '28 Sep 2026, 21:03:03'],
+    ])
+    await app.screenshot('e2e-mock-history')
+    // At the minimum width they no longer fit, so they become a dropdown.
+    await app.command('/window/rect', 'POST', { width: 480, height: 700 })
+    await expect
+      .poll(() => textOf(app, 'label.select select option:checked'), { timeout: 5000 })
+      .toMatch(/^\s*Character Event · 1,250\s*$/)
+    expect(await tabs()).toEqual([])
+    await app.screenshot('e2e-mock-history-narrow')
+    // Paging reads the next rolls, still from this device.
+    await app.execute('document.querySelector(\'[aria-label="Next page"]\').click()')
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 21–40 of\s+1,250\s*$/)
     // A second retrieval finds everything already saved.
-    await click(app, '.saved', 'Done')
+    await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
     await app.chooseFile('#cache-file', cachePath)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
@@ -240,7 +290,13 @@ test('a mock retrieval that loses the network says where it stopped and saves no
       'Retrieval stopped at Light Cone Event Warp, page 1.',
     )
     await app.screenshot('e2e-mock-failed')
-    expect(existsSync(database)).toBe(false)
+    // The History screen's read opens the database, but no rolls were saved.
+    expect(existsSync(database)).toBe(true)
+    expect(
+      await app.executeAsync(
+        `window.__TAURI_INTERNALS__.invoke('history_page', { category: '12', page: 1, pageSize: 20 }).then(arguments[arguments.length - 1])`,
+      ),
+    ).toEqual(expect.objectContaining({ account: null, total: 0, rolls: [] }))
     await app.close()
   } finally {
     await app.dispose()

@@ -11,8 +11,20 @@ function reject(failure: unknown): never {
 // Resolve the mocked IPC and the UI's follow-up rendering.
 const settle = () => new Promise((resolve) => setTimeout(resolve))
 
+// jsdom has no layout or resize events; the tabs keep their widest form.
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    disconnect() {}
+  },
+)
+// Until a test saves history, the History screen finds none.
+const nothingSaved = { account: null, total: 0, categories: [], rolls: [] }
+
 // Mount the whole app afresh, and wait for the router to show the first view.
 beforeEach(async () => {
+  serve({})
   document.body.innerHTML = '<div id="app"></div>'
   // The address outlives each app, so every test starts from the opening screen.
   history.replaceState(null, '', '/')
@@ -77,12 +89,14 @@ function click(element: HTMLElement) {
 }
 
 type Handler = (args: Record<string, unknown>) => unknown
-// Route each mocked command to its handler, recording the commands called.
+// Route each mocked command to its handler, recording the commands called. The
+// History screen finds nothing saved unless a test serves its own history.
 function serve(handlers: Record<string, Handler>) {
   const calls: string[] = []
+  const served: Record<string, Handler> = { history_page: () => nothingSaved, ...handlers }
   mockIPC((cmd, args) => {
     calls.push(cmd)
-    return handlers[cmd]?.(args as Record<string, unknown>)
+    return served[cmd]?.(args as Record<string, unknown>)
   })
   return calls
 }
@@ -173,6 +187,141 @@ test('a retrieval keeps running while another screen is shown', async () => {
   await settle()
   await openImport()
   expect(reviewHeading().textContent).toBe('Ready to save 3 new rolls')
+})
+
+// Synthetic saved history: 45 Character Event and 3 Stellar Warp rolls.
+const savedCounts: Record<string, number> = { '1': 3, '11': 45 }
+function savedHistory(args: Record<string, unknown>) {
+  const { category, page, pageSize } = args as { category: string; page: number; pageSize: number }
+  const total = savedCounts[category] ?? 0
+  const first = total - (page - 1) * pageSize
+  return {
+    account: { uid: '100000001', server: 'synthetic-server', timezone: 8 },
+    total,
+    categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
+      gacha_type,
+      total: savedCounts[gacha_type] ?? 0,
+    })),
+    rolls: Array.from({ length: Math.max(0, Math.min(pageSize, first)) }, (_, index) => ({
+      number: first - index,
+      id: `${category}-${first - index}`,
+      name: first - index === 45 ? 'Synthetic Hero' : 'Arrows',
+      item_type: first - index === 45 ? 'Character' : 'Light Cone',
+      rank_type: first - index === 45 ? '5' : '3',
+      time: '2026-09-28 21:14:03',
+    })),
+  }
+}
+// Serve the given history, then open the History screen afresh so it reads it.
+async function openHistory(handler: Handler) {
+  const reads: unknown[] = []
+  const calls = serve({
+    history_page: (args) => {
+      reads.push(args)
+      return handler(args)
+    },
+  })
+  await openImport()
+  await follow(named(sidebar(), 'Warp History'))
+  return { calls, reads }
+}
+const main = () => document.querySelector('main')!
+const tabs = () =>
+  [...main().querySelectorAll('[aria-label="Banner category"] button')].map((tab) => [
+    tab.textContent?.replace(/\s+/g, ' ').trim(),
+    tab.getAttribute('aria-pressed'),
+  ])
+const listed = () =>
+  [...main().querySelectorAll('.roll-list .body [role="row"]')].map(
+    (row) => row.querySelector('[role="cell"]')?.textContent,
+  )
+const showing = () => main().querySelector('.showing')?.textContent?.replace(/\s+/g, ' ').trim()
+const pageButton = (name: string) =>
+  main().querySelector<HTMLButtonElement>(`nav[aria-label="Pages"] [aria-label="${name}"]`)!
+
+test('saved history shows its account, category counts and newest rolls first', async () => {
+  const { calls, reads } = await openHistory(savedHistory)
+  expect(main().querySelector('.account')?.getAttribute('aria-label')).toBe(
+    'Account: UID 100000001, synthetic-server server',
+  )
+  expect(tabs()).toEqual([
+    ['Character Event 45', 'true'],
+    ['Light Cone Event 0', 'false'],
+    ['Stellar 3', 'false'],
+    ['Departure 0', 'false'],
+    ['Collab Character 0', 'false'],
+    ['Collab Light Cone 0', 'false'],
+  ])
+  expect(main().querySelector('[role="table"]')?.getAttribute('aria-label')).toBe(
+    'Character Event Warp rolls, newest first',
+  )
+  expect(main().querySelector('[aria-sort]')?.textContent).toBe('Time (UTC+8)')
+  expect(listed()).toHaveLength(20)
+  expect(listed()[0]).toBe('45')
+  expect(main().querySelector('.rarity-5 .name')?.textContent).toBe('Synthetic Hero')
+  expect(showing()).toBe('Showing 1–20 of 45')
+  // Reading saved history never asks HoYoverse for anything.
+  expect(new Set(calls)).toEqual(new Set(['history_page']))
+  expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
+  expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
+})
+
+test('history pages through a category, resizes pages and switches categories', async () => {
+  const { reads } = await openHistory(savedHistory)
+  pageButton('Next page').click()
+  await settle()
+  expect([listed()[0], showing()]).toEqual(['25', 'Showing 21–40 of 45'])
+  pageButton('Page 3').click()
+  await settle()
+  expect([listed(), showing()]).toEqual([['5', '4', '3', '2', '1'], 'Showing 41–45 of 45'])
+  const size = main().querySelector<HTMLSelectElement>('.size select')!
+  size.value = '50'
+  size.dispatchEvent(new Event('change'))
+  await settle()
+  expect([listed().length, showing()]).toEqual([45, 'Showing 1–45 of 45'])
+  button(main(), 'Stellar 3').click()
+  await settle()
+  expect(tabs()[2]).toEqual(['Stellar 3', 'true'])
+  expect([listed(), showing()]).toEqual([['3', '2', '1'], 'Showing 1–3 of 3'])
+  expect(reads.slice(1)).toEqual([
+    { category: '11', page: 2, pageSize: 20 },
+    { category: '11', page: 3, pageSize: 20 },
+    { category: '11', page: 1, pageSize: 50 },
+    { category: '1', page: 1, pageSize: 50 },
+  ])
+  // A category without rolls says so, with no pages.
+  button(main(), 'Departure 0').click()
+  await settle()
+  expect(main().querySelector('.none')?.textContent).toBe('No Departure Warp rolls saved yet.')
+  expect(main().querySelector('[role="table"]')).toBeNull()
+  expect(main().querySelector('nav[aria-label="Pages"]')).toBeNull()
+})
+
+test('history that cannot be read says so, and Try again reads it again', async () => {
+  let fail = true
+  const { reads } = await openHistory((args) =>
+    fail ? reject({ kind: 'storage' }) : savedHistory(args),
+  )
+  const alert = main().querySelector('[role="alert"]')!
+  expect(alert.querySelector('h2')?.textContent).toBe('Couldn’t Show Your Warp History')
+  expect(alert.textContent).toContain('We couldn’t read the history saved on this device.')
+  expect(main().querySelector('[role="table"]')).toBeNull()
+  fail = false
+  button(alert, 'Try again').click()
+  await settle()
+  expect(main().querySelector('[role="alert"]')).toBeNull()
+  expect(listed()[0]).toBe('45')
+  expect(reads).toHaveLength(2)
+})
+
+test('Genshin Impact’s history reads nothing until it has an adapter', async () => {
+  const calls = serve({})
+  await follow(named(sidebar(), 'Genshin Impact'))
+  expect(calls).toEqual([])
+  expect(main().querySelector('[role="status"]')?.textContent).toContain('No Wish History Yet')
+  // Returning to Star Rail reads its history again.
+  await follow(named(sidebar(), 'Honkai: Star Rail'))
+  expect(calls).toEqual(['history_page'])
 })
 
 test('an unknown address returns to Star Rail’s history', async () => {

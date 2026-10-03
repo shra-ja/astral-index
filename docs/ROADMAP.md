@@ -287,7 +287,7 @@ the order listed.
       page in Rust.
     - [x] Return every category's count with each page, for the History
       screen's tab counts.
-    - [ ] Show the History screen: category tabs (a dropdown when they do not
+    - [x] Show the History screen: category tabs (a dropdown when they do not
       fit), the paged list with item, rarity, type and time, and the empty state.
       Show the most recently imported account; switching accounts is milestone 4.
   - [ ] Expose the latest import (time, source, account and rolls saved) from the

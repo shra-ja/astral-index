@@ -42,3 +42,33 @@ export function serverDate(time: string) {
   const [year, month, day] = time.slice(0, 10).split('-')
   return `${Number(day)} ${months[Number(month) - 1]} ${year}`
 }
+
+/** "28 Sep 2026, 21:14:03", from a server time, read as written. */
+export const serverDateTime = (time: string) => `${serverDate(time)}, ${time.slice(11)}`
+
+/** "UTC+8" for a server's offset in hours, or "server time" when it is unknown. */
+export function utcOffset(timezone: number | null) {
+  if (timezone === null) return 'server time'
+  if (timezone === 0) return 'UTC'
+  return `UTC${timezone > 0 ? '+' : '−'}${Math.abs(timezone)}`
+}
+
+/** The History screen's category tabs, in the design's order, with short names. */
+export const categoryTabs = [
+  { gacha_type: '11', label: 'Character Event' },
+  { gacha_type: '12', label: 'Light Cone Event' },
+  { gacha_type: '1', label: 'Stellar' },
+  { gacha_type: '2', label: 'Departure' },
+  { gacha_type: '21', label: 'Collab Character' },
+  { gacha_type: '22', label: 'Collab Light Cone' },
+] as const
+
+/** Up to two initials for an item's placeholder icon, skipping words without letters. */
+export const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter((word) => /^[\p{L}\p{N}]/u.test(word))
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
