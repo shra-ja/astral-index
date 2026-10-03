@@ -129,29 +129,30 @@ test('cancelling asks the native side to stop and reports only unexpected failur
 test('retrieval streams progress, then returns the review or no history', async () => {
   const events: unknown[] = []
   const requesting = { kind: 'requesting', gacha_type: '1', page: 1, pages: 0, records: 0 }
+  const upToDate = { kind: 'up_to_date', gacha_type: '1' }
   let command = ''
   let mode: unknown
   mockIPC((cmd, args) => {
     command = cmd
     mode = (args as { mode: unknown }).mode
     ;(args as { onProgress: Channel<unknown> }).onProgress.onmessage(requesting)
+    ;(args as { onProgress: Channel<unknown> }).onProgress.onmessage(upToDate)
     return { kind: 'no_history' }
   })
-  expect(await retrieveHistory((event) => events.push(event))).toEqual({
+  expect(await retrieveHistory('new', (event) => events.push(event))).toEqual({
     retrieved: { kind: 'no_history' },
   })
   expect(command).toBe('retrieve_history')
-  // The full history, until the Import screen offers a quick refresh.
-  expect(mode).toBe('full')
-  expect(events).toEqual([requesting])
+  expect(mode).toBe('new')
+  expect(events).toEqual([requesting, upToDate])
   const review = { kind: 'review', uid: '100000001', server: 'synthetic-server' }
-  mockIPC(() => review)
-  expect(await retrieveHistory(() => undefined)).toEqual({ retrieved: review })
+  mockIPC((_, args) => (args as { mode: string }).mode === 'full' && review)
+  expect(await retrieveHistory('full', () => undefined)).toEqual({ retrieved: review })
 })
 
 test('retrieval failures keep only a valid category and page', async () => {
   mockIPC(() => reject({ kind: 'expired_key', gacha_type: '2', page: 1 }))
-  expect(await retrieveHistory(() => undefined)).toEqual({
+  expect(await retrieveHistory('full', () => undefined)).toEqual({
     failure: { kind: 'expired_key', location: { gacha_type: '2', page: 1 } },
   })
   for (const location of [
@@ -161,7 +162,7 @@ test('retrieval failures keep only a valid category and page', async () => {
     { gacha_type: '2', page: 1.5 },
   ]) {
     mockIPC(() => reject({ kind: 'network', ...location }))
-    expect(await retrieveHistory(() => undefined)).toEqual({ failure: { kind: 'network' } })
+    expect(await retrieveHistory('full', () => undefined)).toEqual({ failure: { kind: 'network' } })
   }
 })
 

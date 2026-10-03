@@ -52,7 +52,7 @@ function pending<T>() {
 function pendingRetrieval() {
   const result = pending<Awaited<ReturnType<typeof retrieveHistory>>>()
   let progress!: (progress: Progress) => void
-  vi.mocked(retrieveHistory).mockImplementation((onProgress) => {
+  vi.mocked(retrieveHistory).mockImplementation((_, onProgress) => {
     progress = onProgress
     return result.promise
   })
@@ -110,6 +110,8 @@ test('downloading keeps each category’s last page, the rolls so far and any re
   for (const page of [1, 2, 3]) {
     retrieval.progress({ kind: 'requesting', gacha_type: '1', page, pages: page - 1, records: 0 })
   }
+  // A quick refresh ended Stellar Warp at saved rolls.
+  retrieval.progress({ kind: 'up_to_date', gacha_type: '1' })
   retrieval.progress({ kind: 'requesting', gacha_type: '2', page: 1, pages: 3, records: 45 })
   retrieval.progress({ kind: 'retry_pending', delay_ms: 2000 })
   expect(flow.download.value).toEqual({
@@ -118,6 +120,7 @@ test('downloading keeps each category’s last page, the rolls so far and any re
     pages: { '1': 3, '2': 1 },
     records: 45,
     retrying: true,
+    upToDate: ['1'],
   })
   retrieval.progress({ kind: 'requesting', gacha_type: '2', page: 1, pages: 3, records: 45 })
   expect(flow.download.value?.retrying).toBe(false)
@@ -128,6 +131,17 @@ test('downloading keeps each category’s last page, the rolls so far and any re
   await settle()
   void flow.searchDevice()
   expect(flow.download.value).toBeUndefined()
+})
+
+test('retrieval asks for new rolls only, unless the full history is chosen', async () => {
+  vi.mocked(retrieveHistory).mockResolvedValue({ retrieved: { kind: 'no_history' } })
+  const flow = useRetrieval()
+  expect(flow.mode.value).toBe('new')
+  await flow.searchDevice()
+  flow.chooseMode('full')
+  expect(flow.mode.value).toBe('full')
+  await flow.readFile(new File(['synthetic'], 'data_2'))
+  expect(vi.mocked(retrieveHistory).mock.calls.map(([mode]) => mode)).toEqual(['new', 'full'])
 })
 
 test('a retry before the first page leaves nothing to show', async () => {

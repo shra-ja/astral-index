@@ -118,9 +118,14 @@ export function retrievalFailure(failure: Failure) {
 }
 
 export function progressText(progress: Progress) {
-  return progress.kind === 'requesting'
-    ? `Retrieving ${warps[progress.gacha_type]}, page ${progress.page} · ${plural(progress.records, 'roll')} so far`
-    : 'HoYoverse didn’t respond, so we’ll try again in a moment…'
+  switch (progress.kind) {
+    case 'requesting':
+      return `Retrieving ${warps[progress.gacha_type]}, page ${progress.page} · ${plural(progress.records, 'roll')} so far`
+    case 'up_to_date':
+      return `${warps[progress.gacha_type]} is up to date: it reached rolls already saved.`
+    case 'retry_pending':
+      return 'HoYoverse didn’t respond, so we’ll try again in a moment…'
+  }
 }
 
 /** What a save reports: the counts and the account the rolls were added to. */

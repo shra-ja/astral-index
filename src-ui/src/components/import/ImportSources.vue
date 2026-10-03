@@ -1,14 +1,18 @@
 <script setup lang="ts">
 // Presentational: where rolls can come from. Retrieval is offered by searching this
-// device or from a chosen cache file; file import is coming soon. Reports the choice;
-// the caller runs retrieval. A note about the last retrieval can be shown above.
+// device or from a chosen cache file, asking for new rolls only or the full history
+// (decision 0015); file import is coming soon. Reports the choices; the caller runs
+// retrieval. A note about the last retrieval can be shown above, and the caller's
+// content, such as the last import, below.
 import { CloudDownload, FileText } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
+import type { Mode } from '../../commands'
 import type { Source } from '../../composables/useRetrieval'
 import CachePicker from '../shared/CachePicker.vue'
 
 defineProps<{ term: string; game: string; available: boolean; note?: string }>()
 const emit = defineEmits<{ search: []; choose: [file: File] }>()
+const mode = defineModel<Mode>('mode', { required: true })
 const searchButton = useTemplateRef('searchButton')
 const picker = useTemplateRef('picker')
 
@@ -22,7 +26,9 @@ defineExpose({
   <div class="start">
     <div class="intro">
       <h2>Add {{ term }} History</h2>
-      <p>Choose where the rolls come from. You will see a summary before anything is saved.</p>
+      <p>
+        Choose where to import roll history from. You will see a summary before anything is saved.
+      </p>
     </div>
     <p v-if="note" class="note" role="status">{{ note }}</p>
 
@@ -34,7 +40,7 @@ defineExpose({
         <h3 id="source-retrieve">Retrieve from HoYoverse</h3>
         <p>
           Finds the {{ term.toLowerCase() }} history link in the game’s local files, then downloads
-          your full history from HoYoverse.
+          your roll history from HoYoverse.
         </p>
         <ul>
           <li>
@@ -43,6 +49,35 @@ defineExpose({
           <li>Needs an internet connection; runs only when you click</li>
           <li>Long histories can take a few minutes</li>
         </ul>
+        <fieldset class="mode" aria-describedby="mode-hint">
+          <!-- The options speak for themselves; screen readers still need the group's name. -->
+          <legend class="visually-hidden">What to retrieve</legend>
+          <div class="options">
+            <label>
+              <input
+                v-model="mode"
+                type="radio"
+                name="retrieval-mode"
+                value="new"
+                :disabled="!available"
+              />
+              <span>New rolls only</span>
+            </label>
+            <label>
+              <input
+                v-model="mode"
+                type="radio"
+                name="retrieval-mode"
+                value="full"
+                :disabled="!available"
+              />
+              <span>Full history</span>
+            </label>
+          </div>
+          <p id="mode-hint" class="hint">
+            Select “Full history” to fill in earlier gaps of missing data.
+          </p>
+        </fieldset>
         <div class="actions">
           <div class="buttons">
             <button ref="searchButton" type="button" :disabled="!available" @click="emit('search')">
@@ -86,6 +121,54 @@ defineExpose({
 </template>
 
 <style scoped>
+/* Two radios shown as a segmented control; the radios stay real for keyboards. */
+.mode {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.options {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--rim);
+  border-radius: 10px;
+  background: var(--list);
+}
+.options label {
+  position: relative;
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.options input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.options label:has(input:checked) {
+  background: var(--control);
+  color: var(--text);
+}
+.options label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.options label:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .start {
   display: flex;
   flex-direction: column;

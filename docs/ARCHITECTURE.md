@@ -195,11 +195,16 @@ layers, so screens can be rearranged without rewriting the flow:
 - **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and makes its
   native calls; the only other callers are `composables/useHistory.ts`, reading
   saved history for the History screen, and `composables/useLastImport.ts`,
-  reading the last import for the Import screen. It exposes read-only state (the phase —
-  idle, acquiring, reviewing, saving or leaving — how the link was found, the
-  stage while acquiring, the status text, the review, how the last retrieval
-  ended and whether a cancel is pending) and actions (search the device, read a
-  file, cancel, save, discard, done, dismiss). The outcome is a save with its
+  reading the last import for the Import screen. It exposes read-only state (the
+  phase — idle, acquiring, reviewing, saving or leaving — how the link was found,
+  the retrieval mode, the stage while acquiring, the status text, the download's
+  progress, the review, how the last retrieval ended and whether a cancel is
+  pending) and actions (search the device, read a file, choose the mode, cancel,
+  save, discard, done, dismiss). The mode, new rolls only by default or the full
+  history ([decision 0015](decisions/0015-incremental-retrieval.md)), is chosen on
+  the Retrieve card and applies to both ways of finding the link; it lasts while
+  the app is open. The download's progress records which categories a quick
+  refresh ended at saved rolls, which the progress list marks "Up to date". The outcome is a save with its
   account, a failure with a title and message, or a note (cancelled, discarded,
   up to date, no history). `src-ui/src/messages.ts` turns failures, progress and
   save results into text and failure kinds into titles.

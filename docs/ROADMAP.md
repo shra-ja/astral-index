@@ -294,7 +294,7 @@ the order listed.
     stored batch summaries, for the Import screen's "Last import" line.
   - [x] Show per-category page counts in retrieval progress, derived from the
     existing progress events (category and page); no native change expected.
-- [ ] Incremental retrieval, so a repeat retrieval stops each category once it
+- [x] Incremental retrieval, so a repeat retrieval stops each category once it
   reaches rolls already saved, instead of fetching the whole history. Full
   retrieval takes noticeably longer since collaboration pages hold only 20
   records. The contract makes duplicates no stopping rule today, because stopping
@@ -317,12 +317,12 @@ the order listed.
   - [x] Add a `mode` to `retrieve_history` (`new` or `full`), loading the saved
     IDs only for `new`; anything else is an `invalid_request`. The UI keeps
     passing `full`, so behaviour is unchanged until the switch exists.
-  - [ ] Add a "New rolls only" / "Full history" switch to the Retrieve card,
+  - [x] Add a "New rolls only" / "Full history" switch to the Retrieve card,
     defaulting to new rolls and applying to both the device search and a chosen
     cache file. With nothing saved, both modes retrieve everything.
-  - [ ] Mark a category that stopped at saved rolls as "Up to date" in the
+  - [x] Mark a category that stopped at saved rolls as "Up to date" in the
     retrieval progress list.
-  - [ ] Verify through the mock binary that a refresh after saving requests one
+  - [x] Verify through the mock binary that a refresh after saving requests one
     page per category and finds nothing new, while a full retrieval still
     requests every page.
 - [ ] Verify the complete flow, restart persistence, repeat/overlap fetches,
