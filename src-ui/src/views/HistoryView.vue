@@ -3,6 +3,7 @@
 // the account the latest import went into, its banner categories with their counts,
 // and a page of the chosen category, newest first. Only Star Rail has an adapter;
 // until something is saved, it points to the Import screen.
+import { Download } from '@lucide/vue'
 import { computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AccountChip from '../components/history/AccountChip.vue'
@@ -63,15 +64,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
     <div class="body" :class="{ centred: empty || failure }" :aria-busy="loading">
       <EmptyState v-if="empty" :term="terms[game]" :game="games[game]">
         <RouterLink class="button" :to="{ name: 'import', params: { game } }">
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-            <path
-              d="M9 2.5v8.5m0 0 3.4-3.4M9 11 5.6 7.6M3 12.5v1.5A1.5 1.5 0 0 0 4.5 15.5h9A1.5 1.5 0 0 0 15 14v-1.5"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <Download :size="16" />
           Go to Import
         </RouterLink>
       </EmptyState>

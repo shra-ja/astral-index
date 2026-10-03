@@ -52,6 +52,19 @@ const current = (container: HTMLElement) =>
     link.getAttribute('aria-current'),
   ])
 
+// Every icon on screen is a decorative Lucide icon, apart from the custom brand mark.
+// Returns the Lucide names shown, so each screen's icons can be checked.
+function icons() {
+  const drawn = [...document.querySelectorAll('svg')].filter((svg) => !svg.closest('.brand'))
+  for (const svg of drawn) {
+    expect(svg.classList.contains('lucide')).toBe(true)
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+  }
+  return drawn.map((svg) =>
+    [...svg.classList].find((name) => name.startsWith('lucide-'))!.slice('lucide-'.length),
+  )
+}
+
 const panel = () => document.querySelector<HTMLElement>('.retrieval')!
 // Each step of the flow is its own screen inside the panel, rendered only while shown.
 const screen = (name: string) => panel().querySelector<HTMLElement>(`.${name}`)
@@ -146,6 +159,7 @@ test('opens on Star Rail’s warp history, with the games and screens in a sideb
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Warp History Yet')
   expect(document.querySelector('.retrieval')).toBeNull()
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
+  expect(icons()).toEqual(['text-align-start', 'download', 'lock', 'text-align-start', 'download'])
 })
 
 test('switching games keeps the screen, and each game names its own history', async () => {
@@ -263,6 +277,7 @@ test('saved history shows its account, category counts and newest rolls first', 
   // Reading saved history never asks HoYoverse for anything.
   expect(new Set(calls)).toEqual(new Set(['history_page']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
+  expect(icons().slice(3)).toEqual(['chevron-left', 'chevron-right', 'chevron-down'])
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
 })
 
@@ -304,6 +319,7 @@ test('history that cannot be read says so, and Try again reads it again', async 
   )
   const alert = main().querySelector('[role="alert"]')!
   expect(alert.querySelector('h2')?.textContent).toBe('Couldn’t Show Your Warp History')
+  expect(icons().slice(3)).toEqual(['triangle-alert'])
   expect(alert.textContent).toContain('We couldn’t read the history saved on this device.')
   expect(main().querySelector('[role="table"]')).toBeNull()
   fail = false
@@ -335,6 +351,7 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   await openImport()
   const start = screen('start')!
   expect(start.querySelector('h2')?.textContent).toBe('Add Warp History')
+  expect(icons().slice(3)).toEqual(['cloud-download', 'file-text'])
   expect(start.textContent).toContain('downloads your full history from HoYoverse')
   expect(findButton().type).toBe('button')
   expect(
@@ -439,6 +456,7 @@ test('starting retrieval shows progress, then the review, then what was saved', 
   expect(heading()).toBe('Import')
   const saved = screen('saved')!
   expect(saved.querySelector('h2')?.textContent).toBe('412 Rolls Saved')
+  expect(icons().slice(3)).toEqual(['check'])
   expect(document.activeElement).toBe(saved.querySelector('h2'))
   expect(saved.querySelector('p')?.textContent).toBe('Added to UID 100000001 (synthetic-server).')
   expect(
@@ -569,6 +587,7 @@ test('a failed retrieval says where it stopped, and Try again starts over', asyn
   findButton().click()
   await settle()
   expect(failedHeading().textContent).toBe('Couldn’t Reach HoYoverse')
+  expect(icons().slice(3)).toEqual(['triangle-alert'])
   expect(screen('failed')!.textContent).toContain(
     'Retrieval stopped at Light Cone Event Warp, page 2. We couldn’t reach HoYoverse. Check your internet connection, then try again.',
   )

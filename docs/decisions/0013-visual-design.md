@@ -43,8 +43,11 @@ repository; this record holds what the implementation must follow.
   that ratio. Badges are full pills.
 - **Tooltips** are styled in the app's theme, appear after a short delay, and
   also show on keyboard focus; browser `title` tooltips are not used.
-- Icons are inline stroke icons; no emoji. Item icons and banner art are
-  placeholders (rarity-tinted initials and colour bars) until a source is decided.
+- Icons are Lucide stroke icons (`@lucide/vue`, ISC licence, bundled per
+  icon and decorative), with a custom brand mark; no emoji. (Amended
+  2026-10-03: the first icons were hand-drawn inline SVGs.) Item icons and
+  banner art are placeholders (rarity-tinted initials and colour bars) until a
+  source is decided.
 
 ### Screens
 

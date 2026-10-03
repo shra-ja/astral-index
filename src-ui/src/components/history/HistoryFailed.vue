@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Presentational: why saved history couldn't be shown, with a way to read it again.
 // The heading takes focus so the alert is read in full.
+import { TriangleAlert } from '@lucide/vue'
 import { onMounted, useTemplateRef } from 'vue'
 
 defineProps<{ title: string; message: string }>()
@@ -12,20 +13,7 @@ onMounted(() => heading.value!.focus())
 <template>
   <section class="history-failed" role="alert" aria-labelledby="history-failed-heading">
     <span class="icon" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-        <path
-          d="M11 7v5M11 15.2v.1"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-        />
-        <path
-          d="M9.3 3.4 2.6 15.2A2 2 0 0 0 4.3 18.2h13.4a2 2 0 0 0 1.7-3L12.7 3.4a2 2 0 0 0-3.4 0Z"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <TriangleAlert :size="22" :stroke-width="1.75" />
     </span>
     <h2 id="history-failed-heading" ref="heading" tabindex="-1">{{ title }}</h2>
     <p>{{ message }}</p>

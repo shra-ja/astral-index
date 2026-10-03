@@ -2,6 +2,7 @@
 // Presentational: why retrieval failed and what to do next. A device search can be
 // tried again; a cache file can be chosen instead either way. Back returns to the
 // start. The heading takes focus so the alert is read in full.
+import { TriangleAlert } from '@lucide/vue'
 import { onMounted, useTemplateRef } from 'vue'
 import type { Source } from '../../composables/useRetrieval'
 import CachePicker from '../shared/CachePicker.vue'
@@ -16,20 +17,7 @@ onMounted(() => heading.value!.focus())
   <section class="failed" role="alert" aria-labelledby="failed-heading">
     <div class="summary">
       <span class="icon" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-          <path
-            d="M11 7v5M11 15.2v.1"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-          <path
-            d="M9.3 3.4 2.6 15.2A2 2 0 0 0 4.3 18.2h13.4a2 2 0 0 0 1.7-3L12.7 3.4a2 2 0 0 0-3.4 0Z"
-            stroke="currentColor"
-            stroke-width="1.7"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <TriangleAlert :size="22" :stroke-width="1.75" />
       </span>
       <div class="text">
         <h2 id="failed-heading" ref="heading" tabindex="-1">{{ title }}</h2>

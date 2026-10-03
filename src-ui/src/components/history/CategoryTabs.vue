@@ -3,6 +3,7 @@
 // the counts drop, then the tabs become a "Banner category" dropdown. Hidden copies
 // of the tab row measure the width each form needs, so the switch follows the
 // labels and counts rather than fixed window widths (decision 0013).
+import { ChevronDown } from '@lucide/vue'
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 export interface Tab {
@@ -61,15 +62,7 @@ watch(() => props.tabs, measure, { flush: 'post' })
             {{ tab.label }} · {{ count(tab.total) }}
           </option>
         </select>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path
-            d="m3.5 5.5 3.5 3.5 3.5-3.5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ChevronDown :size="14" />
       </span>
     </label>
     <div class="measure" aria-hidden="true">

@@ -2,6 +2,7 @@
 // Presentational: where rolls can come from. Retrieval is offered by searching this
 // device or from a chosen cache file; file import is coming soon. Reports the choice;
 // the caller runs retrieval. A note about the last retrieval can be shown above.
+import { CloudDownload, FileText } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
 import type { Source } from '../../composables/useRetrieval'
 import CachePicker from '../shared/CachePicker.vue'
@@ -28,21 +29,7 @@ defineExpose({
     <div class="sources">
       <section class="source" aria-labelledby="source-retrieve">
         <div class="icon accent" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <path
-              d="M6.5 16.5H6a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 16.2 7.6 4.5 4.5 0 0 1 16 16.5h-.5"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-            />
-            <path
-              d="M11 10.5v8m0 0 2.8-2.8M11 18.5l-2.8-2.8"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <CloudDownload :size="22" :stroke-width="1.75" />
         </div>
         <h3 id="source-retrieve">Retrieve from HoYoverse</h3>
         <p>
@@ -77,21 +64,7 @@ defineExpose({
 
       <section class="source" aria-labelledby="source-file">
         <div class="icon" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <path
-              d="M12.5 2.75H6.25a1.5 1.5 0 0 0-1.5 1.5v13.5a1.5 1.5 0 0 0 1.5 1.5h9.5a1.5 1.5 0 0 0 1.5-1.5V7.5L12.5 2.75Z"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M12.5 2.75V7.5h4.75M8.5 12.5h5M8.5 15.5h3.5"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <FileText :size="22" :stroke-width="1.75" />
         </div>
         <h3 id="source-file">Import from a file</h3>
         <p>Load an export from another tracker or a Roll Tracker backup.</p>

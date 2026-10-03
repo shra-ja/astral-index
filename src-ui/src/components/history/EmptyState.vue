@@ -1,20 +1,14 @@
 <script setup lang="ts">
 // Presentational: what a History screen shows while no history is saved. The caller
 // supplies the action, such as a link to the Import screen.
+import { TextAlignStart } from '@lucide/vue'
 defineProps<{ term: string; game: string }>()
 </script>
 
 <template>
   <div class="empty" role="status" aria-live="polite" aria-atomic="true">
     <span class="empty-icon" aria-hidden="true">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <path
-          d="M5 8h18M5 14h18M5 20h10"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-        />
-      </svg>
+      <TextAlignStart :size="28" :stroke-width="1.75" />
     </span>
     <h2>No {{ term }} History Yet</h2>
     <p>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Presentational: what a save added. The caller supplies the link to the history;
 // Done returns to the start. The heading takes focus so the result is announced.
+import { Check } from '@lucide/vue'
 import { onMounted, useTemplateRef } from 'vue'
 import type { Counts } from '../../commands'
 import { savedDetail, savedTitle } from '../../messages'
@@ -16,15 +17,7 @@ onMounted(() => heading.value!.focus())
 <template>
   <section class="saved" aria-labelledby="saved-heading">
     <span class="icon" aria-hidden="true">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <path
-          d="m8 14.5 4 4 8-9"
-          stroke="currentColor"
-          stroke-width="2.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <Check :size="28" />
     </span>
     <h2 id="saved-heading" ref="heading" tabindex="-1">{{ savedTitle(saved) }}</h2>
     <p>{{ savedDetail(saved) }}</p>

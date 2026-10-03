@@ -255,7 +255,7 @@ the order listed.
   - [x] Set the app window's minimum size to 480×560 where the window is
     created. It excludes phones in either orientation; layouts are fluid above
     it, so the minimum can be lowered if mobile is ever targeted.
-  - [ ] Display stored history from local storage without triggering acquisition.
+  - [x] Display stored history from local storage without triggering acquisition.
     - [x] Add the app shell from [decision 0013](decisions/0013-visual-design.md):
       a sidebar with the game switcher and separate History and Import screens
       per game, opening on Star Rail's History. Move the existing retrieval flow
@@ -275,8 +275,8 @@ the order listed.
     - [x] Show friendly server names (for example "Asia" for
       `prod_official_asia`) wherever the account's server appears, falling back
       to the raw value for unknown servers.
-    - [ ] Replace the hand-drawn inline SVG icons with Lucide
-      (`lucide-vue-next`, ISC licence, bundled per icon), keeping the brand mark
+    - [x] Replace the hand-drawn inline SVG icons with Lucide
+      (`@lucide/vue`, ISC licence, bundled per icon), keeping the brand mark
       and game monograms custom. No behaviour change.
     - [x] Count the new 5★ and 4★ rolls in a save, as rows with that rarity
       among the rolls being added (not unique items), and show them on the
@@ -395,3 +395,9 @@ Done when a fresh profile can recover the same records and metadata from a backu
   incorrect/skipped earlier imports and legitimate same-second rolls. This niche
   diagnostic is not a prerequisite for milestones 2 or 3; see the
   [identity contract](HSR-API-CONTRACT.md#identity-and-mismatch-handling).
+
+- [ ] Recheck `npm audit` for a patched `braces` (advisory GHSA-vfj7-8cjw-p6xm,
+  all versions up to 3.0.3), which the dev tooling pulls in through
+  `@vue/eslint-config-typescript` and `fast-glob`; update once a fix exists. Not
+  `npm audit fix --force`, which downgrades the ESLint config to 14.0.1. The
+  shipped app does not include it, and only our own lint globs reach it.
