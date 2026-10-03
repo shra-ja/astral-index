@@ -1770,10 +1770,12 @@ pagination integration tests and all three end-to-end tests.
 ## Incremental retrieval, UI side (2026-10-03)
 
 Work is on `feat/incremental-ui`, completing the step (tasks 5–7). The Retrieve
-card has a "What to retrieve" switch, two real radios shown as a segmented
-control: "New rolls only" (the default) or "Full history", with a hint on the
-difference. It applies to both the device search and a chosen cache file, and
-lasts while the app is open. The card now says it downloads "your rolls". The
+card has a switch, two real radios shown as a segmented control: "New rolls
+only" (the default) or "Full history", with the hint "Select “Full history” to
+fill in earlier gaps of missing data." The group's "What to retrieve" name is
+for screen readers only, since the options speak for themselves. The screen's
+introduction now reads "Choose where to import roll history from." It applies to both the device search and a chosen cache file, and
+lasts while the app is open. The card now says it downloads "your roll history". The
 webview sends the chosen mode; `up_to_date` progress is announced ("Light Cone
 Event Warp is up to date: it reached rolls already saved.") and the progress list
 marks such categories "Up to date" with their page counts, including the current

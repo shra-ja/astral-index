@@ -13,12 +13,15 @@ const retrieve = (wrapper: ReturnType<typeof sources>) => button(wrapper, 'Retri
 test('offers retrieval from HoYoverse, by search or a chosen cache file', async () => {
   const wrapper = sources({ term: 'Warp', game: 'Honkai: Star Rail', available: true })
   expect(wrapper.get('h2').text()).toBe('Add Warp History')
+  expect(wrapper.get('.intro p').text()).toBe(
+    'Choose where to import roll history from. You will see a summary before anything is saved.',
+  )
   expect(wrapper.findAll('h3').map((heading) => heading.text())).toEqual([
     'Retrieve from HoYoverse',
     'Import from a file',
   ])
   expect(wrapper.text()).toContain(
-    'Finds the warp history link in the game’s local files, then downloads your rolls from HoYoverse.',
+    'Finds the warp history link in the game’s local files, then downloads your roll history from HoYoverse.',
   )
   expect(wrapper.text()).toContain('choose its data_2 cache file yourself')
   await retrieve(wrapper).trigger('click')
@@ -75,13 +78,15 @@ const modes = (wrapper: ReturnType<typeof sources>) =>
 test('offers new rolls only or the full history, for either way of finding the link', async () => {
   const wrapper = sources({ term: 'Warp', game: 'Honkai: Star Rail', available: true })
   const fieldset = wrapper.get('fieldset')
+  // The options speak for themselves; the group is named for screen readers only.
   expect(fieldset.get('legend').text()).toBe('What to retrieve')
+  expect(fieldset.get('legend').classes()).toContain('visually-hidden')
   expect(modes(wrapper)).toEqual([
     ['New rolls only', true],
     ['Full history', false],
   ])
   expect(wrapper.get(`#${fieldset.attributes('aria-describedby')}`).text()).toBe(
-    'New rolls only stops each category at rolls already saved. Full history downloads everything, filling any gaps.',
+    'Select “Full history” to fill in earlier gaps of missing data.',
   )
   await wrapper.findAll('fieldset input')[1].setValue(true)
   expect(wrapper.emitted('update:mode')).toEqual([['full']])

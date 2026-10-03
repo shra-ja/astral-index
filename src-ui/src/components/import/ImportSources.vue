@@ -26,7 +26,9 @@ defineExpose({
   <div class="start">
     <div class="intro">
       <h2>Add {{ term }} History</h2>
-      <p>Choose where the rolls come from. You will see a summary before anything is saved.</p>
+      <p>
+        Choose where to import roll history from. You will see a summary before anything is saved.
+      </p>
     </div>
     <p v-if="note" class="note" role="status">{{ note }}</p>
 
@@ -38,7 +40,7 @@ defineExpose({
         <h3 id="source-retrieve">Retrieve from HoYoverse</h3>
         <p>
           Finds the {{ term.toLowerCase() }} history link in the game’s local files, then downloads
-          your rolls from HoYoverse.
+          your roll history from HoYoverse.
         </p>
         <ul>
           <li>
@@ -48,7 +50,8 @@ defineExpose({
           <li>Long histories can take a few minutes</li>
         </ul>
         <fieldset class="mode" aria-describedby="mode-hint">
-          <legend>What to retrieve</legend>
+          <!-- The options speak for themselves; screen readers still need the group's name. -->
+          <legend class="visually-hidden">What to retrieve</legend>
           <div class="options">
             <label>
               <input
@@ -72,8 +75,7 @@ defineExpose({
             </label>
           </div>
           <p id="mode-hint" class="hint">
-            New rolls only stops each category at rolls already saved. Full history downloads
-            everything, filling any gaps.
+            Select “Full history” to fill in earlier gaps of missing data.
           </p>
         </fieldset>
         <div class="actions">
@@ -127,13 +129,6 @@ defineExpose({
   margin: 0;
   padding: 0;
   border: 0;
-}
-.mode legend {
-  margin-bottom: 8px;
-  padding: 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
 }
 .options {
   display: inline-flex;

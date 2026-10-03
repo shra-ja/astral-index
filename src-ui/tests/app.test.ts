@@ -359,7 +359,7 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   const start = screen('start')!
   expect(start.querySelector('h2')?.textContent).toBe('Add Warp History')
   expect(icons().slice(3)).toEqual(['cloud-download', 'file-text'])
-  expect(start.textContent).toContain('downloads your rolls from HoYoverse')
+  expect(start.textContent).toContain('downloads your roll history from HoYoverse')
   expect(findButton().type).toBe('button')
   expect(
     start.querySelector<HTMLLabelElement>('label[for="cache-file"]')?.textContent?.trim(),
