@@ -20,10 +20,17 @@ pub enum Progress {
     },
     /// A transiently failed request will be retried after `delay`.
     RetryPending { delay: Duration },
+    /// A quick refresh ended the category at rolls already saved.
+    UpToDate { category: Category },
 }
 
 /// Receives progress as it happens. It must return quickly.
 pub type Report<'a> = &'a (dyn Fn(Progress) + Sync);
+
+/// A quick refresh's stop check: whether any of a page's roll IDs is already saved
+/// for the account with this UID and server
+/// ([decision 0015](../../../docs/decisions/0015-incremental-retrieval.md)).
+pub type StopCheck<'a> = &'a (dyn Fn(&str, &str, &[&str]) -> bool + Sync);
 
 /// Why history retrieval stopped. No URL, credential or response text is included.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,10 +107,15 @@ impl History {
 /// record's ID; a cursor seen before in the category is a cycle. A page with more
 /// records than requested is invalid. Any failure stops
 /// retrieval, as does passing the batch bound, before a further request.
+///
+/// With a `stop` check (a quick refresh), a page with records whose server is
+/// named also ends its category when the check finds one of its IDs saved for the
+/// page's account; that page is kept and `Progress::UpToDate` reported.
 pub async fn fetch_history(
     transport: &impl Transport,
     context: &RequestContext,
     report: Report<'_>,
+    stop: Option<StopCheck<'_>>,
 ) -> Result<History, AcquisitionError> {
     let mut responses = Vec::new();
     let mut total = 0;
@@ -137,6 +149,7 @@ pub async fn fetch_history(
             if !agrees(&mut server, page_data.region.as_deref()) {
                 return Err(AcquisitionError::MixedServers);
             }
+            let region = page_data.region;
             let mut records = page_data.list;
             total += body.len();
             if total > MAX_BATCH_BYTES {
@@ -150,6 +163,21 @@ pub async fn fetch_history(
             let Some(roll) = records.pop() else {
                 break;
             };
+            // A quick refresh ends the category here, keeping this page, once the
+            // page holds a roll saved for its own account; without a server the
+            // account is unknown, so the page never ends it.
+            let reached_saved = stop.zip(region.as_deref()).is_some_and(|(stop, server)| {
+                let ids: Vec<&str> = records
+                    .iter()
+                    .chain([&roll])
+                    .map(|record| record.id.as_str())
+                    .collect();
+                stop(&roll.uid, server, &ids)
+            });
+            if reached_saved {
+                report(Progress::UpToDate { category });
+                break;
+            }
             if !cursors.insert(roll.id.clone()) {
                 return Err(AcquisitionError::CursorCycle);
             }
@@ -268,7 +296,7 @@ mod tests {
             expected.extend([url(category, 1, "0"), url(category, 2, &id(first * 2 - 1))]);
         }
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore, None)).unwrap();
         assert_eq!(transport.requested(), expected);
         assert_eq!(
             history.responses(),
@@ -287,7 +315,7 @@ mod tests {
         bodies.extend(empty_after(Category::Stellar));
         let events = std::sync::Mutex::new(Vec::new());
         let report = |progress| events.lock().unwrap().push(progress);
-        run(fetch_history(&scripted(&bodies), &context(), &report)).unwrap();
+        run(fetch_history(&scripted(&bodies), &context(), &report, None)).unwrap();
         let requesting = |category, page, pages, records| Progress::Requesting {
             category,
             page: NonZeroU32::new(page).unwrap(),
@@ -308,6 +336,91 @@ mod tests {
             events[7..],
             [requesting(Category::LightConeCollaboration, 1, 7, 1002)]
         );
+    }
+
+    #[test]
+    fn a_stop_check_ends_a_category_at_its_first_page_with_saved_rolls() {
+        // Stellar's second page holds a saved roll, so its third is never requested;
+        // Departure has none saved and runs to its empty page.
+        let mut bodies = vec![
+            full(Category::Stellar, 1),
+            body(Category::Stellar, 2001..2003, None),
+            full(Category::Departure, 1),
+            empty(Category::Departure),
+        ];
+        bodies.extend(empty_after(Category::Departure));
+        let checked = std::sync::Mutex::new(Vec::new());
+        let stop = |uid: &str, server: &str, ids: &[&str]| {
+            checked
+                .lock()
+                .unwrap()
+                .push((uid.to_owned(), server.to_owned(), ids.len()));
+            // The recorded calls check the account; only the IDs decide here.
+            ids.contains(&id(2002).as_str())
+        };
+        let events = std::sync::Mutex::new(Vec::new());
+        let report = |progress| events.lock().unwrap().push(progress);
+        let transport = scripted(&bodies);
+        let history = run(fetch_history(&transport, &context(), &report, Some(&stop))).unwrap();
+        let requested = transport.requested();
+        assert_eq!(
+            requested[..3],
+            [
+                url(Category::Stellar, 1, "0"),
+                url(Category::Stellar, 2, &id(1000)),
+                url(Category::Departure, 1, "0"),
+            ]
+        );
+        // The page that reached saved rolls is kept for the preview.
+        assert_eq!(history.responses().len(), bodies.len());
+        // Each page with records is checked, with the page's account and every ID.
+        let page = |ids| ("100000001".to_owned(), "synthetic-server".to_owned(), ids);
+        assert_eq!(
+            checked.into_inner().unwrap(),
+            [page(1000), page(2), page(1000)]
+        );
+        let events = events.into_inner().unwrap();
+        assert_eq!(
+            events[2],
+            Progress::UpToDate {
+                category: Category::Stellar
+            }
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, Progress::UpToDate { .. }))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn a_page_without_a_server_never_ends_a_category_early() {
+        // Both Stellar pages hold rolls the check calls saved, but only the second
+        // names its server, so only it is checked and ends the category.
+        let mut bodies = vec![
+            with_region(body(Category::Stellar, 1..3, None), json!(null)),
+            body(Category::Stellar, 3..5, None),
+        ];
+        bodies.extend(empty_after(Category::Stellar));
+        let checked = std::sync::Mutex::new(0);
+        let stop = |_: &str, _: &str, _: &[&str]| {
+            *checked.lock().unwrap() += 1;
+            true
+        };
+        let transport = scripted(&bodies);
+        run(fetch_history(&transport, &context(), &ignore, Some(&stop))).unwrap();
+        let requested = transport.requested();
+        assert_eq!(
+            requested[..3],
+            [
+                url(Category::Stellar, 1, "0"),
+                url(Category::Stellar, 2, &id(2)),
+                url(Category::Departure, 1, "0"),
+            ]
+        );
+        assert_eq!(*checked.lock().unwrap(), 1);
     }
 
     /// Change a page's `data` object.
@@ -340,7 +453,7 @@ mod tests {
                 .into_iter()
                 .map(|page| with_region(page, json!(null))),
         );
-        let history = run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap();
+        let history = run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).unwrap();
         let account = history.account().unwrap();
         assert_eq!(
             (account.uid(), account.server()),
@@ -354,7 +467,8 @@ mod tests {
         let named = Category::ALL.map(empty).to_vec();
         let unnamed = Category::ALL.map(|category| with_region(empty(category), json!(null)));
         for bodies in [named, unnamed.to_vec()] {
-            let history = run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap();
+            let history =
+                run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).unwrap();
             assert_eq!(history.account(), None);
             assert_eq!(history.responses().len(), 6);
         }
@@ -375,7 +489,7 @@ mod tests {
         ] {
             let transport = scripted(&[first.clone(), second]);
             assert_eq!(
-                run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
+                run(fetch_history(&transport, &context(), &ignore, None)).unwrap_err(),
                 error
             );
             assert_eq!(transport.requested().len(), 2);
@@ -393,7 +507,7 @@ mod tests {
         .map(|page| with_region(page, json!(null)))
         .collect::<Vec<_>>();
         assert_eq!(
-            run(fetch_history(&scripted(&bodies), &context(), &ignore)).unwrap_err(),
+            run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).unwrap_err(),
             AcquisitionError::MissingServer
         );
     }
@@ -428,7 +542,7 @@ mod tests {
         ]);
         bodies.extend(empty_after(category));
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore, None)).unwrap();
         assert_eq!(
             transport.requested()[4..8],
             [
@@ -452,7 +566,7 @@ mod tests {
         ];
         bodies.extend(empty_after(category));
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &ignore)).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore, None)).unwrap();
         let requested = transport.requested();
         assert_eq!(
             requested[..3],
@@ -479,7 +593,7 @@ mod tests {
             let bodies = [before.to_vec(), pages.clone()].concat();
             let transport = scripted(&bodies);
             assert_eq!(
-                run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
+                run(fetch_history(&transport, &context(), &ignore, None)).unwrap_err(),
                 AcquisitionError::CursorCycle
             );
             assert_eq!(transport.requested().len(), bodies.len());
@@ -488,14 +602,14 @@ mod tests {
         let mut bodies = vec![full(Category::Stellar, 1), empty(Category::Stellar)];
         bodies.extend([full(Category::Departure, 1), empty(Category::Departure)]);
         bodies.extend(empty_after(Category::Departure));
-        assert!(run(fetch_history(&scripted(&bodies), &context(), &ignore)).is_ok());
+        assert!(run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).is_ok());
     }
 
     #[test]
     fn pages_larger_than_requested_are_invalid() {
         let transport = scripted(&[body(Category::Stellar, 0..PAGE_SIZE as u64 + 1, None)]);
         assert_eq!(
-            run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
+            run(fetch_history(&transport, &context(), &ignore, None)).unwrap_err(),
             AcquisitionError::Fetch(FetchFailure::InvalidResponse)
         );
     }
@@ -515,7 +629,7 @@ mod tests {
                 response,
             ]);
             assert_eq!(
-                run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
+                run(fetch_history(&transport, &context(), &ignore, None)).unwrap_err(),
                 AcquisitionError::Fetch(failure)
             );
             assert_eq!(transport.requested().len(), 3);
@@ -544,7 +658,7 @@ mod tests {
         bodies.push(body(category, 0..0, Some(limit - rest_size)));
         bodies.extend(rest.clone());
         assert_eq!(bodies.iter().map(Vec::len).sum::<usize>(), MAX_BATCH_BYTES);
-        assert!(run(fetch_history(&scripted(&bodies), &context(), &ignore)).is_ok());
+        assert!(run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).is_ok());
         // Eight full 2 MiB pages reach it, so the next response stops retrieval
         // before any further request.
         let mut bodies = padded_full(8);
@@ -552,7 +666,7 @@ mod tests {
         bodies.extend(rest);
         let transport = scripted(&bodies);
         assert_eq!(
-            run(fetch_history(&transport, &context(), &ignore)).unwrap_err(),
+            run(fetch_history(&transport, &context(), &ignore, None)).unwrap_err(),
             AcquisitionError::TooLarge
         );
         assert_eq!(transport.requested().len(), 9);

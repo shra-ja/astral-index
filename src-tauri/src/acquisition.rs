@@ -20,7 +20,9 @@ pub use crate::hsr::Category;
 pub use cancel::Cancellable;
 pub use outcome::{FetchFailure, classify, parse_body, transport_failure};
 pub use pace::{Paced, REQUEST_INTERVAL};
-pub use pagination::{Account, AcquisitionError, History, Progress, Report, fetch_history};
+pub use pagination::{
+    Account, AcquisitionError, History, Progress, Report, StopCheck, fetch_history,
+};
 pub use request::{Cursor, PAGE_SIZE, PageRequest};
 pub use retry::{MAX_RETRIES, RETRY_DELAY, RetryBudget, Retrying};
 pub use transport::{CONNECT_TIMEOUT, HttpTransport, REQUEST_TIMEOUT, Transport, TransportError};

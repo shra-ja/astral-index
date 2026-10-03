@@ -123,6 +123,7 @@ export async function retrieveHistory(
   try {
     return {
       retrieved: await invoke<Retrieved>('retrieve_history', {
+        mode: 'full',
         onProgress: new Channel(onProgress),
       }),
     }

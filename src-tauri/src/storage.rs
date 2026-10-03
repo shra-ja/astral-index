@@ -7,7 +7,10 @@ use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
 use rusqlite::Connection;
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    path::Path,
+};
 
 const GAME: &str = "honkai-star-rail";
 const APPLICATION_ID: i32 = 1381257795;
@@ -156,6 +159,23 @@ pub struct LastImport {
 pub enum Source {
     /// Retrieved from HoYoverse's history API.
     Hoyoverse,
+}
+
+/// Saved roll IDs of the game by account, for a quick refresh's stop check
+/// ([decision 0015](../../docs/decisions/0015-incremental-retrieval.md)). Holds
+/// player identifiers: never log it.
+#[derive(Default)]
+pub struct SavedRolls {
+    accounts: HashMap<(String, String), HashSet<String>>,
+}
+impl SavedRolls {
+    /// Whether any of `ids` is saved for the account with this UID and server.
+    pub fn any<'a>(&self, uid: &str, server: &str, mut ids: impl Iterator<Item = &'a str>) -> bool {
+        let key = (uid.to_owned(), server.to_owned());
+        self.accounts
+            .get(&key)
+            .is_some_and(|saved| ids.any(|id| saved.contains(id)))
+    }
 }
 
 /// One page of an account's rolls in one category, newest first, for display.
@@ -409,6 +429,26 @@ impl Store {
         Ok(records)
     }
 
+    /// Every saved roll ID of this game, grouped by account.
+    pub fn saved_rolls(&self) -> Result<SavedRolls, Error> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT uid,server,id FROM rolls WHERE game=?1")?;
+        let rows = statement.query_map(params![GAME], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        let mut saved = SavedRolls::default();
+        for row in rows {
+            let (uid, server, id) = row?;
+            saved.accounts.entry((uid, server)).or_default().insert(id);
+        }
+        Ok(saved)
+    }
+
     /// The newest import of this game, if any.
     pub fn last_import(&self) -> Result<Option<LastImport>, Error> {
         let Some((imported_at, adapter, uid, server, inserted)) = self
@@ -629,6 +669,7 @@ pub(crate) mod tests {
         "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
     const HISTORY: &str =
         "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
+    const SAVED: &str = "SELECT uid,server,id FROM rolls WHERE game=?1";
     const LAST: &str = "SELECT imported_at,adapter,uid,server,inserted FROM batches WHERE game=?1 ORDER BY id DESC LIMIT 1";
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
@@ -1321,6 +1362,52 @@ pub(crate) mod tests {
         fail_each(&|| vec![last_import_step(vec![])], None, &mut || {
             store().last_import().map(|_| ())
         });
+    }
+
+    #[test]
+    fn saved_rolls_are_grouped_by_account_for_the_stop_check() {
+        let read = |found: Vec<Vec<Value>>| {
+            database::expect(saved_rolls_script(found));
+            let saved = store().saved_rolls();
+            database::finish();
+            saved
+        };
+        let saved = read(vec![
+            vec![text(UID), text(SERVER), text("1001")],
+            vec![text(UID), text(SERVER), text("1002")],
+            vec![text("100000003"), text(SERVER), text("2001")],
+            vec![text(UID), text("other-server"), text("3001")],
+        ])
+        .unwrap();
+        let has =
+            |uid: &str, server: &str, ids: &[&str]| saved.any(uid, server, ids.iter().copied());
+        assert!(has(UID, SERVER, &["9999", "1002"]));
+        assert!(!has(UID, SERVER, &["9999", "2001", "3001"]));
+        // Another account's or server's rolls never count.
+        assert!(has("100000003", SERVER, &["2001"]));
+        assert!(!has("100000003", SERVER, &["1001"]));
+        assert!(has(UID, "other-server", &["3001"]));
+        assert!(!has("100000004", SERVER, &["1001"]));
+        assert!(!has(UID, SERVER, &[]));
+        // Nothing saved yet.
+        let empty = read(vec![]).unwrap();
+        assert!(!empty.any(UID, SERVER, ["1001"].into_iter()));
+        for column in 0..3 {
+            let mut unreadable = vec![text(UID), text(SERVER), text("1001")];
+            unreadable[column] = Value::Null;
+            assert_eq!(read(vec![unreadable]).map(|_| ()), Err(Error::Database));
+        }
+        fail_each(&|| saved_rolls_script(vec![]), None, &mut || {
+            store().saved_rolls().map(|_| ())
+        });
+    }
+
+    /// The SQL for reading the saved rolls, answered with `found` (UID, server, ID).
+    pub(crate) fn saved_rolls_script(found: Vec<Vec<Value>>) -> Vec<Step> {
+        vec![
+            done(&format!("PREPARE {SAVED}")),
+            rows(SAVED, vec![text(GAME)], found),
+        ]
     }
 
     /// The SQL for finding the last import, answered with `found`.

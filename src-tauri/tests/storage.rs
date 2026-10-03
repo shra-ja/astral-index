@@ -838,6 +838,15 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
     let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
     store.commit(preview, 1235).unwrap();
     assert_eq!(store.latest_account().unwrap().unwrap().uid, "100000003");
+    // Saved rolls are found per account: the other account's IDs are its own.
+    let saved = store.saved_rolls().unwrap();
+    assert!(saved.any(UID, SERVER, ["1000000000000000009"].into_iter()));
+    assert!(!saved.any(UID, SERVER, ["1"].into_iter()));
+    assert!(!saved.any(
+        "100000003",
+        "another-server",
+        ["1000000000000000009"].into_iter()
+    ));
     // The newest import is the other account's, with its own count.
     let last = store.last_import().unwrap().unwrap();
     assert_eq!((last.imported_at, last.uid.as_str()), (1235, "100000003"));

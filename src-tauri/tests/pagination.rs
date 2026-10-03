@@ -35,10 +35,11 @@ fn retrieved_history_previews_and_commits_through_storage() {
     let transport = Scripted(Mutex::new(
         [EMPTY, EMPTY, PAGE, EMPTY, EMPTY, EMPTY, EMPTY].into(),
     ));
-    let history = tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
-        .unwrap()
-        .block_on(fetch_history(&transport, &context, &|_| {}))
+        .unwrap();
+    let history = runtime
+        .block_on(fetch_history(&transport, &context, &|_| {}, None))
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
 
@@ -73,6 +74,25 @@ fn retrieved_history_previews_and_commits_through_storage() {
             .unwrap()
             .len(),
         2
+    );
+    // A quick refresh stops at the saved rolls: the character event page holds
+    // them, so its trailing empty page is never requested.
+    let saved = store.saved_rolls().unwrap();
+    let stop = |uid: &str, server: &str, ids: &[&str]| saved.any(uid, server, ids.iter().copied());
+    let transport = Scripted(Mutex::new([EMPTY, EMPTY, PAGE, EMPTY, EMPTY, EMPTY].into()));
+    let refreshed = runtime
+        .block_on(fetch_history(&transport, &context, &|_| {}, Some(&stop)))
+        .unwrap();
+    assert!(transport.0.lock().unwrap().is_empty());
+    let preview = store
+        .preview("100000002", "synthetic-server", &refreshed.responses())
+        .unwrap();
+    assert_eq!(
+        preview.summary(),
+        Summary {
+            duplicates: 2,
+            ..Default::default()
+        }
     );
     drop(store);
     std::fs::remove_dir_all(directory).unwrap();

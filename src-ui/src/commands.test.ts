@@ -130,8 +130,10 @@ test('retrieval streams progress, then returns the review or no history', async 
   const events: unknown[] = []
   const requesting = { kind: 'requesting', gacha_type: '1', page: 1, pages: 0, records: 0 }
   let command = ''
+  let mode: unknown
   mockIPC((cmd, args) => {
     command = cmd
+    mode = (args as { mode: unknown }).mode
     ;(args as { onProgress: Channel<unknown> }).onProgress.onmessage(requesting)
     return { kind: 'no_history' }
   })
@@ -139,6 +141,8 @@ test('retrieval streams progress, then returns the review or no history', async 
     retrieved: { kind: 'no_history' },
   })
   expect(command).toBe('retrieve_history')
+  // The full history, until the Import screen offers a quick refresh.
+  expect(mode).toBe('full')
   expect(events).toEqual([requesting])
   const review = { kind: 'review', uid: '100000001', server: 'synthetic-server' }
   mockIPC(() => review)

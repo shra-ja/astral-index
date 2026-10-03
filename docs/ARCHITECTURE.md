@@ -113,13 +113,16 @@ any earlier one, and a validated context is kept only if its operation was not
 cancelled, checked under the session lock. `cancel_acquisition` cancels the
 running operation and drops the context and any held preview.
 
-`retrieve_history` takes the validated context and its budget out of the session,
+`retrieve_history` takes a `mode`, checked first: `new` for a quick refresh or
+`full` for every page ([decision 0015](decisions/0015-incremental-retrieval.md));
+anything else is `invalid_request`, leaving the session untouched. It then takes
+the validated context and its budget out of the session,
 so the session holds no auth key from then on, and fails with `no_context` if
 there is none. It retrieves every category through
 `Cancellable(Paced(Retrying(...)))`, as validation does,
 continuing the extraction's budget, and streams `ProgressEvent`s (`requesting`
-with the category code, page and totals, or `retry_pending` with the delay) over a
-Tauri channel. The context is dropped as soon as retrieval ends, whatever the
+with the category code, page and totals, `retry_pending` with the delay, or
+`up_to_date` with the category code) over a Tauri channel. The context is dropped as soon as retrieval ends, whatever the
 outcome. A retrieval failure carries the failing request's `gacha_type` and `page`
 beside its kind. With no records the command returns `{"kind":"no_history"}`
 without opening the database. Otherwise it previews the history under the
@@ -510,7 +513,16 @@ request. Any fetch failure also stops it. The result is a `History` of raw
 response bodies in request order, with redacted debug output, in the form
 `Store::preview` takes; storage re-parses and validates them. The classifier is
 split into `transport_failure` and `parse_body`, so pagination keeps each body
-without copying it. No command calls `fetch_history` yet.
+without copying it.
+
+A quick refresh passes `fetch_history` a stop check (`StopCheck`): after each page
+with records whose `region` is named, it gets the page's UID, that region and the
+page's roll IDs, and a match ends the category there, keeping the page and
+reporting `Progress::UpToDate`. A page without a region is never checked. For a
+quick refresh, `retrieve_history` first reads the game's saved roll IDs grouped
+by account (`Store::saved_rolls`, one query) and checks each page against its
+own account's IDs only; a failed read is a storage failure and nothing is sent.
+A full retrieval passes no check and reads nothing beforehand.
 
 `fetch_history` also resolves the account the history belongs to, per the
 [contract](HSR-API-CONTRACT.md#account-server-and-timestamps). The UID comes
@@ -529,7 +541,8 @@ Sync)` that must return quickly. Before each page request, `fetch_history`
 reports `Progress::Requesting` with the category, page number, and the pages and
 records received so far across all categories. Before each retry delay,
 `Retrying` reports `Progress::RetryPending` with the delay, so validation retries
-are reported too. Events carry categories and counts only, never IDs, URLs or
+are reported too. A quick refresh also reports `Progress::UpToDate` when a
+category ends at saved rolls (`up_to_date` in the webview). Events carry categories and counts only, never IDs, URLs or
 response text. The extraction commands pass a no-op reporter;
 `retrieve_history` forwards events to the webview, which shows them.
 

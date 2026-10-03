@@ -1699,7 +1699,7 @@ integration tests and all three end-to-end tests.
 
 ## Retrieval progress counts (2026-10-03)
 
-Work is on `feat/progress-counts`. While downloading, the progress screen now
+Integrated through PR #60. Work was on `feat/progress-counts`. While downloading, the progress screen now
 follows decision 0013: a "Category 3 of 6 · 1,106 rolls so far" row, a bar
 counting categories done, and, under "Downloading your rolls", each category by
 its full in-game name (Stellar Warp, Departure Warp, Character Event Warp, Light
@@ -1730,10 +1730,48 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests; `e2e-mock-progress.png` shows the row and the list.
 
+## Incremental retrieval, native side (2026-10-03)
+
+Work is on `feat/incremental-retrieval`. The roadmap step is no longer optional
+and is split into seven tasks; this covers the first four.
+[Decision 0015](decisions/0015-incremental-retrieval.md) and the HSR contract
+record the quick-refresh rule: a category ends after the first page holding a
+roll already saved for that page's own account (its UID and `region`), keeping
+the page; a page without a region never ends it early; only a full retrieval
+fills gaps. `Store::saved_rolls` reads the game's saved roll IDs grouped by
+account in one query. `fetch_history` takes an optional `StopCheck` and reports
+`Progress::UpToDate` (`up_to_date` in the webview) when a category ends at saved
+rolls; without one it behaves as before. `retrieve_history` takes a `mode`
+(`new` or `full`), checked before anything is taken from the session; `new`
+reads the saved rolls first, and a failed read is a storage failure with nothing
+sent. The webview passes `full` until the Import screen offers the choice, so
+behaviour is unchanged.
+
+TDD: the storage test for saved rolls, the pagination test for the stop check,
+the three desktop tests for the mode (refused, stopping, unreadable) and the
+frontend command test for `mode: 'full'` failed against stubs or the old code,
+then passed. The event's serialization test was added with the variant, so it
+had no red run. A real-SQLite integration test saves the fixture history, then
+runs a quick refresh that stops at it (6 requests instead of 7, with nothing
+new to save). The end-to-end test now sends a mode, and checks the capability
+refuses an unknown one.
+
+The unit coverage gate caught two gaps in the new pagination tests: a stop
+check that was never called, and a condition that was always true. The no-server
+test now has the check run once, for the page that names its server, which also
+proves the unnamed page was skipped.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 167 Rust unit tests, 202 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including the storage and
+pagination integration tests and all three end-to-end tests.
+
 ## Next
 
-The remaining milestone 3 items: the end-to-end verification items. Incremental
-retrieval is an optional design step.
+Incremental retrieval, UI side: the "New rolls only" / "Full history" switch,
+"Up to date" in the progress list and the mock-binary check. Then the remaining
+milestone 3 items: the end-to-end verification items.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
