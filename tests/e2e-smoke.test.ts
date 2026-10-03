@@ -164,6 +164,22 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await expect
       .poll(() => textOf(app, '.progress [role=status]'), { timeout: 10000 })
       .toContain('Retrieving')
+    // The download shows the category reached and each category's state.
+    await expect
+      .poll(() => textOf(app, '.progress .summary'), { timeout: 10000 })
+      .toMatch(/^Category [1-6] of 6\s*[\d,]+ rolls? so far$/)
+    expect(
+      await app.execute(
+        'return [...document.querySelectorAll(".categories .name")].map(name => name.textContent)',
+      ),
+    ).toEqual([
+      'Stellar',
+      'Departure',
+      'Character Event',
+      'Light Cone Event',
+      'Collab Character',
+      'Collab Light Cone',
+    ])
     await app.screenshot('e2e-mock-progress')
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })

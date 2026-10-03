@@ -1667,7 +1667,7 @@ release build was needed.
 
 ## Last import line (2026-10-03)
 
-Work is on `feat/last-import`. A new `last_import` command reads the newest
+Integrated through PR #59. Work was on `feat/last-import`. A new `last_import` command reads the newest
 batch summary from storage only: its time (Unix seconds by this device's
 clock), source, UID, server and rolls added, or nothing before the first import.
 The source crosses IPC as a kind (`hoyoverse`), not the internal adapter name;
@@ -1697,10 +1697,39 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including the storage
 integration tests and all three end-to-end tests.
 
+## Retrieval progress counts (2026-10-03)
+
+Work is on `feat/progress-counts`. While downloading, the progress screen now
+follows decision 0013: a "Category 3 of 6 · 1,106 rolls so far" row, a bar
+counting categories done, and, under "Downloading your rolls", each category in
+the order retrieval requests it (Stellar, Departure, Character Event, Light Cone
+Event, then the two collaboration warps) with its pages: done ones show how many
+pages were requested, the active one its current page, waiting ones "—". It is
+derived in the frontend from the existing progress events; no native change.
+`useRetrieval` keeps the current category and page, each category's last page,
+the rolls so far and whether a retry is due, reset for each retrieval. The
+status sentence stays the polite live region, and is shown only before the first
+page, during a retry wait and while cancelling. A category passed without any
+page shows no count rather than failing. The user chose the fetch order and the
+row in place of the visible sentence.
+
+TDD: the composable tests for the download state (2) and the component tests for
+the row, bar, list and status visibility (2, then 1 for a skipped category)
+failed before the change; the app test failed with no row shown. The component
+test caught the row's two parts running together as text ("…of 61,106 rolls"),
+now kept apart. The end-to-end test checks the row and the category order in the
+mock binary's download.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 161 Rust unit tests, 202 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests; `e2e-mock-progress.png` shows the row and the list.
+
 ## Next
 
-The remaining milestone 3 items: per-category page counts in retrieval progress, and the end-to-end verification
-items. Incremental retrieval is an optional design step.
+The remaining milestone 3 items: the end-to-end verification items. Incremental
+retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

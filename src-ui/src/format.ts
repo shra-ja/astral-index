@@ -103,3 +103,8 @@ const servers: Record<string, string> = {
 }
 /** "Asia" for `prod_official_asia`; a server we don't know shows as given. */
 export const serverName = (server: string) => servers[server] ?? server
+
+/** The categories in the order retrieval requests them, with the tabs' short names. */
+export const retrievalOrder = ['1', '2', '11', '12', '21', '22'].map((code) =>
+  categoryTabs.find((tab) => tab.gacha_type === code)!,
+)

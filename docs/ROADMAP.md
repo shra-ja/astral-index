@@ -292,7 +292,7 @@ the order listed.
       Show the most recently imported account; switching accounts is milestone 4.
   - [x] Expose the latest import (time, source, account and rolls saved) from the
     stored batch summaries, for the Import screen's "Last import" line.
-  - [ ] Show per-category page counts in retrieval progress, derived from the
+  - [x] Show per-category page counts in retrieval progress, derived from the
     existing progress events (category and page); no native change expected.
 - [ ] Optional, not blocking the milestone: incremental retrieval, so a repeat
   retrieval stops each category once it reaches rolls already saved, instead of
