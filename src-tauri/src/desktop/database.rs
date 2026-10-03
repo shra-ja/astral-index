@@ -44,6 +44,25 @@ pub fn webview_folder(folder: &Path) -> PathBuf {
     folder.join("webview")
 }
 
+/// The webview's own profile folder, which holds nothing but its caches and
+/// storage. On Windows the webview is given the app's folder, which also holds the
+/// database, and makes `EBWebView` inside it.
+#[cfg(windows)]
+pub fn webview_profile(folder: &Path) -> PathBuf {
+    folder.join("EBWebView")
+}
+#[cfg(not(windows))]
+pub fn webview_profile(folder: &Path) -> PathBuf {
+    webview_folder(folder)
+}
+
+/// Remove the webview's profile, so the next window starts with nothing cached.
+/// The app keeps nothing in webview storage, and a profile that is already gone is
+/// fine.
+pub fn clear_webview_profile(folder: &Path) {
+    let _ = fs::remove_dir_all(webview_profile(folder));
+}
+
 /// Where to keep the database: the `data` folder beside the executable if one
 /// exists (portable mode), otherwise the app's local data folder. A portable
 /// database is used even when the local folder also has one; nothing is merged.
@@ -116,6 +135,18 @@ mod tests {
     use super::*;
     use crate::acquisition::tests::filesystem::{self, Fixture};
     use crate::storage::tests::database::{self as sql, Reply, Step};
+
+    #[test]
+    fn clearing_the_webview_profile_removes_only_its_own_folder() {
+        filesystem::install(Fixture::default());
+        let folder = Path::new("/data/roll-tracker-mock");
+        clear_webview_profile(folder);
+        // The database beside it is never touched.
+        filesystem::inspect(|state| {
+            assert_eq!(state.removed, [webview_profile(folder)]);
+            assert_ne!(state.removed[0], folder);
+        });
+    }
     use crate::storage::tests::{setup, step, text};
     use std::future::Future;
 

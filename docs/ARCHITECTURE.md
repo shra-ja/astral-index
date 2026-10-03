@@ -341,7 +341,11 @@ executable switches on portable mode, and the database then lives there instead;
 `database::location` chooses, and a portable database is used even if the local
 folder also has one ([decision 0010](decisions/0010-portable-mode.md)). The setup
 hook also opens the main window, pointing the webview's profile into the same
-folder (`webview` on Linux; WebView2 adds `EBWebView` itself on Windows).
+folder (`webview` on Linux; WebView2 adds `EBWebView` itself on Windows). The
+mock debug binary removes its webview profile (`database::webview_profile`:
+`webview` on Linux, `EBWebView` on Windows, never the folder holding the
+database) before opening its window, so a run never reuses modules cached from an
+older dev server.
 `desktop::Database::run` runs SQLite work on Tokio's blocking pool, reusing the
 open store; failures are the safe storage `Database` error. See
 [decision 0009](decisions/0009-local-database-location.md).
@@ -547,8 +551,8 @@ reports `Progress::Requesting` with the category, page number, and the pages and
 records received so far across all categories. Before each retry delay,
 `Retrying` reports `Progress::RetryPending` with the delay, so validation retries
 are reported too. A quick refresh also reports `Progress::UpToDate` when a
-category ends at saved rolls (`up_to_date` in the webview). Events carry categories and counts only, never IDs, URLs or
-response text. The extraction commands pass a no-op reporter;
+category ends at saved rolls (`up_to_date` in the webview). Events carry
+categories and counts only, never IDs, URLs or response text. The extraction commands pass a no-op reporter;
 `retrieve_history` forwards events to the webview, which shows them.
 
 `src-tauri/src/acquisition/retry.rs` applies the retry budget. `Retrying` wraps
