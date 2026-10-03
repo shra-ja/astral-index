@@ -8,6 +8,7 @@ import {
   extractAutomatically,
   extractFromFile,
   historyPage,
+  lastImport,
   MAX_CACHE_BYTES,
   retrieveHistory,
 } from './commands'
@@ -207,4 +208,25 @@ test('a history page is read by category, page and size, and never fetches', asy
   expect(calls).toEqual([['history_page', { category: '11', page: 2, pageSize: 50 }]])
   mockIPC(() => reject({ kind: 'invalid_request' }))
   expect(await historyPage('99', 1, 20)).toEqual({ failure: { kind: 'invalid_request' } })
+})
+
+test('the last import is read from this device, and is null before the first', async () => {
+  const last = {
+    imported_at: 1790000000,
+    source: 'hoyoverse',
+    uid: '100000001',
+    server: 'synthetic-server',
+    inserted: 96,
+  }
+  const calls: string[] = []
+  mockIPC((cmd) => {
+    calls.push(cmd)
+    return last
+  })
+  expect(await lastImport()).toEqual({ last })
+  expect(calls).toEqual(['last_import'])
+  mockIPC(() => null)
+  expect(await lastImport()).toEqual({ last: null })
+  mockIPC(() => reject({ kind: 'storage' }))
+  expect(await lastImport()).toEqual({ failure: { kind: 'storage' } })
 })

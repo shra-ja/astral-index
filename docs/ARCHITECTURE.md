@@ -190,8 +190,9 @@ layers, so screens can be rearranged without rewriting the flow:
   retrieval flow and provides it to the screens, so a running retrieval and its
   review survive switching screens.
 - **Flow:** `composables/useRetrieval.ts` owns the retrieval flow and makes its
-  native calls; `composables/useHistory.ts` is the only other caller, reading
-  saved history for the History screen. It exposes read-only state (the phase —
+  native calls; the only other callers are `composables/useHistory.ts`, reading
+  saved history for the History screen, and `composables/useLastImport.ts`,
+  reading the last import for the Import screen. It exposes read-only state (the phase —
   idle, acquiring, reviewing, saving or leaving — how the link was found, the
   stage while acquiring, the status text, the review, how the last retrieval
   ended and whether a cancel is pending) and actions (search the device, read a
@@ -244,6 +245,14 @@ it returns no account, no rolls and zero counts. Storage counts rows in one
 grouped query and orders them with `json_extract` on the stored payloads; a
 count for an unknown category, like a row that fails validation, is reported as
 damaged storage rather than shown.
+
+`last_import` also reads storage only: the newest batch summary of the game, as
+its time (Unix seconds by the device's clock), source, UID, server and rolls
+added, or nothing before the first import. The source is a kind (`hoyoverse`)
+rather than the internal adapter name; a batch from an unknown adapter is
+reported as damaged storage. The Import screen reads it whenever Star Rail's
+sources appear, so the "Last import" line follows each save, and shows the time
+in the device's time zone; a failed read leaves the line out.
 
 Commands take their transport from a managed `Network`: HTTPS to HoYoverse in the
 app, or the synthetic HoYoverse of the mock debug binary

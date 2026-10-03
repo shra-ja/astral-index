@@ -268,6 +268,17 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     // A second retrieval finds everything already saved.
     await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    // The Import screen now names the import just saved.
+    await app.command('/window/rect', 'POST', { width: 1280, height: 900 })
+    const lastImport = () =>
+      app.execute<string[]>(
+        'return [...document.querySelectorAll(".last-import .part")].map(part => part.textContent)',
+      )
+    await expect
+      .poll(async () => (await lastImport()).slice(1), { timeout: 5000 })
+      .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
+    expect((await lastImport())[0]).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}$/)
+    await app.screenshot('e2e-mock-last-import')
     await app.chooseFile('#cache-file', cachePath)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })

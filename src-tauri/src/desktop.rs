@@ -10,7 +10,7 @@ use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
 };
-use crate::storage::{self, Account, HistoryPage, Preview, Review, Summary};
+use crate::storage::{self, Account, HistoryPage, LastImport, Preview, Review, Summary};
 use serde::Serialize;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -260,7 +260,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         retrieve_history,
         commit_import,
         discard_import,
-        history_page
+        history_page,
+        last_import
     ])
 }
 
@@ -593,6 +594,21 @@ async fn history_page(
     history_into(&database, &category, page, page_size).await
 }
 
+/// The newest import's summary; none before the first. Never contacts HoYoverse.
+async fn last_import_into(database: &Database) -> Result<Option<LastImport>, Failure> {
+    database
+        .run(|store| store.last_import())
+        .await
+        .and_then(|last| last)
+        .map_err(Failure::from)
+}
+
+/// Stored history only: never contacts HoYoverse.
+#[tauri::command]
+async fn last_import(database: State<'_, Database>) -> Result<Option<LastImport>, Failure> {
+    last_import_into(&database).await
+}
+
 /// Drop the held preview without writing anything.
 #[tauri::command]
 fn discard_import(session: State<'_, Session>) {
@@ -634,8 +650,8 @@ mod tests {
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
-        commit_script, latest_row, latest_step, page_rows, page_script, preview, preview_script,
-        setup, stale_commit_script, step, text,
+        commit_script, last_import_row, last_import_step, latest_row, latest_step, page_rows,
+        page_script, preview, preview_script, setup, stale_commit_script, step, text,
     };
     use rusqlite::types::Value;
     use std::path::PathBuf;
@@ -747,8 +763,14 @@ mod tests {
                 "retrieve_history",
                 "commit_import",
                 "discard_import",
-                "history_page"
+                "history_page",
+                "last_import"
             ]
+        );
+        // The test doubles can't serve worker threads, so the read fails safely.
+        assert_eq!(
+            invoke(&window, COMMANDS[7], InvokeBody::default()),
+            Err(r#"{"kind":"storage"}"#.into())
         );
         // History requests are checked before any database access, and need every argument.
         for (body, argument) in [
@@ -1660,6 +1682,28 @@ mod tests {
             run(history_into(&database, "11", 2, 2)),
             Err(Failure::Storage)
         );
+        sql::finish();
+    }
+
+    #[test]
+    fn the_last_import_is_read_from_storage_only() {
+        let database = database();
+        let mut script = opening();
+        script.push(last_import_step(vec![last_import_row()]));
+        sql::expect(script);
+        assert_eq!(
+            json(run(last_import_into(&database)).unwrap()),
+            serde_json::json!({
+                "imported_at": 1_790_000_000, "source": "hoyoverse",
+                "uid": "100000002", "server": "synthetic-server", "inserted": 96,
+            })
+        );
+        sql::finish();
+        sql::expect(vec![last_import_step(vec![])]);
+        assert_eq!(run(last_import_into(&database)), Ok(None));
+        sql::finish();
+        sql::expect(vec![last_import_step(vec![vec![Value::Null]])]);
+        assert_eq!(run(last_import_into(&database)), Err(Failure::Storage));
         sql::finish();
     }
 }

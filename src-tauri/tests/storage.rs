@@ -1,5 +1,5 @@
 use roll_tracker::acquisition::Category;
-use roll_tracker::storage::{Account, Error, HistoryPage, Store, Summary};
+use roll_tracker::storage::{Account, Error, HistoryPage, LastImport, Source, Store, Summary};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -731,6 +731,7 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
     let db = Database::new();
     let mut store = db.store();
     assert_eq!(store.latest_account().unwrap(), None);
+    assert_eq!(store.last_import().unwrap(), None);
     // Same-second rolls order by numeric ID, so a longer ID is newer.
     let rolls = [
         ("1000000000000000000", "11", "2026-09-28 21:14:03"),
@@ -824,7 +825,21 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
             roll["uid"] = json!("100000003");
         }
     });
+    assert_eq!(
+        store.last_import().unwrap(),
+        Some(LastImport {
+            imported_at: 1234,
+            source: Source::Hoyoverse,
+            uid: UID.into(),
+            server: SERVER.into(),
+            inserted: 5,
+        })
+    );
     let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
     store.commit(preview, 1235).unwrap();
     assert_eq!(store.latest_account().unwrap().unwrap().uid, "100000003");
+    // The newest import is the other account's, with its own count.
+    let last = store.last_import().unwrap().unwrap();
+    assert_eq!((last.imported_at, last.uid.as_str()), (1235, "100000003"));
+    assert!(last.inserted > 0);
 }

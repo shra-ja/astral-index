@@ -1645,7 +1645,7 @@ end-to-end tests.
 
 ## ESLint test warm-up (2026-10-03)
 
-Work is on `fix/eslint-test-warmup`. The `main` build after PR #57 (run #128)
+Integrated through PR #58. Work was on `fix/eslint-test-warmup`. The `main` build after PR #57 (run #128)
 failed: the frontend ESLint config test's first case took 6.2 s against
 Vitest's 5 s limit. It was the first type-aware lint, which builds the
 TypeScript program; over the previous 16 CI runs it took 2.1–4.8 s, and the
@@ -1665,10 +1665,41 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed. Test-only change, so no
 release build was needed.
 
+## Last import line (2026-10-03)
+
+Work is on `feat/last-import`. A new `last_import` command reads the newest
+batch summary from storage only: its time (Unix seconds by this device's
+clock), source, UID, server and rolls added, or nothing before the first import.
+The source crosses IPC as a kind (`hoyoverse`), not the internal adapter name;
+a batch from an unknown adapter is reported as damaged storage. The capability
+allows it for the main window. Star Rail's Import screen shows it below the
+sources as "Last import · 21 Sep 2026, 15:13 · Retrieved from HoYoverse ·
+UID … (Asia) · 96 new rolls saved", in the device's time zone. The server
+follows the UID as on the Saved screen, which the design's line left out. The
+line is read again whenever the sources appear, so it follows each save; a
+failed read leaves it out, since the History screen reports storage failures.
+Genshin Impact's Import screen shows no line.
+
+TDD: with `last_import` stubbed to find nothing, the storage and desktop unit
+tests failed, then passed with the query; an IPC test covers the generated
+command wrapper, which fails safely on the worker thread. The real-SQLite test
+checks no import, then the first, then another account's newer import. The
+command, format and message tests failed before `lastImport`, `localDateTime`
+and `lastImportParts` existed (3 red); the composable and component tests
+failed before their modules existed, and the app test failed with no line shown.
+Existing app tests that list the commands a retrieval makes now leave out the
+Import screen's local read. The end-to-end test checks the line after the mock
+save and saves `test-results/e2e-mock-last-import.png`.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 161 Rust unit tests, 197 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including the storage
+integration tests and all three end-to-end tests.
+
 ## Next
 
-The remaining milestone 3 items: the Import screen's "Last import" line,
-per-category page counts in retrieval progress, and the end-to-end verification
+The remaining milestone 3 items: per-category page counts in retrieval progress, and the end-to-end verification
 items. Incremental retrieval is an optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are

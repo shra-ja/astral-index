@@ -2,6 +2,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { Channel } from '@tauri-apps/api/core'
+import { localDateTime } from '../src/format'
 
 // Tauri rejects a command with the native failure as plain data, not an Error.
 function reject(failure: unknown): never {
@@ -106,13 +107,19 @@ type Handler = (args: Record<string, unknown>) => unknown
 // History screen finds nothing saved unless a test serves its own history.
 function serve(handlers: Record<string, Handler>) {
   const calls: string[] = []
-  const served: Record<string, Handler> = { history_page: () => nothingSaved, ...handlers }
+  const served: Record<string, Handler> = {
+    history_page: () => nothingSaved,
+    last_import: () => null,
+    ...handlers,
+  }
   mockIPC((cmd, args) => {
     calls.push(cmd)
     return served[cmd]?.(args as Record<string, unknown>)
   })
   return calls
 }
+// The commands a flow made, leaving out the Import screen's local read of the last import.
+const flow = (calls: string[]) => calls.filter((call) => call !== 'last_import')
 type Progress = Channel<unknown>
 const progressOf = (args: Record<string, unknown>) => args.onProgress as Progress
 type Conflict = { id: string; gacha_type: string; time: string }
@@ -274,8 +281,8 @@ test('saved history shows its account, category counts and newest rolls first', 
   expect(listed()[0]).toBe('45')
   expect(main().querySelector('.rarity-5 .name')?.textContent).toBe('Synthetic Hero')
   expect(showing()).toBe('Showing 1–20 of 45')
-  // Reading saved history never asks HoYoverse for anything.
-  expect(new Set(calls)).toEqual(new Set(['history_page']))
+  // Reading saved history only reads this device; it never asks HoYoverse for anything.
+  expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
   expect(icons().slice(3)).toEqual(['chevron-left', 'chevron-right', 'chevron-down'])
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
@@ -410,7 +417,7 @@ test('starting retrieval shows progress, then the review, then what was saved', 
   expect(progressStatus()).toBe('HoYoverse didn’t respond, so we’ll try again in a moment…')
   retrieval.resolve(review(412, 88))
   await settle()
-  expect(calls).toEqual(['extract_automatically', 'retrieve_history'])
+  expect(flow(calls)).toEqual(['extract_automatically', 'retrieve_history'])
   expect(shown('progress')).toBe(false)
   expect(heading()).toBe('Review Import')
   expect(panel().getAttribute('aria-busy')).toBe('false')
@@ -504,7 +511,7 @@ test('discarding the review saves nothing and says so', async () => {
   await settle()
   reviewButton('Discard').click()
   await settle()
-  expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import'])
+  expect(flow(calls)).toEqual(['extract_automatically', 'retrieve_history', 'discard_import'])
   expect(shown('review')).toBe(false)
   expect(note()).toBe('Discarded the retrieved history. Nothing was saved.')
   expect(document.activeElement).toBe(findButton())
@@ -520,7 +527,7 @@ test('when everything is already saved, Done replaces Save and Discard', async (
   expect(reviewButton('Discard')).toBeUndefined()
   reviewButton('Done').click()
   await settle()
-  expect(calls).toEqual(['extract_automatically', 'retrieve_history', 'discard_import'])
+  expect(flow(calls)).toEqual(['extract_automatically', 'retrieve_history', 'discard_import'])
   expect(note()).toBe('Your saved history is already up to date.')
 })
 
@@ -579,6 +586,50 @@ test('a failed save explains what happened, then goes back to the start', async 
   expect(document.activeElement).toBe(findButton())
 })
 
+const lastLine = () =>
+  [...(screen('start')?.querySelectorAll('.last-import .part') ?? [])].map(
+    (part) => part.textContent,
+  )
+
+test('Star Rail’s Import screen shows the last import, read again after each save', async () => {
+  let last: unknown = null
+  const calls = serve({
+    last_import: () => last,
+    retrieve_history: () => review(5),
+    commit_import: () => ({ inserted: 5, duplicates: 0, conflicts: 0 }),
+  })
+  await openImport()
+  // Nothing has been imported yet, so there is no line.
+  expect(screen('start')!.querySelector('.last-import')).toBeNull()
+  findButton().click()
+  await settle()
+  last = {
+    imported_at: 1790000000,
+    source: 'hoyoverse',
+    uid: '100000001',
+    server: 'prod_official_asia',
+    inserted: 5,
+  }
+  await click(reviewButton('Save 5 rolls'))
+  await settle()
+  await click(button(screen('saved')!, 'Done'))
+  await settle()
+  expect(lastLine()).toEqual([
+    localDateTime(1790000000),
+    'Retrieved from HoYoverse',
+    'UID 100000001 (Asia)',
+    '5 new rolls saved',
+  ])
+  expect(calls.filter((call) => call === 'last_import')).toHaveLength(2)
+  // Genshin Impact has no imports of its own yet.
+  await follow(named(sidebar(), 'Genshin Impact'))
+  expect(screen('start')!.querySelector('.last-import')).toBeNull()
+  // A failed read leaves the line out.
+  serve({ last_import: () => reject({ kind: 'storage' }) })
+  await follow(named(sidebar(), 'Honkai: Star Rail'))
+  expect(screen('start')!.querySelector('.last-import')).toBeNull()
+})
+
 test('a failed retrieval says where it stopped, and Try again starts over', async () => {
   const calls = serve({
     retrieve_history: () => reject({ kind: 'network', gacha_type: '12', page: 2 }),
@@ -591,7 +642,7 @@ test('a failed retrieval says where it stopped, and Try again starts over', asyn
   expect(screen('failed')!.textContent).toContain(
     'Retrieval stopped at Light Cone Event Warp, page 2. We couldn’t reach HoYoverse. Check your internet connection, then try again.',
   )
-  expect(calls).toEqual(['extract_automatically', 'retrieve_history'])
+  expect(flow(calls)).toEqual(['extract_automatically', 'retrieve_history'])
   serve({ retrieve_history: () => review(1) })
   button(screen('failed')!, 'Try again').click()
   await settle()
@@ -609,7 +660,7 @@ test('cancelling during validation stops before retrieval and says so', async ()
   await settle()
   extraction.reject({ kind: 'cancelled' })
   await settle()
-  expect(calls).toEqual(['extract_automatically', 'cancel_acquisition'])
+  expect(flow(calls)).toEqual(['extract_automatically', 'cancel_acquisition'])
   expect(shown('progress')).toBe(false)
   expect(note()).toBe('Retrieval cancelled. Nothing was saved.')
   expect(document.activeElement).toBe(findButton())
@@ -652,7 +703,7 @@ test('when the game files cannot be found, a cache file can be chosen instead', 
   const retryFile = screen('failed')!.querySelector<HTMLInputElement>('input[type="file"]')!
   await choose(retryFile, new File(['synthetic'], 'data_2'))
   await settle()
-  expect(calls).toEqual(['extract_automatically', 'extract_from_file', 'retrieve_history'])
+  expect(flow(calls)).toEqual(['extract_automatically', 'extract_from_file', 'retrieve_history'])
   expect(reviewHeading().textContent).toBe('Ready to save 6 new rolls')
 })
 
@@ -664,7 +715,7 @@ test('choosing a cache file extracts from it without an automatic search first',
   expect(progressStatus()).toBe('Reading the file, then checking with HoYoverse…')
   expect(steps()[0]).toEqual(['Find the warp history link in the provided file', 'active'])
   await settle()
-  expect(calls).toEqual(['extract_from_file', 'retrieve_history'])
+  expect(flow(calls)).toEqual(['extract_from_file', 'retrieve_history'])
   expect(reviewHeading().textContent).toBe('Ready to save 7 new rolls')
   reviewButton('Discard').click()
   await settle()

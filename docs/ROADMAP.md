@@ -290,7 +290,7 @@ the order listed.
     - [x] Show the History screen: category tabs (a dropdown when they do not
       fit), the paged list with item, rarity, type and time, and the empty state.
       Show the most recently imported account; switching accounts is milestone 4.
-  - [ ] Expose the latest import (time, source, account and rolls saved) from the
+  - [x] Expose the latest import (time, source, account and rolls saved) from the
     stored batch summaries, for the Import screen's "Last import" line.
   - [ ] Show per-category page counts in retrieval progress, derived from the
     existing progress events (category and page); no native change expected.

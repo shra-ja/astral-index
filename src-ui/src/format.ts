@@ -37,6 +37,25 @@ export const monograms: Record<Game, string> = {
 }
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/**
+ * "21 Sep 2026, 14:13" for a time in Unix seconds, in the device's time zone unless
+ * another is given.
+ */
+export function localDateTime(seconds: number, timeZone?: string) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(seconds * 1000)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((each) => each.type === type)!.value
+  return `${part('day')} ${months[Number(part('month')) - 1]} ${part('year')}, ${part('hour')}:${part('minute')}`
+}
+
 /** "2 Apr 2026", from a server time such as "2026-04-02 10:00:00", read as written. */
 export function serverDate(time: string) {
   const [year, month, day] = time.slice(0, 10).split('-')

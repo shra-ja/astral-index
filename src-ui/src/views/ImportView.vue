@@ -9,10 +9,12 @@ import { RouterLink } from 'vue-router'
 import ImportFailed from '../components/import/ImportFailed.vue'
 import ImportSaved from '../components/import/ImportSaved.vue'
 import ImportSources from '../components/import/ImportSources.vue'
+import LastImport from '../components/import/LastImport.vue'
 import RetrievalProgress from '../components/import/RetrievalProgress.vue'
 import ReviewPanel from '../components/import/ReviewPanel.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { retrievalKey } from '../composables/retrieval'
+import { useLastImport } from '../composables/useLastImport'
 import { games, terms, type Game } from '../format'
 
 const props = defineProps<{ game: Game }>()
@@ -46,6 +48,16 @@ const note = computed(() =>
   available.value && outcome.value?.kind === 'note' ? outcome.value.message : undefined,
 )
 
+// The last import is read whenever Star Rail's sources appear, so it follows each save.
+const { last, refresh } = useLastImport()
+watch(
+  () => available.value && step.value === 'start',
+  (shown) => {
+    if (shown) void refresh()
+  },
+  { immediate: true },
+)
+
 const sources = useTemplateRef('sources')
 watch(
   step,
@@ -69,7 +81,9 @@ watch(
         :note
         @search="searchDevice"
         @choose="readFile"
-      />
+      >
+        <LastImport v-if="available && last" :last />
+      </ImportSources>
       <RetrievalProgress
         v-else-if="step === 'progress'"
         :term="terms[game]"
