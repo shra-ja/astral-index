@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-01
+Updated: 2026-10-03
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -1501,7 +1501,7 @@ end-to-end tests.
 
 ## Stored history page command (2026-10-02)
 
-Work is on `feat/history-page`. A new `history_page` command reads one page of
+Integrated through PR #53. Work was on `feat/history-page`. A new `history_page` command reads one page of
 saved rolls for a banner category, for the account the latest import went into:
 newest first by server time, then by numeric roll ID within the same second (the
 HSR contract now records why), each with its position number, item, rarity, type
@@ -1527,12 +1527,33 @@ tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including the storage
 integration tests and all three end-to-end tests.
 
+## Category totals (2026-10-03)
+
+Work is on `feat/category-totals`. Each `history_page` result now also counts
+the account's rolls in every category, in `Category::ALL` order with zeros for
+empty ones, so the History screen's tabs can show their counts from one read.
+One grouped query replaces the selected category's count, which is taken from
+it. A count for an unknown category is reported as damaged storage. With no
+import yet every count is zero.
+
+TDD: with the new types stubbed to return no counts, seven storage and desktop
+unit tests failed (the old count query and the missing counts), then passed. The
+real-SQLite integration test checks the counts beside empty categories and
+another account; the end-to-end test checks the mock's six counts.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 159 Rust unit tests, 160 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including the storage
+integration tests and all three end-to-end tests.
+
 ## Next
 
 Build the stored-history display to the visual design
 ([decision 0013](decisions/0013-visual-design.md)): next, the History screen
-showing those pages: category tabs (a dropdown when they do not fit), the paged
-list and the empty state. Incremental retrieval is an optional design step.
+showing those pages: category tabs with their counts (a dropdown when they do
+not fit), the paged list and the empty state. Incremental retrieval is an
+optional design step.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

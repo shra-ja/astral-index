@@ -184,12 +184,24 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       app.executeAsync<{
         account: { uid: string }
         total: number
+        categories: { gacha_type: string; total: number }[]
         rolls: { number: number; id: string; time: string; rank_type: string }[]
       }>(
         `window.__TAURI_INTERNALS__.invoke('history_page', { category: '11', page: ${page}, pageSize: 20 }).then(arguments[arguments.length - 1])`,
       )
     const first = await history(1)
     expect([first.account.uid, first.total, first.rolls.length]).toEqual(['100000001', 1250, 20])
+    // Each page also counts every category, as the mock serves them.
+    expect(first.categories).toEqual(
+      [
+        ['1', 300],
+        ['2', 50],
+        ['11', 1250],
+        ['12', 412],
+        ['21', 38],
+        ['22', 10],
+      ].map(([gacha_type, total]) => ({ gacha_type, total })),
+    )
     expect(first.rolls[0]).toEqual(
       expect.objectContaining({
         number: 1250,

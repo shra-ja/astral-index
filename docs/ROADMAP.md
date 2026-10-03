@@ -285,6 +285,8 @@ the order listed.
       for one banner category, newest first. Order by time, then by numeric roll
       ID within the same second, matching the observed descending API order;
       page in Rust.
+    - [x] Return every category's count with each page, for the History
+      screen's tab counts.
     - [ ] Show the History screen: category tabs (a dropdown when they do not
       fit), the paged list with item, rarity, type and time, and the empty state.
       Show the most recently imported account; switching accounts is milestone 4.

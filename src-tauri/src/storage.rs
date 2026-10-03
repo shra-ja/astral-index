@@ -142,7 +142,33 @@ pub struct Account {
 pub struct HistoryPage {
     /// Rolls in the category altogether, so callers can page through them.
     pub total: usize,
+    /// Every known category's count for the account, empty ones included, so a
+    /// caller can show them all without reading each.
+    pub categories: Vec<CategoryTotal>,
     pub rolls: Vec<StoredRoll>,
+}
+impl HistoryPage {
+    /// No rolls in any category.
+    pub fn empty() -> Self {
+        Self {
+            total: 0,
+            categories: Category::ALL
+                .into_iter()
+                .map(|category| CategoryTotal {
+                    gacha_type: category.code(),
+                    total: 0,
+                })
+                .collect(),
+            rolls: Vec::new(),
+        }
+    }
+}
+
+/// How many rolls an account has stored in one category.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct CategoryTotal {
+    pub gacha_type: &'static str,
+    pub total: usize,
 }
 
 /// A stored roll as the history list shows it. `number` is its position in the
@@ -393,13 +419,30 @@ impl Store {
         limit: usize,
     ) -> Result<HistoryPage, Error> {
         let code = category.code();
-        let total: i64 = self.connection.query_row(
-            "SELECT count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4",
-            params![GAME, uid, server, code],
-            |row| row.get(0),
+        let HistoryPage {
+            mut total,
+            mut categories,
+            ..
+        } = HistoryPage::empty();
+        let mut counts = self.connection.prepare(
+            "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1",
         )?;
-        // A count is never negative.
-        let total = usize::try_from(total).unwrap_or_default();
+        let counted = counts.query_map(params![GAME, uid, server], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        for row in counted {
+            let (counted_code, count) = row?;
+            // Imports only store known categories, so another is damage.
+            let entry = categories
+                .iter_mut()
+                .find(|entry| entry.gacha_type == counted_code)
+                .ok_or(Error::InvalidStoredData)?;
+            // A count is never negative.
+            entry.total = usize::try_from(count).unwrap_or_default();
+            if counted_code == code {
+                total = entry.total;
+            }
+        }
         let mut statement = self.connection.prepare(
             "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6",
         )?;
@@ -427,7 +470,11 @@ impl Store {
                 time: roll.time,
             });
         }
-        Ok(HistoryPage { total, rolls })
+        Ok(HistoryPage {
+            total,
+            categories,
+            rolls,
+        })
     }
 }
 
@@ -527,7 +574,7 @@ pub(crate) mod tests {
     const HISTORY: &str =
         "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
-    const COUNT: &str = "SELECT count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4";
+    const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
     const PAGE_ROWS: &str = "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6";
     pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
@@ -1186,22 +1233,58 @@ pub(crate) mod tests {
     pub(crate) fn latest_row() -> Vec<Value> {
         vec![text(UID), text(SERVER), Value::Integer(8)]
     }
-    /// The SQL for a Character Event Warp page of the fixture account.
+    /// The SQL for a Character Event Warp page of the fixture account, which also
+    /// holds 3 Stellar Warp rolls.
     pub(crate) fn page_script(
         total: i64,
         offset: i64,
         limit: i64,
         rows_data: Vec<Vec<Value>>,
     ) -> Vec<Step> {
-        let mut count = scope();
-        count.push(text("11"));
-        let mut bindings = count.clone();
-        bindings.extend([Value::Integer(limit), Value::Integer(offset)]);
+        totals_script(
+            vec![
+                vec![text("1"), Value::Integer(3)],
+                vec![text("11"), Value::Integer(total)],
+            ],
+            offset,
+            limit,
+            rows_data,
+        )
+    }
+    /// The SQL up to the account's counts, for reads that stop there.
+    fn counting_script(totals: Vec<Vec<Value>>) -> Vec<Step> {
+        let mut steps = totals_script(totals, 0, 20, vec![]);
+        steps.truncate(2);
+        steps
+    }
+    /// The SQL for a Character Event Warp page, with the account's counts per category.
+    fn totals_script(
+        totals: Vec<Vec<Value>>,
+        offset: i64,
+        limit: i64,
+        rows_data: Vec<Vec<Value>>,
+    ) -> Vec<Step> {
+        let mut bindings = scope();
+        bindings.extend([text("11"), Value::Integer(limit), Value::Integer(offset)]);
         vec![
-            rows(COUNT, count, vec![vec![Value::Integer(total)]]),
+            done(&format!("PREPARE {TOTALS}")),
+            rows(TOTALS, scope(), totals),
             done(&format!("PREPARE {PAGE_ROWS}")),
             rows(PAGE_ROWS, bindings, rows_data),
         ]
+    }
+    /// Every category's count, in `Category::ALL` order, from `(code, count)` pairs.
+    fn totals(counts: &[(&'static str, usize)]) -> Vec<CategoryTotal> {
+        Category::ALL
+            .into_iter()
+            .map(|category| CategoryTotal {
+                gacha_type: category.code(),
+                total: counts
+                    .iter()
+                    .find(|(code, _)| *code == category.code())
+                    .map_or(0, |(_, count)| *count),
+            })
+            .collect()
     }
     /// The fixture page's rolls as stored rows.
     pub(crate) fn page_rows() -> Vec<Vec<Value>> {
@@ -1232,8 +1315,13 @@ pub(crate) mod tests {
             page,
             HistoryPage {
                 total: 5,
+                categories: totals(&[("1", 3), ("11", 5)]),
                 rolls: vec![roll(3, "9007199254740993"), roll(2, "9007199254740992")],
             }
+        );
+        assert_eq!(
+            serde_json::to_value(&page.categories[0]).unwrap(),
+            serde_json::json!({ "gacha_type": "1", "total": 3 })
         );
         assert_eq!(
             serde_json::to_value(&page.rolls[0]).unwrap(),
@@ -1246,12 +1334,63 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn an_empty_category_still_lists_the_other_categories_counts() {
+        database::expect(totals_script(
+            vec![vec![text("22"), Value::Integer(7)]],
+            0,
+            20,
+            vec![],
+        ));
+        let page = store()
+            .page(UID, SERVER, Category::CharacterEvent, 0, 20)
+            .unwrap();
+        database::finish();
+        assert_eq!(
+            page,
+            HistoryPage {
+                total: 0,
+                categories: totals(&[("22", 7)]),
+                rolls: vec![],
+            }
+        );
+        assert_eq!(
+            HistoryPage::empty(),
+            HistoryPage {
+                total: 0,
+                categories: totals(&[]),
+                rolls: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn counts_of_an_unknown_category_are_damage() {
+        database::expect(counting_script(vec![vec![text("99"), Value::Integer(1)]]));
+        assert_eq!(
+            store().page(UID, SERVER, Category::CharacterEvent, 0, 20),
+            Err(Error::InvalidStoredData)
+        );
+        database::finish();
+    }
+
+    #[test]
     fn page_query_and_row_failures_are_safe() {
         fail_each(&|| page_script(5, 2, 2, vec![]), None, &mut || {
             store()
                 .page(UID, SERVER, Category::CharacterEvent, 2, 2)
                 .map(|_| ())
         });
+        for unreadable in [
+            vec![Value::Null, Value::Integer(1)],
+            vec![text("11"), text("1")],
+        ] {
+            database::expect(counting_script(vec![unreadable]));
+            assert_eq!(
+                store().page(UID, SERVER, Category::CharacterEvent, 0, 20),
+                Err(Error::Database)
+            );
+            database::finish();
+        }
         for rows_data in [
             vec![vec![Value::Null, text("{}")]],
             vec![vec![text("1"), Value::Null]],
