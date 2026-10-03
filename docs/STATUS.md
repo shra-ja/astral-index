@@ -1713,7 +1713,9 @@ status sentence stays the polite live region, and is shown only before the first
 page, during a retry wait and while cancelling. A category passed without any
 page shows no count rather than failing. The user chose the fetch order, the
 row in place of the visible sentence, and full names here (the short names stay
-on the History screen's tabs, where space is tight).
+on the History screen's tabs, where space is tight). The tabs' short
+collaboration names now keep the full names' word order: Character Collab and
+Light Cone Collab, not Collab Character and Collab Light Cone.
 
 TDD: the composable tests for the download state (2) and the component tests for
 the row, bar, list and status visibility (2, then 1 for a skipped category)

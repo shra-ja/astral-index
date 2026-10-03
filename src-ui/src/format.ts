@@ -78,8 +78,8 @@ export const categoryTabs = [
   { gacha_type: '12', label: 'Light Cone Event' },
   { gacha_type: '1', label: 'Stellar' },
   { gacha_type: '2', label: 'Departure' },
-  { gacha_type: '21', label: 'Collab Character' },
-  { gacha_type: '22', label: 'Collab Light Cone' },
+  { gacha_type: '21', label: 'Character Collab' },
+  { gacha_type: '22', label: 'Light Cone Collab' },
 ] as const
 
 /** Up to two initials for an item's placeholder icon, skipping words without letters. */

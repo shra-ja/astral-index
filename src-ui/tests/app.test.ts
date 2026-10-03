@@ -270,8 +270,8 @@ test('saved history shows its account, category counts and newest rolls first', 
     ['Light Cone Event 0', 'false'],
     ['Stellar 3', 'false'],
     ['Departure 0', 'false'],
-    ['Collab Character 0', 'false'],
-    ['Collab Light Cone 0', 'false'],
+    ['Character Collab 0', 'false'],
+    ['Light Cone Collab 0', 'false'],
   ])
   expect(main().querySelector('[role="table"]')?.getAttribute('aria-label')).toBe(
     'Character Event Warp rolls, newest first',

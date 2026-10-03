@@ -256,8 +256,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         'Light Cone Event 412',
         'Stellar 300',
         'Departure 50',
-        'Collab Character 38',
-        'Collab Light Cone 10',
+        'Character Collab 38',
+        'Light Cone Collab 10',
       ])
     expect(await textOf(app, '[aria-sort]')).toBe('Time (UTC+8)')
     expect(
