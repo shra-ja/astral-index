@@ -395,3 +395,9 @@ Done when a fresh profile can recover the same records and metadata from a backu
   incorrect/skipped earlier imports and legitimate same-second rolls. This niche
   diagnostic is not a prerequisite for milestones 2 or 3; see the
   [identity contract](HSR-API-CONTRACT.md#identity-and-mismatch-handling).
+
+- [ ] Recheck `npm audit` for a patched `braces` (advisory GHSA-vfj7-8cjw-p6xm,
+  all versions up to 3.0.3), which the dev tooling pulls in through
+  `@vue/eslint-config-typescript` and `fast-glob`; update once a fix exists. Not
+  `npm audit fix --force`, which downgrades the ESLint config to 14.0.1. The
+  shipped app does not include it, and only our own lint globs reach it.
