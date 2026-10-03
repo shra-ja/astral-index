@@ -274,18 +274,21 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
 /// Register the desktop commands, their in-memory session and the local database,
 /// which stays unopened until first used. Requests go to HoYoverse over HTTPS.
 pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
-    register_with(builder, Network::Https, database::FOLDER_NAME, true)
+    register_with(builder, Network::Https, database::FOLDER_NAME, true, false)
 }
 
 /// Register the app for the mock debug binary: requests go to a synthetic
 /// HoYoverse, and history stays in its own folder, never in portable mode, so
-/// synthetic history cannot mix with real history.
+/// synthetic history cannot mix with real history. Its webview profile is cleared
+/// at each start, since a development webview can otherwise reuse modules cached
+/// from an older dev server.
 pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Builder<R> {
     register_with(
         builder,
         Network::Mock(scenario),
         database::MOCK_FOLDER_NAME,
         false,
+        true,
     )
 }
 
@@ -294,6 +297,7 @@ fn register_with<R: Runtime>(
     network: Network,
     folder_name: &'static str,
     portable: bool,
+    fresh_webview: bool,
 ) -> Builder<R> {
     let builder = builder.manage(Session::default()).manage(network);
     handle_commands(builder).setup(move |app| {
@@ -305,6 +309,9 @@ fn register_with<R: Runtime>(
             executable.as_deref(),
             local.map(|local| local.join(folder_name)),
         );
+        if let Some(folder) = folder.as_deref().filter(|_| fresh_webview) {
+            database::clear_webview_profile(folder);
+        }
         let opened = open_window(app.handle(), folder.as_deref());
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
@@ -887,6 +894,8 @@ mod tests {
             Some(folder.join(database::FILE_NAME))
         );
         assert!(app.get_webview_window("main").is_some());
+        // The app keeps its webview profile.
+        filesystem::inspect(|state| assert!(state.removed.is_empty()));
     }
 
     #[test]
@@ -910,6 +919,10 @@ mod tests {
             Network::Mock(Scenario::History)
         ));
         assert!(app.get_webview_window("main").is_some());
+        // The mock starts each run with a fresh webview profile.
+        filesystem::inspect(|state| {
+            assert_eq!(state.removed, [database::webview_profile(&folder)]);
+        });
     }
 
     #[test]

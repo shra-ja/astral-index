@@ -146,11 +146,19 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
 async function launchMock(scenario: string) {
   const data = resolve('test-results/mock-data')
   rmSync(data, { recursive: true, force: true })
+  // A module cached by an earlier run, which the mock must not reuse.
+  const staleCache = resolve(data, 'roll-tracker-mock/webview/WebKitCache/stale-module')
+  mkdirSync(resolve(staleCache, '..'), { recursive: true })
+  writeFileSync(staleCache, 'cached before a refactor')
   const app = await launch(
     'roll-tracker-mock',
     environment({ XDG_DATA_HOME: data, ROLL_TRACKER_MOCK_SCENARIO: scenario }),
   )
-  return { app, database: resolve(data, 'roll-tracker-mock/history.sqlite') }
+  return {
+    app,
+    database: resolve(data, 'roll-tracker-mock/history.sqlite'),
+    staleCache,
+  }
 }
 async function retrieveFromFile(app: AppSession) {
   // The first screen renders once the router has resolved it.
@@ -165,9 +173,11 @@ const click = (app: AppSession, container: string, name: string) =>
   )
 
 test('the mock binary retrieves, reviews and saves synthetic history, which persists', async () => {
-  const { app, database } = await launchMock('history')
+  const { app, database, staleCache } = await launchMock('history')
   try {
     await retrieveFromFile(app)
+    // The mock started with a fresh webview profile.
+    expect(existsSync(staleCache)).toBe(false)
     await expect
       .poll(() => textOf(app, '.progress [role=status]'), { timeout: 10000 })
       .toContain('Retrieving')

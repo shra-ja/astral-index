@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-03
+Updated: 2026-10-04
 
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
@@ -1769,7 +1769,7 @@ pagination integration tests and all three end-to-end tests.
 
 ## Incremental retrieval, UI side (2026-10-03)
 
-Work is on `feat/incremental-ui`, completing the step (tasks 5–7). The Retrieve
+Integrated through PR #62. Work was on `feat/incremental-ui`, completing the step (tasks 5–7). The Retrieve
 card has a switch, two real radios shown as a segmented control: "New rolls
 only" (the default) or "Full history", with the hint "Select “Full history” to
 fill in earlier gaps of missing data." The group's "What to retrieve" name is
@@ -1794,6 +1794,32 @@ skips all 2,060.
 
 Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
 passed: formatting, lint, build, 167 Rust unit tests, 207 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy. `npm run test:offline` passed, including all three
+end-to-end tests.
+
+## Fresh webview profile for the mock (2026-10-04)
+
+Work is on `fix/mock-webview-profile`. Running `npm run tauri:mock` showed
+"ENOENT: no such file or directory, open '/src/components/CachePicker.vue'".
+The mock's persistent WebKit cache (`roll-tracker-mock/webview/WebKitCache`) still
+held `ImportView.vue`, `ImportSources.vue` and `ImportFailed.vue` from 2 October,
+before the components moved into subfolders, and the webview reused them,
+although the dev server sends `Cache-Control: no-cache` with ETags. The mock now
+removes its webview profile (`webview` on Linux, `EBWebView` on Windows, never
+the folder that holds the database) before opening its window; the shipped app,
+whose built modules have hashed names, keeps its profile. The app keeps nothing
+in webview storage. Incognito mode was tried first, but WebKit's WebDriver could
+not open a session in it ("session not created"), which failed both mock
+end-to-end tests in the full check; decision 0014 records this.
+
+TDD: with the clearing function a no-op, the database test (only the profile
+folder is removed) and the mock registration test failed, then passed; the real
+app's registration test checks nothing is removed. The end-to-end test seeds a
+stale cache file in the mock's profile and checks it is gone once the app runs.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed: formatting, lint, build, 168 Rust unit tests, 207 frontend and 36
 tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests.

@@ -31,6 +31,12 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
 - **Separate history:** the mock binary keeps its database in its own
   `roll-tracker-mock` folder and never uses portable mode, so synthetic history
   cannot mix with real history.
+- **Fresh webview profile** (added 2026-10-04): the mock removes its webview
+  profile before opening its window. Its persistent cache once served a `tauri
+  dev` session modules from before a refactor, which then failed to load files
+  that had moved. The app keeps nothing in webview storage, so nothing is lost.
+  Incognito mode was tried first, but WebKit's WebDriver cannot open a session
+  in an incognito webview, which would end the mock's end-to-end tests.
 - **Verification:** the native smoke test runs the mock binary through retrieval,
   review, saving, a second retrieval that finds everything saved, and a network
   failure, with screenshots of each screen. `npm run tauri:mock` runs it by hand.

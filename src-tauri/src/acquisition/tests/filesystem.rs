@@ -17,6 +17,8 @@ pub struct Fixture {
     pub metadata_failure: bool,
     pub reads: usize,
     pub accessed: Vec<PathBuf>,
+    /// Folders removed, in order; removal always succeeds.
+    pub removed: Vec<PathBuf>,
 }
 thread_local! { static FIXTURE: RefCell<Fixture> = RefCell::default(); }
 pub fn install(fixture: Fixture) {
@@ -50,6 +52,11 @@ pub fn read_dir(path: &Path) -> io::Result<std::vec::IntoIter<io::Result<DirEntr
         }
         state.entries.take().map(Vec::into_iter).ok_or_else(missing)
     })
+}
+/// Records the folder as removed. Takes any path, as `std::fs::remove_dir_all` does.
+pub fn remove_dir_all(path: impl AsRef<Path>) -> io::Result<()> {
+    FIXTURE.with(|state| state.borrow_mut().removed.push(path.as_ref().to_owned()));
+    Ok(())
 }
 /// Creates the folder, unless a file already occupies its path.
 pub fn create_dir_all(path: &Path) -> io::Result<()> {
