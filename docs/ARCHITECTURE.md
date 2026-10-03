@@ -216,11 +216,14 @@ layers, so screens can be rearranged without rewriting the flow:
 `history_page` reads stored history without any network access: for the account
 the latest import went into, one page of a category's rolls, newest first by
 server time then numeric roll ID, each numbered by its position in the category
-(1 is the oldest stored). It checks the category, the page (from 1) and the page
-size (1 to 100) before opening the database and returns `invalid_request`
-otherwise; with no import yet it returns no account and no rolls. Storage counts
-and orders rows with `json_extract` on the stored payloads and validates each row
-again before returning it.
+(1 is the oldest stored), with the account's count in each of the six categories
+(zeros included) so the History screen can label every tab from one read. It
+checks the category, the page (from 1) and the page size (1 to 100) before
+opening the database and returns `invalid_request` otherwise; with no import yet
+it returns no account, no rolls and zero counts. Storage counts rows in one
+grouped query and orders them with `json_extract` on the stored payloads; a
+count for an unknown category, like a row that fails validation, is reported as
+damaged storage rather than shown.
 
 Commands take their transport from a managed `Network`: HTTPS to HoYoverse in the
 app, or the synthetic HoYoverse of the mock debug binary

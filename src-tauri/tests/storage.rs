@@ -1,5 +1,5 @@
 use roll_tracker::acquisition::Category;
-use roll_tracker::storage::{Account, Error, Store, Summary};
+use roll_tracker::storage::{Account, Error, HistoryPage, Store, Summary};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -787,13 +787,29 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
     assert_eq!(listed(4, 2), (4, vec![]));
     let stellar = store.page(UID, SERVER, Category::Stellar, 0, 20).unwrap();
     assert_eq!((stellar.total, stellar.rolls.len()), (1, 1));
+    // Every page counts each category of the account, empty ones included.
+    let counts: Vec<_> = stellar
+        .categories
+        .iter()
+        .map(|category| (category.gacha_type, category.total))
+        .collect();
+    assert_eq!(
+        counts,
+        [
+            ("1", 1),
+            ("2", 0),
+            ("11", 4),
+            ("12", 0),
+            ("21", 0),
+            ("22", 0)
+        ]
+    );
     // Another account's history stays apart, and becomes the latest once imported.
     assert_eq!(
         store
             .page("100000003", SERVER, Category::CharacterEvent, 0, 20)
-            .unwrap()
-            .total,
-        0
+            .unwrap(),
+        HistoryPage::empty()
     );
     assert_eq!(
         store.latest_account().unwrap(),

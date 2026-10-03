@@ -568,10 +568,7 @@ async fn history_into(
             let Some(account) = store.latest_account()? else {
                 return Ok(StoredHistory {
                     account: None,
-                    page: HistoryPage {
-                        total: 0,
-                        rolls: Vec::new(),
-                    },
+                    page: HistoryPage::empty(),
                 });
             };
             let page = store.page(&account.uid, &account.server, category, offset, page_size)?;
@@ -1622,6 +1619,17 @@ mod tests {
             serde_json::json!({ "uid": "100000002", "server": "synthetic-server", "timezone": 8 })
         );
         assert_eq!(history["total"], 5);
+        assert_eq!(
+            history["categories"],
+            serde_json::json!([
+                { "gacha_type": "1", "total": 3 },
+                { "gacha_type": "2", "total": 0 },
+                { "gacha_type": "11", "total": 5 },
+                { "gacha_type": "12", "total": 0 },
+                { "gacha_type": "21", "total": 0 },
+                { "gacha_type": "22", "total": 0 },
+            ])
+        );
         assert_eq!(history["rolls"][0]["number"], 3);
         assert_eq!(history["rolls"][1]["id"], "9007199254740992");
     }
@@ -1632,9 +1640,11 @@ mod tests {
         let mut script = opening();
         script.push(latest_step(vec![]));
         sql::expect(script);
+        let empty = ["1", "2", "11", "12", "21", "22"]
+            .map(|code| serde_json::json!({ "gacha_type": code, "total": 0 }));
         assert_eq!(
             json(run(history_into(&database, "1", 1, 20)).unwrap()),
-            serde_json::json!({ "account": null, "total": 0, "rolls": [] })
+            serde_json::json!({ "account": null, "total": 0, "categories": empty, "rolls": [] })
         );
         sql::finish();
         sql::expect(vec![latest_step(vec![vec![Value::Null]])]);
