@@ -136,3 +136,187 @@ per-file metrics remain 100%, including the isolated backend unit gate. No
 coverage exception or exclusion was added.
 `npm run tauri -- build --no-bundle` also passed for the Linux development host.
 Native Windows/actual WSL interop and real-installation verification remain pending.
+
+## From TESTING.md
+
+### Cache extraction review regressions (2026-09-26)
+
+`cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test acquisition`
+includes two bounded subprocess regressions. On Unix, selecting a synthetic FIFO
+with no writer must return `NotRegularFile` within three seconds. A cache with
+80,000 distinct contexts and repeated entries, below the byte limit, must preserve
+count and first-seen order within ten seconds. The parent terminates a stuck child
+so either regression fails without hanging the suite. The FIFO test uses `mkfifo`
+on the Unix test host.
+
+Both failed before the fixes on their respective deadlines. After nonblocking
+Unix opens and hash-set deduplication, the FIFO returned immediately and the large
+cache test completed in approximately 0.43 seconds in the focused debug run.
+The filesystem double also asserts read-only and Unix nonblocking open options;
+existing unit tests cover successful reads, open/metadata failures, non-regular
+handles and byte bounds.
+
+### Selected Windows cache foundations (2026-09-25)
+
+On `feat/hsr-request-extraction`, the initial extraction/file tests were run against
+error-only implementations. They failed on successful extraction, oversize-input
+classification and reading a selected file. The game-directory resolver test also
+failed before implementation. The focused command is:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --offline --lib acquisition
+cargo test --manifest-path src-tauri/Cargo.toml --offline --test acquisition
+```
+
+The initial six tests exercised binary cache framing, preservation of encoded context,
+deduplication, safe diagnostics/debug formatting, unsupported and ambiguous URLs,
+truncated candidates, read/size failures, unchanged real files, and legacy/versioned
+Windows directory layouts with numeric ordering. Injected reader and directory
+iterator errors exercise the same implementation as real I/O. Tests use synthetic
+credentials and temporary directories and never initiate history requests.
+
+These tests run on the Ubuntu/WSL development host. They do not verify a real
+Windows installation, native Windows sharing/permission behavior, or automatic
+Windows profile/WSL mount discovery. The Windows/WSL support matrix is recorded in
+[research](#initial-source-reader-increment-2026-09-25).
+
+### Unit-first backend testing (2026-09-25)
+
+Rust unit tests live beside their implementation in `#[cfg(test)] mod tests` in
+`src-tauri/src/acquisition.rs`, `hsr.rs` and `storage.rs`. Supporting filesystem
+and SQLite doubles live in adjacent `tests/` subdirectories and are imported only
+under `cfg(test)`. Unit tests execute the same service bodies as production, but
+never use real filesystem or database operations. The SQL double checks outgoing
+SQL, bound values, transaction ordering and cleanup; it is not a fake SQL engine.
+
+Cargo integration targets are `src-tauri/tests/acquisition.rs` and `storage.rs`.
+They use real files and SQLite to check persistence, constraints, rollback,
+repeated/overlapping imports and the behavior assumed by the doubles. Fixtures
+stay under `src-tauri/tests/fixtures/`. Frontend and top-level application tests
+remain separate. There are 39 backend unit tests and 27 backend integration tests.
+
+`tests/native.test.ts` clears profiles, runs `cargo test --lib --locked --offline`,
+and saves JSON/HTML under `coverage/native-unit/` **before** running integration
+or desktop tests. The report gate checks every backend source file against that
+unit-only report. Subsequent execution produces `coverage/native/` for the three
+explicit exceptions: `src-tauri/src/main.rs`, the mock debug binary
+`src-tauri/src/bin/roll-tracker-mock.rs` and `src-tauri/build.rs`. Each still
+requires 100% coverage. Exact source-body assertions guard these minimal delegates;
+adding behavior forces review of the exception. New Rust source defaults to the
+unit-only gate, including I/O and database functionality. This exception was
+explicitly authorized by the user and is documented in CONTRIBUTING and AGENTS.
+
+The new report requirement first failed on the missing unit-only report, despite
+an existing native report. The service refactor then reached 100% lines, regions,
+functions and branches from mocked unit tests alone; no thresholds were lowered.
+Additional probes cover an integration-only function that is fully exercised by
+integration tests but must still fail the unit gate, a missing/empty unit report,
+and added startup behavior rejected by the exception guard. Together with the
+previous five probes these make eight enforcement tests.
+
+CI archives frontend, unit-only and native JSON/HTML reports separately. The same
+`npm run check` gate runs locally and in CI. Windows installation/native behavior
+remains unverified; these checks run on the Ubuntu/WSL development environment.
+
+Final `npm run check` passed: 39 unit tests, 27 real-boundary integration tests,
+17 frontend/tooling tests, native offline integration, eight enforcement probes,
+both report/exception checks, formatting, TypeScript and Clippy. All required
+per-file metrics are 100% from the appropriate independent report. No thresholds
+were lowered and no production functions were excluded.
+
+### Current-user discovery (2026-09-26)
+
+The first four system-discovery unit tests failed against stubs before the
+Windows folder lookup, WSL helper orchestration and bounded subprocess reader
+were implemented. The real-process integration test subsequently exposed
+unreliable prompt reaping when relying solely on kill-on-drop. Explicit,
+deadline-bounded kill/wait cleanup made that regression pass. Two further tests
+failed before adding native folder validation for nonlocal/malformed and
+non-Unicode paths.
+
+Unit tests replace environment reads, Known Folder lookup, process spawning and
+filesystem access. A paused Tokio clock exercises process/cleanup deadlines and
+cancellation without real waiting. Tests verify exact helper arguments, byte
+limits, error redaction, failed current-log mapping with a usable previous log,
+and no game-source access before path validation.
+
+`src-tauri/tests/system_discovery.rs` runs only on Linux. Child test processes
+receive isolated PATH entries containing synthetic helpers; they never invoke
+the real Windows tools. These tests verify real stdout pipes, failed/oversized/
+stalled helpers, termination/reaping and unchanged log bytes. Synthetic executables
+model the helper protocol, not native Windows Known Folder or WSL interop behavior.
+The regular unit-only coverage gate covers all new production source; no wrapper
+exception or coverage exclusion was added.
+
+Final `npm run check` passed with 56 backend unit tests, 33 integration tests,
+17 frontend/tooling tests, native offline execution, eight enforcement probes,
+both report guards, TypeScript/build, formatting and Clippy. Required per-file
+coverage is 100%, including unit-only backend coverage.
+
+## From api-research.md
+
+### Initial source-reader increment (2026-09-25)
+
+The native reader now supports an explicitly supplied regular cache-file path.
+Synthetic tests on the Ubuntu development environment verify real file reads,
+unchanged file bytes, binary surroundings, the researched `1/0/` and NUL framing,
+encoded request fields, distinct candidates and bounded failures. This implements
+the extraction method described above; it does not independently revalidate a
+live installation or credential validity. No private source or live API was used.
+
+| Source | Current support and evidence |
+| --- | --- |
+| User-provided cache file (fallback) | Native service and file chooser implemented. A real `data_2` extracted successfully from WSL and native Windows on 2026-09-27; see [supported sources](../../games/hsr/api-research.md#supported-and-unsupported-extraction-sources-2026-09-27). |
+| Internally resolved Windows game-data directory / versioned `webCaches` paths | Native resolver implemented; synthetic directory tests verify the two-newest-version window, numeric ordering, the unsupported unversioned layout and missing caches. Real installations with version folders worked from WSL and native Windows on 2026-09-27. |
+| Windows installations accessed from WSL | Explicit mount-root mapping and current-user folder/path lookup implemented and verified against a real custom-drive installation on 2026-09-27, including while the game was running. |
+| Windows Player.log / Player-prev.log discovery | Bounded reader supports supplied AppData and current-user Known Folder lookup. Worked on a real installation from WSL and native Windows on 2026-09-27; which log supplied the path is not reported. |
+| macOS installation discovery | Unverified and unimplemented. |
+
+Windows is the initial game-installation target, with discovery from Windows and
+WSL. Real-installation verification from both completed on 2026-09-27; see
+[supported sources](../../games/hsr/api-research.md#supported-and-unsupported-extraction-sources-2026-09-27).
+
+### Player-log reader increment (2026-09-26)
+
+Inspection of the beginning of the user-provided PowerShell reference confirms
+that it obtains Windows' roaming `ApplicationData` folder through the folder API,
+then looks in sibling `LocalLow/Cognosphere/Star Rail`. It reads the first
+11 lines for `Loading player data from ` and the `data.unity3d` path.
+The script was inspected, not executed; this is evidence of its discovery method,
+not independent verification against an installed game.
+
+The native service now accepts that AppData location explicitly, checks both logs
+independently, bounds header input to 64 KiB, and validates paths before returning
+candidates. WSL callers supply a host-native AppData path and explicit mount root.
+Microsoft documents that WSL's default `/mnt/` automount root
+[can be changed or automount disabled](https://learn.microsoft.com/en-us/windows/wsl/wsl-config#automount-settings),
+so the service does not hard-code it or infer drive availability.
+Synthetic tests cover Unicode/spaces, normalized drive letters/separators, custom
+mount roots, missing/malformed logs, line/byte bounds, and read-only traversal
+from a log candidate to a selected cache. System-folder integration, desktop
+selection and native Windows/live-installation verification remain pending.
+
+### Current-user discovery increment (2026-09-26)
+
+The current-user service now supplies the previously explicit AppData location.
+On Windows, `dirs` 6.0.0 uses the
+[Known Folder API for roaming AppData](https://docs.rs/crate/dirs/6.0.0/source/src/win.rs).
+On WSL-marked Linux, a fixed PowerShell expression queries the Windows folder,
+then `wslpath` translates AppData and the game-directory candidates. Microsoft
+documents [Windows executable interop and path translation](https://learn.microsoft.com/en-us/windows/dev-environment/wsl-interop#path-translation).
+No Windows username or common mount root is inferred.
+
+The helper policy is five seconds per execution, 32 KiB stdout, discarded stdin/
+stderr, and up to five seconds for error cleanup. Processes are terminated and
+reaped after errors; cancellation uses Tokio's kill-on-drop behavior. Tests use
+mocked environment/folder/process APIs and separate synthetic Linux executables,
+including failures, large output, timeouts, real cleanup and unchanged log bytes.
+No live Windows helper, private profile or game log was used in automated tests.
+
+Automatic discovery requires Windows, or Linux with nonempty `WSL_DISTRO_NAME`
+and working `powershell.exe`/`wslpath` on PATH. Missing interop/tools and malformed,
+non-Unicode, relative or UNC/device folder paths produce safe errors. Explicit
+file upload remains the fallback. Redirected roaming profiles whose logs
+are not in the derived sibling LocalLow location are not verified.
+Real Windows Known Folder behavior, WSL Windows-process cancellation, actual
+game-log/cache layouts and desktop extraction controls remain to be verified/connected.
