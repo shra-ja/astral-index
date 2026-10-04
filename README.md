@@ -126,7 +126,7 @@ To check behaviour in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
 experimental; it is not a release process, and installers and signing remain
 milestone 10 work. It was used for the
-[native Windows verification](docs/HSR-API-RESEARCH.md#native-windows-verification-2026-09-27).
+[native Windows verification](docs/games/hsr/api-research.md#native-windows-verification-2026-09-27).
 
 ```sh
 sudo apt-get install -y clang lld llvm
@@ -193,7 +193,7 @@ Keep [current status](docs/status/STATUS.md) up to date between tasks.
 | [Roadmap](docs/product/ROADMAP.md) | Implementation milestones |
 | [Testing](docs/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
 | [Compact provenance](docs/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
-| [HSR API contract](docs/HSR-API-CONTRACT.md) | Accepted initial fields, assumptions, pagination and error handling |
+| [HSR API contract](docs/games/hsr/api-contract.md) | Accepted initial fields, assumptions, pagination and error handling |
 | [Storage decision](docs/decisions/0003-sqlite-import-foundations.md) | SQLite migration, identity and transactional import policy |
 | [Stack decision](docs/decisions/0001-shell-and-test-stack.md) | Tools, target platform and tradeoffs |
 

@@ -1,7 +1,7 @@
 # Synthetic HSR API responses
 
 These invented records model the documented API envelope, not UIGF archives or
-captured player data. See [research and limits](../../../../docs/HSR-API-RESEARCH.md).
+captured player data. See [research and limits](../../../../docs/games/hsr/api-research.md).
 
 - `page.json`: two distinct long IDs at the same second, one fictional account,
   explicit fictional server and offset, and unknown catalog identifiers.

@@ -13,4 +13,4 @@ and WSL.
   - [x] Verify automatic extraction against a real installation from native Windows.
   - [x] Verify automatic extraction against a real installation from WSL.
   - [x] Record supported and unsupported sources with evidence
-    ([HSR API research](../../HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27)).
+    ([HSR API research](../../games/hsr/api-research.md#supported-and-unsupported-extraction-sources-2026-09-27)).

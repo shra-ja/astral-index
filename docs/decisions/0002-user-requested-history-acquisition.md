@@ -46,6 +46,6 @@ HTTP library selection, retry policy, and credential retention remain open.
 
 ## Evidence
 
-[HSR research](../HSR-API-RESEARCH.md) records the working nine-field query and
+[HSR research](../games/hsr/api-research.md) records the working nine-field query and
 five-page cursor test, which reproduced the first 50 records of a larger response.
 The user authorized the scope change on 2026-09-19.

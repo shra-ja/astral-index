@@ -17,7 +17,7 @@ adapters and persistence follow `../docs/ARCHITECTURE.md`.
 `src/hsr.rs` provides bounded, pure HSR response parsing.
 It returns validated page/roll values and safe error categories. It has no native
 commands, I/O, database, acquisition, or startup integration. See the response
-contract and limits in [API research](../docs/HSR-API-RESEARCH.md).
+contract and limits in [API research](../docs/games/hsr/api-research.md).
 
 `src/storage.rs` implements SQLite storage, immutable previews and atomic commits,
 with a single initial schema in `migrations/001_initial.sql`. It creates compact

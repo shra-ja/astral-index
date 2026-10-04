@@ -1,7 +1,7 @@
 # Initial HSR history API contract
 
 Accepted initial scope: 2026-09-23; updated 2026-09-24, based on the user's implementation assumptions,
-the saved 2026-09-19 responses and [research](HSR-API-RESEARCH.md). This is the
+the saved 2026-09-19 responses and [research](api-research.md). This is the
 application's working contract, not an official HoYoverse specification.
 
 ## Endpoint and request
@@ -10,7 +10,7 @@ Use only HTTPS GET to `public-operation-hkrpg-sg.hoyoverse.com`, path
 `/common/hkrpg_gacha_record/api/getGachaLog` for categories `1`, `2`, `11` and
 `12`, and `/common/hkrpg_gacha_record/api/getLdGachaLog` for the collaboration
 categories `21` and `22` (corrected 2026-09-29; see the
-[research](HSR-API-RESEARCH.md#collaboration-endpoint-2026-09-29)). The normal
+[research](api-research.md#collaboration-endpoint-2026-09-29)). The normal
 endpoint accepts `21` and `22` but returns an empty list, silently omitting those
 rolls. Both endpoints take the same query fields and return the same response
 shape, and one auth key works on both. A cached request to either endpoint
@@ -65,7 +65,7 @@ the command. Only the first working context is kept, for pagination; every other
 extracted context and cached URL is dropped as soon as validation ends, whether it
 succeeds or fails. The action therefore contacts HoYoverse, so the interface must
 present it as starting history retrieval, not as a local-only search. See
-[decision 0007](decisions/0007-validate-during-extraction.md).
+[decision 0007](../../decisions/0007-validate-during-extraction.md).
 
 ## Observed response fields
 
@@ -205,7 +205,7 @@ conversion. Missing offset remains unknown; do not guess from UID or region.
 ## Pagination and request economy
 
 Accept the five-page cursor tests as sufficient for initial implementation.
-The [2026-09-23 comparison](HSR-API-RESEARCH.md#page-parameter-comparison-2026-09-23)
+The [2026-09-23 comparison](api-research.md#page-parameter-comparison-2026-09-23)
 returned identical records with `page=1` throughout and with `page` increasing,
 while advancing `end_id` in both runs. Incrementing `page` was unnecessary for
 that sampled sequence. A further five-request run omitted `page` and returned
@@ -229,7 +229,7 @@ with page 1/cursor `0`. Validate each successful response, then:
 - More records than requested: the response is invalid, and acquisition stops.
 
 A quick refresh, the user's other choice
-([decision 0015](decisions/0015-incremental-retrieval.md)), adds one rule: after
+([decision 0015](../../decisions/0015-incremental-retrieval.md)), adds one rule: after
 a page with records, if any of its roll IDs is already saved for the page's own
 account (its records' UID and its `region`), the category ends there, keeping
 that page. A page without a `region` never ends a category early. The rule
@@ -246,7 +246,7 @@ IDs are opaque for pagination: no numeric ordering or timestamp extraction is
 needed to fetch them. For display only, stored rolls are ordered newest first by
 server time, then by numeric ID within the same second, as ten-pulls share a
 second. Every sampled page listed IDs strictly descending in newest-first order
-([research](HSR-API-RESEARCH.md)), so numeric ID order matches HoYoverse's own
+([research](api-research.md)), so numeric ID order matches HoYoverse's own
 order; digit-only IDs compare numerically by length, then text. Missing
 or malformed data and API errors abort rather than terminate successfully.
 Reject a repeated cursor or a cursor cycle; do not loop or restart. Cursors are

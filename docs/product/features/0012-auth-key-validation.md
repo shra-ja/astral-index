@@ -11,7 +11,7 @@ working one.
 - [x] Validate at most five extracted contexts, in reverse file order, by
   sending each cached request unchanged, and use the first whose auth key
   works. If none works, stop with an actionable error
-  ([auth-key validation](../../HSR-API-CONTRACT.md#auth-key-validation)). Run
+  ([auth-key validation](../../games/hsr/api-contract.md#auth-key-validation)). Run
   validation in the same user action as extraction, keep each cached URL only
   until validation ends, and hold only the validated context in the session
   ([decision 0007](../../decisions/0007-validate-during-extraction.md)). Update the

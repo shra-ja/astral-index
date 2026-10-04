@@ -4,7 +4,7 @@ Research performed 2026-09-19. Contract review updated 2026-09-24.
 
 ## Current contract
 
-[Initial HSR API contract](HSR-API-CONTRACT.md) is the implementation reference.
+[Initial HSR API contract](api-contract.md) is the implementation reference.
 It inventories all fields in 12 saved response bodies, documents supported banner
 codes, and records the user's accepted assumptions for the single tested endpoint,
 stable identity, auth-key account selection, server time, pagination and complete
@@ -301,7 +301,7 @@ Rust source reader and URL extractor separate from the future network client;
 file import, stored-history browsing, analysis, and export remain local.
 User-requested acquisition is an accepted product requirement, replacing the
 assumption that cache files suffice for offline acquisition; see
-[decision 0002](decisions/0002-user-requested-history-acquisition.md). No API
+[decision 0002](../../decisions/0002-user-requested-history-acquisition.md). No API
 client is implemented in the app yet.
 
 Implementation considerations:

@@ -19,7 +19,7 @@ no native capabilities or plugins are enabled. Decision 0001 records the stack.
 
 ## Milestone 2 contract complete (2026-09-23)
 
-Formalised [the initial HSR API contract](../../HSR-API-CONTRACT.md) on
+Formalised [the initial HSR API contract](../../games/hsr/api-contract.md) on
 `feat/hsr-response-foundations` using the user's explicit scope decisions. Milestone
 2 is complete under those accepted assumptions. Reviewed all 12 saved response
 bodies locally, reporting only field types and aggregate context evidence.
@@ -186,7 +186,7 @@ The API format-verification item remains open: current global endpoint variants,
 terminal pages, expiry/rate-limit behavior and completeness need further evidence.
 The parser is not connected to the shell or an HTTP client. Scripted mocks do not
 validate network transport or an automatic pagination loop. See
-[response research](../../HSR-API-RESEARCH.md#response-foundation-review-2026-09-21).
+[response research](../../games/hsr/api-research.md#response-foundation-review-2026-09-21).
 
 ## Milestone 2 SQLite services (2026-09-22)
 
@@ -316,7 +316,7 @@ Milestone 2 starts with Honkai: Star Rail. Research on
 `docs/hsr-cache-format-research` (from up-to-date `main`, `eb10fb5`) now focuses
 on API request extraction, query parameters, and pagination. Cache inspection identified request URLs; subsequent API tests established
 record retrieval and cursor pagination. See
-[HSR API research](../../HSR-API-RESEARCH.md), renamed to reflect this broader scope.
+[HSR API research](../../games/hsr/api-research.md), renamed to reflect this broader scope.
 
 Offline reproduction found 414 candidates in the original cache. The user's
 replacement cache contains three type-11 requests showing `end_id` advancing

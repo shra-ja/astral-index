@@ -232,7 +232,7 @@ empty list, so those rolls were silently omitted. After the user opened both
 collaboration histories in the game, a redacted read-only scan of the cache found
 them requested from `getLdGachaLog`, and three user-authorized requests confirmed
 that keys work on both endpoints and the response shape is identical (see the
-[research](../../HSR-API-RESEARCH.md#collaboration-endpoint-2026-09-29)).
+[research](../../games/hsr/api-research.md#collaboration-endpoint-2026-09-29)).
 
 Page requests for `21` and `22` now go to `getLdGachaLog`; extraction accepts
 cached requests to either endpoint, so a key found only in a collaboration request

@@ -155,7 +155,7 @@ closed and running, and the file fallback with a real `data_2`. SmartScreen did
 not block the unsigned executable. The WSL automatic runs predate the two-version
 window; the Windows runs used the current code. Results, limits and the
 supported/unsupported source table are in
-[HSR API research](../../HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27).
+[HSR API research](../../games/hsr/api-research.md#supported-and-unsupported-extraction-sources-2026-09-27).
 The roadmap's discovery verification item and all its steps are ticked.
 
 The Windows executable was cross-compiled from WSL with `cargo-xwin` 0.23.1 after

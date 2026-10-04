@@ -8,7 +8,7 @@ review.
 ## Tasks
 
 - [x] Resolve the account UID and server from the retrieved responses, per
-  the [contract](../../HSR-API-CONTRACT.md#account-server-and-timestamps): every
+  the [contract](../../games/hsr/api-contract.md#account-server-and-timestamps): every
   record's `uid` and every page's `region` must agree, and neither is ever
   fabricated. A retrieval with no records is a normal outcome, not an import
   error: report readably that no history was found, and create no account.

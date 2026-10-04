@@ -35,9 +35,9 @@ shell. This milestone establishes its backend foundations; milestones 3 to 7 com
 the user-facing acquisition and import flow. Standalone history-file import is
 not a prerequisite.
 
-[API research](../HSR-API-RESEARCH.md) records request extraction and a working
+[API research](../games/hsr/api-research.md) records request extraction and a working
 nine-field query. Advancing `end_id` and `page` reproduced 50 records across five
-pages. The [initial API contract](../HSR-API-CONTRACT.md) now records observed fields,
+pages. The [initial API contract](../games/hsr/api-contract.md) now records observed fields,
 accepted assumptions and the observed expired-key response. Additional external
 verification does not block this milestone under the user's agreed scope.
 
@@ -70,7 +70,7 @@ the context reaching the webview.
 
 ### 4 — HSR history acquisition
 
-Implement the [initial API contract](../HSR-API-CONTRACT.md) in a user-initiated
+Implement the [initial API contract](../games/hsr/api-contract.md) in a user-initiated
 native client: the two history endpoints (collaboration warps use
 `getLdGachaLog`), 1000-record default pages, cursor pagination,
 cancellation and actionable failures. Use one retry

@@ -402,7 +402,7 @@ credentials and temporary directories and never initiate history requests.
 These tests run on the Ubuntu/WSL development host. They do not verify a real
 Windows installation, native Windows sharing/permission behavior, or automatic
 Windows profile/WSL mount discovery. The Windows/WSL support matrix is recorded in
-[research](HSR-API-RESEARCH.md#initial-source-reader-increment-2026-09-25).
+[research](games/hsr/api-research.md#initial-source-reader-increment-2026-09-25).
 
 ## Unit-first backend testing (2026-09-25)
 

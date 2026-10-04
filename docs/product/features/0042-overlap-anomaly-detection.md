@@ -12,4 +12,4 @@ Flag suspiciously unmatched roll IDs across overlapping history periods.
   before commit without automatic reconciliation. Define thresholds and test
   incorrect/skipped earlier imports and legitimate same-second rolls. This niche
   diagnostic is not a prerequisite for milestones 2 to 7; see the
-  [identity contract](../../HSR-API-CONTRACT.md#identity-and-mismatch-handling).
+  [identity contract](../../games/hsr/api-contract.md#identity-and-mismatch-handling).

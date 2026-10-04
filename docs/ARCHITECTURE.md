@@ -35,7 +35,7 @@ hosts/paths and redirects, bounds timeouts/responses/attempts, and keeps auth ke
 out of frontend state and logs. Game adapters interpret responses; validated
 records enter the shared preview and transactional import pipeline. Network or
 authentication failures must not corrupt existing history. HTTP library choice and credential retention remain implementation decisions.
-Retry limits are settled in the [HSR API contract](HSR-API-CONTRACT.md#errors-and-completeness).
+Retry limits are settled in the [HSR API contract](games/hsr/api-contract.md#errors-and-completeness).
 
 The webview keeps its restrictive CSP and calls a narrow typed native command;
 no arbitrary URL-fetch or shell capability is exposed. The current shell has no
@@ -310,7 +310,7 @@ directly for decoding and calendar validation without device-clock access.
 A page is not an import-ready account identity: the future service must resolve
 missing server evidence and compare UID, server, timezone, and requested banner
 across pages before merging. No complete-history claim follows from an empty
-page. The shell does not invoke the adapter. SQLite service behavior is described below; see [research](HSR-API-RESEARCH.md) for the deliberately limited contract.
+page. The shell does not invoke the adapter. SQLite service behavior is described below; see [research](games/hsr/api-research.md) for the deliberately limited contract.
 
 ## Implemented SQLite import services
 
@@ -390,7 +390,7 @@ must resolve selected account/server and compare requested banner context.
 
 ## Initial acquisition contract
 
-The [HSR API contract](HSR-API-CONTRACT.md) fixes the initial two-endpoint scope
+The [HSR API contract](games/hsr/api-contract.md) fixes the initial two-endpoint scope
 and records accepted assumptions separately from observed evidence. Trust the auth
 key to select the account for initial acquisition; preserve response UID, region
 and offset for storage. Formal account/server verification is a closing requirement
@@ -537,7 +537,7 @@ own account's IDs only; a failed read is a storage failure and nothing is sent.
 A full retrieval passes no check and reads nothing beforehand.
 
 `fetch_history` also resolves the account the history belongs to, per the
-[contract](HSR-API-CONTRACT.md#account-server-and-timestamps). The UID comes
+[contract](games/hsr/api-contract.md#account-server-and-timestamps). The UID comes
 from records (the parser already requires one UID per page) and the server from
 each page's `region`; a page without a region, or without records, adds no
 evidence, but every value present must match the first, or retrieval stops at
