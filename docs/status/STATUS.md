@@ -73,11 +73,20 @@ history keeps the detail.
 ## History
 
 Oldest first. Each file records what was done, how it was verified and what was
-next at the time.
+next at the time. Some also hold dated logs moved from TESTING and the HSR
+research, under a "From" heading.
 
+- [2026-09-17: shell test evidence](history/2026-09-17-shell-test-evidence.md):
+  red/green evidence for the offline shell and its coverage gates.
+- [2026-09-21: response parser and review](history/2026-09-21-response-parser-review.md):
+  parser TDD, its review and the early plan for the acquisition flow.
+- [2026-09-22: test layout](history/2026-09-22-test-layout.md).
+- [2026-09-23: SQLite services and overlap measurements](history/2026-09-23-sqlite-services-and-overlap.md):
+  storage tests, failure injection and the overlapping-import workload.
 - [2026-09-25: shell and storage foundations](history/2026-09-25-shell-and-storage-foundations.md):
-  the offline shell, test and coverage gates, CI, the HSR API contract, response
-  parsing and SQLite import services.
+  the earlier status log, archived on that date: the offline shell, test and
+  coverage gates, CI, the HSR API contract, response parsing and SQLite import
+  services.
 - [2026-09-25: review remediation](history/2026-09-25-review-remediation.md):
   parser and storage fixes from the milestone 2 review.
 - [2026-09-26: cache and log discovery](history/2026-09-26-cache-and-log-discovery.md):
