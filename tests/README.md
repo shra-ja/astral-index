@@ -24,4 +24,4 @@ Tests that belong to neither the frontend nor the backend alone.
 
 The check commands run these explicitly. Frontend tests live in `../src-ui/`,
 backend tests in `../src-tauri/`, and the tooling's unit tests beside it in
-`../tooling/`. See [testing guidance](../docs/TESTING.md).
+`../tooling/`. See [testing guidance](../docs/development/TESTING.md).

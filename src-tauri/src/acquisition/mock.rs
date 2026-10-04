@@ -1,5 +1,5 @@
 //! A synthetic HoYoverse for the mock debug binary
-//! ([decision 0014](../../../docs/decisions/0014-mock-debug-binary.md)). It answers
+//! ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)). It answers
 //! each history request with generated pages, as a scenario chooses, and sends
 //! nothing anywhere. The shipped app never constructs it.
 use super::{COLLABORATION_ENDPOINT, ENDPOINTS, Transport, TransportError};

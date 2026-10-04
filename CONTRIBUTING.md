@@ -41,7 +41,7 @@ Use synthetic fixtures and deterministic clocks/data; never real player historie
 Keep tests with the layer they exercise:
 
 The frontend (`src-ui/`) and the backend (`src-tauri/`) are each self-contained,
-with the same test rule ([decision 0011](docs/decisions/0011-vue-frontend.md)):
+with the same test rule ([decision 0011](docs/architecture/decisions/0011-vue-frontend.md)):
 
 - Frontend unit tests: a sibling `*.test.ts` file beside the code it tests, for
   example `src-ui/src/components/import/ReviewPanel.test.ts` beside `ReviewPanel.vue`.
@@ -101,9 +101,9 @@ The only exceptions are `src-tauri/src/main.rs`, `src-tauri/src/bin/roll-tracker
 and `src-tauri/build.rs`, currently minimal delegates to Tauri runtime/build tooling.
 `main.rs` passes the builder through unit-tested registration; the mock debug
 binary reads its scenario and passes the builder through unit-tested mock
-registration (see [decision 0014](docs/decisions/0014-mock-debug-binary.md));
+registration (see [decision 0014](docs/architecture/decisions/0014-mock-debug-binary.md));
 `build.rs` declares the shared command list
-(see [decision 0006](docs/decisions/0006-desktop-extraction-commands.md)).
+(see [decision 0006](docs/architecture/decisions/0006-desktop-extraction-commands.md)).
 They retain their own 100% native boundary gate. This is an explicit, user-approved exception, not a general
 exception for I/O, databases, new commands or platform code. The report gate pins
 both wrappers' current bodies: adding logic fails a guard and requires review of
@@ -111,12 +111,12 @@ this exception. Move new functionality into unit-tested code rather than silentl
 expanding the boundary-only coverage scope. `tests/coverage-reports.test.ts` is the
 single enforcement point for that allowlist and guard.
 
-The config files are the other exceptions ([decision 0011](docs/decisions/0011-vue-frontend.md)).
+The config files are the other exceptions ([decision 0011](docs/architecture/decisions/0011-vue-frontend.md)).
 Vitest always excludes config files from coverage, with no setting to override
 it, so `src-ui/vite.config.ts` only passes `process.env` to `viteConfig` in
 `src-ui/build/vite.ts`, and the root `vitest.config.ts` only calls `vitestConfig`
 in `tooling/vitest-config.ts`. The ESLint configs follow the same pattern
-([decision 0012](docs/decisions/0012-linting-and-formatting.md)):
+([decision 0012](docs/architecture/decisions/0012-linting-and-formatting.md)):
 `src-ui/eslint.config.ts` and `eslint.config.ts` only call `eslintConfig` in
 `src-ui/build/eslint.ts` and `tooling/eslint-config.ts`. Those modules hold every setting and are
 unit-tested at 100%. Unlike the Rust wrappers, the delegates have no coverage of
@@ -154,7 +154,7 @@ these gates exist and pass.
 
 Run `npm run check` before handoff. It creates fresh V8/LLVM reports, validates
 per-file metrics against a source inventory, and probes gate failures. See
-[testing details](docs/TESTING.md) and [setup](README.md). CI runs the same command;
+[testing details](docs/development/TESTING.md) and [setup](docs/development/DEVELOPMENT.md). CI runs the same command;
 make its **Tests and 100% coverage** job a required check.
 
 ## Trunk-based development
@@ -223,6 +223,8 @@ bypassable and are not a substitute for protected-branch checks.
 - Formatting and lint pass (`npm run format:check`, `npm run lint:check`); fix
   findings rather than disabling rules.
 - Coverage exclusions unchanged or justified within the allowed categories.
-- Documentation and `docs/STATUS.md` updated with real commands/results.
+- Documentation and `docs/status/STATUS.md` updated with real commands/results;
+  integrated sections archived as
+  [its guidance](docs/status/STATUS.md#keeping-this-file-current) describes.
 - Remaining platform or tooling limitations stated; unrun checks never reported
   as passing, and incomplete gates never treated as approval to integrate.
