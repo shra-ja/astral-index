@@ -7,7 +7,8 @@ how the gates enforce them. Commands are listed in [DEVELOPMENT](DEVELOPMENT.md)
 ## The check
 
 `npm run check` is the authoritative gate, locally and in CI, and stops at the
-first failed stage: formatting and lint, the frontend build, fresh coverage
+first failed stage: formatting and lint (Markdown included), the docs check, the
+frontend build, fresh coverage
 reports, the mutation probes with a final full test and coverage run, report
 validation, Rust formatting and Clippy. The final run includes the backend
 integration tests and the native end-to-end tests in a network namespace with
@@ -99,6 +100,21 @@ and never stage changes while it runs. After an interrupted run, inspect
 `src-tauri/tests/*_probe.rs` and report backup files before resuming.
 `test:probes` needs the bundled frontend, so run `npm run build` first when
 running it alone.
+
+## Docs checks
+
+Agents find their way through the docs by links from `AGENTS.md`, so the docs are
+checked like code ([decision 0016](../architecture/decisions/0016-markdown-checks.md)):
+
+- `npm run docs:check` runs `tests/docs.test.ts`, which applies
+  `tooling/docs.ts` to every tracked or new Markdown file and the Rust doc
+  comments: relative links and `#anchor`s must resolve, every Markdown file must
+  be reachable by links from `AGENTS.md` (the README is allowlisted), and STATUS
+  must stay within 150 lines. A mutation probe proves it fails.
+- markdownlint, in `lint` and `lint:check`, checks structure: heading levels,
+  unique headings, code block languages, dash lists and compact tables. Prose
+  keeps its hand wrapping; nothing reflows it. Archived status history, decision
+  records and agent skills are skipped.
 
 ## Network policy in tests
 
