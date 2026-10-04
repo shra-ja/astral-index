@@ -51,7 +51,7 @@ internet access; stored-history operations remain local. See
 | Command | Purpose |
 | --- | --- |
 | `npm run tauri -- dev` | Native development; Vite uses loopback port 1420 |
-| `npm run tauri:mock` | The same, running the mock debug binary against a synthetic HoYoverse; set `ROLL_TRACKER_MOCK_SCENARIO` to `history` (default), `expired-link`, `network-failure`, `rate-limited` or `no-history` |
+| `npm run tauri:mock` | The same, running the mock debug binary against a synthetic HoYoverse; set `ROLL_TRACKER_MOCK_SCENARIO` to `history` (default), `expired-link`, `network-failure`, `rate-limited`, `no-history`, `newer-history`, `second-account` or `mixed-accounts` |
 | `npm run dev` | Browser preview only; does not verify native behavior |
 
 Development builds (both commands above) read `ROLL_TRACKER_ZOOM`, a webview

@@ -26,6 +26,11 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   long, collaboration pages capped at 20 as HoYoverse's are), `expired-link`
   (`retcode -101`), `network-failure` (Light Cone Event Warp unreachable after
   earlier categories), `rate-limited` (`retcode -110`) and `no-history`.
+  Added 2026-10-04 for the milestone 3 verification: `newer-history` (`history`
+  plus 25 newer rolls per category), `second-account` (UID `100000002` on
+  `prod_official_usa`, UTC−5, with `history`'s roll IDs) and `mixed-accounts`
+  (Light Cone Event Warp from the second account). A roll's fields depend only
+  on its ID, so every scenario serves a saved roll identically.
 - **Selection by managed state:** commands take their transport from a managed
   `Network`: `Https` in the real app, `Mock(scenario)` only from the mock binary.
 - **Separate history:** the mock binary keeps its database in its own
