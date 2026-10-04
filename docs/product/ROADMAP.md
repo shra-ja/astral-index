@@ -162,6 +162,7 @@ Low-priority follow-ups, outside any milestone until scheduled.
 - [ ] [0041 — Review record preview](features/0041-review-record-preview.md)
 - [ ] [0042 — Overlap anomaly detection](features/0042-overlap-anomaly-detection.md)
 - [ ] [0043 — Braces audit follow-up](features/0043-braces-audit.md)
+- [ ] [0044 — Markdown checks](features/0044-markdown-checks.md)
 
 ## Earlier milestone numbers
 
