@@ -1,12 +1,14 @@
-import { readFileSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { beforeAll, expect, test } from 'vitest'
+import { readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
 import { ENTER, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
-// A synthetic cache file holding one warp history request.
+// A synthetic cache file holding one warp history request, with a key distinctive
+// enough to search the app's files for.
+const authKey = 'synthetic-e2e-auth-key'
 const cachePath = resolve('test-results/synthetic-data_2')
 beforeAll(() => {
   // Extraction now validates with HoYoverse: refuse to run where the synthetic key
@@ -23,9 +25,10 @@ beforeAll(() => {
   mkdirSync('test-results', { recursive: true })
   writeFileSync(
     cachePath,
-    '1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=synthetic&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0',
+    `1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=${authKey}&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0`,
   )
 }, 600000)
+afterAll(() => rmSync(cachePath, { force: true }))
 
 // Keep automatic discovery deterministic: never start Windows helpers from a WSL test host.
 const environment = (extra: NodeJS.ProcessEnv = {}) => ({
@@ -146,23 +149,72 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
 }, 60000)
 
 // The mock debug binary answers from a synthetic HoYoverse (decision 0014), so the whole
-// flow runs with no network. Its history goes to its own folder in a fresh data home.
-async function launchMock(scenario: string, extra: NodeJS.ProcessEnv = {}) {
-  const data = resolve('test-results/mock-data')
-  rmSync(data, { recursive: true, force: true })
+// flow runs with no network. Its history goes to its own folder in a data home that
+// starts fresh, unless `keep` relaunches it on the data saved so far, as a restart.
+const mockData = resolve('test-results/mock-data')
+async function launchMock(
+  scenario: string,
+  { env = {}, keep = false }: { env?: NodeJS.ProcessEnv; keep?: boolean } = {},
+) {
+  if (!keep) rmSync(mockData, { recursive: true, force: true })
   // A module cached by an earlier run, which the mock must not reuse.
-  const staleCache = resolve(data, 'roll-tracker-mock/webview/WebKitCache/stale-module')
+  const staleCache = resolve(mockData, 'roll-tracker-mock/webview/WebKitCache/stale-module')
   mkdirSync(resolve(staleCache, '..'), { recursive: true })
   writeFileSync(staleCache, 'cached before a refactor')
   const app = await launch(
     'roll-tracker-mock',
-    environment({ XDG_DATA_HOME: data, ROLL_TRACKER_MOCK_SCENARIO: scenario, ...extra }),
+    environment({ XDG_DATA_HOME: mockData, ROLL_TRACKER_MOCK_SCENARIO: scenario, ...env }),
   )
   return {
     app,
-    database: resolve(data, 'roll-tracker-mock/history.sqlite'),
+    database: resolve(mockData, 'roll-tracker-mock/history.sqlite'),
     staleCache,
   }
+}
+/** Run `steps` in the mock, then close it as a user would. */
+async function withMock(
+  scenario: string,
+  options: Parameters<typeof launchMock>[1],
+  steps: (app: AppSession, database: string) => Promise<void>,
+) {
+  const { app, database } = await launchMock(scenario, options)
+  try {
+    await steps(app, database)
+    await app.close()
+  } finally {
+    await app.dispose()
+  }
+}
+/** The files under the mock's data home, its webview profile included, holding the auth key. */
+const filesHoldingAuthKey = () =>
+  readdirSync(mockData, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .filter((path) => readFileSync(path).includes(authKey))
+/** The stored account and every category's count, read without retrieving. */
+async function stored(app: AppSession) {
+  const page = await app.executeAsync<{
+    account: { uid: string } | null
+    categories: { gacha_type: string; total: number }[]
+  }>(
+    `window.__TAURI_INTERNALS__.invoke('history_page', { category: '11', page: 1, pageSize: 20 }).then(arguments[arguments.length - 1])`,
+  )
+  return {
+    uid: page.account?.uid ?? null,
+    totals: Object.fromEntries(
+      page.categories.map((category) => [category.gacha_type, category.total]),
+    ),
+  }
+}
+// No account yet, and an empty count for every category.
+const nothingSaved = {
+  uid: null,
+  totals: { '1': 0, '2': 0, '11': 0, '12': 0, '21': 0, '22': 0 },
+}
+// The mock's full history, as `stored` reads it (decision 0014).
+const savedHistory = {
+  uid: '100000001',
+  totals: { '1': 300, '2': 50, '11': 1250, '12': 412, '21': 38, '22': 10 },
 }
 async function retrieveFromFile(app: AppSession) {
   // The first screen renders once the router has resolved it.
@@ -359,9 +411,9 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
   }
 }, 120000)
 
-test('a mock retrieval that loses the network says where it stopped and saves nothing', async () => {
-  const { app, database } = await launchMock('network-failure')
-  try {
+test('failed, cancelled and discarded retrievals save nothing, and saved history survives restarts and later failures', async () => {
+  // A retrieval that loses the network says where it stopped and saves nothing.
+  await withMock('network-failure', {}, async (app, database) => {
     await retrieveFromFile(app)
     await expect
       .poll(() => textOf(app, '.failed h2'), { timeout: 30000 })
@@ -372,20 +424,72 @@ test('a mock retrieval that loses the network says where it stopped and saves no
     await app.screenshot('e2e-mock-failed')
     // The History screen's read opens the database, but no rolls were saved.
     expect(existsSync(database)).toBe(true)
+    expect(await stored(app)).toEqual(nothingSaved)
+  })
+  // Once HoYoverse answers again, a cancelled retrieval and a discarded review save
+  // nothing either, and a retrieval saves everything the failed one could not.
+  await withMock('history', { keep: true }, async (app) => {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.progress .summary'), { timeout: 10000 })
+      .toMatch(/^Category [1-6] of 6/)
+    await click(app, '.progress', 'Cancel')
+    await expect
+      .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
+      .toBe('Retrieval cancelled. Nothing was saved.')
+    expect(await stored(app)).toEqual(nothingSaved)
+    await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Ready to save 2,060 new rolls')
+    await click(app, '.review', 'Discard')
+    await expect
+      .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
+      .toBe('Discarded the retrieved history. Nothing was saved.')
+    expect(await stored(app)).toEqual(nothingSaved)
+    await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Ready to save 2,060 new rolls')
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    expect(await stored(app)).toEqual(savedHistory)
+  })
+  // After a restart, the saved history shows straight away, read from this device.
+  await withMock('network-failure', { keep: true }, async (app) => {
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     expect(
-      await app.executeAsync(
-        `window.__TAURI_INTERNALS__.invoke('history_page', { category: '12', page: 1, pageSize: 20 }).then(arguments[arguments.length - 1])`,
-      ),
-    ).toEqual(expect.objectContaining({ account: null, total: 0, rolls: [] }))
-    await app.close()
-  } finally {
-    await app.dispose()
-    rmSync(cachePath, { force: true })
-  }
-}, 60000)
+      await app.execute('return document.querySelector(".account").getAttribute("aria-label")'),
+    ).toBe('Account: UID 100000001, Asia server')
+    await app.screenshot('e2e-mock-restart')
+    await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    await app.command('/window/rect', 'POST', { width: 1280, height: 900 })
+    await expect
+      .poll(
+        () =>
+          app.execute<string[]>(
+            'return [...document.querySelectorAll(".last-import .part")].slice(1).map(part => part.textContent)',
+          ),
+        { timeout: 5000 },
+      )
+      .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
+    // A retrieval that fails now leaves the saved history as it was.
+    await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(() => textOf(app, '.failed h2'), { timeout: 30000 })
+      .toBe('Couldn’t Reach HoYoverse')
+    expect(await stored(app)).toEqual(savedHistory)
+  })
+  // Saving, failing and cancelling never wrote the auth key anywhere the app keeps data.
+  expect(filesHoldingAuthKey()).toEqual([])
+}, 180000)
 
 test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
-  const { app } = await launchMock('no-history', { ROLL_TRACKER_ZOOM: '1.25' })
+  const { app } = await launchMock('no-history', { env: { ROLL_TRACKER_ZOOM: '1.25' } })
   try {
     await expect
       .poll(() => textOf(app, '[role=status] h2'), { timeout: 10000 })

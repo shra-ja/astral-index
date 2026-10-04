@@ -1826,7 +1826,7 @@ end-to-end tests.
 
 ## Development zoom (2026-10-04)
 
-Work is on `feat/dev-zoom`. The app looked smaller than the design canvas: under
+Integrated through PR #64. Work was on `feat/dev-zoom`. The app looked smaller than the design canvas: under
 WSL the Linux build renders at 1× (WSLg gives the Wayland window no scale, and
 GTK 3 applies `GDK_SCALE` only to X11, in whole steps), while Windows was at 125%.
 Debug builds now read `ROLL_TRACKER_ZOOM` (0.5 to 3) and zoom the webview, so
@@ -1860,12 +1860,35 @@ had not. The two mock tests after it failed as a consequence. The shell test now
 waits for the heading and the empty state, as the mock tests already did. The
 race never showed locally, so the CI run is the evidence.
 
+## Restart and recovery end to end (2026-10-04)
+
+Work is on `test/e2e-restart-recovery`, the first of three verification PRs that
+close milestone 3; the roadmap now breaks its last items into sub-tasks. Test
+only: no product change was needed. The end-to-end test can relaunch the mock
+binary on the data folder saved so far, as a restart, and one test now runs three
+launches. The `network-failure` scenario fails and saves nothing. Under `history`,
+a cancelled retrieval and a discarded review save nothing, and a retrieval
+afterwards saves all 2,060 rolls. Relaunched under `network-failure`, the History
+screen and the "Last import" line show the saved history straight away
+(`e2e-mock-restart.png`), and a failing retrieval leaves every category's count as
+it was. Finally no file in the mock's data folder, the database and webview
+profile included, holds the synthetic auth key, now distinctive enough to search
+for.
+
+Red/green: with every launch wiping the data folder, the test failed at the
+restart (no saved history to show), then passed with the folder kept. A key
+planted in the webview profile failed the auth-key check, naming the file. The
+test reads the stored counts through `history_page`; with nothing saved every
+category counts 0. That the restart sends no request rests on the design
+(only `retrieve_history` contacts HoYoverse) and its unit tests; the mock does not
+count requests.
+
 ## Next
 
-The remaining milestone 3 items: the end-to-end verification items (request,
-preview, commit, restart and display; repeat and overlapping fetches, account
-isolation, cancellation and failure recovery) and the auth-key/account binding
-checks.
+The remaining milestone 3 items: mock scenarios for newer rolls of the same
+account, a second account with the same roll IDs and pages that disagree on the
+UID (PR 2); then the empty and missing-context checks and closing the milestone
+(PR 3).
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).
