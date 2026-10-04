@@ -4,8 +4,9 @@ Tests that belong to neither the frontend nor the backend alone.
 
 - `e2e-smoke.test.ts` launches the real Tauri app and checks the bundled UI,
   keyboard operation, network restrictions and graceful shutdown. It then runs
-  the mock debug binary (decision 0014) through retrieval, review, saving and a
-  failed retrieval against a synthetic HoYoverse. `app-driver.ts` drives each app
+  the mock debug binary (decision 0014) against a synthetic HoYoverse: retrieval,
+  review and saving, then failed, cancelled and discarded retrievals and a restart
+  on the saved data folder, checking that no file the app keeps holds the auth key. `app-driver.ts` drives each app
   through tauri-driver and WebDriver; `close-window-helper.py` closes its window
   as a user would.
 - `backend-coverage-stages.test.ts` holds named stages, selected by the npm
