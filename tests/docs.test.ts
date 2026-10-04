@@ -23,8 +23,9 @@ test('docs links resolve, every doc is reachable from AGENTS.md, and STATUS stay
       files,
       tracked: new Set(paths),
       entry: 'AGENTS.md',
-      // The README is for people using the app; agents start from AGENTS.md.
-      unreachable: ['README.md'],
+      // The README is for people using the app, and agent tools discover skills
+      // from their skill folders; neither needs a link from AGENTS.md.
+      unreachable: ['README.md', '.agents/skills/'],
       status: { path: 'docs/status/STATUS.md', maxLines: 150 },
     }),
   ).toEqual([])

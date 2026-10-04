@@ -109,7 +109,8 @@ checked like code ([decision 0016](../architecture/decisions/0016-markdown-check
 - `npm run docs:check` runs `tests/docs.test.ts`, which applies
   `tooling/docs.ts` to every tracked or new Markdown file and the Rust doc
   comments: relative links and `#anchor`s must resolve, every Markdown file must
-  be reachable by links from `AGENTS.md` (the README is allowlisted), and STATUS
+  be reachable by links from `AGENTS.md` (the README and agent skills are
+  allowlisted), and STATUS
   must stay within 150 lines. A mutation probe proves it fails.
 - markdownlint, in `lint` and `lint:check`, checks structure: heading levels,
   unique headings, code block languages, dash lists and compact tables. Prose

@@ -34,8 +34,9 @@ fails on broken links or anchors, docs unreachable from `AGENTS.md`, and STATUS
 over 150 lines; markdownlint checks structure in `lint:check`. Prettier stays off
 Markdown, since it padded tables and grew the docs by 14%. The docs check's unit
 tests failed against a stub, then passed at 100% coverage; its mutation probe and
-probe documents showed each check failing. It moved the UIGF skill's link into
-`AGENTS.md`, and markdownlint found one real issue.
+probe documents showed each check failing. Agent skills are exempt from the
+reachability rule, since agent tools discover them from their skill folders.
+markdownlint found one real issue.
 
 ## Known limitations
 

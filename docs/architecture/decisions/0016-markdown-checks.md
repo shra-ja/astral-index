@@ -17,7 +17,8 @@ broke links and anchors that only an ad-hoc script found.
   `tests/docs.test.ts` as `npm run docs:check` within `npm run check`) fails when a
   relative link or `#anchor` in Markdown or Rust doc comments does not resolve,
   when a Markdown file cannot be reached by links from `AGENTS.md` (the consumer
-  README is allowlisted), or when STATUS exceeds 150 lines. It is unit-tested at
+  README and agent skills, which agent tools discover from their skill folders,
+  are allowlisted), or when STATUS exceeds 150 lines. It is unit-tested at
   100% like other tooling, and a mutation probe proves it fails on a broken link
   and an unreachable document.
 - **markdownlint** (`markdownlint-cli2`, pinned) checks structure in `lint` and

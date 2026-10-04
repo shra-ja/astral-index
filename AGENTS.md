@@ -18,7 +18,7 @@ limitations and the next task. Then open what the task needs:
 | Making or revisiting a consequential choice | The [decision records](docs/architecture/decisions/DECISIONS.md); record new ones there |
 | Working on Star Rail acquisition or parsing | The [HSR API contract](docs/games/hsr/api-contract.md); the [research](docs/games/hsr/api-research.md) holds its evidence |
 | Adding a game or import source | [GAMES](docs/games/GAMES.md) and [imports](docs/architecture/imports.md) |
-| Designing UIGF storage, import or export | The `uigf` skill, [SKILL.md](.agents/skills/uigf/SKILL.md) |
+| Designing UIGF storage, import or export | The `uigf` skill in `.agents/skills/uigf/` |
 | Setting up, running or checking the app | [DEVELOPMENT](docs/development/DEVELOPMENT.md) |
 | Working on tests, coverage gates, probes or CI | [TESTING](docs/development/TESTING.md) and [tests/README.md](tests/README.md) |
 | Finding files in the frontend or backend | [src-ui/README.md](src-ui/README.md) and [src-tauri/README.md](src-tauri/README.md) |
