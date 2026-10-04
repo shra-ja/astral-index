@@ -162,7 +162,7 @@ pub enum Source {
 }
 
 /// Saved roll IDs of the game by account, for a quick refresh's stop check
-/// ([decision 0015](../../docs/decisions/0015-incremental-retrieval.md)). Holds
+/// ([decision 0015](../../docs/architecture/decisions/0015-incremental-retrieval.md)). Holds
 /// player identifiers: never log it.
 #[derive(Default)]
 pub struct SavedRolls {

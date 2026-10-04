@@ -1,7 +1,7 @@
 # 0002 — Offline shell
 
 Status: Done · Milestone 1, Runnable offline shell
-Decisions: [0001](../../decisions/0001-shell-and-test-stack.md)
+Decisions: [0001](../../architecture/decisions/0001-shell-and-test-stack.md)
 
 A runnable Tauri desktop shell with bundled assets, a restrictive CSP and an
 accessible first screen.

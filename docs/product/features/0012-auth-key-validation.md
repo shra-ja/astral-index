@@ -1,7 +1,7 @@
 # 0012 — Auth-key validation
 
 Status: Done · Milestone 4, HSR history acquisition
-Decisions: [0007](../../decisions/0007-validate-during-extraction.md)
+Decisions: [0007](../../architecture/decisions/0007-validate-during-extraction.md)
 
 Check extracted auth keys with HoYoverse in the same user action, keeping only a
 working one.
@@ -14,6 +14,6 @@ working one.
   ([auth-key validation](../../games/hsr/api-contract.md#auth-key-validation)). Run
   validation in the same user action as extraction, keep each cached URL only
   until validation ends, and hold only the validated context in the session
-  ([decision 0007](../../decisions/0007-validate-during-extraction.md)). Update the
+  ([decision 0007](../../architecture/decisions/0007-validate-during-extraction.md)). Update the
   controls, which will then contact HoYoverse, and their failure messages.
   Retries during validation arrive with the retry-budget step.

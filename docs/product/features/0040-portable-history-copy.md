@@ -1,7 +1,7 @@
 # 0040 — Portable history copy
 
 Status: Backlog · Backlog
-Decisions: [0010](../../decisions/0010-portable-mode.md)
+Decisions: [0010](../../architecture/decisions/0010-portable-mode.md)
 
 Offer to copy history into a new portable `data` folder.
 

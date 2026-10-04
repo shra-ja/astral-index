@@ -1,9 +1,9 @@
 # Desktop commands
 
 Status: implemented. See decisions
-[0006](../decisions/0006-desktop-extraction-commands.md),
-[0007](../decisions/0007-validate-during-extraction.md) and
-[0014](../decisions/0014-mock-debug-binary.md).
+[0006](decisions/0006-desktop-extraction-commands.md),
+[0007](decisions/0007-validate-during-extraction.md) and
+[0014](decisions/0014-mock-debug-binary.md).
 
 The webview reaches native code only through these commands, listed once in
 `src-tauri/src/desktop/commands.in` for both the library and the `build.rs` app

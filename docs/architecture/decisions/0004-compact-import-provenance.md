@@ -42,5 +42,5 @@ records and batches. Same-batch repeats remain counted and conflict checked.
 
 Revision checks, immutable preview ownership, account isolation, timezone checks,
 and atomic rollback remain mandatory. No hash-only equality, background fetching,
-new dependency or UI capability is introduced. See [testing](../development/TESTING.md) for
+new dependency or UI capability is introduced. See [testing](../../development/TESTING.md) for
 synthetic workload measurements and their limits.

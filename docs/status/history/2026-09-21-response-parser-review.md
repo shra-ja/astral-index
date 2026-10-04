@@ -35,7 +35,7 @@ Rust source reader and URL extractor separate from the future network client;
 file import, stored-history browsing, analysis, and export remain local.
 User-requested acquisition is an accepted product requirement, replacing the
 assumption that cache files suffice for offline acquisition; see
-[decision 0002](../../decisions/0002-user-requested-history-acquisition.md). No API
+[decision 0002](../../architecture/decisions/0002-user-requested-history-acquisition.md). No API
 client is implemented in the app yet.
 
 Implementation considerations:

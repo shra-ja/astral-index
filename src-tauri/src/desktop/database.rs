@@ -1,5 +1,5 @@
 //! The local history database, opened on first use in the app's local data folder
-//! ([decision 0009](../../../docs/decisions/0009-local-database-location.md)).
+//! ([decision 0009](../../../docs/architecture/decisions/0009-local-database-location.md)).
 #[cfg(test)]
 use super::tests::blocking::spawn_blocking;
 #[cfg(test)]
@@ -25,7 +25,7 @@ pub const FOLDER_NAME: &str = "roll-tracker";
 #[cfg(not(target_os = "linux"))]
 pub const FOLDER_NAME: &str = "Roll-Tracker";
 /// The mock debug binary's own folder, so synthetic history never mixes with real
-/// history ([decision 0014](../../../docs/decisions/0014-mock-debug-binary.md)).
+/// history ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 #[cfg(target_os = "linux")]
 pub const MOCK_FOLDER_NAME: &str = "roll-tracker-mock";
 #[cfg(not(target_os = "linux"))]

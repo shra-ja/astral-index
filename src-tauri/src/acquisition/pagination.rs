@@ -29,7 +29,7 @@ pub type Report<'a> = &'a (dyn Fn(Progress) + Sync);
 
 /// A quick refresh's stop check: whether any of a page's roll IDs is already saved
 /// for the account with this UID and server
-/// ([decision 0015](../../../docs/decisions/0015-incremental-retrieval.md)).
+/// ([decision 0015](../../../docs/architecture/decisions/0015-incremental-retrieval.md)).
 pub type StopCheck<'a> = &'a (dyn Fn(&str, &str, &[&str]) -> bool + Sync);
 
 /// Why history retrieval stopped. No URL, credential or response text is included.

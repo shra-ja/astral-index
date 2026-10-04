@@ -8,7 +8,7 @@ Status: Accepted
 Every retrieval fetches each category's whole history, even when nearly all of it
 is already saved. Collaboration pages hold only 20 records, so a long history
 takes many requests, and HoYoverse rate-limits quick successions of them. The
-[HSR contract](../games/hsr/api-contract.md#pagination-and-request-economy) made
+[HSR contract](../../games/hsr/api-contract.md#pagination-and-request-economy) made
 duplicates no stopping rule, because stopping early never fills a gap left by an
 earlier failed or partial import, as the collaboration categories were before
 their endpoint was fixed.

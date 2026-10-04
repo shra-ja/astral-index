@@ -175,8 +175,8 @@ To move existing history between the two locations:
    until you have checked your history in the new location.
 3. Start Roll Tracker.
 
-See [decisions 0009](docs/decisions/0009-local-database-location.md) and
-[0010](docs/decisions/0010-portable-mode.md).
+See [decisions 0009](docs/architecture/decisions/0009-local-database-location.md) and
+[0010](docs/architecture/decisions/0010-portable-mode.md).
 
 ## Project context
 
@@ -192,10 +192,10 @@ Keep [current status](docs/status/STATUS.md) up to date between tasks.
 | [Import design](docs/architecture/imports.md) | Requirements for the next milestone |
 | [Roadmap](docs/product/ROADMAP.md) | Implementation milestones |
 | [Testing](docs/development/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
-| [Compact provenance](docs/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
+| [Compact provenance](docs/architecture/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
 | [HSR API contract](docs/games/hsr/api-contract.md) | Accepted initial fields, assumptions, pagination and error handling |
-| [Storage decision](docs/decisions/0003-sqlite-import-foundations.md) | SQLite migration, identity and transactional import policy |
-| [Stack decision](docs/decisions/0001-shell-and-test-stack.md) | Tools, target platform and tradeoffs |
+| [Storage decision](docs/architecture/decisions/0003-sqlite-import-foundations.md) | SQLite migration, identity and transactional import policy |
+| [Stack decision](docs/architecture/decisions/0001-shell-and-test-stack.md) | Tools, target platform and tradeoffs |
 
 GitHub Actions runs **Tests and 100% coverage** for pull requests, `main` pushes
 and merge queues. The user has configured this job as a required check on

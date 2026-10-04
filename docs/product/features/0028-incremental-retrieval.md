@@ -1,7 +1,7 @@
 # 0028 — Incremental retrieval
 
 Status: Done · Milestone 7, Saved history display and refresh
-Decisions: [0015](../../decisions/0015-incremental-retrieval.md)
+Decisions: [0015](../../architecture/decisions/0015-incremental-retrieval.md)
 
 A quick refresh that stops each category at saved rolls, beside the full
 retrieval.

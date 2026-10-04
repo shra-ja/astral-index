@@ -1,7 +1,7 @@
 # 0011 — Requests and transport
 
 Status: Done · Milestone 4, HSR history acquisition
-Decisions: [0008](../../decisions/0008-https-transport.md)
+Decisions: [0008](../../architecture/decisions/0008-https-transport.md)
 
 Build page requests, send them over a bounded HTTPS transport and classify each
 outcome.

@@ -49,7 +49,7 @@ Work is on `feat/extraction-commands`, branched from `main` at `5ce4401` (PR #7)
 contexts stay in an in-memory native session, replaced by each extraction and
 emptied by a failed one. The file command takes the selected file's bytes as a
 raw IPC body; no path crosses IPC. See
-[decision 0006](../../decisions/0006-desktop-extraction-commands.md).
+[decision 0006](../../architecture/decisions/0006-desktop-extraction-commands.md).
 
 The user reviewed the wrapper exceptions: `main.rs` now delegates through
 unit-tested `desktop::register`, and `build.rs` declares an app manifest from
@@ -210,7 +210,7 @@ Work is on `feat/https-transport`, branched from `main` at `8ced225` (PR #17).
 The `Transport` trait fetches one history response; `HttpTransport` implements it
 with exactly pinned `reqwest` 0.13.5 and `rustls` 0.23.45 using `ring` and the OS
 trust store, as the user chose (see
-[decision 0008](../../decisions/0008-https-transport.md)). It refuses any URL other
+[decision 0008](../../architecture/decisions/0008-https-transport.md)). It refuses any URL other
 than the exact endpoint before sending, follows no redirects, treats any status
 other than 200 as an error, uses no system proxy, has 10-second connect and
 30-second request timeouts, and stops reading once a body exceeds 2 MiB. No

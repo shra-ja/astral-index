@@ -6,7 +6,7 @@ below describe their historical context, not current priorities.
 ## Linting and formatting (2026-10-01)
 
 Work is on `build/lint-format`, branched from `main` at `f85158d`, following
-[decision 0012](../../decisions/0012-linting-and-formatting.md), in four commits.
+[decision 0012](../../architecture/decisions/0012-linting-and-formatting.md), in four commits.
 
 - **Tools (exact):** ESLint 10.11.0 in both workspaces with `jiti` 2.7.0 for
   TypeScript configs; in `src-ui`, `eslint-plugin-vue` 10.11.1,

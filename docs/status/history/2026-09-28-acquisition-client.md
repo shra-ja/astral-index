@@ -63,7 +63,7 @@ new key; rust-cache then restores its closest earlier entry.
 
 Integrated through PR #21 (`0cea1d1`), branched from `main` at `deee662`. This is
 the first of three PRs for validating during extraction
-([decision 0007](../../decisions/0007-validate-during-extraction.md)): (A) keep cached
+([decision 0007](../../architecture/decisions/0007-validate-during-extraction.md)): (A) keep cached
 URLs, (B) a validation service, (C) commands and controls that validate and so
 contact HoYoverse. Extraction now returns a `CachedRequest` per distinct context,
 holding the context and its endpoint-checked cached URL from the context's last
@@ -83,7 +83,7 @@ file, plus TypeScript/build, formatting and Clippy.
 ## Auth-key validation service (2026-09-28)
 
 Integrated through PR #22 (`81b4c28`), branched from `main` at `0cea1d1` (PR B of
-three for [decision 0007](../../decisions/0007-validate-during-extraction.md)).
+three for [decision 0007](../../architecture/decisions/0007-validate-during-extraction.md)).
 `acquisition::validate` sends at most five cached URLs unchanged, in the given
 reverse file order, through a `Transport` and `classify`. It returns the first
 context whose response is a valid page, discarding that page's records. `-101`
@@ -107,7 +107,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 ## Validation during extraction (2026-09-28)
 
 Integrated through PR #23 (`207d61e`), branched from `main` at `81b4c28`, the
-last of three PRs for [decision 0007](../../decisions/0007-validate-during-extraction.md).
+last of three PRs for [decision 0007](../../architecture/decisions/0007-validate-during-extraction.md).
 Both commands now extract, then validate with HoYoverse through `HttpTransport`
 and `validate` in the same user action. The session holds only the validated
 context. It is emptied before each extraction, so any failure leaves none, and
@@ -375,7 +375,7 @@ Nothing is created or opened until the first `Database::run`, which creates the
 folder, opens the store and then reuses it. `run` executes on Tokio's blocking
 pool. A missing or occupied folder, a failed open or a panic in the work gives
 the safe storage `Database` error, and a panic drops the store so it reopens.
-[Decision 0009](../../decisions/0009-local-database-location.md) records the location
+[Decision 0009](../../architecture/decisions/0009-local-database-location.md) records the location
 (`%LOCALAPPDATA%\com.shra-ja.roll-tracker` on Windows, the XDG data folder on
 Linux and WSL) and alternatives. The user chose the local folder over the first
 proposed roaming `%APPDATA%`, so history never roams with a Windows profile. On

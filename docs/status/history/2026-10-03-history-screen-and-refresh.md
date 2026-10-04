@@ -210,7 +210,7 @@ end-to-end tests; `e2e-mock-progress.png` shows the row and the list.
 
 Integrated through PR #61. Work was on `feat/incremental-retrieval`. The roadmap step is no longer optional
 and is split into seven tasks; this covers the first four.
-[Decision 0015](../../decisions/0015-incremental-retrieval.md) and the HSR contract
+[Decision 0015](../../architecture/decisions/0015-incremental-retrieval.md) and the HSR contract
 record the quick-refresh rule: a category ends after the first page holding a
 roll already saved for that page's own account (its UID and `region`), keeping
 the page; a page without a region never ends it early; only a full retrieval

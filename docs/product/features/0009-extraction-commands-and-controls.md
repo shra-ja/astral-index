@@ -1,7 +1,7 @@
 # 0009 — Extraction commands and controls
 
 Status: Done · Milestone 3, HSR request discovery and extraction
-Decisions: [0006](../../decisions/0006-desktop-extraction-commands.md)
+Decisions: [0006](../../architecture/decisions/0006-desktop-extraction-commands.md)
 
 Narrow desktop commands and accessible controls for automatic extraction and the
 cache file fallback.

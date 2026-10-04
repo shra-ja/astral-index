@@ -1,7 +1,7 @@
 # Frontend
 
-Status: implemented. See decisions [0011](../decisions/0011-vue-frontend.md)
-(Vue and its conventions) and [0013](../decisions/0013-visual-design.md) (visual
+Status: implemented. See decisions [0011](decisions/0011-vue-frontend.md)
+(Vue and its conventions) and [0013](decisions/0013-visual-design.md) (visual
 design). [`src-ui/README.md`](../../src-ui/README.md) maps the files.
 
 The webview is a Vue 3 app in the `src-ui/` workspace, built so screens can be

@@ -127,7 +127,7 @@ Done when an explicit user request retrieves HSR history through the API,
 previews and commits it locally, and displays it after restart without duplicate
 records. Failures preserve existing data; stored-history operations never trigger
 acquisition. This is the first implemented import feature. See
-[decision 0002](../decisions/0002-user-requested-history-acquisition.md).
+[decision 0002](../architecture/decisions/0002-user-requested-history-acquisition.md).
 
 ### 8 — Additional import sources, multi-game history and statistics
 

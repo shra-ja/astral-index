@@ -8,7 +8,7 @@ tests. `tauri.conf.json` defines bundled assets, the development loopback URL,
 production CSP and the enabled `main` capability. `capabilities/main.json`
 grants only `extract_automatically` and `extract_from_file` to the main window.
 No plugins are enabled. See
-[decision 0006](../docs/decisions/0006-desktop-extraction-commands.md).
+[decision 0006](../docs/architecture/decisions/0006-desktop-extraction-commands.md).
 
 Run commands from the repository root; see `../README.md`. Future services,
 adapters and persistence follow `../docs/architecture/ARCHITECTURE.md`.
@@ -23,8 +23,8 @@ contract and limits in [API research](../docs/games/hsr/api-research.md).
 with a single initial schema in `migrations/001_initial.sql`. It creates compact
 summaries and first-import provenance directly. Obsolete pre-release databases
 are rejected unchanged and must be explicitly recreated; there is no upgrade chain. Tests use real temporary SQLite files. See
-[decision 0003](../docs/decisions/0003-sqlite-import-foundations.md) and
-[decision 0004](../docs/decisions/0004-compact-import-provenance.md) for identity,
+[decision 0003](../docs/architecture/decisions/0003-sqlite-import-foundations.md) and
+[decision 0004](../docs/architecture/decisions/0004-compact-import-provenance.md) for identity,
 conflict, provenance and migration policy. The library's native
 path argument is not exposed to the webview; app-data path selection and typed
 commands remain milestone 5 work.

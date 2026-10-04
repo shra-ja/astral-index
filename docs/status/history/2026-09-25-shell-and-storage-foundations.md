@@ -110,7 +110,7 @@ remain enforced. At the user's request, the compact schema is now the sole initi
 Breaking pre-release schema changes are permitted; obsolete development databases
 are rejected unchanged and must be explicitly recreated. There is no upgrade
 chain. The lack of historical input reconstruction and compatibility policy are
-recorded in [decision 0004](../../decisions/0004-compact-import-provenance.md).
+recorded in [decision 0004](../../architecture/decisions/0004-compact-import-provenance.md).
 
 TDD: repeat-import tests first failed on attempted duplicate inserts. For the
 subsequent schema simplification, tests first failed because initial SQL created
@@ -197,7 +197,7 @@ schema, tests, test layout and documentation. No push, integration or release
 was performed.
 
 Selected pinned `rusqlite` 0.40.2 with bundled SQLite; see
-[decision 0003](../../decisions/0003-sqlite-import-foundations.md). Implemented schema
+[decision 0003](../../architecture/decisions/0003-sqlite-import-foundations.md). Implemented schema
 version 1, native database open, immutable HSR previews, atomic commits, scoped
 history queries and batch provenance. Text identity keys preserve game/UID/server/
 record separation. Source fields, unknown extensions, order, optional timezone,
@@ -340,7 +340,7 @@ now milestone 3 and completes the first user-facing API import feature. History-
 file import and multi-game/statistics follow in milestone 4, then backup/restore
 in milestone 5. User-requested HoYoverse acquisition
 is now an accepted requirement
-([decision 0002](../../decisions/0002-user-requested-history-acquisition.md)), alongside
+([decision 0002](../../architecture/decisions/0002-user-requested-history-acquisition.md)), alongside
 local file import. No network functionality is added to the application; live
 probes were separate research requests.
 

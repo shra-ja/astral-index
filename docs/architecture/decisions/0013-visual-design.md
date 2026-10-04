@@ -81,7 +81,7 @@ repository; this record holds what the implementation must follow.
 
 ### Layout
 
-Layouts are fluid ([AGENTS.md](../../AGENTS.md)): components are placed
+Layouts are fluid ([AGENTS.md](../../../AGENTS.md)): components are placed
 relative to each other and scale with the window. Mockup breakpoints are
 starting points; prefer container queries on the content area over window
 widths, and detect overflow where content length varies.
@@ -126,7 +126,7 @@ is shown as text as well as colour.
   deferred with mobile; heavily zoomed desktop windows scroll instead of
   reflowing.
 - **Storing pity** was rejected; it is derived on read
-  ([architecture](../architecture/statistics.md)).
+  ([architecture](../statistics.md)).
 - A light theme, real item art and the history-file import flow are deferred;
   the roadmap tracks them. The Import screen's "Last import" line comes from the
   `last_import` command (added 2026-10-03).

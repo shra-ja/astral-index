@@ -4,10 +4,10 @@ Status: implemented for Honkai: Star Rail. The
 [HSR API contract](../games/hsr/api-contract.md) owns the API facts: endpoints,
 page size, bounds, error codes, the retry budget and pacing. This file describes
 how the native client applies them. See decisions
-[0002](../decisions/0002-user-requested-history-acquisition.md),
-[0007](../decisions/0007-validate-during-extraction.md),
-[0008](../decisions/0008-https-transport.md) and
-[0015](../decisions/0015-incremental-retrieval.md).
+[0002](decisions/0002-user-requested-history-acquisition.md),
+[0007](decisions/0007-validate-during-extraction.md),
+[0008](decisions/0008-https-transport.md) and
+[0015](decisions/0015-incremental-retrieval.md).
 
 HoYoverse is contacted only in response to an explicit user action. One action
 may run a bounded, cancellable sequence: validate the extracted keys, then

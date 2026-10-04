@@ -1,7 +1,7 @@
 # 0017 — Acquisition session
 
 Status: Done · Milestone 5, Import review and save
-Decisions: [0007](../../decisions/0007-validate-during-extraction.md)
+Decisions: [0007](../../architecture/decisions/0007-validate-during-extraction.md)
 
 Hold the validated context and its retry budget in native memory, with a cancel
 command.

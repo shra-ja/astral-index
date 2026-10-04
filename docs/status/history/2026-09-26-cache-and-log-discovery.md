@@ -118,7 +118,7 @@ Helper execution is limited to five seconds and 32 KiB stdout, with discarded
 stdin/stderr. Error cleanup explicitly kills/reaps the helper within a separate
 five-second bound; cancellation uses kill-on-drop. Current and previous log
 outcomes remain independent. See
-[decision 0005](../../decisions/0005-current-user-windows-discovery.md) for the pinned
+[decision 0005](../../architecture/decisions/0005-current-user-windows-discovery.md) for the pinned
 dependencies, alternatives and platform limitations.
 
 TDD: four initial tests failed against stubs before implementation. A real-process

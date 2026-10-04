@@ -1,7 +1,7 @@
 # 0006 — SQLite import storage
 
 Status: Done · Milestone 2, HSR API import foundations
-Decisions: [0003](../../decisions/0003-sqlite-import-foundations.md), [0004](../../decisions/0004-compact-import-provenance.md)
+Decisions: [0003](../../architecture/decisions/0003-sqlite-import-foundations.md), [0004](../../architecture/decisions/0004-compact-import-provenance.md)
 
 Local SQLite storage with immutable previews, transactional commits and compact
 overlap handling.
@@ -38,7 +38,7 @@ previews, exact-ID deduplication, conflict rejection and compact first-import pr
 Real-file and injected-failure tests cover restart, isolation, stale previews and
 rollback. The contract task is complete under the accepted assumptions; synthetic service
 tests do not establish universal endpoint behaviour or prove lifetime retention.
-See [decision 0003](../../decisions/0003-sqlite-import-foundations.md).
+See [decision 0003](../../architecture/decisions/0003-sqlite-import-foundations.md).
 The sole initial schema creates compact storage directly, without page snapshots
-or repeated associations. Obsolete pre-release schemas are rejected, not upgraded. See [decision 0004](../../decisions/0004-compact-import-provenance.md)
+or repeated associations. Obsolete pre-release schemas are rejected, not upgraded. See [decision 0004](../../architecture/decisions/0004-compact-import-provenance.md)
 and the synthetic overlap measurements in [testing](../../status/history/2026-09-23-sqlite-services-and-overlap.md#overlapping-imports-and-schema-2-2026-09-23).

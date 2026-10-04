@@ -82,7 +82,7 @@ formatting and Clippy. `npm run test:offline` also passed.
 
 Work is on `feat/mock-binary`. A second debug binary, `roll-tracker-mock`, runs
 the app against an in-process synthetic HoYoverse
-([decision 0014](../../decisions/0014-mock-debug-binary.md)); the shipped binary is
+([decision 0014](../../architecture/decisions/0014-mock-debug-binary.md)); the shipped binary is
 unchanged. Commands take their transport from a managed `Network` (HTTPS or the
 mock); the mock keeps history in its own `roll-tracker-mock` folder, never in
 portable mode. Scenarios cover multi-page history, an expired link, a network

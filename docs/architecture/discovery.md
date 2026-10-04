@@ -1,7 +1,7 @@
 # Discovery and extraction
 
 Status: implemented for Honkai: Star Rail on Windows and from WSL. See
-[decision 0005](../decisions/0005-current-user-windows-discovery.md) and the
+[decision 0005](decisions/0005-current-user-windows-discovery.md) and the
 [supported sources](../games/hsr/api-research.md#supported-and-unsupported-extraction-sources-2026-09-27).
 
 Extraction finds the request context (an auth key and its fixed query fields)

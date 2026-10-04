@@ -4,7 +4,7 @@ Roll Tracker is one locally run desktop application: a Vue 3 and TypeScript
 webview (`src-ui/`) in a Tauri 2 shell with a Rust backend (`src-tauri/`) and a
 local SQLite database. There is no local HTTP server, project-hosted backend,
 account system or telemetry. Node.js and Rust are managed with asdf. Consequential
-choices are recorded as [decisions](../decisions/README.md).
+choices are recorded as [decisions](decisions/DECISIONS.md).
 
 ## Areas
 

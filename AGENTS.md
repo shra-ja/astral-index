@@ -33,7 +33,7 @@ inspect actual code before assuming a feature exists.
   flow logic outside them. Format with Prettier and lint with type-aware ESLint
   (decision 0012); fix findings rather than disabling rules. Manage Node.js
   and Rust with asdf and `.tool-versions`. Use pinned rusqlite with bundled SQLite (decision 0003). Record consequential choices in
-  `docs/decisions/` and update setup instructions when scaffolding the app.
+  `docs/architecture/decisions/` and update setup instructions when scaffolding the app.
 - Keep UI presentation, game rules, parsing, persistence, and OS discovery separate.
 - Keep layouts fluid: place components relative to each other with flex and grid,
   wrapping, `minmax`/auto-fill tracks and max-width containers, not fixed pixel

@@ -226,7 +226,7 @@ impl Session {
 
 /// Where history requests go: HoYoverse over HTTPS in the app, or the mock debug
 /// binary's synthetic HoYoverse
-/// ([decision 0014](../../docs/decisions/0014-mock-debug-binary.md)).
+/// ([decision 0014](../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 pub enum Network {
     Https,
     Mock(Scenario),
@@ -426,7 +426,7 @@ impl From<storage::Error> for Failure {
 }
 
 /// Validate the extracted requests and keep only the first working context
-/// ([decision 0007](../../docs/decisions/0007-validate-during-extraction.md)).
+/// ([decision 0007](../../docs/architecture/decisions/0007-validate-during-extraction.md)).
 /// The session is emptied first, so a failure at any step leaves no context, and
 /// every cached URL is dropped when this returns.
 async fn acquire(

@@ -1,7 +1,7 @@
 # 0023 — Visual design
 
 Status: Done · Milestone 6, Desktop UI foundation
-Decisions: [0013](../../decisions/0013-visual-design.md)
+Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 A reviewed visual design, a bundled typeface and a minimum window size.
 
@@ -18,7 +18,7 @@ A reviewed visual design, a bundled typeface and a minimum window size.
   - [x] Bundle Hanken Grotesk with the app (open font licence); no remote
     fonts.
   - [x] Record the visual design as a decision
-    ([decision 0013](../../decisions/0013-visual-design.md)).
+    ([decision 0013](../../architecture/decisions/0013-visual-design.md)).
 - [x] Set the app window's minimum size to 480×560 where the window is
   created. It excludes phones in either orientation; layouts are fluid above
   it, so the minimum can be lowered if mobile is ever targeted.

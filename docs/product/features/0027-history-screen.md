@@ -1,7 +1,7 @@
 # 0027 — History screen
 
 Status: Done · Milestone 7, Saved history display and refresh
-Decisions: [0013](../../decisions/0013-visual-design.md)
+Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 Show saved history from local storage without triggering acquisition.
 

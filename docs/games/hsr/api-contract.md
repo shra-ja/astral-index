@@ -65,7 +65,7 @@ the command. Only the first working context is kept, for pagination; every other
 extracted context and cached URL is dropped as soon as validation ends, whether it
 succeeds or fails. The action therefore contacts HoYoverse, so the interface must
 present it as starting history retrieval, not as a local-only search. See
-[decision 0007](../../decisions/0007-validate-during-extraction.md).
+[decision 0007](../../architecture/decisions/0007-validate-during-extraction.md).
 
 ## Observed response fields
 
@@ -229,7 +229,7 @@ with page 1/cursor `0`. Validate each successful response, then:
 - More records than requested: the response is invalid, and acquisition stops.
 
 A quick refresh, the user's other choice
-([decision 0015](../../decisions/0015-incremental-retrieval.md)), adds one rule: after
+([decision 0015](../../architecture/decisions/0015-incremental-retrieval.md)), adds one rule: after
 a page with records, if any of its roll IDs is already saved for the page's own
 account (its records' UID and its `region`), the category ends there, keeping
 that page. A page without a `region` never ends a category early. The rule

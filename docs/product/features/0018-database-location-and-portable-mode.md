@@ -1,7 +1,7 @@
 # 0018 — Database location and portable mode
 
 Status: Done · Milestone 5, Import review and save
-Decisions: [0009](../../decisions/0009-local-database-location.md), [0010](../../decisions/0010-portable-mode.md)
+Decisions: [0009](../../architecture/decisions/0009-local-database-location.md), [0010](../../architecture/decisions/0010-portable-mode.md)
 
 Keep the database in the app's local data folder, or beside the executable in
 portable mode.

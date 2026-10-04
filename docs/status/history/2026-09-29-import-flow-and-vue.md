@@ -15,7 +15,7 @@ copy for moving history; an in-app offer to copy on the first portable start is
 deferred on the roadmap. A file named `data` does not switch modes, and an
 unusable `data` folder fails to open rather than falling back. The README now says
 where history is stored, how portable mode works and how to copy history between
-locations. [Decision 0010](../../decisions/0010-portable-mode.md) records it.
+locations. [Decision 0010](../../architecture/decisions/0010-portable-mode.md) records it.
 `desktop::database` is now public for the integration test, and the filesystem
 double's metadata gains `is_dir`.
 
@@ -319,7 +319,7 @@ build succeeded.
 ## Vue foundation (2026-09-29)
 
 Integrated through PR #42 (`5424d7c`), branched from `main` at `1f01756`: PR A of two
-for the move to Vue ([decision 0011](../../decisions/0011-vue-frontend.md)). The user
+for the move to Vue ([decision 0011](../../architecture/decisions/0011-vue-frontend.md)). The user
 chose Vue over Preact and React for its community, ecosystem and recognition,
 TypeScript 6 over 7 until Vue's tooling supports 7, and `create-vue` and Tauri
 conventions regardless of the app's size, with small presentational components

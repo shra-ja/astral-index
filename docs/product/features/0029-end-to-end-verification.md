@@ -1,7 +1,7 @@
 # 0029 — End-to-end verification
 
 Status: Done · Milestone 7, Saved history display and refresh
-Decisions: [0014](../../decisions/0014-mock-debug-binary.md)
+Decisions: [0014](../../architecture/decisions/0014-mock-debug-binary.md)
 
 Prove the whole HSR import flow through the mock binary before declaring it
 complete.

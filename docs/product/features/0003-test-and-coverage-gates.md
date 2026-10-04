@@ -1,7 +1,7 @@
 # 0003 — Test and coverage gates
 
 Status: Done · Milestone 1, Runnable offline shell
-Decisions: [0001](../../decisions/0001-shell-and-test-stack.md)
+Decisions: [0001](../../architecture/decisions/0001-shell-and-test-stack.md)
 
 Mandatory 100% coverage, gates that are proven to fail, and CI running the same
 checks.

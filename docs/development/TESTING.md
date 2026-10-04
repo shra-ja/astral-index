@@ -70,7 +70,7 @@ and WebDriver under Xvfb (X11 even on Wayland hosts), described in
 [tests/README.md](../../tests/README.md). The shell test checks bundled assets,
 keyboard operation, the window minimum, the command capability and that the CSP
 blocks webview connections. The mock debug binary
-([decision 0014](../decisions/0014-mock-debug-binary.md)) runs
+([decision 0014](../architecture/decisions/0014-mock-debug-binary.md)) runs
 retrieval, review, saving, restarts, failures and account scenarios against a
 synthetic HoYoverse. Apps close as a user would, and the test waits for that
 process's coverage profile; a killed process never counts as covered.
@@ -107,7 +107,7 @@ debug binary and synthetic fixtures, covering success, pagination, errors and
 cancellation. No test contacts HoYoverse or uses player credentials, and the
 native tests refuse to start outside the network namespace. The offline run
 checks local behaviour; it is not a product requirement, since acquisition on
-request is in scope ([decision 0002](../decisions/0002-user-requested-history-acquisition.md)).
+request is in scope ([decision 0002](../architecture/decisions/0002-user-requested-history-acquisition.md)).
 
 ## CI
 

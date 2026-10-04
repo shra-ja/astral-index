@@ -1,7 +1,7 @@
 # 0004 — HSR API contract
 
 Status: Done · Milestone 2, HSR API import foundations
-Decisions: [0002](../../decisions/0002-user-requested-history-acquisition.md)
+Decisions: [0002](../../architecture/decisions/0002-user-requested-history-acquisition.md)
 
 An accepted contract for the HSR history API, with synthetic fixtures and request
 mocks.

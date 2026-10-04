@@ -61,7 +61,7 @@ complete.
 Cloud sync, public profiles, spending recommendations, live game overlays,
 automatic updates, game process inspection, and automatic history fetching.
 User-requested HoYoverse history acquisition is in scope; see
-[decision 0002](../decisions/0002-user-requested-history-acquisition.md).
+[decision 0002](../architecture/decisions/0002-user-requested-history-acquisition.md).
 
 ## Open decisions
 

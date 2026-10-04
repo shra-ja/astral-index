@@ -2,10 +2,10 @@
 
 Status: implemented for Honkai: Star Rail API imports; the coverage and game
 metadata entities are tentative. See decisions
-[0003](../decisions/0003-sqlite-import-foundations.md),
-[0004](../decisions/0004-compact-import-provenance.md),
-[0009](../decisions/0009-local-database-location.md) and
-[0010](../decisions/0010-portable-mode.md), and the
+[0003](decisions/0003-sqlite-import-foundations.md),
+[0004](decisions/0004-compact-import-provenance.md),
+[0009](decisions/0009-local-database-location.md) and
+[0010](decisions/0010-portable-mode.md), and the
 [pre-release schema policy](../../CONTRIBUTING.md#pre-release-database-schemas).
 
 ## Location

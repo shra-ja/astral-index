@@ -1,14 +1,14 @@
 # 0024 — App shell and import screens
 
 Status: Done · Milestone 6, Desktop UI foundation
-Decisions: [0013](../../decisions/0013-visual-design.md)
+Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 The sidebar shell with History and Import screens per game, restyled import
 screens and bundled icons.
 
 ## Tasks
 
-- [x] Add the app shell from [decision 0013](../../decisions/0013-visual-design.md):
+- [x] Add the app shell from [decision 0013](../../architecture/decisions/0013-visual-design.md):
   a sidebar with the game switcher and separate History and Import screens
   per game, opening on Star Rail's History. Move the existing retrieval flow
   onto the Import screen; Genshin Impact's Import screen says retrieval is
