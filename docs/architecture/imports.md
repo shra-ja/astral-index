@@ -2,7 +2,7 @@
 
 Status: partially implemented. The Honkai: Star Rail API adapter follows this
 contract end to end; history-file imports and the Genshin Impact adapter are
-tentative. To research a new game or source, see [games](../games/GAMES.md).
+tentative. To research a new game or source, see [GAMES](../games/GAMES.md).
 
 ## Adapter contract
 

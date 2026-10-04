@@ -24,14 +24,14 @@ application has no user accounts, cloud storage or telemetry.
   Repeated or overlapping retrievals add only new rolls.
 
 Genshin Impact, history-file imports, account switching, filters, statistics,
-pity and backups are planned; see the [roadmap](docs/product/ROADMAP.md).
+pity and backups are planned; see [ROADMAP](docs/product/ROADMAP.md).
 
 ## Architecture
 
 Tauri 2 with a Rust backend, a Vue 3 and TypeScript interface, and SQLite for
 storage. All interface assets are bundled. The only network service contacted is
-HoYoverse's warp history service, and only on the user's request. See the
-[architecture](docs/architecture/ARCHITECTURE.md).
+HoYoverse's warp history service, and only on the user's request. See
+[ARCHITECTURE](docs/architecture/ARCHITECTURE.md).
 
 ## Storage
 
@@ -63,7 +63,7 @@ To move existing history between the two locations:
 
 ## Contributing
 
-Setup, commands and checks are in [development](docs/development/DEVELOPMENT.md),
+Setup, commands and checks are in [DEVELOPMENT](docs/development/DEVELOPMENT.md),
 and the rules every change follows in [CONTRIBUTING](CONTRIBUTING.md).
 
 ## License

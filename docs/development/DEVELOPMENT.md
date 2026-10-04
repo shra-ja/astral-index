@@ -2,7 +2,7 @@
 
 How to set up, run and check Roll Tracker. The rules every change follows are
 in [CONTRIBUTING](../../CONTRIBUTING.md); how the gates work is in
-[testing](TESTING.md).
+[TESTING](TESTING.md).
 
 ## Setup
 

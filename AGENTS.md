@@ -12,15 +12,15 @@ limitations and the next task. Then open what the task needs:
 
 | When you are | Open |
 | --- | --- |
-| Picking up or planning a feature | The [roadmap](docs/product/ROADMAP.md), then that feature's file in `docs/product/features/` |
+| Picking up or planning a feature | [ROADMAP](docs/product/ROADMAP.md), then that feature's file in `docs/product/features/` |
 | Checking scope, requirements or acceptance | The [product brief](docs/product/PROJECT.md) |
 | Changing code in an area | The [architecture index](docs/architecture/ARCHITECTURE.md), then the area's file and the decisions it links |
 | Making or revisiting a consequential choice | The [decision records](docs/architecture/decisions/DECISIONS.md); record new ones there |
 | Working on Star Rail acquisition or parsing | The [HSR API contract](docs/games/hsr/api-contract.md); the [research](docs/games/hsr/api-research.md) holds its evidence |
-| Adding a game or import source | [Games](docs/games/GAMES.md) and [imports](docs/architecture/imports.md) |
+| Adding a game or import source | [GAMES](docs/games/GAMES.md) and [imports](docs/architecture/imports.md) |
 | Designing UIGF storage, import or export | The `uigf` skill in `.agents/skills/uigf/` |
-| Setting up, running or checking the app | [Development](docs/development/DEVELOPMENT.md) |
-| Working on tests, coverage gates, probes or CI | [Testing](docs/development/TESTING.md) and [tests/README.md](tests/README.md) |
+| Setting up, running or checking the app | [DEVELOPMENT](docs/development/DEVELOPMENT.md) |
+| Working on tests, coverage gates, probes or CI | [TESTING](docs/development/TESTING.md) and [tests/README.md](tests/README.md) |
 | Finding files in the frontend or backend | [src-ui/README.md](src-ui/README.md) and [src-tauri/README.md](src-tauri/README.md) |
 | Branching, committing, testing first, handing off | [CONTRIBUTING](CONTRIBUTING.md) |
 | Looking for why or when something was done | The history index at the end of STATUS |

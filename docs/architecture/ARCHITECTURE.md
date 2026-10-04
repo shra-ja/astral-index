@@ -54,4 +54,4 @@ OS lookups and transports are injected or replaced by test doubles, so success a
 failure paths are tested in unit tests; integration tests exercise the real
 boundaries. Unit tests alone must reach 100% coverage. See
 [CONTRIBUTING](../../CONTRIBUTING.md#test-driven-development) and
-[testing](../development/TESTING.md).
+[TESTING](../development/TESTING.md).

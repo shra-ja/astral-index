@@ -1,7 +1,7 @@
 # Native backend
 
 The Rust crate behind the desktop app: Tauri startup, the native commands and
-the services they compose. See the [architecture](../docs/architecture/ARCHITECTURE.md)
+the services they compose. See [ARCHITECTURE](../docs/architecture/ARCHITECTURE.md)
 for how the parts fit together; run commands from the repository root.
 
 - `src/main.rs` and `src/bin/roll-tracker-mock.rs` only hand a builder to
@@ -30,4 +30,4 @@ Unit tests sit in `#[cfg(test)] mod tests` beside their code, with test doubles
 for files, SQLite, OS APIs, transports and Tokio's blocking pool in `tests/`
 subfolders compiled only for tests. Integration tests in `tests/` use the real
 boundaries, with synthetic fixtures in `tests/fixtures/`. See
-[testing](../docs/development/TESTING.md).
+[TESTING](../docs/development/TESTING.md).

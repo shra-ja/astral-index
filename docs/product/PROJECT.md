@@ -35,7 +35,7 @@ Users own their data and can inspect, back up, and export it without a hosted se
    requested. Route responses through the same import pipeline; explain
    unsupported sources.
 
-Honkai: Star Rail API history import came first; the [roadmap](ROADMAP.md)
+Honkai: Star Rail API history import came first; [ROADMAP](ROADMAP.md)
 sequences the rest.
 
 ## Acceptance criteria
