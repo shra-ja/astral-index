@@ -11,7 +11,10 @@ export interface DocsInput {
   tracked: ReadonlySet<string>
   /** The agent entry point every doc must be reachable from. */
   entry: string
-  /** Markdown that need not be reachable from the entry point. */
+  /**
+   * Markdown that need not be reachable from the entry point: exact paths, or folder
+   * prefixes ending in `/`.
+   */
   unreachable: readonly string[]
   /** STATUS and its line budget. */
   status: { path: string; maxLines: number }
@@ -106,7 +109,10 @@ export function checkDocs(input: DocsInput): string[] {
     }
   }
   for (const file of files.keys()) {
-    if (file.endsWith('.md') && !reached.has(file) && !unreachable.includes(file)) {
+    const exempt = unreachable.some((entry) =>
+      entry.endsWith('/') ? file.startsWith(entry) : file === entry,
+    )
+    if (file.endsWith('.md') && !reached.has(file) && !exempt) {
       problems.push(`${file} is not reachable by links from ${entry}`)
     }
   }

@@ -106,6 +106,17 @@ test('Markdown not reachable from the entry point is reported, except the allowl
   expect(checkDocs(input({ files, unreachable: ['README.md', 'docs/orphan.md'] }))).toEqual([])
 })
 
+test('an allowlist entry ending in a slash exempts a whole folder, such as agent skills', () => {
+  const files = new Map(input().files)
+  files.set('skills/uigf/SKILL.md', '# Skill\n\nSee [format](references/format.md).\n')
+  files.set('skills/uigf/references/format.md', '# Format\n')
+  const tracked = new Set([...files.keys(), 'LICENSE'])
+  expect(checkDocs(input({ files, tracked, unreachable: ['README.md', 'skills/'] }))).toEqual([])
+  expect(
+    checkDocs(input({ files, tracked, unreachable: ['README.md', 'skills/uigf/SKILL.md'] })),
+  ).toEqual(['skills/uigf/references/format.md is not reachable by links from AGENTS.md'])
+})
+
 test('STATUS over its line budget is reported', () => {
   expect(checkDocs(input({ status: { path: 'docs/STATUS.md', maxLines: 2 } }))).toEqual([
     'docs/STATUS.md has 3 lines, over its budget of 2; archive integrated sections',
