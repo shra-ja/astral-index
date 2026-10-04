@@ -23,20 +23,13 @@ history import works end to end; Genshin Impact has its screens but no import ye
   or overlapping imports add only new rolls.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes that prove each gate fails, and end-to-end tests that
-  drive the app against a synthetic HoYoverse (the mock debug binary).
+  drive the app against a synthetic HoYoverse (the mock debug binary). The docs
+  are checked too: links and anchors resolve, every doc is reachable from
+  `AGENTS.md`, STATUS stays within 150 lines, and markdownlint checks structure.
 
 ## In progress
 
-### Markdown checks (2026-10-04)
-
-Feature 0044, on `chore/markdown-checks`; decision 0016. `npm run docs:check`
-fails on broken links or anchors, docs unreachable from `AGENTS.md`, and STATUS
-over 150 lines; markdownlint checks structure in `lint:check`. Prettier stays off
-Markdown, since it padded tables and grew the docs by 14%. The docs check's unit
-tests failed against a stub, then passed at 100% coverage; its mutation probe and
-probe documents showed each check failing. Agent skills are exempt from the
-reachability rule, since agent tools discover them from their skill folders.
-markdownlint found one real issue.
+Nothing. Record work here while it is in progress (see below).
 
 ## Known limitations
 
@@ -53,8 +46,9 @@ markdownlint found one real issue.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Then milestone 8:
-propose its PR split first. Its first items are history-file imports through the
+If the probe flake recurs, read its snapshot before rerunning. Next, the
+features in milestones 8 to 10 are being reordered; after that, propose
+milestone 8's PR split. Its current first items are history-file imports through the
 shared pipeline, the second game's adapter, and account switching with filters
 on the History screen. Native Windows validation of the current build belongs to
 milestone 10.
@@ -124,4 +118,5 @@ research, under a "From" heading.
   the mock's fresh webview profile, development zoom, and the end-to-end checks
   that closed milestone 7.
 - [2026-10-04: probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md):
-  the frontend emit flake investigation and the probes' failure snapshots.
+  the frontend emit flake investigation, the probes' failure snapshots and the
+  Markdown checks.
