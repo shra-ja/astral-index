@@ -1,7 +1,7 @@
 # Roadmap
 
 Milestones are ordered by dependency. Check items only after their acceptance
-criteria are demonstrated; record results and limitations in `STATUS.md`.
+criteria are demonstrated; record results and limitations in [STATUS](status/STATUS.md).
 Every code milestone follows `../CONTRIBUTING.md`: a short-lived task branch,
 red-green-refactor, and passing full tests and 100% coverage before integration.
 

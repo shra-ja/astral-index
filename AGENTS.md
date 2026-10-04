@@ -2,7 +2,7 @@
 
 ## Start here
 
-Read `docs/PROJECT.md`, `docs/STATUS.md`, and the relevant sections of
+Read `docs/PROJECT.md`, `docs/status/STATUS.md`, and the relevant sections of
 `docs/ARCHITECTURE.md` before implementation. Read `CONTRIBUTING.md` for mandatory
 TDD, coverage, and branch workflows. Use `docs/ROADMAP.md` for planned work
 and `docs/IMPORTS.md` for ingestion requirements. These documents describe intent;
@@ -109,7 +109,7 @@ inspect actual code before assuming a feature exists.
   network/authentication failures, cancellation, and local use without fetching.
 - For UI work, check keyboard operation, readable empty/error states, and native
   Tauri behavior where available. Browser mocks alone do not validate native I/O.
-- Update `docs/STATUS.md` with completed work, actual verification, and the next
+- Update `docs/status/STATUS.md` with completed work, actual verification, and the next
   concrete task. Update architecture/decisions when behavior or boundaries change.
 - Report the task branch, red/green evidence, full test and coverage results, what
   changed, and any remaining limitations. Do not

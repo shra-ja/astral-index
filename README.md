@@ -183,7 +183,7 @@ See [decisions 0009](docs/decisions/0009-local-database-location.md) and
 [AGENTS.md](AGENTS.md) supplies persistent instructions. All code changes require
 a short-lived branch from `main`, red-green-refactor and 100% coverage.
 [CONTRIBUTING.md](CONTRIBUTING.md) defines these rules and Conventional Commits.
-Keep [current status](docs/STATUS.md) up to date between tasks.
+Keep [current status](docs/status/STATUS.md) up to date between tasks.
 
 | Context | Purpose |
 | --- | --- |

@@ -1,7 +1,7 @@
 # Historical project status
 
 Archived on 2026-09-25. Statements and “Next” items below describe their historical
-context, not current priorities. See [current status](STATUS.md).
+context, not current priorities. See [current status](status/STATUS.md).
 
 ## Current state
 

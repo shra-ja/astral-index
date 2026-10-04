@@ -5,7 +5,7 @@ Updated: 2026-10-04
 Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
 unique rolls, first-import provenance and compact batch summaries. The
-[HSR API contract](HSR-API-CONTRACT.md) contains the settled acquisition assumptions
+[HSR API contract](../HSR-API-CONTRACT.md) contains the settled acquisition assumptions
 and retry policy. Milestone 3 is complete: on the user's request the app
 retrieves Honkai: Star Rail warp history from HoYoverse, reviews and saves it
 locally, and shows the saved history, which survives restarts.
@@ -23,7 +23,7 @@ mutation probe. The shell copy reflects the acquisition-first roadmap.
 integration, five failure/discovery probes, source/report validation, TypeScript,
 formatting and Clippy. All required coverage metrics are 100% per source file.
 The regression tests reproduced the four data issues before fixes; the new-suite
-probe confirmed the old command omitted tests. See [testing](TESTING.md) for
+probe confirmed the old command omitted tests. See [testing](../TESTING.md) for
 red/green and mutation evidence. `npm run tauri -- build --no-bundle` also passed for Linux.
 Review fixes are integrated on `main`.
 The existing branch history is preserved; subsequent service work should use
@@ -144,7 +144,7 @@ Helper execution is limited to five seconds and 32 KiB stdout, with discarded
 stdin/stderr. Error cleanup explicitly kills/reaps the helper within a separate
 five-second bound; cancellation uses kill-on-drop. Current and previous log
 outcomes remain independent. See
-[decision 0005](decisions/0005-current-user-windows-discovery.md) for the pinned
+[decision 0005](../decisions/0005-current-user-windows-discovery.md) for the pinned
 dependencies, alternatives and platform limitations.
 
 TDD: four initial tests failed against stubs before implementation. A real-process
@@ -209,7 +209,7 @@ Work is on `feat/extraction-commands`, branched from `main` at `5ce4401` (PR #7)
 contexts stay in an in-memory native session, replaced by each extraction and
 emptied by a failed one. The file command takes the selected file's bytes as a
 raw IPC body; no path crosses IPC. See
-[decision 0006](decisions/0006-desktop-extraction-commands.md).
+[decision 0006](../decisions/0006-desktop-extraction-commands.md).
 
 The user reviewed the wrapper exceptions: `main.rs` now delegates through
 unit-tested `desktop::register`, and `build.rs` declares an app manifest from
@@ -314,7 +314,7 @@ closed and running, and the file fallback with a real `data_2`. SmartScreen did
 not block the unsigned executable. The WSL automatic runs predate the two-version
 window; the Windows runs used the current code. Results, limits and the
 supported/unsupported source table are in
-[HSR API research](HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27).
+[HSR API research](../HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27).
 The roadmap's discovery verification item and all its steps are ticked.
 
 The Windows executable was cross-compiled from WSL with `cargo-xwin` 0.23.1 after
@@ -369,7 +369,7 @@ Work is on `feat/https-transport`, branched from `main` at `8ced225` (PR #17).
 The `Transport` trait fetches one history response; `HttpTransport` implements it
 with exactly pinned `reqwest` 0.13.5 and `rustls` 0.23.45 using `ring` and the OS
 trust store, as the user chose (see
-[decision 0008](decisions/0008-https-transport.md)). It refuses any URL other
+[decision 0008](../decisions/0008-https-transport.md)). It refuses any URL other
 than the exact endpoint before sending, follows no redirects, treats any status
 other than 200 as an error, uses no system proxy, has 10-second connect and
 30-second request timeouts, and stops reading once a body exceeds 2 MiB. No
@@ -446,7 +446,7 @@ hyphenated crates from the nightly's new build-dir layout: all 65 reused crates
 survived its name rule, and every rebuilt crate was pruned or depended on one
 (`proc-macro2` among them). CI now exports `CARGO_HOME` from `asdf where rust`
 and pins rust-cache v2.9.2, which supports that layout. See
-[TESTING.md](TESTING.md#ci-and-handoff).
+[TESTING.md](../TESTING.md#ci-and-handoff).
 
 TDD: the CI guard failed against the v2.8.2 pin and missing `CARGO_HOME` export,
 then passed. `npm run check` passed with 80 Rust unit tests, the integration
@@ -464,7 +464,7 @@ new key; rust-cache then restores its closest earlier entry.
 
 Integrated through PR #21 (`0cea1d1`), branched from `main` at `deee662`. This is
 the first of three PRs for validating during extraction
-([decision 0007](decisions/0007-validate-during-extraction.md)): (A) keep cached
+([decision 0007](../decisions/0007-validate-during-extraction.md)): (A) keep cached
 URLs, (B) a validation service, (C) commands and controls that validate and so
 contact HoYoverse. Extraction now returns a `CachedRequest` per distinct context,
 holding the context and its endpoint-checked cached URL from the context's last
@@ -484,7 +484,7 @@ file, plus TypeScript/build, formatting and Clippy.
 ## Auth-key validation service (2026-09-28)
 
 Integrated through PR #22 (`81b4c28`), branched from `main` at `0cea1d1` (PR B of
-three for [decision 0007](decisions/0007-validate-during-extraction.md)).
+three for [decision 0007](../decisions/0007-validate-during-extraction.md)).
 `acquisition::validate` sends at most five cached URLs unchanged, in the given
 reverse file order, through a `Transport` and `classify`. It returns the first
 context whose response is a valid page, discarding that page's records. `-101`
@@ -508,7 +508,7 @@ checks, all at 100% per file, plus TypeScript/build, formatting and Clippy.
 ## Validation during extraction (2026-09-28)
 
 Integrated through PR #23 (`207d61e`), branched from `main` at `81b4c28`, the
-last of three PRs for [decision 0007](decisions/0007-validate-during-extraction.md).
+last of three PRs for [decision 0007](../decisions/0007-validate-during-extraction.md).
 Both commands now extract, then validate with HoYoverse through `HttpTransport`
 and `validate` in the same user action. The session holds only the validated
 context. It is emptied before each extraction, so any failure leaves none, and
@@ -776,7 +776,7 @@ Nothing is created or opened until the first `Database::run`, which creates the
 folder, opens the store and then reuses it. `run` executes on Tokio's blocking
 pool. A missing or occupied folder, a failed open or a panic in the work gives
 the safe storage `Database` error, and a panic drops the store so it reopens.
-[Decision 0009](decisions/0009-local-database-location.md) records the location
+[Decision 0009](../decisions/0009-local-database-location.md) records the location
 (`%LOCALAPPDATA%\com.shra-ja.roll-tracker` on Windows, the XDG data folder on
 Linux and WSL) and alternatives. The user chose the local folder over the first
 proposed roaming `%APPDATA%`, so history never roams with a Windows profile. On
@@ -830,7 +830,7 @@ copy for moving history; an in-app offer to copy on the first portable start is
 deferred on the roadmap. A file named `data` does not switch modes, and an
 unusable `data` folder fails to open rather than falling back. The README now says
 where history is stored, how portable mode works and how to copy history between
-locations. [Decision 0010](decisions/0010-portable-mode.md) records it.
+locations. [Decision 0010](../decisions/0010-portable-mode.md) records it.
 `desktop::database` is now public for the integration test, and the filesystem
 double's metadata gains `is_dir`.
 
@@ -1047,7 +1047,7 @@ empty list, so those rolls were silently omitted. After the user opened both
 collaboration histories in the game, a redacted read-only scan of the cache found
 them requested from `getLdGachaLog`, and three user-authorized requests confirmed
 that keys work on both endpoints and the response shape is identical (see the
-[research](HSR-API-RESEARCH.md#collaboration-endpoint-2026-09-29)).
+[research](../HSR-API-RESEARCH.md#collaboration-endpoint-2026-09-29)).
 
 Page requests for `21` and `22` now go to `getLdGachaLog`; extraction accepts
 cached requests to either endpoint, so a key found only in a collaboration request
@@ -1134,7 +1134,7 @@ build succeeded.
 ## Vue foundation (2026-09-29)
 
 Integrated through PR #42 (`5424d7c`), branched from `main` at `1f01756`: PR A of two
-for the move to Vue ([decision 0011](decisions/0011-vue-frontend.md)). The user
+for the move to Vue ([decision 0011](../decisions/0011-vue-frontend.md)). The user
 chose Vue over Preact and React for its community, ecosystem and recognition,
 TypeScript 6 over 7 until Vue's tooling supports 7, and `create-vue` and Tauri
 conventions regardless of the app's size, with small presentational components
@@ -1302,7 +1302,7 @@ Windows build succeeded.
 ## Linting and formatting (2026-10-01)
 
 Work is on `build/lint-format`, branched from `main` at `f85158d`, following
-[decision 0012](decisions/0012-linting-and-formatting.md), in four commits.
+[decision 0012](../decisions/0012-linting-and-formatting.md), in four commits.
 
 - **Tools (exact):** ESLint 10.11.0 in both workspaces with `jiti` 2.7.0 for
   TypeScript configs; in `src-ui`, `eslint-plugin-vue` 10.11.1,
@@ -1359,7 +1359,7 @@ Decisions from the review:
 
 - Pity treats each pity group's stored rolls as complete and is recalculated
   when older rolls are imported. It is derived on read, not stored; see
-  [architecture](ARCHITECTURE.md#statistics). `AGENTS.md` now states this rule.
+  [architecture](../ARCHITECTURE.md#statistics). `AGENTS.md` now states this rule.
 - Soft-pity colour thresholds are per banner category. 50/50 colouring is
   disabled with a tooltip until banner metadata exists.
 - Item icons and banner art stay placeholders. Obtaining real art without
@@ -1452,7 +1452,7 @@ formatting and Clippy. `npm run test:offline` also passed.
 
 Work is on `feat/mock-binary`. A second debug binary, `roll-tracker-mock`, runs
 the app against an in-process synthetic HoYoverse
-([decision 0014](decisions/0014-mock-debug-binary.md)); the shipped binary is
+([decision 0014](../decisions/0014-mock-debug-binary.md)); the shipped binary is
 unchanged. Commands take their transport from a managed `Network` (HTTPS or the
 mock); the mock keeps history in its own `roll-tracker-mock` folder, never in
 portable mode. Scenarios cover multi-page history, an expired link, a network
@@ -1736,7 +1736,7 @@ end-to-end tests; `e2e-mock-progress.png` shows the row and the list.
 
 Integrated through PR #61. Work was on `feat/incremental-retrieval`. The roadmap step is no longer optional
 and is split into seven tasks; this covers the first four.
-[Decision 0015](decisions/0015-incremental-retrieval.md) and the HSR contract
+[Decision 0015](../decisions/0015-incremental-retrieval.md) and the HSR contract
 record the quick-refresh rule: a category ends after the first page holding a
 roll already saved for that page's own account (its UID and `region`), keeping
 the page; a page without a region never ends it early; only a full retrieval
@@ -1988,4 +1988,4 @@ switching with filters on the History screen. Native Windows validation of the
 current build remains for milestone 6.
 
 Earlier implementation details, dated measurements and superseded next steps are
-in the [historical status log](STATUS-HISTORY.md).
+in the [historical status log](../STATUS-HISTORY.md).

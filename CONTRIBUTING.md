@@ -223,6 +223,6 @@ bypassable and are not a substitute for protected-branch checks.
 - Formatting and lint pass (`npm run format:check`, `npm run lint:check`); fix
   findings rather than disabling rules.
 - Coverage exclusions unchanged or justified within the allowed categories.
-- Documentation and `docs/STATUS.md` updated with real commands/results.
+- Documentation and `docs/status/STATUS.md` updated with real commands/results.
 - Remaining platform or tooling limitations stated; unrun checks never reported
   as passing, and incomplete gates never treated as approval to integrate.
