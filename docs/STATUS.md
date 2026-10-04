@@ -6,7 +6,9 @@ Milestones 1 and 2 provide the local Tauri shell, HSR response parser, immutable
 import previews and transactional SQLite history storage. Repeated imports retain
 unique rolls, first-import provenance and compact batch summaries. The
 [HSR API contract](HSR-API-CONTRACT.md) contains the settled acquisition assumptions
-and retry policy. The shell does not yet acquire, import or display history.
+and retry policy. Milestone 3 is complete: on the user's request the app
+retrieves Honkai: Star Rail warp history from HoYoverse, reviews and saves it
+locally, and shows the saved history, which survives restarts.
 
 ## Milestone 2 review remediation
 
@@ -1885,7 +1887,7 @@ count requests.
 
 ## Mock account scenarios (2026-10-04)
 
-Work is on `feat/mock-account-scenarios`, the second of three verification PRs.
+Integrated through PR #66. Work was on `feat/mock-account-scenarios`, the second of three verification PRs.
 The mock binary has three more scenarios (decision 0014): `newer-history` adds 25
 newer rolls to every category of the same account; `second-account` serves UID
 `100000002` on `prod_official_usa` (UTC−5) with the same roll IDs as `history`;
@@ -1921,11 +1923,43 @@ waits for two animation frames before each screenshot. The stale frame was
 intermittent, so there is no failing run to show for the fix; later screenshots
 were checked by eye.
 
+## Milestone 3 complete (2026-10-04)
+
+Work is on `test/milestone-3-close`, the last of three verification PRs. A new
+end-to-end test covers empty and missing context. Under `no-history`, retrieving
+and saving through raw IPC are refused before any retrieval (`no_context`,
+`no_preview`); the retrieval ends with "HoYoverse returned no warp history for
+this account. Nothing was saved.", and the database file then holds no account.
+The ended retrieval's link is gone, so the same refusals follow. Relaunched under
+`history`, a retrieval saves 2,060 rolls, after which the link and the review are
+both used up. The test helper that reads the database now lists accounts from
+the `accounts` table, so an account without rolls would show.
+
+TDD: a temporary change that put the link back in the session when a retrieval
+ended made the second `retrieve_history` resolve instead of `no_context`, and the
+test failed; reverted, it passed. No product change was needed.
+
+The service isolation checks still pass in the staged run: the storage
+integration tests for account, server and game isolation, the offline network
+namespace, the CSP probe and the command capability. Every milestone 3 roadmap
+item is ticked, including the parent "Connect acquisition to import preview,
+atomic commit, and history display", whose steps were all done; the STATUS
+introduction and AGENTS.md no longer say history is not displayed.
+
+The first staged run failed in the suite-discovery mutation probe: inside it,
+three frontend component tests (CategoryTabs, ImportSaved, ReviewPanel) found no
+emitted events after a click, and a targeted rerun failed once more in another
+CategoryTabs test before passing. Twenty direct runs of the frontend tests and
+coverage never failed, this branch changes no frontend code, and the full rerun
+passed. The flake is recorded for its own investigation.
+
 ## Next
 
-Close milestone 3 (PR 3): an end-to-end check that a retrieval with no history
-creates no account, and that retrieving or saving without a validated context or
-preview is refused; confirm the service isolation checks; tick the milestone.
+Investigate the intermittent frontend emit failures seen only inside the
+suite-discovery probe. Then milestone 4: propose its PR split first; its first items are file imports through
+the shared pipeline, the second game's adapter, and account switching with
+filters on the History screen. Native Windows validation of the current build
+remains for milestone 6.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

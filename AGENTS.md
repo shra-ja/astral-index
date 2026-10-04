@@ -97,8 +97,8 @@ inspect actual code before assuming a feature exists.
 
 ## Validation and handoff
 
-- The shell, native services and HSR acquisition UI (retrieve, review, save) exist;
-  stored history is not displayed yet. Use `npm test` for UI/tooling
+- The shell, native services, HSR acquisition UI (retrieve, review, save) and the
+  stored-history display exist (milestone 3 is complete). Use `npm test` for UI/tooling
   tests, `npm run check` for all test/coverage/type/lint gates, and
   `npm run tauri -- build --no-bundle` for a production desktop executable.
 - Document exact setup/check commands in `README.md`. Run focused

@@ -8,7 +8,9 @@ Tests that belong to neither the frontend nor the backend alone.
   review and saving, then failed, cancelled and discarded retrievals and a restart
   on the saved data folder, checking that no file the app keeps holds the auth key;
   then newer rolls of the same account, a second account with the same roll IDs
-  and pages that disagree on the account, checked against the database file. `app-driver.ts` drives each app
+  and pages that disagree on the account, checked against the database file;
+  and a retrieval with no history, and requests made without a validated link or
+  a review. `app-driver.ts` drives each app
   through tauri-driver and WebDriver; `close-window-helper.py` closes its window
   as a user would.
 - `backend-coverage-stages.test.ts` holds named stages, selected by the npm
