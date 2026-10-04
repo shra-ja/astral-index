@@ -101,7 +101,7 @@ inspect actual code before assuming a feature exists.
   stored-history display exist (milestones 3 to 7 are complete). Use `npm test` for UI/tooling
   tests, `npm run check` for all test/coverage/type/lint gates, and
   `npm run tauri -- build --no-bundle` for a production desktop executable.
-- Document exact setup/check commands in `README.md`. Run focused
+- Document exact setup/check commands in `docs/development/DEVELOPMENT.md`. Run focused
   tests during TDD and the full tests and coverage gates before handoff/integration.
   Test observable behavior rather than mirroring implementation.
 - Prioritize parser failures, repeated/overlapping imports, cross-account isolation,

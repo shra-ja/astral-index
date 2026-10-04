@@ -2,7 +2,7 @@
 
 [CONTRIBUTING](../../CONTRIBUTING.md) sets the rules: test-driven development and
 exactly 100% coverage of first-party code, enforced per file. This file explains
-how the gates enforce them. Commands are listed in the [README](../../README.md#commands).
+how the gates enforce them. Commands are listed in [development](DEVELOPMENT.md).
 
 ## The check
 
