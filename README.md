@@ -187,10 +187,10 @@ Keep [current status](docs/status/STATUS.md) up to date between tasks.
 
 | Context | Purpose |
 | --- | --- |
-| [Product brief](docs/PROJECT.md) | Scope and user journeys |
+| [Product brief](docs/product/PROJECT.md) | Scope and user journeys |
 | [Architecture](docs/ARCHITECTURE.md) | Boundaries and proposed data model |
 | [Import design](docs/IMPORTS.md) | Requirements for the next milestone |
-| [Roadmap](docs/ROADMAP.md) | Implementation milestones |
+| [Roadmap](docs/product/ROADMAP.md) | Implementation milestones |
 | [Testing](docs/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
 | [Compact provenance](docs/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
 | [HSR API contract](docs/HSR-API-CONTRACT.md) | Accepted initial fields, assumptions, pagination and error handling |

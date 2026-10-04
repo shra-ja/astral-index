@@ -2,9 +2,9 @@
 
 ## Start here
 
-Read `docs/PROJECT.md`, `docs/status/STATUS.md`, and the relevant sections of
+Read `docs/product/PROJECT.md`, `docs/status/STATUS.md`, and the relevant sections of
 `docs/ARCHITECTURE.md` before implementation. Read `CONTRIBUTING.md` for mandatory
-TDD, coverage, and branch workflows. Use `docs/ROADMAP.md` for planned work
+TDD, coverage, and branch workflows. Use `docs/product/ROADMAP.md` for planned work
 and `docs/IMPORTS.md` for ingestion requirements. These documents describe intent;
 inspect actual code before assuming a feature exists.
 

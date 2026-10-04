@@ -1,7 +1,7 @@
 # Roadmap
 
 Milestones are ordered by dependency. Check items only after their acceptance
-criteria are demonstrated; record results and limitations in [STATUS](status/STATUS.md).
+criteria are demonstrated; record results and limitations in [STATUS](../status/STATUS.md).
 Every code milestone follows `../CONTRIBUTING.md`: a short-lived task branch,
 red-green-refactor, and passing full tests and 100% coverage before integration.
 
@@ -44,9 +44,9 @@ shell. This milestone establishes its backend foundations; milestone 3 completes
 the user-facing acquisition and import flow. Standalone history-file import is
 not a prerequisite.
 
-[API research](HSR-API-RESEARCH.md) records request extraction and a working
+[API research](../HSR-API-RESEARCH.md) records request extraction and a working
 nine-field query. Advancing `end_id` and `page` reproduced 50 records across five
-pages. The [initial API contract](HSR-API-CONTRACT.md) now records observed fields,
+pages. The [initial API contract](../HSR-API-CONTRACT.md) now records observed fields,
 accepted assumptions and the observed expired-key response. Additional external
 verification does not block this milestone under the user's agreed scope.
 
@@ -61,7 +61,7 @@ verification does not block this milestone under the user's agreed scope.
   The initial model validates individual pages and preserves optional context;
   it is not yet a resolved account or transactional import model. Request mocks
   are scripted parser-boundary responses, not tests of a production HTTP client.
-  See [response review](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21)
+  See [response review](../HSR-API-RESEARCH.md#response-foundation-review-2026-09-21)
   for policy and remaining external-verification limits.
 - [x] Select and implement the local database, initial migration, and shared
   preview/transactional import services.
@@ -91,10 +91,10 @@ previews, exact-ID deduplication, conflict rejection and compact first-import pr
 Real-file and injected-failure tests cover restart, isolation, stale previews and
 rollback. The contract task is complete under the accepted assumptions; synthetic service
 tests do not establish universal endpoint behaviour or prove lifetime retention.
-See [decision 0003](decisions/0003-sqlite-import-foundations.md).
+See [decision 0003](../decisions/0003-sqlite-import-foundations.md).
 The sole initial schema creates compact storage directly, without page snapshots
-or repeated associations. Obsolete pre-release schemas are rejected, not upgraded. See [decision 0004](decisions/0004-compact-import-provenance.md)
-and the synthetic overlap measurements in [testing](TESTING.md#overlapping-imports-and-schema-2-2026-09-23).
+or repeated associations. Obsolete pre-release schemas are rejected, not upgraded. See [decision 0004](../decisions/0004-compact-import-provenance.md)
+and the synthetic overlap measurements in [testing](../TESTING.md#overlapping-imports-and-schema-2-2026-09-23).
 
 Done when synthetic HSR API responses can be validated, previewed, and committed
 through tested services without duplicate records or partial writes, and repeated
@@ -127,7 +127,7 @@ the order listed.
     headers with independent outcomes and explicit WSL drive mapping (`0fc2cc7`).
   - [x] Resolve the current user's roaming AppData on native Windows and on WSL
     through bounded, killable helpers, without profile scans
-    ([decision 0005](decisions/0005-current-user-windows-discovery.md), `4b360f2`).
+    ([decision 0005](../decisions/0005-current-user-windows-discovery.md), `4b360f2`).
   - [x] Compose current-user discovery, `data_2` resolution and extraction into
     one native automatic-extraction service, tested with mocked OS and file APIs.
     Assume a single cache file holds requests for one account, and return its
@@ -144,8 +144,8 @@ the order listed.
   - [x] Verify automatic extraction against a real installation from native Windows.
   - [x] Verify automatic extraction against a real installation from WSL.
   - [x] Record supported and unsupported sources with evidence
-    ([HSR API research](HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27)).
-- [x] Implement the [initial API contract](HSR-API-CONTRACT.md) in a user-initiated
+    ([HSR API research](../HSR-API-RESEARCH.md#supported-and-unsupported-extraction-sources-2026-09-27)).
+- [x] Implement the [initial API contract](../HSR-API-CONTRACT.md) in a user-initiated
   native client: the two history endpoints (collaboration warps use
   `getLdGachaLog`), 1000-record default pages, cursor pagination,
   cancellation and actionable failures. Use one retry
@@ -162,10 +162,10 @@ the order listed.
   - [x] Validate at most five extracted contexts, in reverse file order, by
     sending each cached request unchanged, and use the first whose auth key
     works. If none works, stop with an actionable error
-    ([auth-key validation](HSR-API-CONTRACT.md#auth-key-validation)). Run
+    ([auth-key validation](../HSR-API-CONTRACT.md#auth-key-validation)). Run
     validation in the same user action as extraction, keep each cached URL only
     until validation ends, and hold only the validated context in the session
-    ([decision 0007](decisions/0007-validate-during-extraction.md)). Update the
+    ([decision 0007](../decisions/0007-validate-during-extraction.md)). Update the
     controls, which will then contact HoYoverse, and their failure messages.
     Retries during validation arrive with the retry-budget step.
   - [x] Paginate each category by cursor. Stop on an empty page and advance on
@@ -191,7 +191,7 @@ the order listed.
   Do not reparse private source bytes in the frontend or expose credentials/raw
   payloads in diagnostics.
   - [x] Resolve the account UID and server from the retrieved responses, per
-    the [contract](HSR-API-CONTRACT.md#account-server-and-timestamps): every
+    the [contract](../HSR-API-CONTRACT.md#account-server-and-timestamps): every
     record's `uid` and every page's `region` must agree, and neither is ever
     fabricated. A retrieval with no records is a normal outcome, not an import
     error: report readably that no history was found, and create no account.
@@ -230,7 +230,7 @@ the order listed.
     visual design, before the stored-history display. Record the choice as a
     decision; weigh 100% branch coverage of compiled templates and dependency size.
     - [x] Adopt Vue 3 with TypeScript 6 and `create-vue`/Tauri conventions
-      ([decision 0011](decisions/0011-vue-frontend.md)): tooling, split type
+      ([decision 0011](../decisions/0011-vue-frontend.md)): tooling, split type
       projects, the tested Vite config and the review screen as a component.
     - [x] Move the frontend into a self-contained `src-ui/` npm workspace beside
       `src-tauri/`, with sibling `*.test.ts` unit tests and integration tests in
@@ -239,7 +239,7 @@ the order listed.
       view, composables for the retrieval flow, small presentational components
       and styles in `assets/`.
     - [x] Lint with type-aware ESLint and format with Prettier in both workspaces
-      ([decision 0012](decisions/0012-linting-and-formatting.md)).
+      ([decision 0012](../decisions/0012-linting-and-formatting.md)).
     - [x] Review the visual design with a mockup of the stored-history display.
       - [x] Mock up the history and import screens on a design canvas (outside
         the repository): sidebar game and screen switching, banner category tabs,
@@ -251,12 +251,12 @@ the order listed.
       - [x] Bundle Hanken Grotesk with the app (open font licence); no remote
         fonts.
       - [x] Record the visual design as a decision
-        ([decision 0013](decisions/0013-visual-design.md)).
+        ([decision 0013](../decisions/0013-visual-design.md)).
   - [x] Set the app window's minimum size to 480×560 where the window is
     created. It excludes phones in either orientation; layouts are fluid above
     it, so the minimum can be lowered if mobile is ever targeted.
   - [x] Display stored history from local storage without triggering acquisition.
-    - [x] Add the app shell from [decision 0013](decisions/0013-visual-design.md):
+    - [x] Add the app shell from [decision 0013](../decisions/0013-visual-design.md):
       a sidebar with the game switcher and separate History and Import screens
       per game, opening on Star Rail's History. Move the existing retrieval flow
       onto the Import screen; Genshin Impact's Import screen says retrieval is
@@ -271,7 +271,7 @@ the order listed.
       rate limit, no history). The shipped binary keeps no test hooks. Add a
       native smoke test that runs the full flow through it with screenshots of
       each screen, and a command to run it by hand. Record it as a decision
-      ([decision 0014](decisions/0014-mock-debug-binary.md)).
+      ([decision 0014](../decisions/0014-mock-debug-binary.md)).
     - [x] Show friendly server names (for example "Asia" for
       `prod_official_asia`) wherever the account's server appears, falling back
       to the raw value for unknown servers.
@@ -374,7 +374,7 @@ Done when an explicit user request retrieves HSR history through the API,
 previews and commits it locally, and displays it after restart without duplicate
 records. Failures preserve existing data; stored-history operations never trigger
 acquisition. This is the first implemented import feature. See
-[decision 0002](decisions/0002-user-requested-history-acquisition.md).
+[decision 0002](../decisions/0002-user-requested-history-acquisition.md).
 
 ## 4 — Additional import sources, multi-game history and statistics
 
@@ -384,7 +384,7 @@ acquisition. This is the first implemented import feature. See
   response/file fixtures, and request mocks.
 - [ ] Add account/server switching, filters, totals, and rarity breakdowns:
   the account switcher, rarity filters and item search, and the summary strip
-  ([decision 0013](decisions/0013-visual-design.md)).
+  ([decision 0013](../decisions/0013-visual-design.md)).
 - [ ] Add the Grid and Icons layouts and the icons-and-banner-art toggle, with
   placeholder art and styled tooltips.
 - [ ] Source banner metadata mapping HSR `gacha_id` pool IDs to banners; keep
@@ -392,7 +392,7 @@ acquisition. This is the first implemented import feature. See
 - [ ] Implement verified banner grouping and pity calculations that treat each
   pity group's stored rolls as complete, recalculating later rolls after older
   rolls are imported. Derive pity on read rather than storing it
-  ([architecture](ARCHITECTURE.md#statistics)). Until verified metadata defines
+  ([architecture](../ARCHITECTURE.md#statistics)). Until verified metadata defines
   pity groups, each banner category keeps its own count. Show it in a Pity
   column.
 - [ ] Colour 5★ pity by closeness to soft pity, with thresholds per banner
@@ -445,7 +445,7 @@ Done when a fresh profile can recover the same records and metadata from a backu
   before commit without automatic reconciliation. Define thresholds and test
   incorrect/skipped earlier imports and legitimate same-second rolls. This niche
   diagnostic is not a prerequisite for milestones 2 or 3; see the
-  [identity contract](HSR-API-CONTRACT.md#identity-and-mismatch-handling).
+  [identity contract](../HSR-API-CONTRACT.md#identity-and-mismatch-handling).
 
 - [ ] Recheck `npm audit` for a patched `braces` (advisory GHSA-vfj7-8cjw-p6xm,
   all versions up to 3.0.3), which the dev tooling pulls in through
