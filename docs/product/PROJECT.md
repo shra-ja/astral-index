@@ -35,12 +35,8 @@ Users own their data and can inspect, back up, and export it without a hosted se
    requested. Route responses through the same import pipeline; explain
    unsupported sources.
 
-The first implemented feature after the shell is Honkai: Star Rail API history
-import. Milestone 2 builds response parsing and transactional storage services;
-milestones 3 to 7 connect automatic extraction and its file fallback, API fetching,
-preview, commit, and history display. Standalone history-file import follows in
-milestone 8 alongside the second adapter, before calling the multi-game milestone
-complete.
+Honkai: Star Rail API history import came first; the [roadmap](ROADMAP.md)
+sequences the rest.
 
 ## Acceptance criteria
 
@@ -65,18 +61,16 @@ User-requested HoYoverse history acquisition is in scope; see
 
 ## Open decisions
 
-- Windows is the initial supported game-installation OS, with cache discovery
-  intended from both Windows and WSL. Ubuntu/WSL remains the development/CI
-  environment; native Windows validation and installer packaging remain pending.
-- Account reconciliation UX and future schema upgrades; SQLite/rusqlite is now
-  selected for storage (decision 0003). The frontend remains vanilla
-  TypeScript/Vite with npm and bundled CSS (decision 0001).
-- Exact supported input formats and available local sources, verified with
-  documentation and synthetic or redacted samples before compatibility claims.
-- How users identify accounts and resolve ambiguous imports.
-- Visual design, branding, and distribution choices. The code is MIT-licensed.
-  A design mockup exists and uses Hanken Grotesk; the source of item icons and
-  banner art is open.
+- Native validation on Windows, the initial game-installation OS, and installer
+  packaging. Development and CI run on Ubuntu and WSL.
+- Exact supported history-file formats and other local sources, verified with
+  documentation and synthetic or redacted samples before claiming compatibility.
+- How users identify accounts and resolve ambiguous imports, and account
+  reconciliation in general.
+- Distribution, and the source of item icons and banner art
+  ([feature 0036](features/0036-item-icons-and-banner-art.md)). The code is
+  MIT-licensed.
 
 These are open decisions, not implied user preferences. Implementation may choose
-reversible technical defaults and record the reasoning.
+reversible technical defaults and record the reasoning. Settled choices are
+[decision records](../architecture/decisions/DECISIONS.md).
