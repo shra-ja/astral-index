@@ -30,7 +30,7 @@ storage. All interface assets are bundled. The only network service contacted is
 HoYoverse's warp history service, and only on the user's request. See the
 [architecture](docs/architecture/ARCHITECTURE.md).
 
-## Where history is stored
+## Storage
 
 Imported history is kept in one SQLite file, `history.sqlite`, in the app's local
 data folder:
@@ -43,10 +43,11 @@ data folder:
 The same folder holds the window's browser profile (cache and similar files):
 `EBWebView` on Windows, `webview` on Linux. It holds no roll history.
 
-**Portable mode:** if a folder named `data` sits next to the application
-executable, the database and browser profile are kept in that folder instead,
-for example `D:\RollTracker\data\history.sqlite` beside
-`D:\RollTracker\roll-tracker.exe`.
+### Portable mode
+
+If a folder named `data` sits next to the application executable, the database
+and browser profile are kept in that folder instead, for example
+`D:\RollTracker\data\history.sqlite` beside `D:\RollTracker\roll-tracker.exe`.
 Create or remove the folder, then restart the app, to switch. If both locations
 hold a database, the portable one is used and the other is left untouched.
 
