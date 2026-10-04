@@ -156,8 +156,8 @@ IDs must have identical remaining fields. Assume UID, pool IDs and item IDs also
 remain stable. Store roll identity as `(game, UID, server, id)` and compare full
 preserved record contents. Identical records are duplicates. A reused scoped roll
 ID with different contents, including changed item/pool IDs or labels, aborts the
-whole import. The future UI must explain the conflict without exposing source
-payloads or credentials. Do not overwrite, merge heuristically, retry to reconcile,
+whole import. The review lists each conflict by category, time and ID, without
+source payloads or credentials, and saving stays disabled. Do not overwrite, merge heuristically, retry to reconcile,
 or commit unaffected subsets. Automatic reconciliation is deferred unless needed.
 
 Imports normally cover an entire period of history. Within a substantially
@@ -168,7 +168,8 @@ should detect and flag this anomaly in future. Compare only the same game,
 account, server and banner scope with compatible timezone evidence. An isolated
 new ID in an older period is not sufficient evidence: it may fill a genuine gap.
 
-This is a niche, low-priority diagnostic deferred beyond the initial import flow.
+This is a niche, low-priority diagnostic in the backlog
+([feature 0042](../../product/features/0042-overlap-anomaly-detection.md)).
 Its overlap threshold and handling of incomplete prior coverage need design and
 synthetic tests when implemented. A detected mismatch should stop the import for
 user review, without automatic reconciliation. Timestamps identify the period
@@ -177,8 +178,7 @@ an item and second, so never merge them solely on those fields.
 
 The current service compares exact scoped IDs and accepts previously unseen IDs;
 it does not yet detect a suspicious concentration of new IDs in an older period.
-Existing tests cover same-ID conflicts and distinct same-second records. The UI
-error presentation remains milestone 5 work.
+Existing tests cover same-ID conflicts and distinct same-second records.
 
 ## Account, server and timestamps
 
@@ -190,10 +190,11 @@ list provides no UID: use established session context or show an empty result
 without creating an account. Never fabricate a UID or server.
 
 Keep the parser's existing mixed-UID rejection and the service's explicit context
-and timezone consistency checks. Formal verification of key-to-account binding,
-server labels, account switching and missing/empty-response context is deferred
-to the **end of milestone 7**, before that milestone is complete. This deferral
-does not permit mixing accounts or disabling existing checks.
+and timezone consistency checks. Key-to-account binding, the response UID and
+server mapping, account separation and empty or missing context were verified end
+to end before milestone 7 closed
+([feature 0029](../../product/features/0029-end-to-end-verification.md)): the
+account always comes from the responses, never from the cache file.
 
 Treat `time` as server time and `region_time_zone` as its UTC-hour offset. The
 samples provide enough context to adopt that assumption now: valid local time
@@ -306,7 +307,7 @@ The delay is one second. The budget spans validation and pagination.
 Never restart already completed pages automatically. No retries for authentication,
 other API errors, malformed responses, unsupported data or identity conflicts.
 If retry fails or its budget is exhausted, report the failure and leave stored
-history unchanged. Client implementation and mocked retry tests belong to milestone 4.
+history unchanged.
 
 Accept complete retained history and manageable per-account volume as product
 assumptions. Fetch all pages for all known categories, preserve previously
@@ -316,13 +317,10 @@ has been retrieved. This does not turn sample evidence into a verified lifetime
 retention guarantee, or fill gaps from cancelled/failed acquisitions. No separate
 retention research or unbounded-volume architecture blocks milestone 2.
 
-## Implementation boundary and acceptance
+## Implementation
 
-Milestone 2's contract task is complete under these explicitly accepted assumptions.
-The existing parser and transactional services remain unchanged. Milestones 4 and 5 must
-implement the single-endpoint client, auth-key validation, bounded
-retry/pagination policy, context resolution and actionable failure UI with
-synthetic TDD and the existing full coverage gates. The initial contract review used saved
-responses; subsequent user-authorized page-parameter comparisons and the
-expired-key check are documented in research. The contract's initial decisions
-are settled; acquisition and user-visible error handling remain to be implemented.
+The parser, storage, native client and import screens implement this contract;
+see [acquisition](../../architecture/acquisition.md) and
+[storage](../../architecture/storage.md). New observations of API behaviour go
+into the [research](api-research.md) as dated evidence first, then change this
+contract deliberately.
