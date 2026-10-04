@@ -11,7 +11,7 @@ No plugins are enabled. See
 [decision 0006](../docs/decisions/0006-desktop-extraction-commands.md).
 
 Run commands from the repository root; see `../README.md`. Future services,
-adapters and persistence follow `../docs/ARCHITECTURE.md`.
+adapters and persistence follow `../docs/architecture/ARCHITECTURE.md`.
 
 `src/lib.rs` is the shared library root with sibling HSR, storage, acquisition and discovery modules.
 `src/hsr.rs` provides bounded, pure HSR response parsing.

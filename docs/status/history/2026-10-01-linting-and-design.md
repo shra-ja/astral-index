@@ -63,7 +63,7 @@ Decisions from the review:
 
 - Pity treats each pity group's stored rolls as complete and is recalculated
   when older rolls are imported. It is derived on read, not stored; see
-  [architecture](../../ARCHITECTURE.md#statistics). `AGENTS.md` now states this rule.
+  [architecture](../../architecture/ARCHITECTURE.md#statistics). `AGENTS.md` now states this rule.
 - Soft-pity colour thresholds are per banner category. 50/50 colouring is
   disabled with a tooltip until banner metadata exists.
 - Item icons and banner art stay placeholders. Obtaining real art without

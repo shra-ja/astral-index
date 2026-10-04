@@ -25,7 +25,7 @@ adapters and a small shared contract rather than a general plugin framework.
 
 ## User-requested history acquisition
 
-[Decision 0002](decisions/0002-user-requested-history-acquisition.md) permits
+[Decision 0002](../decisions/0002-user-requested-history-acquisition.md) permits
 HoYoverse requests only in response to an explicit user action. A single action
 may initiate a bounded, cancellable sequence of validation and paginated history
 requests. No startup fetches, background polling, or scheduled synchronization.
@@ -35,7 +35,7 @@ hosts/paths and redirects, bounds timeouts/responses/attempts, and keeps auth ke
 out of frontend state and logs. Game adapters interpret responses; validated
 records enter the shared preview and transactional import pipeline. Network or
 authentication failures must not corrupt existing history. HTTP library choice and credential retention remain implementation decisions.
-Retry limits are settled in the [HSR API contract](games/hsr/api-contract.md#errors-and-completeness).
+Retry limits are settled in the [HSR API contract](../games/hsr/api-contract.md#errors-and-completeness).
 
 The webview keeps its restrictive CSP and calls a narrow typed native command;
 no arbitrary URL-fetch or shell capability is exposed. The current shell has no
@@ -57,7 +57,7 @@ tooling capable of measuring all required metrics before adding application code
 ## Storage proposal
 
 SQLite through pinned `rusqlite` with bundled SQLite is implemented for native
-services; see [decision 0003](decisions/0003-sqlite-import-foundations.md).
+services; see [decision 0003](../decisions/0003-sqlite-import-foundations.md).
 Choosing the OS application-data path belongs to the later native UI integration. Keep SQL and migrations in the backend;
 do not store durable history in browser localStorage or inside game directories.
 Bundle assets and required game metadata for local use, with explicit versions.
@@ -114,7 +114,7 @@ cancelled, checked under the session lock. `cancel_acquisition` cancels the
 running operation and drops the context and any held preview.
 
 `retrieve_history` takes a `mode`, checked first: `new` for a quick refresh or
-`full` for every page ([decision 0015](decisions/0015-incremental-retrieval.md));
+`full` for every page ([decision 0015](../decisions/0015-incremental-retrieval.md));
 anything else is `invalid_request`, leaving the session untouched. It then takes
 the validated context and its budget out of the session,
 so the session holds no auth key from then on, and fails with `no_context` if
@@ -144,7 +144,7 @@ The automatic command runs current-user extraction. The file command accepts
 only a raw IPC body holding the bytes of a file the user chose through an HTML
 file input; no path crosses IPC. Both then validate the extracted auth keys with
 HoYoverse through `HttpTransport` and `validate`, in the same user action
-([decision 0007](decisions/0007-validate-during-extraction.md)). The native
+([decision 0007](../decisions/0007-validate-during-extraction.md)). The native
 session holds only the validated context, in memory; it is emptied before each
 extraction, so any failure leaves none, and every cached URL is dropped when the
 command returns. Contexts are never serialized, persisted or returned. Both
@@ -157,14 +157,14 @@ HTTP statuses and response text, crosses IPC. The CSP's `connect-src` allows
 only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC
 instead of the JSON `postMessage` fallback; network origins stay blocked. The
 file fallback does pass cache bytes through webview memory; see
-[decision 0006](decisions/0006-desktop-extraction-commands.md).
+[decision 0006](../decisions/0006-desktop-extraction-commands.md).
 
 In the webview, `src-ui/src/commands.ts` wraps the commands through `@tauri-apps/api`,
 maps any rejection that is not exactly a native failure shape to `unavailable`,
 keeps a failure's category and page only when both are valid, streams retrieval
 progress through a `Channel`,
 and rejects files over 16 MiB before reading them. Star Rail's Import screen
-shows one step at a time ([decision 0013](decisions/0013-visual-design.md)). The
+shows one step at a time ([decision 0013](../decisions/0013-visual-design.md)). The
 sources offer "Retrieve history" and "Choose cache file…", say the app contacts
 HoYoverse only when asked, and show file import as coming soon; Genshin Impact's
 are disabled. While retrieval runs, a progress screen marks its steps (finding
@@ -182,11 +182,11 @@ for a device search, "Choose cache file…" and Back. Cancelling, discarding and
 up-to-date or empty retrievals return to the sources with a note, and focus
 returns to the control that started retrieval.
 
-The webview is a Vue app ([decision 0011](decisions/0011-vue-frontend.md)) in three
+The webview is a Vue app ([decision 0011](../decisions/0011-vue-frontend.md)) in three
 layers, so screens can be rearranged without rewriting the flow:
 
 - **Shell and routes:** `src-ui/src/main.ts` mounts `App.vue`, which places the
-  `AppSidebar` beside a `RouterView` ([decision 0013](decisions/0013-visual-design.md)).
+  `AppSidebar` beside a `RouterView` ([decision 0013](../decisions/0013-visual-design.md)).
   `src-ui/src/router/index.ts` uses hash history with a History and an Import
   route per game (`/:game/history`, `/:game/import`); the app opens on Star
   Rail's history and any other address returns there. The shell creates the
@@ -201,7 +201,7 @@ layers, so screens can be rearranged without rewriting the flow:
   progress, the review, how the last retrieval ended and whether a cancel is
   pending) and actions (search the device, read a file, choose the mode, cancel,
   save, discard, done, dismiss). The mode, new rolls only by default or the full
-  history ([decision 0015](decisions/0015-incremental-retrieval.md)), is chosen on
+  history ([decision 0015](../decisions/0015-incremental-retrieval.md)), is chosen on
   the Retrieve card and applies to both ways of finding the link; it lasts while
   the app is open. The download's progress records which categories a quick
   refresh ended at saved rolls, which the progress list marks "Up to date". The outcome is a save with its
@@ -264,7 +264,7 @@ in the device's time zone; a failed read leaves the line out.
 
 Commands take their transport from a managed `Network`: HTTPS to HoYoverse in the
 app, or the synthetic HoYoverse of the mock debug binary
-([decision 0014](decisions/0014-mock-debug-binary.md)). `acquisition::mock`
+([decision 0014](../decisions/0014-mock-debug-binary.md)). `acquisition::mock`
 generates pages from each request's category, cursor and size for a scenario
 chosen by `ROLL_TRACKER_MOCK_SCENARIO`, sending nothing; the mock binary keeps its
 history in its own `roll-tracker-mock` folder and never uses portable mode.
@@ -310,7 +310,7 @@ directly for decoding and calendar validation without device-clock access.
 A page is not an import-ready account identity: the future service must resolve
 missing server evidence and compare UID, server, timezone, and requested banner
 across pages before merging. No complete-history claim follows from an empty
-page. The shell does not invoke the adapter. SQLite service behavior is described below; see [research](games/hsr/api-research.md) for the deliberately limited contract.
+page. The shell does not invoke the adapter. SQLite service behavior is described below; see [research](../games/hsr/api-research.md) for the deliberately limited contract.
 
 ## Implemented SQLite import services
 
@@ -339,7 +339,7 @@ profile; `roll-tracker` in the XDG data folder on Linux, including WSL), resolve
 at setup but created and opened only on first use. A `data` folder beside the
 executable switches on portable mode, and the database then lives there instead;
 `database::location` chooses, and a portable database is used even if the local
-folder also has one ([decision 0010](decisions/0010-portable-mode.md)). The setup
+folder also has one ([decision 0010](../decisions/0010-portable-mode.md)). The setup
 hook also opens the main window, pointing the webview's profile into the same
 folder (`webview` on Linux; WebView2 adds `EBWebView` itself on Windows). The
 mock debug binary removes its webview profile (`database::webview_profile`:
@@ -351,7 +351,7 @@ from 0.5 to 3, so development under WSL, which renders at 1×, can match the
 Windows display scale; release builds do not contain this.
 `desktop::Database::run` runs SQLite work on Tokio's blocking pool, reusing the
 open store; failures are the safe storage `Database` error. See
-[decision 0009](decisions/0009-local-database-location.md).
+[decision 0009](../decisions/0009-local-database-location.md).
 
 Schema version 2 has accounts, unique rolls, compact import summaries and database
 identity/revision metadata. Keys include game, UID, server and string record ID.
@@ -361,7 +361,7 @@ page snapshots and repeated associations are not retained. Identical reimports
 add only a summary and revision update. Conflicts block the entire import,
 including localized-label or timezone changes. Unknown timezone stays unknown;
 resolving it requires explicit reconciliation rather than silent conversion.
-See [decision 0004](decisions/0004-compact-import-provenance.md) for the deliberate
+See [decision 0004](../decisions/0004-compact-import-provenance.md) for the deliberate
 loss of exact historical input reconstruction and pre-release schema policy.
 
 Commit acquires an immediate transaction, verifies database identity/revision,
@@ -390,7 +390,7 @@ must resolve selected account/server and compare requested banner context.
 
 ## Initial acquisition contract
 
-The [HSR API contract](games/hsr/api-contract.md) fixes the initial two-endpoint scope
+The [HSR API contract](../games/hsr/api-contract.md) fixes the initial two-endpoint scope
 and records accepted assumptions separately from observed evidence. Trust the auth
 key to select the account for initial acquisition; preserve response UID, region
 and offset for storage. Formal account/server verification is a closing requirement
@@ -445,7 +445,7 @@ Hash-set membership avoids scanning every prior context for each candidate.
 Each context comes back as a `CachedRequest` with its cached URL: the exact
 endpoint-checked text up to the entry's NUL, taken from the context's last
 occurrence, for validation to send unchanged
-([decision 0007](decisions/0007-validate-during-extraction.md)).
+([decision 0007](../decisions/0007-validate-during-extraction.md)).
 `CachedRequest::into_context` drops the URL. The desktop commands pass cached
 requests straight to validation, so no cached URL outlives an extraction command.
 
@@ -485,7 +485,7 @@ URL other than the two exact endpoints before sending, never follows redirects,
 treats any status other than 200 as an error, uses no system proxy, applies
 10-second connect and 30-second request timeouts, and stops reading once a body
 exceeds 2 MiB. The extraction commands use it for validation. See
-[decision 0008](decisions/0008-https-transport.md).
+[decision 0008](../decisions/0008-https-transport.md).
 
 `src-tauri/src/acquisition/outcome.rs` classifies one attempt, a transport result,
 into a parsed page or a `FetchFailure`. HTTP success is not API success: a 200
@@ -499,7 +499,7 @@ sent. The parser mapping lists every `ParseError` variant, so a new one must be
 classified explicitly.
 
 `src-tauri/src/acquisition/validation.rs` validates auth keys
-([decision 0007](decisions/0007-validate-during-extraction.md)). `validate` takes
+([decision 0007](../decisions/0007-validate-during-extraction.md)). `validate` takes
 the extracted cached requests, in reverse file order, and sends at most five
 cached URLs unchanged through a `Transport` and the classifier. It returns the
 first context whose response is a valid page, discarding that page's records.
@@ -537,7 +537,7 @@ own account's IDs only; a failed read is a storage failure and nothing is sent.
 A full retrieval passes no check and reads nothing beforehand.
 
 `fetch_history` also resolves the account the history belongs to, per the
-[contract](games/hsr/api-contract.md#account-server-and-timestamps). The UID comes
+[contract](../games/hsr/api-contract.md#account-server-and-timestamps). The UID comes
 from records (the parser already requires one UID per page) and the server from
 each page's `region`; a page without a region, or without records, adds no
 evidence, but every value present must match the first, or retrieval stops at
@@ -612,7 +612,7 @@ extraction fetches history.
 
 ### Current-user system discovery
 
-See [decision 0005](decisions/0005-current-user-windows-discovery.md) for the
+See [decision 0005](../decisions/0005-current-user-windows-discovery.md) for the
 OS lookup, helper and dependency choices.
 
 `src-tauri/src/discovery/system.rs` adds the explicitly invoked asynchronous
