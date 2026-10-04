@@ -110,7 +110,8 @@ inspect actual code before assuming a feature exists.
 - For UI work, check keyboard operation, readable empty/error states, and native
   Tauri behavior where available. Browser mocks alone do not validate native I/O.
 - Update `docs/status/STATUS.md` with completed work, actual verification, and the next
-  concrete task. Update architecture/decisions when behavior or boundaries change.
+  concrete task, and archive integrated sections as its "Keeping this file current"
+  section describes. Update architecture/decisions when behavior or boundaries change.
 - Report the task branch, red/green evidence, full test and coverage results, what
   changed, and any remaining limitations. Do not
   commit, publish, or release unless requested.
