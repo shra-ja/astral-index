@@ -112,6 +112,12 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
     },
     screenshot: async (name: string) => {
       mkdirSync('test-results', { recursive: true })
+      // Wait for the next paint, or the capture can show the screen before the last change.
+      await command('/execute/async', 'POST', {
+        script:
+          'const done = arguments[arguments.length - 1]; requestAnimationFrame(() => requestAnimationFrame(() => done()))',
+        args: [],
+      })
       const image = await command<string>('/screenshot')
       writeFileSync(`test-results/${name}.png`, Buffer.from(image, 'base64'))
     },
