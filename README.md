@@ -1,34 +1,33 @@
 # Roll Tracker
 
-A desktop app that keeps a durable, local record of your gacha rolls, starting
-with Honkai: Star Rail and Genshin Impact. It fetches your history from HoYoverse
-only when you ask, and keeps it on your computer: no account with us, no cloud,
-no telemetry.
+An open-source desktop application that keeps a local record of gacha roll
+history, starting with Honkai: Star Rail and Genshin Impact. History is fetched
+from HoYoverse only on the user's request and stored on the user's computer. The
+application has no user accounts, cloud storage or telemetry.
 
 ## Features
 
-- **Retrieve your warp history on request.** Roll Tracker finds the warp history
-  link the game saved when you last opened your history in game, by searching
-  your installation or reading a cache file you choose, then retrieves every warp
-  category from HoYoverse.
-- **Refresh quickly.** By default a retrieval stops at rolls you already saved;
-  a full retrieval fetches everything again.
-- **Review before saving.** See the account, how many rolls are new, already
-  saved or conflicting, and the period covered. Nothing is saved until you
-  confirm, and a failed or cancelled retrieval changes nothing.
-- **Browse saved history** by warp, newest first, without going online.
-- **Keep accounts and servers apart,** and import as often as you like: repeated
-  or overlapping retrievals add only new rolls.
+- Retrieval of Honkai: Star Rail warp history on request. The application finds
+  the warp history link that the game cached when the history was last opened in
+  game, either by searching the installation or by reading a chosen cache file,
+  then retrieves every warp category from HoYoverse.
+- Two retrieval modes: by default a retrieval stops at rolls that are already
+  saved; a full retrieval fetches the whole history again.
+- A review before saving, showing the account, the numbers of new, already saved
+  and conflicting rolls, and the period covered. Nothing is saved until the review
+  is confirmed, and a failed or cancelled retrieval changes nothing.
+- Browsing of saved history by warp, newest first, without network access.
+- Separate history per account and server. Repeated or overlapping retrievals add
+  only new rolls.
 
-Honkai: Star Rail retrieval works today. Genshin Impact, history-file imports,
-account switching, filters, statistics, pity and backups are planned; see the
-[roadmap](docs/product/ROADMAP.md).
+Genshin Impact, history-file imports, account switching, filters, statistics,
+pity and backups are planned; see the [roadmap](docs/product/ROADMAP.md).
 
-## Built with
+## Architecture
 
 Tauri 2 with a Rust backend, a Vue 3 and TypeScript interface, and SQLite for
-storage. Everything the app shows is bundled with it; it contacts only
-HoYoverse's warp history service, and only when you ask. See the
+storage. All interface assets are bundled. The only network service contacted is
+HoYoverse's warp history service, and only on the user's request. See the
 [architecture](docs/architecture/ARCHITECTURE.md).
 
 ## Where history is stored
@@ -55,7 +54,7 @@ To move existing history between the two locations:
 
 1. Close Roll Tracker.
 2. Copy `history.sqlite` from the old folder to the new one. Keep the original
-   until you have checked your history in the new location.
+   until the history has been checked in the new location.
 3. Start Roll Tracker.
 
 ## Contributing
