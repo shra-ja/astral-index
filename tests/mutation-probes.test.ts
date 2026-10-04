@@ -235,6 +235,27 @@ test('the unit-only report is mandatory and cannot be replaced by boundary cover
   }
 }, 30000)
 
+// Agents rely on the docs: a broken link or a doc nothing links to must fail the check.
+test('the docs gate rejects a broken link and an unreachable doc', () => {
+  const probe = 'docs/docs-probe.md'
+  expect(existsSync(probe)).toBe(false)
+  try {
+    writeFileSync(probe, '# Probe\n\n[gone](missing-probe-target.md)\n')
+    expectCommandFailure(
+      'npm',
+      ['run', 'docs:check'],
+      'docs/docs-probe.md:3: missing-probe-target.md does not exist',
+    )
+    expectCommandFailure(
+      'npm',
+      ['run', 'docs:check'],
+      'docs/docs-probe.md is not reachable by links from AGENTS.md',
+    )
+  } finally {
+    unlinkSync(probe)
+  }
+}, 30000)
+
 test('the wrapper exception guard rejects added startup behavior', () => {
   const path = 'src-tauri/src/main.rs'
   const original = readFileSync(path, 'utf8')
