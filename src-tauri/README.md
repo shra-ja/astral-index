@@ -27,7 +27,7 @@ are rejected unchanged and must be explicitly recreated; there is no upgrade cha
 [decision 0004](../docs/decisions/0004-compact-import-provenance.md) for identity,
 conflict, provenance and migration policy. The library's native
 path argument is not exposed to the webview; app-data path selection and typed
-commands remain milestone 3 work.
+commands remain milestone 5 work.
 
 `src/discovery.rs` reads bounded Windows player-log headers from supplied
 roaming AppData or a selected log, with explicit WSL drive mapping.

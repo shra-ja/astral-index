@@ -37,9 +37,9 @@ Users own their data and can inspect, back up, and export it without a hosted se
 
 The first implemented feature after the shell is Honkai: Star Rail API history
 import. Milestone 2 builds response parsing and transactional storage services;
-milestone 3 connects automatic extraction and its file fallback, API fetching,
+milestones 3 to 7 connect automatic extraction and its file fallback, API fetching,
 preview, commit, and history display. Standalone history-file import follows in
-milestone 4 alongside the second adapter, before calling the multi-game milestone
+milestone 8 alongside the second adapter, before calling the multi-game milestone
 complete.
 
 ## Acceptance criteria

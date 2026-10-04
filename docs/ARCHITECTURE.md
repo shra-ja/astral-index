@@ -394,7 +394,7 @@ The [HSR API contract](HSR-API-CONTRACT.md) fixes the initial two-endpoint scope
 and records accepted assumptions separately from observed evidence. Trust the auth
 key to select the account for initial acquisition; preserve response UID, region
 and offset for storage. Formal account/server verification is a closing requirement
-of milestone 3. Existing scoped storage and conflict checks remain mandatory.
+of milestone 7. Existing scoped storage and conflict checks remain mandatory.
 
 The future client defaults to 1000 records per page and sequential fetching,
 balancing request count with smaller response batches.

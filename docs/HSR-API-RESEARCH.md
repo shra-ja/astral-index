@@ -10,7 +10,7 @@ codes, and records the user's accepted assumptions for the single tested endpoin
 stable identity, auth-key account selection, server time, pagination and complete
 retained history. It also defines a low-request, bounded-retry policy and the
 observed expired-key response. Account/server verification finishes at the
-end of milestone 3. Milestone 2's contract work is complete under that scope.
+end of milestone 7. Milestone 2's contract work is complete under that scope.
 
 The dated observations below remain research evidence. Earlier statements that
 verification blocks milestone 2 are superseded by the accepted contract; they

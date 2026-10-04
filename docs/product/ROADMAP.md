@@ -31,7 +31,7 @@ release must do; [STATUS](../status/STATUS.md) says where it stands.
 ### 2 — HSR API import foundations
 
 Honkai: Star Rail API history import is the first feature to implement after the
-shell. This milestone establishes its backend foundations; milestone 3 completes
+shell. This milestone establishes its backend foundations; milestones 3 to 7 complete
 the user-facing acquisition and import flow. Standalone history-file import is
 not a prerequisite.
 

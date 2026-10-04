@@ -23,8 +23,8 @@ of records that the API no longer provides.
 | Honkai: Star Rail | Parser/storage implemented; two-endpoint contract accepted (collaboration warps use `getLdGachaLog`) | Cache URL extraction researched; nine-field query retrieved records in authorized tests; five-page cursor test accepted for initial implementation; see [contract](HSR-API-CONTRACT.md) |
 
 Implementation order: HSR API response parsing and transactional services in
-milestone 2, user-requested API import in milestone 3, then standalone history-
-file imports and additional game sources in milestone 4. Cache selection for
+milestone 2, user-requested API import in milestones 3 to 7, then standalone history-
+file imports and additional game sources in milestone 8. Cache selection for
 authentication is part of API acquisition, not history-file import.
 
 ## Adapter contract

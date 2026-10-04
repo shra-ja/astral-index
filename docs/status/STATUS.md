@@ -44,11 +44,11 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Then milestone 4:
+If the probe flake recurs, read its snapshot before rerunning. Then milestone 8:
 propose its PR split first. Its first items are history-file imports through the
 shared pipeline, the second game's adapter, and account switching with filters
 on the History screen. Native Windows validation of the current build belongs to
-milestone 6.
+milestone 10.
 
 ## Keeping this file current
 
@@ -103,6 +103,6 @@ next at the time.
   progress counts and incremental retrieval.
 - [2026-10-04: end-to-end verification](history/2026-10-04-end-to-end-verification.md):
   the mock's fresh webview profile, development zoom, and the end-to-end checks
-  that closed milestone 3.
+  that closed milestone 7.
 - [2026-10-04: probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md):
   the frontend emit flake investigation and the probes' failure snapshots.

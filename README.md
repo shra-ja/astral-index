@@ -125,7 +125,7 @@ ignored by Git.
 To check behaviour in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
 experimental; it is not a release process, and installers and signing remain
-milestone 6 work. It was used for the
+milestone 10 work. It was used for the
 [native Windows verification](docs/HSR-API-RESEARCH.md#native-windows-verification-2026-09-27).
 
 ```sh

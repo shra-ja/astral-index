@@ -145,7 +145,7 @@ Banner labels use the official in-game terminology supplied by the user. The
 UIGF enum establishes the six recognised category codes. An empty result
 for the earlier experimental code `13` does not make it a supported category.
 Metadata mapping individual `gacha_id` pools to banners will be sourced later,
-alongside milestone 4's banner work. The supplied pool ID is sufficient for initial
+alongside milestone 8's banner work. The supplied pool ID is sufficient for initial
 import; imports must not depend on metadata lookup or trigger metadata requests.
 No pity grouping or guarantee rule follows from this table.
 
@@ -178,7 +178,7 @@ an item and second, so never merge them solely on those fields.
 The current service compares exact scoped IDs and accepts previously unseen IDs;
 it does not yet detect a suspicious concentration of new IDs in an older period.
 Existing tests cover same-ID conflicts and distinct same-second records. The UI
-error presentation remains milestone 3 work.
+error presentation remains milestone 5 work.
 
 ## Account, server and timestamps
 
@@ -192,7 +192,7 @@ without creating an account. Never fabricate a UID or server.
 Keep the parser's existing mixed-UID rejection and the service's explicit context
 and timezone consistency checks. Formal verification of key-to-account binding,
 server labels, account switching and missing/empty-response context is deferred
-to the **end of milestone 3**, before that milestone is complete. This deferral
+to the **end of milestone 7**, before that milestone is complete. This deferral
 does not permit mixing accounts or disabling existing checks.
 
 Treat `time` as server time and `region_time_zone` as its UTC-hour offset. The
@@ -306,7 +306,7 @@ The delay is one second. The budget spans validation and pagination.
 Never restart already completed pages automatically. No retries for authentication,
 other API errors, malformed responses, unsupported data or identity conflicts.
 If retry fails or its budget is exhausted, report the failure and leave stored
-history unchanged. Client implementation and mocked retry tests belong to milestone 3.
+history unchanged. Client implementation and mocked retry tests belong to milestone 4.
 
 Accept complete retained history and manageable per-account volume as product
 assumptions. Fetch all pages for all known categories, preserve previously
@@ -319,7 +319,7 @@ retention research or unbounded-volume architecture blocks milestone 2.
 ## Implementation boundary and acceptance
 
 Milestone 2's contract task is complete under these explicitly accepted assumptions.
-The existing parser and transactional services remain unchanged. Milestone 3 must
+The existing parser and transactional services remain unchanged. Milestones 4 and 5 must
 implement the single-endpoint client, auth-key validation, bounded
 retry/pagination policy, context resolution and actionable failure UI with
 synthetic TDD and the existing full coverage gates. The initial contract review used saved
