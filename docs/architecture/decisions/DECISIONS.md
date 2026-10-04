@@ -29,12 +29,14 @@ What tradeoffs, limitations, and follow-up work result?
 Relevant documentation, experiments, or validation results.
 ```
 
-Tauri originates from the project brief. Decision 0002 replaces the original
-offline-only acquisition assumption with user-requested HoYoverse fetching.
+Tauri itself comes from the project brief rather than a decision. Decision 0002
+replaces the original offline-only acquisition assumption with user-requested
+HoYoverse fetching.
 
 - [0001 — Minimal offline shell and test stack](0001-shell-and-test-stack.md)
 - [0002 — User-requested HoYoverse history acquisition](0002-user-requested-history-acquisition.md)
-
+- [0003 — SQLite storage and reviewed imports](0003-sqlite-import-foundations.md)
+- [0004 — Compact provenance for overlapping imports](0004-compact-import-provenance.md)
 - [0005 — Current-user Windows discovery](0005-current-user-windows-discovery.md)
 - [0006 — Desktop extraction commands](0006-desktop-extraction-commands.md)
 - [0007 — Validate during extraction](0007-validate-during-extraction.md)
