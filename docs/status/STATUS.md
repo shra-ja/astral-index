@@ -1988,4 +1988,4 @@ switching with filters on the History screen. Native Windows validation of the
 current build remains for milestone 6.
 
 Earlier implementation details, dated measurements and superseded next steps are
-in the [historical status log](../STATUS-HISTORY.md).
+in the [historical status log](history/2026-09-25-shell-and-storage-foundations.md).

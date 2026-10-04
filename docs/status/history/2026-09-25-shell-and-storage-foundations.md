@@ -1,7 +1,7 @@
-# Historical project status
+# Shell and storage foundations (archived 2026-09-25)
 
 Archived on 2026-09-25. Statements and “Next” items below describe their historical
-context, not current priorities. See [current status](status/STATUS.md).
+context, not current priorities. See [current status](../STATUS.md).
 
 ## Current state
 
@@ -19,7 +19,7 @@ no native capabilities or plugins are enabled. Decision 0001 records the stack.
 
 ## Milestone 2 contract complete (2026-09-23)
 
-Formalised [the initial HSR API contract](HSR-API-CONTRACT.md) on
+Formalised [the initial HSR API contract](../../HSR-API-CONTRACT.md) on
 `feat/hsr-response-foundations` using the user's explicit scope decisions. Milestone
 2 is complete under those accepted assumptions. Reviewed all 12 saved response
 bodies locally, reporting only field types and aggregate context evidence.
@@ -110,7 +110,7 @@ remain enforced. At the user's request, the compact schema is now the sole initi
 Breaking pre-release schema changes are permitted; obsolete development databases
 are rejected unchanged and must be explicitly recreated. There is no upgrade
 chain. The lack of historical input reconstruction and compatibility policy are
-recorded in [decision 0004](decisions/0004-compact-import-provenance.md).
+recorded in [decision 0004](../../decisions/0004-compact-import-provenance.md).
 
 TDD: repeat-import tests first failed on attempted duplicate inserts. For the
 subsequent schema simplification, tests first failed because initial SQL created
@@ -130,7 +130,7 @@ then advances the 12-month window 12 times, reaching 12,000 unique rolls and 37
 summaries. Initial/repeat/rolling times were 202 ms / 4.143 s / 2.062 s; process
 peak RSS was 26,376 KiB. The database stayed at 2,420,736 bytes through complete
 repeats, then grew to 4,808,704 bytes with new rolls. These are local debug-build
-observations, not release-speed guarantees. See [testing](TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
+observations, not release-speed guarantees. See [testing](../../TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
 for the reproducible workload, assertions and measurement limits.
 
 `npm run tauri -- build --no-bundle` passed. Relative Markdown links and
@@ -164,7 +164,7 @@ parser boundaries without credentials, private files or network calls.
 TDD: seven behavior tests failed against a compiling placeholder, then passed;
 two follow-up assertions failed for unknown-field loss and API errors without
 data, then passed after implementation. Ten Rust tests pass, including a
-scripted overlap/terminal-response scenario. See [testing](TESTING.md) for details.
+scripted overlap/terminal-response scenario. See [testing](../../TESTING.md) for details.
 
 Final verification on Ubuntu 24.04:
 
@@ -186,7 +186,7 @@ The API format-verification item remains open: current global endpoint variants,
 terminal pages, expiry/rate-limit behavior and completeness need further evidence.
 The parser is not connected to the shell or an HTTP client. Scripted mocks do not
 validate network transport or an automatic pagination loop. See
-[response research](HSR-API-RESEARCH.md#response-foundation-review-2026-09-21).
+[response research](../../HSR-API-RESEARCH.md#response-foundation-review-2026-09-21).
 
 ## Milestone 2 SQLite services (2026-09-22)
 
@@ -197,7 +197,7 @@ schema, tests, test layout and documentation. No push, integration or release
 was performed.
 
 Selected pinned `rusqlite` 0.40.2 with bundled SQLite; see
-[decision 0003](decisions/0003-sqlite-import-foundations.md). Implemented schema
+[decision 0003](../../decisions/0003-sqlite-import-foundations.md). Implemented schema
 version 1, native database open, immutable HSR previews, atomic commits, scoped
 history queries and batch provenance. Text identity keys preserve game/UID/server/
 record separation. Source fields, unknown extensions, order, optional timezone,
@@ -316,7 +316,7 @@ Milestone 2 starts with Honkai: Star Rail. Research on
 `docs/hsr-cache-format-research` (from up-to-date `main`, `eb10fb5`) now focuses
 on API request extraction, query parameters, and pagination. Cache inspection identified request URLs; subsequent API tests established
 record retrieval and cursor pagination. See
-[HSR API research](HSR-API-RESEARCH.md), renamed to reflect this broader scope.
+[HSR API research](../../HSR-API-RESEARCH.md), renamed to reflect this broader scope.
 
 Offline reproduction found 414 candidates in the original cache. The user's
 replacement cache contains three type-11 requests showing `end_id` advancing
@@ -340,7 +340,7 @@ now milestone 3 and completes the first user-facing API import feature. History-
 file import and multi-game/statistics follow in milestone 4, then backup/restore
 in milestone 5. User-requested HoYoverse acquisition
 is now an accepted requirement
-([decision 0002](decisions/0002-user-requested-history-acquisition.md)), alongside
+([decision 0002](../../decisions/0002-user-requested-history-acquisition.md)), alongside
 local file import. No network functionality is added to the application; live
 probes were separate research requests.
 
@@ -367,7 +367,7 @@ and `git diff --check` also passed. No commits or publishing were performed.
 ## Outstanding decisions
 
 The UIGF v4.2 reference skill is installed locally to the project at
-[`.agents/skills/uigf/SKILL.md`](../.agents/skills/uigf/SKILL.md). It covers
+[`.agents/skills/uigf/SKILL.md`](../../../.agents/skills/uigf/SKILL.md). It covers
 roll storage, import/export, IDs, enums, timestamps, and legacy conversion.
 The installed copy passed the skill validator and matches the validated source;
 its synthetic example was checked against the published UIGF schema. This is
