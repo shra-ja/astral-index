@@ -329,7 +329,44 @@ fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::
     if let Some(folder) = folder {
         window = window.data_directory(database::webview_folder(folder));
     }
-    window.build().map(drop)
+    window
+        .build()
+        .and_then(|window| zoom_for_development(&window))
+}
+
+/// Debug builds zoom the webview by `ROLL_TRACKER_ZOOM`, when it holds a valid zoom.
+#[cfg(debug_assertions)]
+fn zoom_for_development<R: Runtime>(window: &tauri::WebviewWindow<R>) -> tauri::Result<()> {
+    apply_dev_zoom(window, std::env::var(ZOOM_VARIABLE).ok().as_deref())
+}
+/// Release builds keep the webview's own zoom.
+#[cfg(not(debug_assertions))]
+fn zoom_for_development<R: Runtime>(_: &tauri::WebviewWindow<R>) -> tauri::Result<()> {
+    Ok(())
+}
+
+/// Debug builds read a webview zoom from this variable, so development under WSL,
+/// which renders at 1x, can match the Windows display scale. Release builds ignore
+/// it.
+#[cfg(debug_assertions)]
+pub const ZOOM_VARIABLE: &str = "ROLL_TRACKER_ZOOM";
+
+/// A zoom from 0.5 to 3, or none for anything else.
+#[cfg(debug_assertions)]
+fn dev_zoom(value: Option<&str>) -> Option<f64> {
+    value?
+        .parse::<f64>()
+        .ok()
+        .filter(|zoom| (0.5..=3.0).contains(zoom))
+}
+
+/// Zoom the window's webview when `value` is a valid zoom; otherwise leave it.
+#[cfg(debug_assertions)]
+fn apply_dev_zoom<R: Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    value: Option<&str>,
+) -> tauri::Result<()> {
+    dev_zoom(value).map_or(Ok(()), |zoom| window.set_zoom(zoom))
 }
 
 impl From<ExtractionError> for Failure {
@@ -951,6 +988,35 @@ mod tests {
             Err(Failure::ExpiredKey)
         );
         assert!(requested().is_empty());
+    }
+
+    #[test]
+    fn a_development_zoom_is_a_number_from_half_to_three() {
+        assert_eq!(dev_zoom(Some("1.25")), Some(1.25));
+        assert_eq!(dev_zoom(Some("0.5")), Some(0.5));
+        assert_eq!(dev_zoom(Some("3")), Some(3.0));
+        for ignored in [
+            None,
+            Some(""),
+            Some("large"),
+            Some("0.4"),
+            Some("3.5"),
+            Some("-1"),
+            Some("NaN"),
+            Some("inf"),
+        ] {
+            assert_eq!(dev_zoom(ignored), None, "{ignored:?}");
+        }
+    }
+
+    #[test]
+    fn the_window_takes_a_development_zoom_and_ignores_anything_else() {
+        let app = mock_builder().build(mock_context(noop_assets())).unwrap();
+        open_window(app.handle(), None).unwrap();
+        let window = app.get_webview_window("main").unwrap();
+        for value in [Some("1.25"), Some("large"), None] {
+            assert!(apply_dev_zoom(&window, value).is_ok());
+        }
     }
 
     #[test]

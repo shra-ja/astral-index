@@ -1800,7 +1800,7 @@ end-to-end tests.
 
 ## Fresh webview profile for the mock (2026-10-04)
 
-Work is on `fix/mock-webview-profile`. Running `npm run tauri:mock` showed
+Integrated through PR #63. Work was on `fix/mock-webview-profile`. Running `npm run tauri:mock` showed
 "ENOENT: no such file or directory, open '/src/components/CachePicker.vue'".
 The mock's persistent WebKit cache (`roll-tracker-mock/webview/WebKitCache`) still
 held `ImportView.vue`, `ImportSources.vue` and `ImportFailed.vue` from 2 October,
@@ -1823,6 +1823,42 @@ passed: formatting, lint, build, 168 Rust unit tests, 207 frontend and 36
 tooling tests, the mutation probes and report checks at 100% per file, Rust
 formatting and Clippy. `npm run test:offline` passed, including all three
 end-to-end tests.
+
+## Development zoom (2026-10-04)
+
+Work is on `feat/dev-zoom`. The app looked smaller than the design canvas: under
+WSL the Linux build renders at 1× (WSLg gives the Wayland window no scale, and
+GTK 3 applies `GDK_SCALE` only to X11, in whole steps), while Windows was at 125%.
+Debug builds now read `ROLL_TRACKER_ZOOM` (0.5 to 3) and zoom the webview, so
+`ROLL_TRACKER_ZOOM=1.25 npm run tauri:mock` matches a 125% display. Anything else
+is ignored. Release builds do not contain the code; on Windows, WebView2 follows
+the display scale itself, which still awaits the Windows validation item. The
+README documents the variable.
+
+TDD: the parsing test failed against a stub, then passed. A new end-to-end test
+launches the mock with `ROLL_TRACKER_ZOOM=1.25` and expects an 800-pixel-wide
+page in the 1000-pixel window; with the zoom call disabled it measured 1000 and
+failed. The window test passes either way, since the mock runtime cannot show a
+zoom.
+
+The unit coverage gate caught the window setup's new error paths, which the mock
+runtime never reaches; the zoom is now applied by a function the window build
+hands its result to, with a no-op in release builds. The end-to-end screenshot
+(`e2e-mock-zoom.png`) shows the app at 125%.
+
+Run stage by stage with `CARGO_BUILD_JOBS=8`, every stage of `npm run check`
+passed on the branch rebased onto PR #63: formatting, lint, build, 170 Rust unit tests, 207 frontend and 36
+tooling tests, the mutation probes and report checks at 100% per file, Rust
+formatting and Clippy (also clean for a release build). `npm run test:offline`
+passed, including all four end-to-end tests.
+
+The PR's CI run then failed in the CSP mutation probe, whose end-to-end rerun
+broke before reaching the CSP check: the shell test read the History screen's
+empty state once, right after launch, but since the History screen (PR #55) that
+state appears only after saved history has been read, and on the slow runner it
+had not. The two mock tests after it failed as a consequence. The shell test now
+waits for the heading and the empty state, as the mock tests already did. The
+race never showed locally, so the CI run is the evidence.
 
 ## Next
 
