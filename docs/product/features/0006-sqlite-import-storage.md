@@ -41,4 +41,4 @@ tests do not establish universal endpoint behaviour or prove lifetime retention.
 See [decision 0003](../../decisions/0003-sqlite-import-foundations.md).
 The sole initial schema creates compact storage directly, without page snapshots
 or repeated associations. Obsolete pre-release schemas are rejected, not upgraded. See [decision 0004](../../decisions/0004-compact-import-provenance.md)
-and the synthetic overlap measurements in [testing](../../development/TESTING.md#overlapping-imports-and-schema-2-2026-09-23).
+and the synthetic overlap measurements in [testing](../../status/history/2026-09-23-sqlite-services-and-overlap.md#overlapping-imports-and-schema-2-2026-09-23).

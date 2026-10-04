@@ -130,7 +130,7 @@ then advances the 12-month window 12 times, reaching 12,000 unique rolls and 37
 summaries. Initial/repeat/rolling times were 202 ms / 4.143 s / 2.062 s; process
 peak RSS was 26,376 KiB. The database stayed at 2,420,736 bytes through complete
 repeats, then grew to 4,808,704 bytes with new rolls. These are local debug-build
-observations, not release-speed guarantees. See [testing](../../development/TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
+observations, not release-speed guarantees. See [testing](2026-09-23-sqlite-services-and-overlap.md#overlapping-imports-and-schema-2-2026-09-23)
 for the reproducible workload, assertions and measurement limits.
 
 `npm run tauri -- build --no-bundle` passed. Relative Markdown links and

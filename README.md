@@ -103,7 +103,7 @@ guard requires review if any wrapper changes. Real-file, SQLite and desktop inte
 remain mandatory additional checks and cannot compensate for unit-test gaps.
 
 
-The [overlap workload](docs/development/TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
+The [overlap workload](docs/status/history/2026-09-23-sqlite-services-and-overlap.md#overlapping-imports-and-schema-2-2026-09-23)
 includes commands for import timings, peak memory and database-growth measurements.
 
 Native tests require Linux, Xvfb, WebKitWebDriver and user network namespaces.
