@@ -38,7 +38,7 @@ feature exists.
   supply authentication context rather than roll records. No startup fetching,
   background polling or scheduled synchronization. Stored-history browsing,
   analysis, file import and export stay local and never trigger requests.
-- No accounts with our service, telemetry, cloud storage, remote assets or
+- No user accounts, telemetry, cloud storage, remote assets or
   hidden network dependencies. User-requested HoYoverse acquisition is in scope
   ([decision 0002](docs/architecture/decisions/0002-user-requested-history-acquisition.md)).
 - Keep player data local. Never commit real histories, account IDs, credentials,

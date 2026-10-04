@@ -8,7 +8,7 @@ choices are recorded as [decisions](decisions/DECISIONS.md).
 
 ## Areas
 
-Open the file for the area you are changing. Status says how much of it exists:
+Open the file for the area being changed. Status says how much of it exists:
 **implemented** describes the code as it is; **partially implemented** marks
 which parts are still design; **tentative** is design only, to be revisited when
 the work starts.

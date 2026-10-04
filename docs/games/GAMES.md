@@ -1,6 +1,6 @@
 # Games
 
-What we know about each game's history sources, and how to research a new one.
+Known facts about each game's history sources, and how to research a new one.
 Current support is in [STATUS](../status/STATUS.md); the shared import design is in
 [imports](../architecture/imports.md).
 
