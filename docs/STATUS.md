@@ -1862,7 +1862,7 @@ race never showed locally, so the CI run is the evidence.
 
 ## Restart and recovery end to end (2026-10-04)
 
-Work is on `test/e2e-restart-recovery`, the first of three verification PRs that
+Integrated through PR #65. Work was on `test/e2e-restart-recovery`, the first of three verification PRs that
 close milestone 3; the roadmap now breaks its last items into sub-tasks. Test
 only: no product change was needed. The end-to-end test can relaunch the mock
 binary on the data folder saved so far, as a restart, and one test now runs three
@@ -1883,12 +1883,49 @@ category counts 0. That the restart sends no request rests on the design
 (only `retrieve_history` contacts HoYoverse) and its unit tests; the mock does not
 count requests.
 
+## Mock account scenarios (2026-10-04)
+
+Work is on `feat/mock-account-scenarios`, the second of three verification PRs.
+The mock binary has three more scenarios (decision 0014): `newer-history` adds 25
+newer rolls to every category of the same account; `second-account` serves UID
+`100000002` on `prod_official_usa` (UTC−5) with the same roll IDs as `history`;
+`mixed-accounts` serves Light Cone Event Warp from that second account. A roll's
+fields now depend only on its ID, so each scenario serves a saved roll exactly as
+`history` did, and a repeat import finds no conflicts. No product change.
+
+A new end-to-end test runs them in turn on one data folder. After `history` is
+saved, a quick refresh under `newer-history` saves only the 150 newer rolls,
+skipping 1,762: each category stops at its first page, except the collaboration
+warps, whose 20-roll first pages hold only newer rolls. The History screen numbers
+them on from 1,275 (`e2e-mock-newer.png`), and a full retrieval then skips all
+2,210. Under `second-account` the same cache file saves all 2,060 rolls under UID
+100000002 (America), since the account comes from the responses and the stop
+check only matches the account's own saved rolls; the History screen follows that
+account (`e2e-mock-second-account.png`). `mixed-accounts` fails at Light Cone
+Event Warp, page 1, with the mixed-accounts message and saves nothing. Reading the
+database file directly, each account's rolls are stored apart, and a digest of
+the first account's rows is the same before and after the second account's
+imports.
+
+TDD: the three scenarios' unit tests failed against stubs serving `history` (no
+newer rolls, the first account, no mixed-accounts error), then passed. The
+end-to-end test passed first time against the existing app, as expected for a
+verification. To prove it guards the stop rule, a temporary change made the quick
+refresh match the first account's saved IDs whatever the page's account: the
+second account's review then offered 1,792 rolls instead of 2,060, silently
+omitting 268, and the test failed. The change was reverted.
+
+One end-to-end screenshot showed the progress screen although the test had just
+read the failure screen: WebDriver captured before WebKit painted. The driver now
+waits for two animation frames before each screenshot. The stale frame was
+intermittent, so there is no failing run to show for the fix; later screenshots
+were checked by eye.
+
 ## Next
 
-The remaining milestone 3 items: mock scenarios for newer rolls of the same
-account, a second account with the same roll IDs and pages that disagree on the
-UID (PR 2); then the empty and missing-context checks and closing the milestone
-(PR 3).
+Close milestone 3 (PR 3): an end-to-end check that a retrieval with no history
+creates no account, and that retrieving or saving without a validated context or
+preview is refused; confirm the service isolation checks; tick the milestone.
 
 Earlier implementation details, dated measurements and superseded next steps are
 in the [historical status log](STATUS-HISTORY.md).

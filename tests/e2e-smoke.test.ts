@@ -1,5 +1,7 @@
 import { readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
+import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
@@ -216,6 +218,31 @@ const savedHistory = {
   uid: '100000001',
   totals: { '1': 300, '2': 50, '11': 1250, '12': 412, '21': 38, '22': 10 },
 }
+/**
+ * Each stored account's roll count and a digest of its rows, read from the closed
+ * mock's database file, so a later import can be shown to leave them unchanged.
+ */
+function storedAccounts() {
+  const database = new DatabaseSync(resolve(mockData, 'roll-tracker-mock/history.sqlite'), {
+    readOnly: true,
+  })
+  try {
+    const rows = database
+      .prepare('SELECT uid, server, id, payload, first_batch FROM rolls ORDER BY uid, server, id')
+      .all() as { uid: string; server: string; id: string; payload: string; first_batch: number }[]
+    const accounts: Record<string, { rolls: number; digest: string }> = {}
+    for (const account of new Set(rows.map((row) => `${row.uid} ${row.server}`))) {
+      const own = rows.filter((row) => `${row.uid} ${row.server}` === account)
+      accounts[account] = {
+        rolls: own.length,
+        digest: createHash('sha256').update(JSON.stringify(own)).digest('hex'),
+      }
+    }
+    return accounts
+  } finally {
+    database.close()
+  }
+}
 async function retrieveFromFile(app: AppSession) {
   // The first screen renders once the router has resolved it.
   await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
@@ -223,6 +250,10 @@ async function retrieveFromFile(app: AppSession) {
   await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
   await app.chooseFile('#cache-file', cachePath)
 }
+const skipped = (app: AppSession) =>
+  app.execute<string | undefined>(
+    'return [...document.querySelectorAll(".review .stat")].find(stat => stat.querySelector(".stat-label").textContent === "Existing rolls skipped")?.querySelector(".stat-value").textContent',
+  )
 const click = (app: AppSession, container: string, name: string) =>
   app.execute(
     `[...document.querySelectorAll("${container} button")].find(b => b.textContent.trim() === ${JSON.stringify(name)}).click()`,
@@ -370,10 +401,6 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.screenshot('e2e-mock-last-import')
     // A quick refresh, the default, stops each category at its first page: every
     // category reaches saved rolls there, so only those pages are skipped.
-    const skipped = () =>
-      app.execute<string | undefined>(
-        'return [...document.querySelectorAll(".review .stat")].find(stat => stat.querySelector(".stat-label").textContent === "Existing rolls skipped")?.querySelector(".stat-value").textContent',
-      )
     await app.chooseFile('#cache-file', cachePath)
     await expect
       .poll(
@@ -390,7 +417,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .toBe('Everything here is already saved')
     // Stellar 300, Departure 50, Character Event 1,000, Light Cone Event 412 and
     // the two collaboration warps' first 20 and 10.
-    expect(await skipped()).toBe('1,792')
+    expect(await skipped(app)).toBe('1,792')
     await click(app, '.review', 'Done')
     await expect
       .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
@@ -403,7 +430,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
       .toBe('Everything here is already saved')
-    expect(await skipped()).toBe('2,060')
+    expect(await skipped(app)).toBe('2,060')
     await click(app, '.review', 'Done')
     await app.close()
   } finally {
@@ -487,6 +514,112 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
   // Saving, failing and cancelling never wrote the auth key anywhere the app keeps data.
   expect(filesHoldingAuthKey()).toEqual([])
 }, 180000)
+
+test('a quick refresh saves only newer rolls, and another account with the same roll IDs is kept apart', async () => {
+  const save = async (app: AppSession, rolls: string) => {
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe(`Ready to save ${rolls} new rolls`)
+    await click(app, '.review', `Save ${rolls} rolls`)
+    await expect
+      .poll(() => textOf(app, '.saved h2'), { timeout: 10000 })
+      .toBe(`${rolls} Rolls Saved`)
+  }
+  await withMock('history', {}, async (app) => {
+    await retrieveFromFile(app)
+    await save(app, '2,060')
+  })
+  // The same account has since made 25 more rolls in each category.
+  await withMock('newer-history', { keep: true }, async (app) => {
+    await retrieveFromFile(app)
+    // Each category's first page reaches saved rolls, except the collaboration warps',
+    // whose 20-roll first pages hold only newer ones: their second pages hold 15 and
+    // 10 saved rolls. Stellar 300, Departure 50, Character Event 975, Light Cone
+    // Event 412 and those 25 are skipped.
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe('Ready to save 150 new rolls')
+    expect(await skipped(app)).toBe('1,762')
+    await save(app, '150')
+    expect(await stored(app)).toEqual({
+      uid: '100000001',
+      totals: { '1': 325, '2': 75, '11': 1275, '12': 437, '21': 63, '22': 35 },
+    })
+    // The newer rolls are numbered on from the saved ones, newest first.
+    await app.execute(
+      `[...document.querySelectorAll(".saved a")].find(a => a.textContent.trim() === "View warp history").click()`,
+    )
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,275\s*$/)
+    expect(
+      await app.execute(
+        `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => row.querySelector("[role=cell]").textContent.trim())`,
+      ),
+    ).toEqual(Array.from({ length: 20 }, (_, index) => String(1275 - index)))
+    await app.screenshot('e2e-mock-newer')
+    // A full retrieval finds nothing new either.
+    await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    await app.execute(
+      '[...document.querySelectorAll("fieldset label")].find(label => label.textContent.trim() === "Full history").click()',
+    )
+    await app.chooseFile('#cache-file', cachePath)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe('Everything here is already saved')
+    expect(await skipped(app)).toBe('2,210')
+    await click(app, '.review', 'Done')
+  })
+  const first = storedAccounts()
+  expect(Object.keys(first)).toEqual(['100000001 prod_official_asia'])
+  expect(first['100000001 prod_official_asia'].rolls).toBe(2210)
+  // The same cache file now reaches another account, on another server, whose roll IDs
+  // match the first account's. The account comes from HoYoverse's responses, and a
+  // quick refresh only stops at the account's own saved rolls, so none are omitted.
+  await withMock('second-account', { keep: true }, async (app) => {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe('Ready to save 2,060 new rolls')
+    expect(await textOf(app, '.review .account')).toContain('100000002')
+    expect(await textOf(app, '.review .account .chip')).toBe('America')
+    await save(app, '2,060')
+    expect(await textOf(app, '.saved p')).toBe('Added to UID 100000002 (America).')
+    // The History screen follows the account imported last.
+    expect(await stored(app)).toEqual({ ...savedHistory, uid: '100000002' })
+    await app.execute('document.querySelector("nav a[aria-label=\'Warp History\']").click()')
+    await expect
+      .poll(
+        () =>
+          app.execute<string | null>(
+            'return document.querySelector(".account")?.getAttribute("aria-label")',
+          ),
+        { timeout: 10000 },
+      )
+      .toBe('Account: UID 100000002, America server')
+    await app.screenshot('e2e-mock-second-account')
+  })
+  // Pages that disagree on the account are refused as a whole.
+  await withMock('mixed-accounts', { keep: true }, async (app) => {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.failed h2'), { timeout: 60000 })
+      .toBe('Retrieval Didn’t Finish')
+    expect(await textOf(app, '.failed')).toContain(
+      'Retrieval stopped at Light Cone Event Warp, page 1. HoYoverse returned history for more than one account, so nothing was kept.',
+    )
+    await app.screenshot('e2e-mock-mixed-accounts')
+  })
+  // Each account's rolls are stored apart, and the first account's are untouched.
+  const accounts = storedAccounts()
+  expect(Object.keys(accounts)).toEqual([
+    '100000001 prod_official_asia',
+    '100000002 prod_official_usa',
+  ])
+  expect(accounts['100000001 prod_official_asia']).toEqual(first['100000001 prod_official_asia'])
+  expect(accounts['100000002 prod_official_usa'].rolls).toBe(2060)
+}, 300000)
 
 test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
   const { app } = await launchMock('no-history', { env: { ROLL_TRACKER_ZOOM: '1.25' } })

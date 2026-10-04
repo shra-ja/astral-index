@@ -20,6 +20,12 @@ pub enum Scenario {
     RateLimited,
     /// The account has no history.
     NoHistory,
+    /// `History`, with newer rolls in every category.
+    NewerHistory,
+    /// Another account, on another server, with the same roll IDs as `History`.
+    SecondAccount,
+    /// `History`, but Light Cone Event Warp belongs to another account.
+    MixedAccounts,
 }
 
 /// The variable named no known scenario.
@@ -35,6 +41,9 @@ impl Scenario {
             "network-failure" => Ok(Self::NetworkFailure),
             "rate-limited" => Ok(Self::RateLimited),
             "no-history" => Ok(Self::NoHistory),
+            "newer-history" => Ok(Self::NewerHistory),
+            "second-account" => Ok(Self::SecondAccount),
+            "mixed-accounts" => Ok(Self::MixedAccounts),
             _ => Err(UnknownScenario),
         }
     }
@@ -51,9 +60,26 @@ const ROLLS: [(&str, u64); 6] = [
 ];
 /// The collaboration endpoint's page cap, as HoYoverse's.
 const COLLABORATION_PAGE: u64 = 20;
-const UID: &str = "100000001";
-const SERVER: &str = "prod_official_asia";
+/// How many newer rolls each category gains in the `NewerHistory` scenario.
+const NEWER: u64 = 25;
 const NEWEST: &str = "2026-09-28 21:14:03";
+
+/// Whose history a page holds: a UID, its server and the server's time zone.
+struct Account {
+    uid: &'static str,
+    server: &'static str,
+    time_zone: i64,
+}
+const FIRST: Account = Account {
+    uid: "100000001",
+    server: "prod_official_asia",
+    time_zone: 8,
+};
+const SECOND: Account = Account {
+    uid: "100000002",
+    server: "prod_official_usa",
+    time_zone: -5,
+};
 
 /// Answers history requests from a scenario. Pages are generated from the request's
 /// category, cursor and size alone, so any order of requests gets consistent pages.
@@ -80,8 +106,17 @@ impl Transport for MockTransport {
             Scenario::ExpiredLink => Ok(api_error(-101)),
             Scenario::RateLimited => Ok(api_error(-110)),
             Scenario::NetworkFailure if category == Some("12") => Err(TransportError::Connection),
-            Scenario::NoHistory => Ok(page(&[])),
-            Scenario::History | Scenario::NetworkFailure => {
+            Scenario::NoHistory => Ok(page(&[], &FIRST)),
+            _ => {
+                let account = match (self.scenario, category) {
+                    (Scenario::SecondAccount, _) | (Scenario::MixedAccounts, Some("12")) => &SECOND,
+                    _ => &FIRST,
+                };
+                let newer = if self.scenario == Scenario::NewerHistory {
+                    NEWER
+                } else {
+                    0
+                };
                 let size: u64 = parameter(query, "size")
                     .map_or(Ok(0), str::parse)
                     .unwrap_or(0);
@@ -91,9 +126,10 @@ impl Transport for MockTransport {
                     size
                 };
                 let rolls = category.map_or(Vec::new(), |category| {
-                    rolls(category, parameter(query, "end_id").unwrap_or("0"), size)
+                    let end_id = parameter(query, "end_id").unwrap_or("0");
+                    rolls(category, end_id, size, newer, account)
                 });
-                Ok(page(&rolls))
+                Ok(page(&rolls, account))
             }
         }
     }
@@ -108,35 +144,46 @@ fn parameter<'a>(query: &'a str, name: &str) -> Option<&'a str> {
 
 /// A category's rolls after the cursor, up to `size`, newest first. Each category
 /// counts IDs down from its own base, and ten rolls share each time, like a ten-pull.
-fn rolls(category: &str, end_id: &str, size: u64) -> Vec<serde_json::Value> {
+/// `newer` rolls come before the base, with IDs and times above it; a roll's fields
+/// depend only on its ID, so every scenario serves a roll the same way.
+fn rolls(
+    category: &str,
+    end_id: &str,
+    size: u64,
+    newer: u64,
+    account: &Account,
+) -> Vec<serde_json::Value> {
     let Some((_, count)) = ROLLS.iter().find(|(code, _)| *code == category) else {
         return Vec::new();
     };
     let code: u64 = category.parse().unwrap_or(0);
     let base = 1_800_000_000_000_000_000 + code * 10_000_000;
+    let top = base + newer;
     let start = match end_id.parse::<u64>() {
         Ok(0) | Err(_) => 0,
-        Ok(cursor) => base.saturating_sub(cursor) + 1,
+        Ok(cursor) => top.saturating_sub(cursor) + 1,
     };
     let newest =
         chrono::NaiveDateTime::parse_from_str(NEWEST, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
     let light_cones = category == "12" || category == "22";
-    (start..(start + size).min(*count))
+    (start..(start + size).min(count + newer))
         .map(|index| {
-            let rarity = match (index % 70, index % 10) {
+            // How far the roll is from the base: negative for newer rolls.
+            let age = i64::try_from(index).unwrap_or(0) - i64::try_from(newer).unwrap_or(0);
+            let rarity = match (age.rem_euclid(70), age.rem_euclid(10)) {
                 (6, _) => "5",
                 (_, 3) => "4",
                 _ => "3",
             };
-            let time = newest
-                - chrono::Duration::minutes(i64::try_from(index / 10 * 37 + code).unwrap_or(0));
-            let (name, kind) = item(rarity, light_cones, index);
+            let minutes = age.div_euclid(10) * 37 + i64::try_from(code).unwrap_or(0);
+            let time = newest - chrono::Duration::minutes(minutes);
+            let (name, kind) = item(rarity, light_cones, age);
             serde_json::json!({
-                "uid": UID,
-                "id": (base - index).to_string(),
+                "uid": account.uid,
+                "id": (top - index).to_string(),
                 "gacha_id": "1001",
                 "gacha_type": category,
-                "item_id": format!("{rarity}{:03}", index % 7),
+                "item_id": format!("{rarity}{:03}", age.rem_euclid(7)),
                 "count": "1",
                 "time": time.format("%Y-%m-%d %H:%M:%S").to_string(),
                 "name": name,
@@ -149,9 +196,12 @@ fn rolls(category: &str, end_id: &str, size: u64) -> Vec<serde_json::Value> {
 }
 
 /// A synthetic item for a rarity: event characters, or light cones on their banners.
-fn item(rarity: &str, light_cones: bool, index: u64) -> (&'static str, &'static str) {
+fn item(rarity: &str, light_cones: bool, age: i64) -> (&'static str, &'static str) {
     const THREE: [&str; 5] = ["Arrows", "Cornucopia", "Defense", "Darkness", "Loop"];
-    let pick = |names: &[&'static str]| names[usize::try_from(index).unwrap_or(0) % names.len()];
+    let pick = |names: &[&'static str]| {
+        let count = i64::try_from(names.len()).unwrap_or(1);
+        names[usize::try_from(age.rem_euclid(count)).unwrap_or(0)]
+    };
     match (rarity, light_cones) {
         ("5", false) => (pick(&["Acheron", "Himeko", "Firefly"]), "Character"),
         ("5", true) => (
@@ -167,16 +217,16 @@ fn item(rarity: &str, light_cones: bool, index: u64) -> (&'static str, &'static 
     }
 }
 
-/// A successful page holding `rolls`.
-fn page(rolls: &[serde_json::Value]) -> Vec<u8> {
+/// A successful page holding `rolls`, from the account's server.
+fn page(rolls: &[serde_json::Value], account: &Account) -> Vec<u8> {
     serde_json::json!({
         "retcode": 0,
         "message": "OK",
         "data": {
             "page": "1",
             "size": "0",
-            "region": SERVER,
-            "region_time_zone": 8,
+            "region": account.server,
+            "region_time_zone": account.time_zone,
             "list": rolls,
         },
     })
@@ -239,6 +289,9 @@ mod tests {
             (Some("network-failure"), Scenario::NetworkFailure),
             (Some("rate-limited"), Scenario::RateLimited),
             (Some("no-history"), Scenario::NoHistory),
+            (Some("newer-history"), Scenario::NewerHistory),
+            (Some("second-account"), Scenario::SecondAccount),
+            (Some("mixed-accounts"), Scenario::MixedAccounts),
         ] {
             assert_eq!(Scenario::named(name), Ok(scenario));
         }
@@ -342,5 +395,86 @@ mod tests {
             crate::acquisition::Cursor::Start,
         );
         assert!(run(transport.get(page.url())).is_ok());
+    }
+
+    /// Every roll retrieved, as HoYoverse sent it, by roll ID.
+    fn rolls_by_id(history: &crate::acquisition::History) -> HashMap<String, serde_json::Value> {
+        history
+            .responses()
+            .iter()
+            .flat_map(|body| {
+                let page: serde_json::Value = serde_json::from_slice(body).unwrap();
+                page["data"]["list"].as_array().unwrap().clone()
+            })
+            .map(|roll| (roll["id"].as_str().unwrap().to_owned(), roll))
+            .collect()
+    }
+
+    #[test]
+    fn newer_history_adds_newer_rolls_and_keeps_every_earlier_one_unchanged() {
+        let earlier = rolls_by_id(&fetch(Scenario::History).unwrap());
+        let history = fetch(Scenario::NewerHistory).unwrap();
+        let account = history.account().unwrap();
+        assert_eq!(
+            (account.uid(), account.server()),
+            ("100000001", "prod_official_asia")
+        );
+        let newer = rolls_by_id(&history);
+        // Each category's earlier rolls come back exactly as before.
+        for (id, roll) in &earlier {
+            assert_eq!(newer.get(id), Some(roll), "roll {id}");
+        }
+        let added: Vec<_> = newer
+            .iter()
+            .filter(|(id, _)| !earlier.contains_key(*id))
+            .map(|(_, roll)| roll)
+            .collect();
+        for (code, _) in ROLLS {
+            let category: Vec<_> = added
+                .iter()
+                .filter(|roll| roll["gacha_type"] == code)
+                .collect();
+            assert_eq!(category.len(), 25, "category {code}");
+            // They are newer than every earlier roll of their category.
+            let newest_earlier = earlier
+                .values()
+                .filter(|roll| roll["gacha_type"] == code)
+                .map(|roll| roll["id"].as_str().unwrap().parse::<u64>().unwrap())
+                .max()
+                .unwrap();
+            for roll in category {
+                assert!(roll["id"].as_str().unwrap().parse::<u64>().unwrap() > newest_earlier);
+                assert!(roll["time"].as_str().unwrap() > NEWEST);
+            }
+        }
+    }
+
+    #[test]
+    fn the_second_account_has_the_same_roll_ids_on_another_server() {
+        let first = rolls_by_id(&fetch(Scenario::History).unwrap());
+        let history = fetch(Scenario::SecondAccount).unwrap();
+        let account = history.account().unwrap();
+        assert_eq!(
+            (account.uid(), account.server()),
+            ("100000002", "prod_official_usa")
+        );
+        for body in history.responses() {
+            assert_eq!(parse_response(body).unwrap().region_time_zone, Some(-5));
+        }
+        let second = rolls_by_id(&history);
+        assert_eq!(second.len(), first.len());
+        for (id, roll) in second {
+            let mut same = roll.clone();
+            same["uid"] = serde_json::json!(FIRST.uid);
+            assert_eq!(first.get(&id), Some(&same), "roll {id}");
+        }
+    }
+
+    #[test]
+    fn mixed_accounts_disagree_on_the_uid_between_categories() {
+        assert_eq!(
+            fetch(Scenario::MixedAccounts).unwrap_err(),
+            AcquisitionError::MixedAccounts
+        );
     }
 }
