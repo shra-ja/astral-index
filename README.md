@@ -189,7 +189,7 @@ Keep [current status](docs/status/STATUS.md) up to date between tasks.
 | --- | --- |
 | [Product brief](docs/product/PROJECT.md) | Scope and user journeys |
 | [Architecture](docs/architecture/ARCHITECTURE.md) | Boundaries and proposed data model |
-| [Import design](docs/IMPORTS.md) | Requirements for the next milestone |
+| [Import design](docs/architecture/imports.md) | Requirements for the next milestone |
 | [Roadmap](docs/product/ROADMAP.md) | Implementation milestones |
 | [Testing](docs/development/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
 | [Compact provenance](docs/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
@@ -233,7 +233,7 @@ discovery fails. No discovered-cache or game-directory selection is required.
 Connecting the native helpers into this flow remains pending.
 The automated suites substitute synthetic helpers and require neither Windows
 interop nor installed games. Native Windows/real-installation verification is
-still pending; see [discovery architecture](docs/architecture/ARCHITECTURE.md#current-user-system-discovery).
+still pending; see [discovery architecture](docs/architecture/discovery.md#automatic-discovery).
 
 ## License
 

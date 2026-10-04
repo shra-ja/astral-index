@@ -126,7 +126,7 @@ is shown as text as well as colour.
   deferred with mobile; heavily zoomed desktop windows scroll instead of
   reflowing.
 - **Storing pity** was rejected; it is derived on read
-  ([architecture](../architecture/ARCHITECTURE.md#statistics)).
+  ([architecture](../architecture/statistics.md)).
 - A light theme, real item art and the history-file import flow are deferred;
   the roadmap tracks them. The Import screen's "Last import" line comes from the
   `last_import` command (added 2026-10-03).
