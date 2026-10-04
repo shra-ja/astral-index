@@ -329,14 +329,37 @@ the order listed.
   account isolation, cancellation, and failure recovery using local test data.
   - [ ] Verify request, preview, commit, restart and display end to end with
     synthetic request mocks.
+    - [x] Relaunch the mock binary on its saved data folder: the History screen
+      and the "Last import" line show the saved history without retrieving.
   - [ ] Verify that repeat and overlapping fetches, account isolation,
     cancellation and failure recovery leave stored history correct, and that
     no auth key is persisted.
+    - [x] Cancel a retrieval in progress and discard a review: nothing is saved,
+      and a later retrieval still works.
+    - [x] A failed retrieval after a save leaves the saved history unchanged, and
+      a retrieval after a failed one saves what the failed one could not.
+    - [x] No file in the mock's data folder, its webview profile included, holds
+      the auth key after saves, failures and cancellations.
+    - [ ] Add a mock scenario in which the same account has newer rolls: a quick
+      refresh saves only those, numbered on from the saved rolls, and a full
+      retrieval finds nothing new.
+    - [ ] Add a mock scenario for a second account on another server with the
+      same roll IDs: a quick refresh still retrieves all of it, it is saved as a
+      separate account, the History screen follows it, and the first account's
+      stored rolls are unchanged.
 - [ ] At the end of this milestone, verify auth-key/account binding, response UID
   and server mapping, account switching, and empty/missing-context handling before
   declaring the milestone complete; preserve existing service isolation checks.
+  Account switching is verified at the data level here; the History screen's
+  account switcher is milestone 4.
   - [ ] Verify auth-key/account binding and response UID and server mapping.
+    - [ ] The account and server come from the responses, never the cache file:
+      the same cache file saves the second scenario's account under its own UID.
+    - [ ] Add a mock scenario whose pages disagree on the UID: the retrieval
+      fails readably and saves nothing.
   - [ ] Verify account switching and empty or missing-context handling.
+    - [ ] A retrieval with no history creates no account, and retrieving or
+      saving without a validated context or preview is refused.
   - [ ] Confirm the existing service isolation checks still pass.
 
 Done when an explicit user request retrieves HSR history through the API,
