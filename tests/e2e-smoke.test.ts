@@ -219,7 +219,7 @@ const savedHistory = {
   totals: { '1': 300, '2': 50, '11': 1250, '12': 412, '21': 38, '22': 10 },
 }
 /**
- * Each stored account's roll count and a digest of its rows, read from the closed
+ * Each stored account, rolls or not, with its roll count and a digest of its rows, read from the closed
  * mock's database file, so a later import can be shown to leave them unchanged.
  */
 function storedAccounts() {
@@ -230,8 +230,14 @@ function storedAccounts() {
     const rows = database
       .prepare('SELECT uid, server, id, payload, first_batch FROM rolls ORDER BY uid, server, id')
       .all() as { uid: string; server: string; id: string; payload: string; first_batch: number }[]
+    const stored = database
+      .prepare('SELECT uid, server FROM accounts ORDER BY uid, server')
+      .all() as {
+      uid: string
+      server: string
+    }[]
     const accounts: Record<string, { rolls: number; digest: string }> = {}
-    for (const account of new Set(rows.map((row) => `${row.uid} ${row.server}`))) {
+    for (const account of stored.map((row) => `${row.uid} ${row.server}`)) {
       const own = rows.filter((row) => `${row.uid} ${row.server}` === account)
       accounts[account] = {
         rolls: own.length,
@@ -243,6 +249,21 @@ function storedAccounts() {
     database.close()
   }
 }
+/** Ask, as the webview could, to retrieve and to save, outside the import flow. */
+const retrieveAndSave = (app: AppSession) =>
+  app.executeAsync<string[]>(`
+    const done = arguments[arguments.length - 1];
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    Promise.all([
+      invoke('retrieve_history', {
+        mode: 'new',
+        onProgress: '__CHANNEL__:' + window.__TAURI_INTERNALS__.transformCallback(() => {}),
+      }).then(() => 'resolved', JSON.stringify),
+      invoke('commit_import').then(() => 'resolved', JSON.stringify),
+    ]).then(done);
+  `)
+// Without a validated link nothing is retrieved, and without a review nothing is saved.
+const refused = ['{"kind":"no_context"}', '{"kind":"no_preview"}']
 async function retrieveFromFile(app: AppSession) {
   // The first screen renders once the router has resolved it.
   await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
@@ -620,6 +641,34 @@ test('a quick refresh saves only newer rolls, and another account with the same 
   expect(accounts['100000001 prod_official_asia']).toEqual(first['100000001 prod_official_asia'])
   expect(accounts['100000002 prod_official_usa'].rolls).toBe(2060)
 }, 300000)
+
+test('a retrieval with no history creates no account, and an ended retrieval’s link and review cannot be reused', async () => {
+  await withMock('no-history', {}, async (app) => {
+    // Before any retrieval there is nothing to retrieve with or to save.
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+    expect(await retrieveAndSave(app)).toEqual(refused)
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.start .note'), { timeout: 30000 })
+      .toBe('HoYoverse returned no warp history for this account. Nothing was saved.')
+    expect(await stored(app)).toEqual(nothingSaved)
+    // The retrieval dropped its link when it ended, and left no review.
+    expect(await retrieveAndSave(app)).toEqual(refused)
+  })
+  expect(storedAccounts()).toEqual({})
+  await withMock('history', { keep: true }, async (app) => {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe('Ready to save 2,060 new rolls')
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    // Saving used the review up, and the link went when the retrieval ended.
+    expect(await retrieveAndSave(app)).toEqual(refused)
+    expect(await stored(app)).toEqual(savedHistory)
+  })
+  expect(Object.keys(storedAccounts())).toEqual(['100000001 prod_official_asia'])
+}, 120000)
 
 test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
   const { app } = await launchMock('no-history', { env: { ROLL_TRACKER_ZOOM: '1.25' } })
