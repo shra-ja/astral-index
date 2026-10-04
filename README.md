@@ -203,7 +203,7 @@ protected `main`. Hosted results are available on
 [PR #1](https://github.com/shra-ja/roll-tracker/pull/1).
 CI reuses npm downloads, Rust dependency builds and pinned Cargo tools through
 caches; every run still executes locked installs and the complete validation
-pipeline. See [CI caching](docs/development/TESTING.md#ci-and-handoff) for invalidation and
+pipeline. See [CI caching](docs/development/TESTING.md#ci) for invalidation and
 cold/warm-run verification.
 
 For focused native cache-extraction tests (synthetic data, no network requests):
