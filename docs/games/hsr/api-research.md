@@ -9,8 +9,8 @@ It inventories all fields in 12 saved response bodies, documents supported banne
 codes, and records the user's accepted assumptions for the single tested endpoint,
 stable identity, auth-key account selection, server time, pagination and complete
 retained history. It also defines a low-request, bounded-retry policy and the
-observed expired-key response. Account/server verification finishes at the
-end of milestone 7. Milestone 2's contract work is complete under that scope.
+observed expired-key response. The app implements it, and the account and server
+mapping was verified end to end before milestone 7 closed.
 
 The dated observations below remain research evidence. Earlier statements that
 verification blocks milestone 2 are superseded by the accepted contract; they
@@ -35,9 +35,8 @@ user-authorized requests retrieved records and verified cursor pagination.
 1. **Locate game data automatically on request**. Read
    `%APPDATA%/../LocalLow/Cognosphere/Star Rail/Player.log` or `Player-prev.log`
    for `Loading player data from ` and removing that prefix and `data.unity3d`
-   to obtain the directory. Native helpers have synthetic test coverage; real
-   Windows/WSL installation verification and end-to-end wiring remain pending.
-   If discovery fails, accept a user-provided file directly for extraction.
+   to obtain the directory (verified against real installations on 2026-09-27;
+   see below). If discovery fails, accept a user-provided file directly for extraction.
 2. **Resolve `data_2` internally**. Candidate locations are
    `<game-data>/webCaches/<version>/Cache/Cache_Data/data_2`. The unversioned
    `<game-data>/webCaches/Cache/Cache_Data/data_2` layout is not supported.
@@ -62,7 +61,7 @@ user-authorized requests retrieved records and verified cursor pagination.
    parsing errors explicitly; the expired-key response is documented below.
 7. **Advance and import**. Use the verified cursor sequence below for subsequent
    pages, then pass records through validation, preview, and transactional import.
-   End-of-history rules and failure handling still require implementation tests.
+   The contract now settles end-of-history rules and failure handling.
 
 ## Tested request parameters and working assumptions
 
@@ -79,9 +78,9 @@ required or a complete API specification.
 | `game_biz` | `hkrpg_global` | Working interpretation: Honkai: Star Rail global service. |
 | `lang` | `en` | English language context. |
 | `end_id` | `0` initially; then the preceding page’s last record ID | Pagination cursor; preserve the ID as a string. Advancing it worked in the five-page test below. |
-| `gacha_type` | Select the desired banner type | User identifies six banner types; names, IDs, and mappings will be documented later. |
+| `gacha_type` | Select the desired banner type | User identifies six banner types; the [contract](api-contract.md#known-banner-categories) lists them. |
 | `page` | Start at `1`, increment for each request | Both increasing and fixed `page=1` returned identical records with advancing `end_id` in the 2026-09-23 test; keep incrementing to mirror the in-game requests observed in the supplied cache. |
-| `size` | Up to `5000` tested | Requested page size; smaller pages with proper pagination may be preferable later. |
+| `size` | Up to `5000` tested | Requested page size; the contract settled on `1000` with cursor pagination. |
 
 Treat the first five fields as stable request context for a retrieval session,
 with authentication values copied from the cache. Vary banner selection and
@@ -98,7 +97,7 @@ for type `11`. All returned HTTP 200 with `retcode: 0`; some filled the requeste
 size and others returned fewer items. The user expects page 1 with size 5000
 to typically cover their account, but complete history and a server-side maximum
 have not been established. Do not treat this large-page shortcut as a verified
-pagination strategy. End-of-history stop rules and banner details remain future work.
+pagination strategy. The contract settles the stop rule and page size.
 
 ## Pagination evidence (2026-09-19)
 
@@ -125,9 +124,8 @@ The tested retrieval sequence is:
 This verifies advancement through five pages for the sampled type-1 history,
 with supporting cache evidence for type 11. The later page-parameter comparison below isolates the effect of incrementing
 `page`. Concurrent new-roll behaviour and end-of-history semantics were not
-established by this five-page test. The future client should
-handle empty pages and repeated/nonadvancing cursors without looping forever;
-those cases still need dedicated verification and synthetic tests.
+established by this five-page test. The client ends a category on an empty page
+and rejects repeated cursors, with synthetic tests for both.
 
 ## Page parameter comparison (2026-09-23)
 
@@ -295,9 +293,8 @@ a category only on an empty page, ignoring the echo.
 
 These notes preserve the observed request behavior and comparison results without
 requiring private research artifacts. No auth keys, account IDs, or actual roll
-IDs are included. Windows discovery, pagination edge cases,
-and history completeness remain untested. No executable project code changed,
-so red/green testing is not applicable.
+IDs are included. Installation discovery was verified later (below); history
+completeness remains an accepted assumption, not an observation.
 
 ## WSL installation verification (2026-09-27)
 
