@@ -58,7 +58,8 @@ history keeps the detail.
 
 - **While working:** add a dated section under "In progress", such as
   `### Incremental retrieval (2026-10-03)`, with the outcome, the evidence
-  (red/green runs and checks) and any limitations. Keep it short.
+  (red/green runs and checks) and any limitations. Keep it short. At handoff,
+  leave the section under "In progress"; it is archived after integration.
 - **Once integrated:** fold the outcome into "Current state", "Known
   limitations" and "Next", mark the section "Integrated through PR #N", and
   archive it before or with the next piece of work.
