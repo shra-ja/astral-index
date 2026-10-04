@@ -1,120 +1,129 @@
 # Roll Tracker — agent instructions
 
-## Start here
+Roll Tracker is a locally run Tauri desktop app that keeps players' gacha roll
+history on their own machine, starting with Honkai: Star Rail and Genshin Impact.
+This file is the entry point: follow its rules, and open the linked documents
+when the task calls for them rather than reading everything.
 
-Read `docs/product/PROJECT.md`, `docs/status/STATUS.md`, and the relevant sections of
-`docs/architecture/ARCHITECTURE.md` before implementation. Read `CONTRIBUTING.md` for mandatory
-TDD, coverage, and branch workflows. Use `docs/product/ROADMAP.md` for planned work
-and `docs/architecture/imports.md` for ingestion requirements. These documents describe intent;
-inspect actual code before assuming a feature exists.
+## Where to look
+
+Start every task with [STATUS](docs/status/STATUS.md): what works, known
+limitations and the next task. Then open what the task needs:
+
+| When you are | Open |
+| --- | --- |
+| Picking up or planning a feature | The [roadmap](docs/product/ROADMAP.md), then that feature's file in `docs/product/features/` |
+| Checking scope, requirements or acceptance | The [product brief](docs/product/PROJECT.md) |
+| Changing code in an area | The [architecture index](docs/architecture/ARCHITECTURE.md), then the area's file and the decisions it links |
+| Making or revisiting a consequential choice | The [decision records](docs/architecture/decisions/DECISIONS.md); record new ones there |
+| Working on Star Rail acquisition or parsing | The [HSR API contract](docs/games/hsr/api-contract.md); the [research](docs/games/hsr/api-research.md) holds its evidence |
+| Adding a game or import source | [Games](docs/games/GAMES.md) and [imports](docs/architecture/imports.md) |
+| Designing UIGF storage, import or export | The `uigf` skill in `.agents/skills/uigf/` |
+| Setting up, running or checking the app | [Development](docs/development/DEVELOPMENT.md) |
+| Working on tests, coverage gates, probes or CI | [Testing](docs/development/TESTING.md) and [tests/README.md](tests/README.md) |
+| Finding files in the frontend or backend | [src-ui/README.md](src-ui/README.md) and [src-tauri/README.md](src-tauri/README.md) |
+| Branching, committing, testing first, handing off | [CONTRIBUTING](CONTRIBUTING.md) |
+| Looking for why or when something was done | The history index at the end of STATUS |
+
+Documents describe intent and may lag behind; inspect the code before assuming a
+feature exists.
 
 ## Product constraints
 
-- Build a locally run desktop application with a web UI hosted by Tauri.
-- Start with Genshin Impact and Honkai: Star Rail, using separate game adapters.
+- A locally run desktop app with a web UI hosted by Tauri, with separate game
+  adapters per game.
 - Support user-provided files and, where technically feasible, read-only local
-  installation sources. Do not assume local files contain complete roll history.
-- Fetch history from HoYoverse only on an explicit user request. Cache files may
-  supply authentication/request context rather than roll records. No automatic
-  startup fetching, background polling, or scheduled history synchronization.
-- Keep stored-history browsing, analysis, file import, and export local; these
-  operations do not trigger history requests.
-- No accounts with our service, telemetry, cloud storage, remote assets, or hidden
-  network dependencies. User-initiated HoYoverse history acquisition is in scope
-  (decision 0002); it requires connectivity and valid authentication.
+  installation sources. Do not assume local files hold complete roll history.
+- Fetch history from HoYoverse only on an explicit user request; cache files may
+  supply authentication context rather than roll records. No startup fetching,
+  background polling or scheduled synchronization. Stored-history browsing,
+  analysis, file import and export stay local and never trigger requests.
+- No accounts with our service, telemetry, cloud storage, remote assets or
+  hidden network dependencies. User-requested HoYoverse acquisition is in scope
+  ([decision 0002](docs/architecture/decisions/0002-user-requested-history-acquisition.md)).
 - Keep player data local. Never commit real histories, account IDs, credentials,
-  auth URLs, game logs, databases, or private filesystem paths. Use synthetic fixtures.
+  auth URLs, game logs, databases or private filesystem paths; use synthetic
+  fixtures.
 
 ## Implementation conventions
 
-- Use Vue 3 with TypeScript 6, Vite, npm, and Tauri 2 (decisions 0001 and 0011).
-  Follow `create-vue` and Tauri conventions regardless of app size, and keep UI
-  components small and presentational: props in, events out, native calls and
-  flow logic outside them. Format with Prettier and lint with type-aware ESLint
-  (decision 0012); fix findings rather than disabling rules. Manage Node.js
-  and Rust with asdf and `.tool-versions`. Use pinned rusqlite with bundled SQLite (decision 0003). Record consequential choices in
-  `docs/architecture/decisions/` and update setup instructions when scaffolding the app.
-- Keep UI presentation, game rules, parsing, persistence, and OS discovery separate.
-- Keep layouts fluid: place components relative to each other with flex and grid,
-  wrapping, `minmax`/auto-fill tracks and max-width containers, not fixed pixel
-  positions or sizes, so screens scale to any window size and new features slot
-  in without reworking neighbours. Reserve fixed sizes for content that needs
-  them, such as icons and numeric columns.
-- Prefer Rust for file access, import validation, persistence, and authoritative
-  domain logic. The frontend calls a narrow, typed command interface.
-- Treat files as untrusted input. Bound input sizes, validate formats, provide
-  actionable errors, and avoid exposing sensitive source content in errors/logs.
-- Imports must be transactional and safe to repeat. Preserve source IDs as strings;
+- Vue 3 with TypeScript 6, Vite and npm, in Tauri 2 (decisions 0001 and 0011),
+  following `create-vue` and Tauri conventions regardless of app size. Prettier
+  and type-aware ESLint (decision 0012): fix findings rather than disabling
+  rules. Node.js and Rust come from asdf and `.tool-versions`; SQLite through
+  pinned rusqlite with bundled SQLite (decision 0003).
+- Keep UI presentation, game rules, parsing, persistence and OS discovery
+  separate. Prefer Rust for file access, import validation, persistence and
+  authoritative domain logic; the frontend calls a narrow, typed command
+  interface. UI components stay small and presentational: props in, events out,
+  with native calls and flow logic in composables.
+- Keep layouts fluid: place components relative to each other with flex and
+  grid, wrapping, `minmax`/auto-fill tracks and max-width containers, never fixed
+  pixel positions or sizes, so screens scale to any window size and new features
+  slot in without reworking neighbours. Reserve fixed sizes for content that
+  needs them, such as icons and numeric columns.
+- Treat files as untrusted input: bound sizes, validate formats, give actionable
+  errors and keep sensitive source content out of errors and logs.
+- Imports are transactional and safe to repeat. Preserve source IDs as strings;
   never deduplicate only by timestamp or localized item name.
-- Keep accounts, servers, games, and banner/pity groups separate. Calculate pity
-  as though each pity group's stored rolls were complete, and recalculate it for
-  later rolls whenever earlier rolls are imported. Do not infer guarantees or
-  50/50 outcomes without verified banner metadata.
-- Never modify game installations. Limit file access to the source locations
-  needed for the user-selected import; avoid broad filesystem scans.
-- Keep automated tests local and self-contained. Mock HoYoverse requests with
-  synthetic responses, including failures; never call live APIs or use player
-  credentials in tests.
-- Use narrowly scoped Tauri permissions. Do not expose arbitrary filesystem or
+- Keep accounts, servers, games and banner/pity groups separate. Calculate pity
+  as though each pity group's stored rolls were complete, and recalculate later
+  rolls whenever earlier ones are imported. Do not infer guarantees or 50/50
+  outcomes without verified banner metadata.
+- Never modify game installations. Limit file access to the locations the
+  user-selected import needs; no broad filesystem scans.
+- Use narrowly scoped Tauri permissions; never expose arbitrary filesystem or
   shell commands to the webview.
-- Keep changes focused. Make routine reversible choices independently, documenting
-  assumptions; ask only when missing information materially blocks the task.
+- Keep automated tests local and self-contained: mock HoYoverse with synthetic
+  responses, failures included; never call live APIs or use player credentials.
+- Keep changes focused. Make routine reversible choices independently and record
+  your assumptions; ask only when missing information materially blocks the task.
+  Record consequential choices as decisions, and update the setup instructions
+  when tooling changes.
 
-## Mandatory development workflow
+## Workflow
 
-- Use Conventional Commits for every commit message:
-  `type(optional-scope): description`. See `CONTRIBUTING.md` for examples.
-- Follow trunk-based development with `main` as the trunk. Before any code change,
-  create a separate short-lived task branch from up-to-date `main`. Never implement
-  directly on `main`; this includes tests, build scripts, and CI configuration.
-- Keep branches focused on one small change, integrate as soon as all gates pass
-  (target the same working day), and delete merged branches. No long-lived develop,
-  release, or feature branches. See `CONTRIBUTING.md` for bootstrap details.
-- Use test-driven development for all behavior changes: write a meaningful test,
-  run it and observe the expected failure, implement the minimum to pass, then
-  refactor with tests green. Add a failing regression test before fixing a bug.
-- Mandate 100% coverage of all first-party executable code, including frontend,
-  Rust backend, native glue, and executable tooling. Require 100% lines, statements,
-  functions, and branches wherever applicable; select tooling that can enforce
-  these metrics rather than silently omitting an unsupported metric.
-- Rust backend coverage must reach 100% from unit tests alone, with mocked
-  filesystem/database APIs. Integration tests use real boundaries and cannot fill
-  unit-coverage gaps. Only `src-tauri/src/main.rs`, the mock debug binary
-  `src-tauri/src/bin/roll-tracker-mock.rs` (decision 0014) and `src-tauri/build.rs`
-  retain a separate 100% native gate while they remain minimal Tauri delegates, and the
-  config files Vitest never measures, `src-ui/vite.config.ts`,
-  `src-ui/eslint.config.ts`, `vitest.config.ts` and `eslint.config.ts`, only
-  delegate to the unit-tested `src-ui/build/vite.ts`, `src-ui/build/eslint.ts`,
-  `tooling/vitest-config.ts` and `tooling/eslint-config.ts`. The source-body guard in `tests/coverage-reports.test.ts`
-  must fail if any of them changes. Reassess the exception before adding behavior
-  to any of them.
-- Include unexecuted source files in coverage. Enforce thresholds per file and per
-  language/package; do not round up, rely on changed-lines-only coverage, or hide
-  missed paths with exclusions, ignore annotations, or trivial assertions.
-- Establish automated test and coverage gates with the first executable code.
-  Missing, empty, stale, or incomplete reports must fail. CI must run the same
-  gates before integration; a docs-only scaffold is not evidence of 100% coverage.
+[CONTRIBUTING](CONTRIBUTING.md) holds the full rules; these are not negotiable:
+
+- **Trunk-based:** create a short-lived task branch from up-to-date `main` before
+  any code change, tests, build scripts and CI configuration included; never
+  implement on `main`. Keep each branch to one small change, integrate as soon as
+  every gate passes (target the same working day) and delete it once merged. No
+  long-lived develop, release or feature branches.
+- **Conventional Commits** for every commit: `type(optional-scope): description`.
+- **Test first:** for every behavior change, write a meaningful test, watch it
+  fail for the expected reason, make it pass with the minimum code, then
+  refactor. A bug fix starts with a failing regression test.
+- **100% coverage,** per file, of all first-party executable code: lines,
+  statements, functions and branches wherever they apply, with tooling that
+  measures every one of them rather than silently omitting one. Rust reaches it from
+  unit tests alone, with mocked filesystem and database APIs; integration tests
+  cannot fill unit gaps. Unexecuted files count. No exclusions, ignore
+  annotations, rounding or trivial assertions to hide missed code. The only
+  exceptions are the guarded delegates listed in CONTRIBUTING; reassess the
+  exception before adding behavior to any of them.
+- **Gates fail closed:** missing, empty, stale or incomplete reports fail, and CI
+  runs the same gates before integration.
 
 ## Validation and handoff
 
-- The shell, native services, HSR acquisition UI (retrieve, review, save) and the
-  stored-history display exist (milestones 3 to 7 are complete). Use `npm test` for UI/tooling
-  tests, `npm run check` for all test/coverage/type/lint gates, and
-  `npm run tauri -- build --no-bundle` for a production desktop executable.
-- Document exact setup/check commands in `docs/development/DEVELOPMENT.md`. Run focused
-  tests during TDD and the full tests and coverage gates before handoff/integration.
-  Test observable behavior rather than mirroring implementation.
-- Prioritize parser failures, repeated/overlapping imports, cross-account isolation,
-  migration safety, uncertain timestamps, incomplete histories, user-initiated acquisition,
-  network/authentication failures, cancellation, and local use without fetching.
-- For UI work, check keyboard operation, readable empty/error states, and native
-  Tauri behavior where available. Browser mocks alone do not validate native I/O.
-- Update `docs/status/STATUS.md` with completed work, actual verification, and the next
-  concrete task, and archive integrated sections as its "Keeping this file current"
-  section describes. Update architecture/decisions when behavior or boundaries change.
-- Report the task branch, red/green evidence, full test and coverage results, what
-  changed, and any remaining limitations. Do not
-  commit, publish, or release unless requested.
+- Run focused tests during TDD and `npm run check` before handoff. Test observable
+  behavior rather than mirroring the implementation. Keep the setup and check
+  commands in DEVELOPMENT exact.
+- Prioritize parser failures, repeated and overlapping imports, cross-account
+  isolation, migration safety, uncertain timestamps, incomplete histories,
+  user-initiated acquisition, network and authentication failures, cancellation,
+  and local use without fetching.
+- For UI work, check keyboard operation, readable empty and error states, and
+  native Tauri behavior where available; browser mocks alone do not validate
+  native I/O.
+- Update STATUS with the work, its real verification and the next task, and
+  archive integrated sections as its "Keeping this file current" section says.
+  Update the feature file, architecture and decisions when behavior or
+  boundaries change.
+- Report the branch, red/green evidence, full test and coverage results, what
+  changed and what remains limited. Do not commit, publish or release unless
+  asked.
 
 ## Code review priorities
 
