@@ -186,7 +186,7 @@ The API format-verification item remains open: current global endpoint variants,
 terminal pages, expiry/rate-limit behavior and completeness need further evidence.
 The parser is not connected to the shell or an HTTP client. Scripted mocks do not
 validate network transport or an automatic pagination loop. See
-[response research](../../games/hsr/api-research.md#response-foundation-review-2026-09-21).
+[response research](2026-09-21-response-parser-review.md#response-foundation-review-2026-09-21).
 
 ## Milestone 2 SQLite services (2026-09-22)
 

@@ -152,24 +152,6 @@ allowed in tests. Add coverage for
 pagination, errors, cancellation, and absence of unrequested fetching. See
 [decision 0002](../decisions/0002-user-requested-history-acquisition.md).
 
-## HSR response foundation TDD
-
-On `feat/hsr-response-foundations`, the first seven integration tests failed
-against a compiling parser placeholder returning `InvalidResponse`: valid pages,
-empty pages, API codes, validation categories and size bounds were absent.
-The parser implementation made all seven pass. Two additional tests then failed
-on discarded unknown fields and an API error without `data`; preserving page/roll
-extras and defaulting absent envelope data made both pass. A scripted mock source
-adds overlap and terminal-success/error scenarios, for ten passing Rust tests.
-A preliminary missing serialization-trait compile error was corrected before
-observing the unknown-field assertion failure; it is not counted as red evidence.
-
-Run `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test hsr`
-for focused tests. `npm run check` runs these under LLVM instrumentation alongside
-native startup and unchanged coverage failure probes. Fixtures and mocks have
-no credentials or network access. They test parser policy, not live compatibility,
-HTTP transport, automatic cursor progression, persistence, or complete history.
-
 ## SQLite service tests and failure injection
 
 The storage increment began with a compiling no-op service. Eight tests failed
