@@ -130,7 +130,7 @@ then advances the 12-month window 12 times, reaching 12,000 unique rolls and 37
 summaries. Initial/repeat/rolling times were 202 ms / 4.143 s / 2.062 s; process
 peak RSS was 26,376 KiB. The database stayed at 2,420,736 bytes through complete
 repeats, then grew to 4,808,704 bytes with new rolls. These are local debug-build
-observations, not release-speed guarantees. See [testing](../../TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
+observations, not release-speed guarantees. See [testing](../../development/TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
 for the reproducible workload, assertions and measurement limits.
 
 `npm run tauri -- build --no-bundle` passed. Relative Markdown links and
@@ -164,7 +164,7 @@ parser boundaries without credentials, private files or network calls.
 TDD: seven behavior tests failed against a compiling placeholder, then passed;
 two follow-up assertions failed for unknown-field loss and API errors without
 data, then passed after implementation. Ten Rust tests pass, including a
-scripted overlap/terminal-response scenario. See [testing](../../TESTING.md) for details.
+scripted overlap/terminal-response scenario. See [testing](../../development/TESTING.md) for details.
 
 Final verification on Ubuntu 24.04:
 

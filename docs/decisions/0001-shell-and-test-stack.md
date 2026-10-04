@@ -53,4 +53,4 @@ Tests are more involved than the shell because coverage includes startup/shutdow
 - [Vitest coverage](https://vitest.dev/guide/coverage.html)
 - [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)
 - [asdf Rust plugin](https://github.com/code-lever/asdf-rust)
-- Local red/green results and coverage probes: [testing notes](../TESTING.md).
+- Local red/green results and coverage probes: [testing notes](../development/TESTING.md).

@@ -16,7 +16,7 @@ mutation probe. The shell copy reflects the acquisition-first roadmap.
 integration, five failure/discovery probes, source/report validation, TypeScript,
 formatting and Clippy. All required coverage metrics are 100% per source file.
 The regression tests reproduced the four data issues before fixes; the new-suite
-probe confirmed the old command omitted tests. See [testing](../../TESTING.md) for
+probe confirmed the old command omitted tests. See [testing](../../development/TESTING.md) for
 red/green and mutation evidence. `npm run tauri -- build --no-bundle` also passed for Linux.
 Review fixes are integrated on `main`.
 The existing branch history is preserved; subsequent service work should use

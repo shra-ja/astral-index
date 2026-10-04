@@ -154,7 +154,7 @@ these gates exist and pass.
 
 Run `npm run check` before handoff. It creates fresh V8/LLVM reports, validates
 per-file metrics against a source inventory, and probes gate failures. See
-[testing details](docs/TESTING.md) and [setup](README.md). CI runs the same command;
+[testing details](docs/development/TESTING.md) and [setup](README.md). CI runs the same command;
 make its **Tests and 100% coverage** job a required check.
 
 ## Trunk-based development

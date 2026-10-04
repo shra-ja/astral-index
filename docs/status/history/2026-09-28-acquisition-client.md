@@ -45,7 +45,7 @@ hyphenated crates from the nightly's new build-dir layout: all 65 reused crates
 survived its name rule, and every rebuilt crate was pruned or depended on one
 (`proc-macro2` among them). CI now exports `CARGO_HOME` from `asdf where rust`
 and pins rust-cache v2.9.2, which supports that layout. See
-[TESTING.md](../../TESTING.md#ci-and-handoff).
+[TESTING.md](../../development/TESTING.md#ci-and-handoff).
 
 TDD: the CI guard failed against the v2.8.2 pin and missing `CARGO_HOME` export,
 then passed. `npm run check` passed with 80 Rust unit tests, the integration

@@ -103,7 +103,7 @@ guard requires review if any wrapper changes. Real-file, SQLite and desktop inte
 remain mandatory additional checks and cannot compensate for unit-test gaps.
 
 
-The [overlap workload](docs/TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
+The [overlap workload](docs/development/TESTING.md#overlapping-imports-and-schema-2-2026-09-23)
 includes commands for import timings, peak memory and database-growth measurements.
 
 Native tests require Linux, Xvfb, WebKitWebDriver and user network namespaces.
@@ -191,7 +191,7 @@ Keep [current status](docs/status/STATUS.md) up to date between tasks.
 | [Architecture](docs/ARCHITECTURE.md) | Boundaries and proposed data model |
 | [Import design](docs/IMPORTS.md) | Requirements for the next milestone |
 | [Roadmap](docs/product/ROADMAP.md) | Implementation milestones |
-| [Testing](docs/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
+| [Testing](docs/development/TESTING.md) | Coverage scope, gates, TDD evidence and CI |
 | [Compact provenance](docs/decisions/0004-compact-import-provenance.md) | Repeated imports, pre-release schema policy and provenance tradeoffs |
 | [HSR API contract](docs/games/hsr/api-contract.md) | Accepted initial fields, assumptions, pagination and error handling |
 | [Storage decision](docs/decisions/0003-sqlite-import-foundations.md) | SQLite migration, identity and transactional import policy |
@@ -203,7 +203,7 @@ protected `main`. Hosted results are available on
 [PR #1](https://github.com/shra-ja/roll-tracker/pull/1).
 CI reuses npm downloads, Rust dependency builds and pinned Cargo tools through
 caches; every run still executes locked installs and the complete validation
-pipeline. See [CI caching](docs/TESTING.md#ci-and-handoff) for invalidation and
+pipeline. See [CI caching](docs/development/TESTING.md#ci-and-handoff) for invalidation and
 cold/warm-run verification.
 
 For focused native cache-extraction tests (synthetic data, no network requests):
