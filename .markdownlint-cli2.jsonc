@@ -1,0 +1,15 @@
+// Markdown structure checks (decision 0016). Prose keeps its hand wrapping and
+// tables stay compact; archived history and decision records are kept as written.
+{
+  "config": {
+    "default": true,
+    // Prose is hand-wrapped, and tables and links legitimately run long.
+    "MD013": false,
+    "MD004": { "style": "dash" },
+    "MD007": { "indent": 2 },
+    "MD060": { "style": "compact" },
+  },
+  "globs": ["**/*.md"],
+  "gitignore": true,
+  "ignores": ["docs/status/history/**", "docs/architecture/decisions/0*.md", ".agents/**"],
+}

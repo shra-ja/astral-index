@@ -34,7 +34,7 @@ user-authorized requests retrieved records and verified cursor pagination.
 
 1. **Locate game data automatically on request**. Read
    `%APPDATA%/../LocalLow/Cognosphere/Star Rail/Player.log` or `Player-prev.log`
-   for `Loading player data from ` and removing that prefix and `data.unity3d`
+   for the line starting `Loading player data from` (and a space), removing that prefix and `data.unity3d`
    to obtain the directory (verified against real installations on 2026-09-27;
    see below). If discovery fails, accept a user-provided file directly for extraction.
 2. **Resolve `data_2` internally**. Candidate locations are
