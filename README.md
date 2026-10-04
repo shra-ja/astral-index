@@ -7,18 +7,21 @@ application has no user accounts, cloud storage or telemetry.
 
 ## Features
 
-- Retrieval of Honkai: Star Rail warp history on request. The application finds
-  the warp history link that the game cached when the history was last opened in
-  game, either by searching the installation or by reading a chosen cache file,
-  then retrieves every warp category from HoYoverse.
-- Two retrieval modes: by default a retrieval stops at rolls that are already
+- **Retrieval on request:** Honkai: Star Rail warp history is retrieved only on
+  the user's request. The application finds the warp history link that the game
+  cached when the history was last opened in game, either by searching the
+  installation or by reading a chosen cache file, then retrieves every warp
+  category from HoYoverse.
+- **Retrieval modes:** by default a retrieval stops at rolls that are already
   saved; a full retrieval fetches the whole history again.
-- A review before saving, showing the account, the numbers of new, already saved
-  and conflicting rolls, and the period covered. Nothing is saved until the review
-  is confirmed, and a failed or cancelled retrieval changes nothing.
-- Browsing of saved history by warp, newest first, without network access.
-- Separate history per account and server. Repeated or overlapping retrievals add
-  only new rolls.
+- **Review before saving:** a review shows the account, the numbers of new,
+  already saved and conflicting rolls, and the period covered. Nothing is saved
+  until the review is confirmed, and a failed or cancelled retrieval changes
+  nothing.
+- **Saved history:** saved rolls can be browsed by warp, newest first, without
+  network access.
+- **Accounts and servers:** history is kept separately per account and server.
+  Repeated or overlapping retrievals add only new rolls.
 
 Genshin Impact, history-file imports, account switching, filters, statistics,
 pity and backups are planned; see the [roadmap](docs/product/ROADMAP.md).
