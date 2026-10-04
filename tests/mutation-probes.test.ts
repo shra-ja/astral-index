@@ -1,6 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
+  copyFileSync,
   existsSync,
+  globSync,
+  mkdirSync,
   readFileSync,
   writeFileSync,
   unlinkSync,
@@ -19,13 +22,46 @@ afterAll(refreshProbeCoverage, 600000)
 const unrelatedIntegration =
   '#[test] fn unrelated_must_not_run() { panic!("probe ran unrelated integration tests"); }\n'
 
+/**
+ * Run a command that must fail, naming `message` in its output. If it does not, save
+ * what a rare failure can't show afterwards before asserting: the full output, the
+ * machine's processes, load and memory, and Vitest's results caches, which order the
+ * next run. Snapshots go to `test-results/probe-failures/`; passing runs write nothing.
+ */
+function expectCommandFailure(command: string, args: string[], message: string): void {
+  const result = spawnSync(command, args, { encoding: 'utf8' })
+  const output = result.stdout + result.stderr
+  if (result.status === 0 || !output.includes(message)) {
+    const folder = `test-results/probe-failures/${new Date().toISOString().replace(/[:.]/g, '-')}`
+    mkdirSync(folder, { recursive: true })
+    const machine = (file: string, args: string[]) =>
+      spawnSync(file, args, { encoding: 'utf8' }).stdout ?? ''
+    writeFileSync(
+      `${folder}/snapshot.log`,
+      [
+        `$ ${command} ${args.join(' ')}`,
+        `exit ${result.status} signal ${result.signal}; expected a failure naming ${message}`,
+        `load ${readFileSync('/proc/loadavg', 'utf8')}`,
+        machine('free', ['-m']),
+        machine('ps', ['-eo', 'pid,ppid,etime,pcpu,rss,args', '--sort=-pcpu']),
+        output,
+      ].join('\n'),
+    )
+    for (const cache of globSync('{,src-ui/}node_modules/.vite/vitest/*/results.json')) {
+      copyFileSync(cache, `${folder}/${cache.replaceAll('/', '_')}`)
+    }
+  }
+  expect(result.status).not.toBe(0)
+  expect(output).toContain(message)
+}
+
 // Run one report check and require it to fail for the expected reason.
 function expectReportFailure(name: string, message: string): void {
-  const result = spawnSync('npx', ['vitest', 'run', 'tests/coverage-reports.test.ts', '-t', name], {
-    encoding: 'utf8',
-  })
-  expect(result.status).not.toBe(0)
-  expect(result.stdout + result.stderr).toContain(message)
+  expectCommandFailure(
+    'npx',
+    ['vitest', 'run', 'tests/coverage-reports.test.ts', '-t', name],
+    message,
+  )
 }
 
 test('the unit gate rejects stale evidence', () => {
@@ -44,9 +80,7 @@ test('the real coverage command rejects an unexecuted file and branch', () => {
   expect(existsSync(probe)).toBe(false)
   try {
     writeFileSync(probe, 'export const probe = (value: boolean) => value ? 1 : 0;\n')
-    const result = spawnSync('npm', ['run', 'coverage:json'], { encoding: 'utf8' })
-    expect(result.status).not.toBe(0)
-    expect(result.stdout + result.stderr).toContain('coverage-probe.ts')
+    expectCommandFailure('npm', ['run', 'coverage:json'], 'coverage-probe.ts')
   } finally {
     unlinkSync(probe)
   }
@@ -123,9 +157,7 @@ test('the test and coverage commands discover additional frontend and tooling su
         `import { test, expect } from 'vitest';\ntest('${path}', () => expect('discovery probe').toBe('must fail'));\n`,
       )
       for (const command of ['test', 'coverage:json']) {
-        const result = spawnSync('npm', ['run', command], { encoding: 'utf8' })
-        expect(result.status).not.toBe(0)
-        expect(result.stdout + result.stderr).toContain(path.replace(/^src-ui\//, ''))
+        expectCommandFailure('npm', ['run', command], path.replace(/^src-ui\//, ''))
       }
     } finally {
       unlinkSync(path)
@@ -144,9 +176,7 @@ test('the native CSP test rejects a permissive connection policy', () => {
   try {
     writeFileSync(unrelated, unrelatedIntegration)
     writeFileSync(path, original.replace(policy, 'connect-src *'))
-    const result = spawnSync('npm', ['run', 'test:e2e-probe'], { encoding: 'utf8' })
-    expect(result.status).not.toBe(0)
-    expect(result.stdout + result.stderr).toContain('CSP must block webview connections')
+    expectCommandFailure('npm', ['run', 'test:e2e-probe'], 'CSP must block webview connections')
   } finally {
     unlinkSync(unrelated)
     writeFileSync(path, original)
