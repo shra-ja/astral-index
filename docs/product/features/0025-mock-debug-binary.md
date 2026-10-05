@@ -7,7 +7,7 @@ The app against a synthetic HoYoverse, for end-to-end tests and manual checks.
 
 ## Tasks
 
-- [x] Add a mock HoYoverse debug binary, `roll-tracker-mock`: the same app
+- [x] Add a mock HoYoverse debug binary, `astral-index-mock`: the same app
   with an in-process mock transport serving synthetic scenarios chosen by an
   environment variable (multi-page success, expired link, network failure,
   rate limit, no history). The shipped binary keeps no test hooks. Add a

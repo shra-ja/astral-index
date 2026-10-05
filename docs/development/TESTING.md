@@ -21,7 +21,7 @@ no external route (`test:offline`).
 | `src-ui/src/**/*.{ts,vue}`, `src-ui/build/**/*.ts` | Vitest V8, the frontend's own run, to `coverage/frontend/` | Lines, statements, functions, branches: 100% |
 | `tooling/**/*.ts` | Vitest V8, the root `tooling` project, to `coverage/tooling/` | Lines, statements, functions, branches: 100% |
 | `src-tauri/src/**/*.rs` except the delegates below | cargo-llvm-cov, **unit tests only**, to `coverage/backend-unit/` | Lines, regions, functions, branches: 100% |
-| `src-tauri/src/main.rs`, `src-tauri/src/bin/roll-tracker-mock.rs`, `src-tauri/build.rs` | Native boundary coverage, to `coverage/backend/` | Lines, regions, functions, branches: 100% |
+| `src-tauri/src/main.rs`, `src-tauri/src/bin/astral-index-mock.rs`, `src-tauri/build.rs` | Native boundary coverage, to `coverage/backend/` | Lines, regions, functions, branches: 100% |
 | `src-ui/vite.config.ts`, `src-ui/eslint.config.ts`, `vitest.config.ts`, `eslint.config.ts` | None: Vitest always excludes config files | Not measurable; each only delegates to a module covered above |
 
 The delegates in the last two rows are the only exceptions, and

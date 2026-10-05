@@ -1,6 +1,6 @@
-# Roll Tracker — agent instructions
+# Astral Index — agent instructions
 
-Roll Tracker is a locally run Tauri desktop app that keeps players' gacha roll
+Astral Index is a locally run Tauri desktop app that keeps players' gacha roll
 history on their own machine, starting with Honkai: Star Rail and Genshin Impact.
 This file is the entry point: follow its rules, and open the linked documents
 when the task calls for them rather than reading everything.

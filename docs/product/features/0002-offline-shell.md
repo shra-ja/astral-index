@@ -16,7 +16,7 @@ accessible first screen.
 - [x] Document and run setup, tests, coverage, lint/type and production build commands.
 - [x] Launch and exercise the native shell in an isolated network namespace.
 - [x] Commit the milestone with Conventional Commits and publish
-  [PR #1](https://github.com/shra-ja/roll-tracker/pull/1).
+  [PR #1](https://github.com/shra-ja/astral-index/pull/1).
 
 ## Notes
 

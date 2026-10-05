@@ -11,8 +11,8 @@ metadata entities are tentative. See decisions
 ## Location
 
 One SQLite file, `history.sqlite`, through pinned `rusqlite` with bundled SQLite.
-It lives in the app's local data folder (`%LOCALAPPDATA%\Roll-Tracker` on
-Windows, never the roaming profile; `roll-tracker` in the XDG data folder on
+It lives in the app's local data folder (`%LOCALAPPDATA%\Astral-Index` on
+Windows, never the roaming profile; `astral-index` in the XDG data folder on
 Linux and WSL), or, when a `data` folder sits beside the executable, in that
 folder (portable mode, which wins if both hold a database). The same folder holds
 the webview profile. The path is resolved at setup but the file is created and

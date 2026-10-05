@@ -29,7 +29,7 @@ and decision records keep the old name, as they are never rewritten.
   and the test helpers and probes that name them; regenerate the lock files.
   Keep coverage at 100% and the gates' guarded-delegate list in CONTRIBUTING
   matching the renamed files.
-- [ ] Update the living docs: README, AGENTS, CONTRIBUTING, DEVELOPMENT,
+- [x] Update the living docs: README, AGENTS, CONTRIBUTING, DEVELOPMENT,
   TESTING, the architecture docs, the frontend and backend READMEs, the feature
   files and the `uigf` skill. Leave `docs/status/history/` and decision records
   as written.
@@ -39,6 +39,6 @@ and decision records keep the old name, as they are never rewritten.
   to earlier PRs keep working.
 - [ ] Verify: `npm run check` passes; searching tracked files for `roll tracker`,
   `roll-tracker`, `roll_tracker` and `rolltracker` in any case finds only
-  archived history, decision records and the superseding decision; the mock
+  archived history, decision records and this feature file; the mock
   binary opens with the new title and creates its data folder under the new
   name; CI passes on the renamed repository.

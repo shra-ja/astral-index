@@ -4,7 +4,7 @@ Updated: 2026-10-04
 
 ## Current state
 
-Roll Tracker is a Tauri 2 desktop app with a Vue webview. Honkai: Star Rail
+Astral Index is a Tauri 2 desktop app with a Vue webview. Honkai: Star Rail
 history import works end to end; Genshin Impact has its screens but no import yet.
 
 - **Retrieval, on request only:** the app finds the warp history link by

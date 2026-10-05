@@ -1,6 +1,6 @@
 # Storage and interoperability
 
-## Recommended Roll Tracker design
+## Recommended Astral Index design
 
 Use UIGF v4.2 as the durable roll-data contract. JSON files or database tables can implement it; UIGF does not select an engine. Keep a database schema version separate from interchange `info.version`. Persistence library selection remains an implementation decision.
 
