@@ -207,7 +207,7 @@ docs-only initialization is the bootstrap exception, not permission to write
 application code directly on the trunk. Create a task branch before introducing
 any executable code.
 
-The Git remote `origin` is `git@github.com:shra-ja/roll-tracker.git`.
+The Git remote `origin` is `git@github.com:shra-ja/astral-index.git`.
 
 The user has enabled branch protection. Keep `main` protected: require pull requests, passing test
 and 100% coverage checks, checks against current trunk, and block direct/force

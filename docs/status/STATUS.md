@@ -40,9 +40,9 @@ migration of old test folders. The sidebar mark is now the icon's star.
 Evidence: the renamed unit, component, guarded-delegate and end-to-end
 assertions failed against the old names (title, folders, variables, binary
 paths), then passed. The staged `npm run check` and offline tests passed; a
-release `.deb` bundle built with the new identifier without warnings. Left: the
-GitHub repository rename, the `origin` and CONTRIBUTING remote, and CI on the
-renamed repository.
+release `.deb` bundle built with the new identifier without warnings. The GitHub
+repository is renamed `shra-ja/astral-index`, with `origin` and CONTRIBUTING
+updated. Left: CI on the renamed repository.
 
 ## Known limitations
 
@@ -60,7 +60,7 @@ renamed repository.
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, finish
-the Astral Index rebrand (feature 0045) with the repository rename. Then the
+the Astral Index rebrand (feature 0045) once CI passes on its PR. Then the
 features in milestones 9 to 11 are being reordered; after that, propose
 milestone 9's PR split. Its current first items are history-file imports through
 the shared pipeline, the second game's adapter, and account switching with

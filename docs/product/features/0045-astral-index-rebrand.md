@@ -33,7 +33,7 @@ and decision records keep the old name, as they are never rewritten.
   TESTING, the architecture docs, the frontend and backend READMEs, the feature
   files and the `uigf` skill. Leave `docs/status/history/` and decision records
   as written.
-- [ ] Rename the GitHub repository to `shra-ja/astral-index`, a step the owner
+- [x] Rename the GitHub repository to `shra-ja/astral-index`, a step the owner
   takes in the repository settings. Point `origin` at the new URL and update
   the remote recorded in CONTRIBUTING. GitHub redirects the old URLs, so links
   to earlier PRs keep working.
