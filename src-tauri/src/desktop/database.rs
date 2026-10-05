@@ -21,15 +21,15 @@ pub const PORTABLE_FOLDER: &str = "data";
 /// The app's folder inside the platform's local data folder, named as the
 /// platform's own folders usually are.
 #[cfg(target_os = "linux")]
-pub const FOLDER_NAME: &str = "roll-tracker";
+pub const FOLDER_NAME: &str = "astral-index";
 #[cfg(not(target_os = "linux"))]
-pub const FOLDER_NAME: &str = "Roll-Tracker";
+pub const FOLDER_NAME: &str = "Astral-Index";
 /// The mock debug binary's own folder, so synthetic history never mixes with real
 /// history ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 #[cfg(target_os = "linux")]
-pub const MOCK_FOLDER_NAME: &str = "roll-tracker-mock";
+pub const MOCK_FOLDER_NAME: &str = "astral-index-mock";
 #[cfg(not(target_os = "linux"))]
-pub const MOCK_FOLDER_NAME: &str = "Roll-Tracker-Mock";
+pub const MOCK_FOLDER_NAME: &str = "Astral-Index-Mock";
 
 /// Where the webview keeps its profile within the app's folder. WebView2 makes its
 /// own `EBWebView` folder inside the one it is given.
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn clearing_the_webview_profile_removes_only_its_own_folder() {
         filesystem::install(Fixture::default());
-        let folder = Path::new("/data/roll-tracker-mock");
+        let folder = Path::new("/data/astral-index-mock");
         clear_webview_profile(folder);
         // The database beside it is never touched.
         filesystem::inspect(|state| {
@@ -171,16 +171,16 @@ mod tests {
 
     #[test]
     fn the_webview_profile_sits_in_its_own_folder_beside_the_history() {
-        assert_eq!(FOLDER_NAME, "roll-tracker");
-        assert_eq!(MOCK_FOLDER_NAME, "roll-tracker-mock");
-        let folder = Path::new("/local/roll-tracker");
+        assert_eq!(FOLDER_NAME, "astral-index");
+        assert_eq!(MOCK_FOLDER_NAME, "astral-index-mock");
+        let folder = Path::new("/local/astral-index");
         assert_eq!(webview_folder(folder), folder.join("webview"));
     }
 
     #[test]
     fn a_data_folder_beside_the_executable_switches_on_portable_mode() {
-        let executable = Path::new("/apps/roll-tracker/roll-tracker.exe");
-        let data = PathBuf::from("/apps/roll-tracker/data");
+        let executable = Path::new("/apps/astral-index/astral-index.exe");
+        let data = PathBuf::from("/apps/astral-index/data");
         let local = || Some(PathBuf::from("/local/com.example"));
         filesystem::install(Fixture {
             directories: vec![data.clone()],

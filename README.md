@@ -1,4 +1,4 @@
-# Roll Tracker
+# Astral Index
 
 An open-source desktop application that keeps a local record of gacha roll
 history, starting with Honkai: Star Rail and Genshin Impact. History is fetched
@@ -40,8 +40,8 @@ data folder:
 
 | Platform | Folder |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\Roll-Tracker` |
-| Linux, including a Linux build run in WSL | `~/.local/share/roll-tracker` (or `$XDG_DATA_HOME/roll-tracker`) |
+| Windows | `%LOCALAPPDATA%\Astral-Index` |
+| Linux, including a Linux build run in WSL | `~/.local/share/astral-index` (or `$XDG_DATA_HOME/astral-index`) |
 
 The same folder holds the window's browser profile (cache and similar files):
 `EBWebView` on Windows, `webview` on Linux. It holds no roll history.
@@ -50,16 +50,16 @@ The same folder holds the window's browser profile (cache and similar files):
 
 If a folder named `data` sits next to the application executable, the database
 and browser profile are kept in that folder instead, for example
-`D:\RollTracker\data\history.sqlite` beside `D:\RollTracker\roll-tracker.exe`.
+`D:\AstralIndex\data\history.sqlite` beside `D:\AstralIndex\astral-index.exe`.
 Create or remove the folder, then restart the app, to switch. If both locations
 hold a database, the portable one is used and the other is left untouched.
 
 To move existing history between the two locations:
 
-1. Close Roll Tracker.
+1. Close Astral Index.
 2. Copy `history.sqlite` from the old folder to the new one. Keep the original
    until the history has been checked in the new location.
-3. Start Roll Tracker.
+3. Start Astral Index.
 
 ## Contributing
 
@@ -68,6 +68,6 @@ and the rules every change follows in [CONTRIBUTING](CONTRIBUTING.md).
 
 ## License
 
-Roll Tracker is released under the [MIT License](LICENSE). Bundled third-party
-files keep their own licences. Roll Tracker is not affiliated with or endorsed
+Astral Index is released under the [MIT License](LICENSE). Bundled third-party
+files keep their own licences. Astral Index is not affiliated with or endorsed
 by HoYoverse; game names belong to their owners.

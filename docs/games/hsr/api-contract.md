@@ -145,7 +145,7 @@ Banner labels use the official in-game terminology supplied by the user. The
 UIGF enum establishes the six recognised category codes. An empty result
 for the earlier experimental code `13` does not make it a supported category.
 Metadata mapping individual `gacha_id` pools to banners will be sourced later,
-alongside milestone 8's banner work. The supplied pool ID is sufficient for initial
+alongside milestone 9's banner work. The supplied pool ID is sufficient for initial
 import; imports must not depend on metadata lookup or trigger metadata requests.
 No pity grouping or guarantee rule follows from this table.
 

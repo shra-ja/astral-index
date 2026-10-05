@@ -1,6 +1,6 @@
 # 0036 — Item icons and banner art
 
-Status: Planned · Milestone 8, Additional import sources, multi-game history and statistics
+Status: Planned · Milestone 9, Additional import sources, multi-game history and statistics
 
 Decide how to show real item icons and banner art without committing game assets.
 

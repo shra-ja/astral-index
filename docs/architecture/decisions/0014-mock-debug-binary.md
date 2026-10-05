@@ -1,7 +1,8 @@
 # 0014 — Mock debug binary
 
 Date: 2026-10-02
-Status: Accepted
+Status: Accepted; the binary, folder and variable names were superseded by
+[decision 0017](0017-astral-index-name.md).
 
 ## Context
 

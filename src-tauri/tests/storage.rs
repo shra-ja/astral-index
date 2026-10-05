@@ -1,5 +1,5 @@
-use roll_tracker::acquisition::Category;
-use roll_tracker::storage::{Account, Error, HistoryPage, LastImport, Source, Store, Summary};
+use astral_index::acquisition::Category;
+use astral_index::storage::{Account, Error, HistoryPage, LastImport, Source, Store, Summary};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -16,7 +16,7 @@ impl Database {
     // Give parallel tests independent directories without touching application data.
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
-            "roll-tracker-storage-{}-{}",
+            "astral-index-storage-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
@@ -68,7 +68,7 @@ fn preview_does_not_write_and_commit_survives_restart_with_exact_fields() {
     assert_eq!(store.commit(preview, 1234).unwrap(), summary(2, 0, 0));
     drop(store);
     let stored = db.store().history(UID, SERVER).unwrap();
-    let expected = roll_tracker::parse_response(&bytes).unwrap();
+    let expected = astral_index::parse_response(&bytes).unwrap();
     assert_eq!(stored.len(), 2);
     assert!(expected.list.iter().all(|r| stored.contains(r)));
     let conn = db.connection();

@@ -1,6 +1,6 @@
 # 0039 — Distribution
 
-Status: Planned · Milestone 10, Release readiness
+Status: Planned · Milestone 11, Release readiness
 
 Ship the app with documented formats and recovery help.
 

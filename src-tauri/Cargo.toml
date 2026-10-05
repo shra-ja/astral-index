@@ -1,10 +1,10 @@
 [package]
-name = "roll-tracker"
+name = "astral-index"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 # The real app; the mock debug binary is built only with `--features mock` (decision 0014).
-default-run = "roll-tracker"
+default-run = "astral-index"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.0", features = [] }
@@ -40,6 +40,6 @@ tokio = { version = "=1.53.1", features = ["test-util"] }
 
 
 [[bin]]
-name = "roll-tracker-mock"
-path = "src/bin/roll-tracker-mock.rs"
+name = "astral-index-mock"
+path = "src/bin/astral-index-mock.rs"
 required-features = ["mock"]

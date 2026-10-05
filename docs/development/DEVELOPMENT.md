@@ -1,6 +1,6 @@
 # Development
 
-How to set up, run and check Roll Tracker. The rules every change follows are
+How to set up, run and check Astral Index. The rules every change follows are
 in [CONTRIBUTING](../../CONTRIBUTING.md); how the gates work is in
 [TESTING](TESTING.md).
 
@@ -49,17 +49,17 @@ details.
 | `npm run tauri -- dev` | The desktop app in development; Vite uses loopback port 1420 |
 | `npm run tauri:mock` | The same with the mock debug binary, against a synthetic HoYoverse |
 | `npm run dev` | A browser preview only; it does not exercise native behaviour |
-| `npm run tauri -- build --no-bundle` | The release executable, `src-tauri/target/release/roll-tracker`; installers come later |
+| `npm run tauri -- build --no-bundle` | The release executable, `src-tauri/target/release/astral-index`; installers come later |
 
-`ROLL_TRACKER_MOCK_SCENARIO` chooses the mock's behaviour: `history` (the
+`ASTRAL_INDEX_MOCK_SCENARIO` chooses the mock's behaviour: `history` (the
 default), `expired-link`, `network-failure`, `rate-limited`, `no-history`,
 `newer-history`, `second-account` or `mixed-accounts`
 ([decision 0014](../architecture/decisions/0014-mock-debug-binary.md)). The mock
-keeps its history in its own `roll-tracker-mock` data folder.
+keeps its history in its own `astral-index-mock` data folder.
 
-Development builds read `ROLL_TRACKER_ZOOM`, a webview zoom from 0.5 to 3. Under
+Development builds read `ASTRAL_INDEX_ZOOM`, a webview zoom from 0.5 to 3. Under
 WSL the app renders at 1×, so to match a Windows display at 125% run
-`ROLL_TRACKER_ZOOM=1.25 npm run tauri:mock`. Release builds ignore it.
+`ASTRAL_INDEX_ZOOM=1.25 npm run tauri:mock`. Release builds ignore it.
 
 ## Checks
 
@@ -99,7 +99,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --test discov
 ```
 
 Plain Cargo builds replace the coverage-instrumented binaries without Cargo
-noticing; run `cargo clean -p roll-tracker` before the native tests after one.
+noticing; run `cargo clean -p astral-index` before the native tests after one.
 
 ## Outputs
 
@@ -116,7 +116,7 @@ Git ignores all of these:
 To try the app in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
 experimental; it is not a release process, and installers and signing are
-milestone 10 work. It was used for the
+milestone 11 work. It was used for the
 [native Windows verification](../games/hsr/api-research.md#native-windows-verification-2026-09-27).
 
 ```sh
@@ -131,7 +131,7 @@ npm run tauri -- build --runner cargo-xwin --target x86_64-pc-windows-msvc --no-
 means accepting the
 [Microsoft Build Tools license](https://go.microsoft.com/fwlink/?LinkId=2086102);
 read it first. The executable is
-`src-tauri/target/x86_64-pc-windows-msvc/release/roll-tracker.exe`: copy it to a
+`src-tauri/target/x86_64-pc-windows-msvc/release/astral-index.exe`: copy it to a
 Windows folder and start it from Explorer. It needs the WebView2 runtime, which
 Windows 11 includes. Linker warnings about missing `libcmt` debug information are
 harmless. Release builds use the Windows GUI subsystem, so no console opens;

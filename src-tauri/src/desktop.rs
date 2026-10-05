@@ -322,7 +322,7 @@ fn register_with<R: Runtime>(
 /// portable mode leaves nothing of the app's behind on the machine.
 fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::Result<()> {
     let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("Roll Tracker")
+        .title("Astral Index")
         .inner_size(1000.0, 760.0)
         // The design's minimum, which excludes phones (decision 0013).
         .min_inner_size(480.0, 560.0);
@@ -334,7 +334,7 @@ fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::
         .and_then(|window| zoom_for_development(&window))
 }
 
-/// Debug builds zoom the webview by `ROLL_TRACKER_ZOOM`, when it holds a valid zoom.
+/// Debug builds zoom the webview by `ASTRAL_INDEX_ZOOM`, when it holds a valid zoom.
 #[cfg(debug_assertions)]
 fn zoom_for_development<R: Runtime>(window: &tauri::WebviewWindow<R>) -> tauri::Result<()> {
     apply_dev_zoom(window, std::env::var(ZOOM_VARIABLE).ok().as_deref())
@@ -349,7 +349,7 @@ fn zoom_for_development<R: Runtime>(_: &tauri::WebviewWindow<R>) -> tauri::Resul
 /// which renders at 1x, can match the Windows display scale. Release builds ignore
 /// it.
 #[cfg(debug_assertions)]
-pub const ZOOM_VARIABLE: &str = "ROLL_TRACKER_ZOOM";
+pub const ZOOM_VARIABLE: &str = "ASTRAL_INDEX_ZOOM";
 
 /// A zoom from 0.5 to 3, or none for anything else.
 #[cfg(debug_assertions)]
@@ -925,7 +925,7 @@ mod tests {
         // runtime, only this deprecated call runs them. It is called once here.
         #[allow(deprecated)]
         app.run_iteration(events::ignore);
-        let folder = app.path().local_data_dir().unwrap().join("roll-tracker");
+        let folder = app.path().local_data_dir().unwrap().join("astral-index");
         assert_eq!(
             app.state::<Database>().path(),
             Some(folder.join(database::FILE_NAME))
@@ -992,6 +992,7 @@ mod tests {
 
     #[test]
     fn a_development_zoom_is_a_number_from_half_to_three() {
+        assert_eq!(ZOOM_VARIABLE, "ASTRAL_INDEX_ZOOM");
         assert_eq!(dev_zoom(Some("1.25")), Some(1.25));
         assert_eq!(dev_zoom(Some("0.5")), Some(0.5));
         assert_eq!(dev_zoom(Some("3")), Some(3.0));

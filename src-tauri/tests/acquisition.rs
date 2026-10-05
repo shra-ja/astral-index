@@ -1,4 +1,4 @@
-use roll_tracker::acquisition::{
+use astral_index::acquisition::{
     CacheError, MAX_CACHE_BYTES, discover_cache_files, read_selected_cache,
 };
 use std::fs;
@@ -12,9 +12,9 @@ fn bounded_child(name: &str, seconds: u64, path: Option<&std::path::Path>) {
     let mut command = Command::new(std::env::current_exe().unwrap());
     command
         .args(["--exact", name, "--nocapture"])
-        .env("ROLL_TRACKER_ACQUISITION_CHILD", "1");
+        .env("ASTRAL_INDEX_ACQUISITION_CHILD", "1");
     if let Some(path) = path {
-        command.env("ROLL_TRACKER_FIFO_PATH", path);
+        command.env("ASTRAL_INDEX_FIFO_PATH", path);
     }
     let mut child = command.spawn().unwrap();
     let start = Instant::now();
@@ -35,15 +35,15 @@ fn bounded_child(name: &str, seconds: u64, path: Option<&std::path::Path>) {
 #[cfg(unix)]
 #[test]
 fn selected_fifo_is_rejected_without_waiting_for_a_writer() {
-    if std::env::var_os("ROLL_TRACKER_ACQUISITION_CHILD").is_some() {
-        let path = std::env::var_os("ROLL_TRACKER_FIFO_PATH").unwrap();
+    if std::env::var_os("ASTRAL_INDEX_ACQUISITION_CHILD").is_some() {
+        let path = std::env::var_os("ASTRAL_INDEX_FIFO_PATH").unwrap();
         assert_eq!(
             read_selected_cache(std::path::Path::new(&path)),
             Err(CacheError::NotRegularFile)
         );
         return;
     }
-    let directory = std::env::temp_dir().join(format!("roll-tracker-fifo-{}", std::process::id()));
+    let directory = std::env::temp_dir().join(format!("astral-index-fifo-{}", std::process::id()));
     fs::create_dir(&directory).unwrap();
     let path = directory.join("data_2");
     assert!(
@@ -66,7 +66,7 @@ fn selected_fifo_is_rejected_without_waiting_for_a_writer() {
 
 #[test]
 fn large_cache_deduplicates_within_processing_budget() {
-    if std::env::var_os("ROLL_TRACKER_ACQUISITION_CHILD").is_none() {
+    if std::env::var_os("ASTRAL_INDEX_ACQUISITION_CHILD").is_none() {
         bounded_child(
             "large_cache_deduplicates_within_processing_budget",
             10,
@@ -74,7 +74,7 @@ fn large_cache_deduplicates_within_processing_budget() {
         );
         return;
     }
-    use roll_tracker::acquisition::extract_request_contexts;
+    use astral_index::acquisition::extract_request_contexts;
     let urls: Vec<_> = (0..80_000).map(|i| url(&format!("{i:08}"))).collect();
     let mut bytes = cache(&urls);
     bytes.extend(cache(&[urls[0].clone(), urls[79_999].clone()]));
@@ -106,7 +106,7 @@ fn cache(urls: &[String]) -> Vec<u8> {
 
 #[test]
 fn selected_file_is_read_only_and_bounded() {
-    let directory = std::env::temp_dir().join(format!("roll-tracker-cache-{}", std::process::id()));
+    let directory = std::env::temp_dir().join(format!("astral-index-cache-{}", std::process::id()));
     fs::create_dir_all(&directory).unwrap();
     let path = directory.join("data_2");
     let bytes = cache(&[url("synthetic")]);
@@ -132,7 +132,7 @@ fn selected_file_is_read_only_and_bounded() {
 #[test]
 fn discovers_only_the_two_newest_windows_cache_versions() {
     let directory =
-        std::env::temp_dir().join(format!("roll-tracker-discovery-{}", std::process::id()));
+        std::env::temp_dir().join(format!("astral-index-discovery-{}", std::process::id()));
     fs::create_dir_all(&directory).unwrap();
     assert_eq!(
         discover_cache_files(&directory),

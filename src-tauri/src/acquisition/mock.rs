@@ -5,7 +5,7 @@
 use super::{COLLABORATION_ENDPOINT, ENDPOINTS, Transport, TransportError};
 
 /// The environment variable that chooses the mock binary's scenario.
-pub const VARIABLE: &str = "ROLL_TRACKER_MOCK_SCENARIO";
+pub const VARIABLE: &str = "ASTRAL_INDEX_MOCK_SCENARIO";
 
 /// What the synthetic HoYoverse does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -296,7 +296,7 @@ mod tests {
             assert_eq!(Scenario::named(name), Ok(scenario));
         }
         assert_eq!(Scenario::named(Some("anything else")), Err(UnknownScenario));
-        assert_eq!(VARIABLE, "ROLL_TRACKER_MOCK_SCENARIO");
+        assert_eq!(VARIABLE, "ASTRAL_INDEX_MOCK_SCENARIO");
     }
 
     #[test]

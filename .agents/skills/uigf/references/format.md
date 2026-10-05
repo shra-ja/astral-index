@@ -68,7 +68,7 @@ The published `hk4e_ugc` declares `type: array` but places account `properties` 
 
 The apparent intended account fields are `uid`, `timezone`, `list`, optional `lang`. Listed required record fields are `id`, `schedule_id`, `item_type`, `item_id`, `item_name`, `rank_type`, `time`, `op_gacha_type`, all strings. `id` uses the 1–19 digit rule; `schedule_id`, `item_id`, `rank_type` require one or more decimal digits. Note `item_name` rather than `name`, and `op_gacha_type` rather than `gacha_type`.
 
-Recheck upstream before implementation. If support is needed before clarification, document and independently test an application validation overlay; do not call a repaired schema the official schema. Roll Tracker can report this section as unsupported while importing explicitly selected supported sections.
+Recheck upstream before implementation. If support is needed before clarification, document and independently test an application validation overlay; do not call a repaired schema the official schema. Astral Index can report this section as unsupported while importing explicitly selected supported sections.
 
 ## Schema limits
 

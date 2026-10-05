@@ -3,7 +3,8 @@
 Date: 2026-09-28
 Status: Accepted for the local-database step of milestone 3. Amended 2026-09-29:
 the folder is named for the app rather than its identifier, and holds the webview
-profile.
+profile. The folder names were superseded by
+[decision 0017](0017-astral-index-name.md).
 
 ## Context
 

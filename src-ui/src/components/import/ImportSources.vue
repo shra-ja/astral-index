@@ -102,7 +102,7 @@ defineExpose({
           <FileText :size="22" :stroke-width="1.75" />
         </div>
         <h3 id="source-file">Import from a file</h3>
-        <p>Load an export from another tracker or a Roll Tracker backup.</p>
+        <p>Load an export from another tracker or an Astral Index backup.</p>
         <ul>
           <li>UIGF v4 JSON files</li>
           <li>Read on this device; nothing is sent anywhere</li>

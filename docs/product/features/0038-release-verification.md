@@ -1,6 +1,6 @@
 # 0038 — Release verification
 
-Status: Planned · Milestone 10, Release readiness
+Status: Planned · Milestone 11, Release readiness
 
 Check the app on each release OS before shipping.
 

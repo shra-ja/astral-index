@@ -4,7 +4,7 @@ Updated: 2026-10-04
 
 ## Current state
 
-Roll Tracker is a Tauri 2 desktop app with a Vue webview. Honkai: Star Rail
+Astral Index is a Tauri 2 desktop app with a Vue webview. Honkai: Star Rail
 history import works end to end; Genshin Impact has its screens but no import yet.
 
 - **Retrieval, on request only:** the app finds the warp history link by
@@ -23,20 +23,26 @@ history import works end to end; Genshin Impact has its screens but no import ye
   or overlapping imports add only new rolls.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes that prove each gate fails, and end-to-end tests that
-  drive the app against a synthetic HoYoverse (the mock debug binary).
+  drive the app against a synthetic HoYoverse (the mock debug binary). The docs
+  are checked too: links and anchors resolve, every doc is reachable from
+  `AGENTS.md`, STATUS stays within 150 lines, and markdownlint checks structure.
 
 ## In progress
 
-### Markdown checks (2026-10-04)
+### Project cleanup and Astral Index rebrand (2026-10-05)
 
-Feature 0044, on `chore/markdown-checks`; decision 0016. `npm run docs:check`
-fails on broken links or anchors, docs unreachable from `AGENTS.md`, and STATUS
-over 150 lines; markdownlint checks structure in `lint:check`. Prettier stays off
-Markdown, since it padded tables and grew the docs by 14%. The docs check's unit
-tests failed against a stub, then passed at 100% coverage; its mutation probe and
-probe documents showed each check failing. Agent skills are exempt from the
-reachability rule, since agent tools discover them from their skill folders.
-markdownlint found one real issue.
+On `docs/project-cleanup-milestone`, one PR. Milestone 8, Project cleanup, holds
+the Markdown checks (0044, moved from the backlog) and the Astral Index rebrand
+(0045); later milestones moved to 9 to 11. Decision 0017 records the names: data
+folders `Astral-Index` and `astral-index`, identifier `astral-index`, no
+migration of old test folders. The sidebar mark is now the icon's star.
+
+Evidence: the renamed unit, component, guarded-delegate and end-to-end
+assertions failed against the old names (title, folders, variables, binary
+paths), then passed. The staged `npm run check` and offline tests passed; a
+release `.deb` bundle built with the new identifier without warnings. The GitHub
+repository is renamed `shra-ja/astral-index`, with `origin` and CONTRIBUTING
+updated. CI passed on the renamed repository with PR #71.
 
 ## Known limitations
 
@@ -53,11 +59,12 @@ markdownlint found one real issue.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Then milestone 8:
-propose its PR split first. Its first items are history-file imports through the
-shared pipeline, the second game's adapter, and account switching with filters
-on the History screen. Native Windows validation of the current build belongs to
-milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, the
+features in milestones 9 to 11 are being reordered; after that, propose
+milestone 9's PR split. Its current first items are history-file imports through
+the shared pipeline, the second game's adapter, and account switching with
+filters on the History screen. Native Windows validation of the current build
+belongs to milestone 11.
 
 ## Keeping this file current
 
@@ -124,4 +131,5 @@ research, under a "From" heading.
   the mock's fresh webview profile, development zoom, and the end-to-end checks
   that closed milestone 7.
 - [2026-10-04: probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md):
-  the frontend emit flake investigation and the probes' failure snapshots.
+  the frontend emit flake investigation, the probes' failure snapshots and the
+  Markdown checks.

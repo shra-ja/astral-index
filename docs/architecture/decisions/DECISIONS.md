@@ -49,3 +49,4 @@ HoYoverse fetching.
 - [0014 — Mock debug binary](0014-mock-debug-binary.md)
 - [0015 — Incremental retrieval](0015-incremental-retrieval.md)
 - [0016 — Markdown checks](0016-markdown-checks.md)
+- [0017 — Astral Index name](0017-astral-index-name.md)

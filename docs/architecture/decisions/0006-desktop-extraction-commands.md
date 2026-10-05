@@ -2,7 +2,8 @@
 
 Date: 2026-09-27
 Status: Accepted; the session and failure categories were amended by
-[decision 0007](0007-validate-during-extraction.md).
+[decision 0007](0007-validate-during-extraction.md). The crate name was
+superseded by [decision 0017](0017-astral-index-name.md).
 
 Expose request-context extraction to the webview through two Tauri commands,
 `extract_automatically` and `extract_from_file`. Both return nothing on success

@@ -54,6 +54,6 @@ later the preview.
 
 Commands take their transport from a managed `Network`: HTTPS in the app, or the
 synthetic HoYoverse of the mock debug binary, which also keeps its history in its
-own `roll-tracker-mock` folder, never uses portable mode and clears its webview
+own `astral-index-mock` folder, never uses portable mode and clears its webview
 profile at start. The shipped app never constructs the mock transport. Only
-debug builds read `ROLL_TRACKER_ZOOM` to zoom the webview.
+debug builds read `ASTRAL_INDEX_ZOOM` to zoom the webview.

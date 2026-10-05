@@ -1,6 +1,6 @@
 # Frontend
 
-The Vue webview app, as the `roll-tracker-ui` npm workspace. See
+The Vue webview app, as the `astral-index-ui` npm workspace. See
 [decision 0011](../docs/architecture/decisions/0011-vue-frontend.md) for the conventions.
 
 - `src/main.ts` mounts `App.vue`, the shell with the sidebar beside the current

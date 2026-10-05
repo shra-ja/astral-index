@@ -62,7 +62,7 @@ test('every executable source is inventoried', () => {
 
 const wrappers = [
   'src-tauri/src/main.rs',
-  'src-tauri/src/bin/roll-tracker-mock.rs',
+  'src-tauri/src/bin/astral-index-mock.rs',
   'src-tauri/build.rs',
 ].map((file) => resolve(file))
 
@@ -139,22 +139,22 @@ export default eslintConfig()`)
     .toBe(`#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    roll_tracker::desktop::register(tauri::Builder::default())
+    astral_index::desktop::register(tauri::Builder::default())
         .run(tauri::generate_context!())
-        .expect("failed to run Roll Tracker");
+        .expect("failed to run Astral Index");
 }`)
   // The mock debug binary only reads its scenario and delegates (decision 0014).
-  expect(readFileSync('src-tauri/src/bin/roll-tracker-mock.rs', 'utf8').trim()).toBe(`fn main() {
-    let scenario = std::env::var(roll_tracker::acquisition::mock::VARIABLE).ok();
-    let scenario = roll_tracker::desktop::Scenario::named(scenario.as_deref())
-        .expect("unknown ROLL_TRACKER_MOCK_SCENARIO");
-    roll_tracker::desktop::register_mock(tauri::Builder::default(), scenario)
+  expect(readFileSync('src-tauri/src/bin/astral-index-mock.rs', 'utf8').trim()).toBe(`fn main() {
+    let scenario = std::env::var(astral_index::acquisition::mock::VARIABLE).ok();
+    let scenario = astral_index::desktop::Scenario::named(scenario.as_deref())
+        .expect("unknown ASTRAL_INDEX_MOCK_SCENARIO");
+    astral_index::desktop::register_mock(tauri::Builder::default(), scenario)
         .run(tauri::generate_context!())
-        .expect("failed to run Roll Tracker's mock");
+        .expect("failed to run Astral Index's mock");
 }`)
   expect(readFileSync('src-tauri/build.rs', 'utf8').trim()).toBe(`fn main() {
     let commands = tauri_build::AppManifest::new().commands(include!("src/desktop/commands.in"));
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(commands))
-        .expect("failed to build Roll Tracker");
+        .expect("failed to build Astral Index");
 }`)
 })

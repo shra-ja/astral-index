@@ -97,7 +97,7 @@ Generate and retain its isolated report before running any integration or native
 tests; their execution must never fill unit-test gaps. Use test doubles for
 filesystem and SQLite APIs while running the same service implementation.
 
-The only exceptions are `src-tauri/src/main.rs`, `src-tauri/src/bin/roll-tracker-mock.rs`
+The only exceptions are `src-tauri/src/main.rs`, `src-tauri/src/bin/astral-index-mock.rs`
 and `src-tauri/build.rs`, currently minimal delegates to Tauri runtime/build tooling.
 `main.rs` passes the builder through unit-tested registration; the mock debug
 binary reads its scenario and passes the builder through unit-tested mock
@@ -207,7 +207,7 @@ docs-only initialization is the bootstrap exception, not permission to write
 application code directly on the trunk. Create a task branch before introducing
 any executable code.
 
-The Git remote `origin` is `git@github.com:shra-ja/roll-tracker.git`.
+The Git remote `origin` is `git@github.com:shra-ja/astral-index.git`.
 
 The user has enabled branch protection. Keep `main` protected: require pull requests, passing test
 and 100% coverage checks, checks against current trunk, and block direct/force

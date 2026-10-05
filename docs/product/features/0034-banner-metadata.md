@@ -1,6 +1,6 @@
 # 0034 — Banner metadata
 
-Status: Planned · Milestone 8, Additional import sources, multi-game history and statistics
+Status: Planned · Milestone 9, Additional import sources, multi-game history and statistics
 
 Map HSR pool IDs to banners without making imports depend on it.
 

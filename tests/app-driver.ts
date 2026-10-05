@@ -122,7 +122,7 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
       writeFileSync(`test-results/${name}.png`, Buffer.from(image, 'base64'))
     },
     close: async () => {
-      const window = execFileSync('xdotool', ['search', '--name', '^Roll Tracker$'], {
+      const window = execFileSync('xdotool', ['search', '--name', '^Astral Index$'], {
         encoding: 'utf8',
       })
         .trim()

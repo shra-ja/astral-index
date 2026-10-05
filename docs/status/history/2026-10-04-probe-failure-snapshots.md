@@ -28,3 +28,14 @@ command's full output, the machine's processes, load and memory, and Vitest's
 results caches. Passing runs write nothing. Checked by giving the coverage probe a
 message its command never prints: the probe failed and left a snapshot with the
 output, process list, memory and both results caches; that snapshot was removed.
+
+## Markdown checks (2026-10-04)
+
+Integrated through PR #70. Feature 0044, on `chore/markdown-checks`; decision 0016. `npm run docs:check`
+fails on broken links or anchors, docs unreachable from `AGENTS.md`, and STATUS
+over 150 lines; markdownlint checks structure in `lint:check`. Prettier stays off
+Markdown, since it padded tables and grew the docs by 14%. The docs check's unit
+tests failed against a stub, then passed at 100% coverage; its mutation probe and
+probe documents showed each check failing. Agent skills are exempt from the
+reachability rule, since agent tools discover them from their skill folders.
+markdownlint found one real issue.

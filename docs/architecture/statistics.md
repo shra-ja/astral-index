@@ -19,9 +19,10 @@ metadata defines pity groups, each banner category keeps its own count.
 Guarantees and 50/50 outcomes need verified banner metadata; until it exists the
 UI reports them as unavailable rather than guessing.
 
-## Derived on read
+## Proposal: derived on read
 
-Pity is derived when history is read, not stored. One ordered pass over a pity
+Not decided: when and how pity is calculated is settled when the pity work
+starts. The proposal is to derive pity when history is read, not store it. One ordered pass over a pity
 group's rolls (by time, then source ID, with the order verified per game) is O(n);
 even tens of thousands of rolls take well under a millisecond in Rust. A page of
 history still needs that pass, because each roll's pity depends on the rolls

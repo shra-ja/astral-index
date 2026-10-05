@@ -1,6 +1,6 @@
 //! Real HTTPS client construction. These tests never request the history endpoint:
 //! `cargo test` may run with network access, and live API calls are forbidden.
-use roll_tracker::acquisition::{HttpTransport, Transport, TransportError};
+use astral_index::acquisition::{HttpTransport, Transport, TransportError};
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()

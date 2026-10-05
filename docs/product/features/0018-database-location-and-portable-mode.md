@@ -16,6 +16,6 @@ portable mode.
   and a safe way to move existing history between the two locations. Moved up
   from the deferred list at the user's request. A `data` folder beside the
   executable switches it on; moving history is a documented manual copy.
-- [x] Name the app's data folder `Roll-Tracker` (`roll-tracker` on Linux)
+- [x] Name the app's data folder `Astral-Index` (`astral-index` on Linux)
   rather than the bundle identifier, and keep the webview profile in it, or in
   `data` in portable mode.
