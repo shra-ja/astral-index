@@ -36,7 +36,8 @@ one-PR tasks: 0032 switches accounts, then adds the summary strip and rarity,
 name and date-range filters, all applied natively to the whole category; 0035's
 Pity column and soft-pity colouring come before 0034's banner metadata, which
 now also holds 50/50 colouring; 0033 adds the styled tooltip, then the layouts.
-The date-range filter is new to the design and amends decision 0013 when built.
+The date-range filter is new: decision 0013 now describes its toolbar button and
+popover, chosen from three mockups.
 Evidence: `npm run docs:check` and markdownlint pass.
 
 ## Known limitations

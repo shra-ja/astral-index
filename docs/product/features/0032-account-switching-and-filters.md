@@ -24,5 +24,6 @@ trigger acquisition.
   only if the measurement needs one.
 - [ ] Search items by name, case-insensitively, through the same native filter
   as rarity.
-- [ ] Filter by a date range, from and to, in server time, through the same
-  native filter. Amend decision 0013 with the control's place in the toolbar.
+- [ ] Filter by a date range in server time, through the same native filter: the
+  toolbar's date-range button and popover, with quick ranges and From and To
+  fields ([decision 0013](../../architecture/decisions/0013-visual-design.md)).

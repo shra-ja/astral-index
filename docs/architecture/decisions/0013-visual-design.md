@@ -57,14 +57,21 @@ repository; this record holds what the implementation must follow.
 - **History:** a header with the account switcher (UID and server); banner
   category tabs with counts; a summary strip (rolls stored, 5★ and 4★ counts with
   rates, stored period); and the rolls panel. The panel's toolbar holds rarity
-  filters (5★, 4★, 3★), item search, an icons-and-banner-art button (list layout
-  only, on by default), a 50/50 colouring button, and a List, Grid and Icons
+  filters (5★, 4★, 3★), item search, a date-range button, an
+  icons-and-banner-art button (list layout only, on by default), a 50/50 colouring button, and a List, Grid and Icons
   layout switch. The list shows #, item with icon, Pity, banner art, rarity,
   type and time (server time, offset in the header), newest first, paged at
   20, 50 or 100 rows. Grid tiles show icon, name, type, roll number, rarity,
   pity and date; Icons tiles show the icon with its pity in the corner. The
-  summary strip covers the whole category; filters and search only hide rows
-  and change the "Showing … of N" count. An empty state links to Import.
+  summary strip covers the whole category; filters, search and the date range
+  only hide rows and change the "Showing … of N" count. An empty state links to
+  Import.
+- **Date range** (amended 2026-10-05): the toolbar button shows "All dates" or
+  the active range, accent-coloured while a range is set, and opens a popover
+  with quick ranges (All dates, Last 7 days, Last 30 days, Last 6 months, This
+  year), From and To date fields using the webview's built-in date picker, a
+  line giving the server timezone and the stored period, and Clear and Done.
+  Dates are server time, the same as the list's Time column.
 - **Pity column:** 5★ pity is coloured by closeness to soft pity, with
   thresholds per banner category (placeholders 1–49, 50–74, 75+), or, with the
   50/50 button on, by outcome: won (green), lost (red), guaranteed (orange).
