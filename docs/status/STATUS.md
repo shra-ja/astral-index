@@ -29,7 +29,15 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Milestone 9 tasks (2026-10-05)
+
+On `docs/milestone-9-tasks`, docs only. Milestone 9's features are broken into
+one-PR tasks: 0032 switches accounts, then adds the summary strip and rarity,
+name and date-range filters, all applied natively to the whole category; 0035's
+Pity column and soft-pity colouring come before 0034's banner metadata, which
+now also holds 50/50 colouring; 0033 adds the styled tooltip, then the layouts.
+The date-range filter is new to the design and amends decision 0013 when built.
+Evidence: `npm run docs:check` and markdownlint pass.
 
 ## Known limitations
 
@@ -46,10 +54,10 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, propose
-milestone 9's PR split and break its features into tasks on ROADMAP, starting
-with account and server switching and filters on the History screen (0032).
-Native Windows validation of the current build belongs to milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
+first task: account switching on the History screen, with a native command that
+lists the game's saved accounts. Native Windows validation of the current build
+belongs to milestone 10.
 
 ## Keeping this file current
 
