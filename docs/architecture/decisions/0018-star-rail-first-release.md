@@ -31,9 +31,11 @@ than waiting on a second game and two more file formats.
 - The first release ships without a backup format. Its database is a single
   SQLite file in the local data folder, or beside the executable in portable
   mode, which a player can copy while the app is closed.
-- Once the first release ships, schema changes need versioned migrations with
-  data-preservation tests ([storage](../storage.md)), so the storage needed by
-  file import, backup and the second game must migrate existing databases.
+- Once the first release ships, any schema change needs a versioned migration
+  with data-preservation tests ([storage](../storage.md)). The current schema is
+  already keyed by game, account and server, records each import's adapter and
+  keeps each roll's fields as JSON, so file import, backup and the second game
+  may not need one.
 - Release verification checks the first release's workflows; backup and the
   second game add their own checks on each release OS when they arrive.
 
