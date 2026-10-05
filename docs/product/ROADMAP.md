@@ -137,30 +137,44 @@ acquisition. This is the first implemented import feature. See
 Done when the docs are checked in `npm run check` and the app, code, docs and
 GitHub repository carry the name Astral Index.
 
-### 9 — Additional import sources, multi-game history and statistics
+### 9 — History browsing and statistics
 
-- [ ] [0030 — History-file import](features/0030-history-file-import.md)
-- [ ] [0031 — Second game adapter](features/0031-second-game-adapter.md)
 - [ ] [0032 — Account switching and filters](features/0032-account-switching-and-filters.md)
-- [ ] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
 - [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0035 — Pity](features/0035-pity.md)
-- [ ] [0036 — Item icons and banner art](features/0036-item-icons-and-banner-art.md)
+- [ ] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
 
-Done when both games coexist without shared identity/rule assumptions, supported
-history files reuse the import pipeline, and partial histories display appropriate
-uncertainty.
+Done when the History screen switches between accounts and servers, filters and
+searches saved rolls, shows totals and rarity breakdowns, and shows pity only
+where verified banner metadata supports it, with partial histories marked as
+uncertain.
 
-### 10 — Backup and restore
+### 10 — Release readiness
 
-- [ ] [0037 — Backup and restore](features/0037-backup-and-restore.md)
-
-Done when a fresh profile can recover the same records and metadata from a backup.
-
-### 11 — Release readiness
+The first release covers Honkai: Star Rail only
+([decision 0018](../architecture/decisions/0018-star-rail-first-release.md)).
 
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
+
+Done when the first release is verified on each release OS and distributed in
+its documented formats.
+
+### 11 — Backup, restore and file import
+
+- [ ] [0037 — Backup and restore](features/0037-backup-and-restore.md)
+- [ ] [0030 — History-file import](features/0030-history-file-import.md)
+
+Done when a fresh profile can recover the same records and metadata from a
+backup, and supported history files reuse the import pipeline.
+
+### 12 — Genshin Impact and item art
+
+- [ ] [0031 — Second game adapter](features/0031-second-game-adapter.md)
+- [ ] [0036 — Item icons and banner art](features/0036-item-icons-and-banner-art.md)
+
+Done when both games coexist without shared identity or rule assumptions, and
+the way to show item icons and banner art is decided.
 
 ## Backlog
 
@@ -174,15 +188,16 @@ Low-priority follow-ups, outside any milestone until scheduled.
 ## Earlier milestone numbers
 
 Milestones were renumbered on 2026-10-04, when the old milestone 3 was split by
-what it delivered, and on 2026-10-05, when milestone 8, Project cleanup, was
-inserted. Status history and decision records keep the numbers they were
-written with:
+what it delivered, and twice on 2026-10-05: first when milestone 8, Project
+cleanup, was inserted, then when the later features were reordered for a Star
+Rail first release. Status history and decision records keep the numbers they
+were written with:
 
-| Before 2026-10-04 | 2026-10-04 | Now |
-| --- | --- | --- |
-| 0, 1, 2 | Unchanged | Unchanged |
-| 3, First user-requested API history import | 3 to 7 | 3 to 7 |
-| None | None | 8, Project cleanup |
-| 4, Additional import sources, multi-game history and statistics | 8 | 9 |
-| 5, Backup and restore | 9 | 10 |
-| 6, Release readiness | 10 | 11 |
+| Before 2026-10-04 | 2026-10-04 | 2026-10-05, cleanup | Now |
+| --- | --- | --- | --- |
+| 0, 1, 2 | Unchanged | Unchanged | Unchanged |
+| 3, First user-requested API history import | 3 to 7 | 3 to 7 | 3 to 7 |
+| None | None | 8, Project cleanup | 8 |
+| 4, Additional import sources, multi-game history and statistics | 8 | 9 | 9 (0032 to 0035), 11 (0030), 12 (0031, 0036) |
+| 5, Backup and restore | 9 | 10 | 11 |
+| 6, Release readiness | 10 | 11 | 10 |

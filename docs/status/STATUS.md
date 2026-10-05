@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-04
+Updated: 2026-10-05
 
 ## Current state
 
@@ -29,20 +29,15 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Project cleanup and Astral Index rebrand (2026-10-05)
+### Milestone reordering (2026-10-05)
 
-On `docs/project-cleanup-milestone`, one PR. Milestone 8, Project cleanup, holds
-the Markdown checks (0044, moved from the backlog) and the Astral Index rebrand
-(0045); later milestones moved to 9 to 11. Decision 0017 records the names: data
-folders `Astral-Index` and `astral-index`, identifier `astral-index`, no
-migration of old test folders. The sidebar mark is now the icon's star.
-
-Evidence: the renamed unit, component, guarded-delegate and end-to-end
-assertions failed against the old names (title, folders, variables, binary
-paths), then passed. The staged `npm run check` and offline tests passed; a
-release `.deb` bundle built with the new identifier without warnings. The GitHub
-repository is renamed `shra-ja/astral-index`, with `origin` and CONTRIBUTING
-updated. CI passed on the renamed repository with PR #71.
+On `docs/reorder-milestones`, docs only. The first release now covers Star Rail
+only (decision 0018). Milestone 9, History browsing and statistics, holds account
+switching and filters, banner metadata, pity and the grid layouts; 10 is release
+readiness; 11 is backup, restore and file import; 12 is Genshin Impact and item
+art. The product brief lists backup, file import and Genshin Impact under later
+releases, and backup's per-OS check moved from 0038 to 0037. Evidence:
+`npm run docs:check` and markdownlint pass.
 
 ## Known limitations
 
@@ -59,12 +54,10 @@ updated. CI passed on the renamed repository with PR #71.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, the
-features in milestones 9 to 11 are being reordered; after that, propose
-milestone 9's PR split. Its current first items are history-file imports through
-the shared pipeline, the second game's adapter, and account switching with
-filters on the History screen. Native Windows validation of the current build
-belongs to milestone 11.
+If the probe flake recurs, read its snapshot before rerunning. Next, propose
+milestone 9's PR split and break its features into tasks on ROADMAP, starting
+with account and server switching and filters on the History screen (0032).
+Native Windows validation of the current build belongs to milestone 10.
 
 ## Keeping this file current
 
@@ -133,3 +126,5 @@ research, under a "From" heading.
 - [2026-10-04: probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md):
   the frontend emit flake investigation, the probes' failure snapshots and the
   Markdown checks.
+- [2026-10-05: Astral Index rebrand](history/2026-10-05-astral-index-rebrand.md):
+  the project cleanup milestone and the rename from Roll Tracker.

@@ -56,4 +56,4 @@ newer rolls and a second account, and recover from failures, cancellations and
 mixed-account responses, with no auth key left in any file the app keeps. The
 storage isolation, offline-network, CSP and capability checks still pass. Live
 retrieval was last tried by hand on Windows with PR #37; verifying the current
-build natively on each release OS belongs to milestone 11.
+build natively on each release OS belongs to milestone 10.
