@@ -1,6 +1,6 @@
 # 0033 — Grid and icon layouts
 
-Status: Planned · Milestone 8, Additional import sources, multi-game history and statistics
+Status: Planned · Milestone 9, Additional import sources, multi-game history and statistics
 Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 Alternative history layouts with placeholder art.

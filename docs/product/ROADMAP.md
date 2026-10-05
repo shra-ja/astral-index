@@ -129,7 +129,15 @@ records. Failures preserve existing data; stored-history operations never trigge
 acquisition. This is the first implemented import feature. See
 [decision 0002](../architecture/decisions/0002-user-requested-history-acquisition.md).
 
-### 8 — Additional import sources, multi-game history and statistics
+### 8 — Project cleanup
+
+- [x] [0044 — Markdown checks](features/0044-markdown-checks.md)
+- [ ] [0045 — Astral Index rebrand](features/0045-astral-index-rebrand.md)
+
+Done when the docs are checked in `npm run check` and the app, code, docs and
+GitHub repository carry the name Astral Index.
+
+### 9 — Additional import sources, multi-game history and statistics
 
 - [ ] [0030 — History-file import](features/0030-history-file-import.md)
 - [ ] [0031 — Second game adapter](features/0031-second-game-adapter.md)
@@ -143,13 +151,13 @@ Done when both games coexist without shared identity/rule assumptions, supported
 history files reuse the import pipeline, and partial histories display appropriate
 uncertainty.
 
-### 9 — Backup and restore
+### 10 — Backup and restore
 
 - [ ] [0037 — Backup and restore](features/0037-backup-and-restore.md)
 
 Done when a fresh profile can recover the same records and metadata from a backup.
 
-### 10 — Release readiness
+### 11 — Release readiness
 
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
@@ -162,18 +170,19 @@ Low-priority follow-ups, outside any milestone until scheduled.
 - [ ] [0041 — Review record preview](features/0041-review-record-preview.md)
 - [ ] [0042 — Overlap anomaly detection](features/0042-overlap-anomaly-detection.md)
 - [ ] [0043 — Braces audit follow-up](features/0043-braces-audit.md)
-- [x] [0044 — Markdown checks](features/0044-markdown-checks.md)
 
 ## Earlier milestone numbers
 
 Milestones were renumbered on 2026-10-04, when the old milestone 3 was split by
-what it delivered. Status history and decision records keep the numbers they
-were written with:
+what it delivered, and on 2026-10-05, when milestone 8, Project cleanup, was
+inserted. Status history and decision records keep the numbers they were
+written with:
 
-| Old | New |
-| --- | --- |
-| 0, 1, 2 | Unchanged |
-| 3, First user-requested API history import | 3 to 7 |
-| 4, Additional import sources, multi-game history and statistics | 8 |
-| 5, Backup and restore | 9 |
-| 6, Release readiness | 10 |
+| Before 2026-10-04 | 2026-10-04 | Now |
+| --- | --- | --- |
+| 0, 1, 2 | Unchanged | Unchanged |
+| 3, First user-requested API history import | 3 to 7 | 3 to 7 |
+| None | None | 8, Project cleanup |
+| 4, Additional import sources, multi-game history and statistics | 8 | 9 |
+| 5, Backup and restore | 9 | 10 |
+| 6, Release readiness | 10 | 11 |

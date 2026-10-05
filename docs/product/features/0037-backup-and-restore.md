@@ -1,6 +1,6 @@
 # 0037 — Backup and restore
 
-Status: Planned · Milestone 9, Backup and restore
+Status: Planned · Milestone 10, Backup and restore
 
 A versioned backup that a fresh profile can restore.
 

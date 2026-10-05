@@ -1,6 +1,6 @@
 # 0044 — Markdown checks
 
-Status: Done · Backlog
+Status: Done · Milestone 8, Project cleanup
 Decisions: [0012](../../architecture/decisions/0012-linting-and-formatting.md), [0016](../../architecture/decisions/0016-markdown-checks.md)
 
 Check the Markdown docs in `npm run check`, as agents now maintain them: consistent

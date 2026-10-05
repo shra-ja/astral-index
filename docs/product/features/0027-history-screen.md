@@ -10,7 +10,7 @@ Show saved history from local storage without triggering acquisition.
 - [x] Display stored history from local storage without triggering acquisition.
 - [x] Show the History screen: category tabs (a dropdown when they do not
   fit), the paged list with item, rarity, type and time, and the empty state.
-  Show the most recently imported account; switching accounts is milestone 8.
+  Show the most recently imported account; switching accounts is milestone 9.
 - [x] Show friendly server names (for example "Asia" for
   `prod_official_asia`) wherever the account's server appears, falling back
   to the raw value for unknown servers.

@@ -37,7 +37,7 @@ complete.
   and server mapping, account switching, and empty/missing-context handling before
   declaring the milestone complete; preserve existing service isolation checks.
   Account switching is verified at the data level here; the History screen's
-  account switcher is milestone 8.
+  account switcher is milestone 9.
   - [x] Verify auth-key/account binding and response UID and server mapping.
     - [x] The account and server come from the responses, never the cache file:
       the same cache file saves the second scenario's account under its own UID.
@@ -56,4 +56,4 @@ newer rolls and a second account, and recover from failures, cancellations and
 mixed-account responses, with no auth key left in any file the app keeps. The
 storage isolation, offline-network, CSP and capability checks still pass. Live
 retrieval was last tried by hand on Windows with PR #37; verifying the current
-build natively on each release OS belongs to milestone 10.
+build natively on each release OS belongs to milestone 11.

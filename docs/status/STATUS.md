@@ -29,7 +29,13 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Project cleanup milestone (2026-10-05)
+
+On `docs/project-cleanup-milestone`, docs only. Milestone 8, Project cleanup,
+now holds the Markdown checks (0044, moved from the backlog) and the planned
+Astral Index rebrand (0045); the later milestones moved to 9 to 11, and the
+roadmap's table maps the old numbers. The rebrand itself follows on this branch,
+one commit per task, and integrates as a single PR.
 
 ## Known limitations
 
@@ -46,12 +52,13 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, the
-features in milestones 8 to 10 are being reordered; after that, propose
-milestone 8's PR split. Its current first items are history-file imports through the
-shared pipeline, the second game's adapter, and account switching with filters
-on the History screen. Native Windows validation of the current build belongs to
-milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, the Astral
+Index rebrand (feature 0045), starting with its naming decision. Then the
+features in milestones 9 to 11 are being reordered; after that, propose
+milestone 9's PR split. Its current first items are history-file imports through
+the shared pipeline, the second game's adapter, and account switching with
+filters on the History screen. Native Windows validation of the current build
+belongs to milestone 11.
 
 ## Keeping this file current
 
