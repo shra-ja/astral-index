@@ -22,18 +22,24 @@ Users own their data and can inspect, back up, and export it without a hosted se
 
 ## Proposed first release
 
-1. Select a game and account, then explicitly request history from HoYoverse
-   using a supported source of authentication. Add supported history-file import
-   after the first API import flow.
+Honkai: Star Rail only ([decision 0018](../architecture/decisions/0018-star-rail-first-release.md)):
+
+1. Select an account, then explicitly request history from HoYoverse using a
+   supported source of authentication.
 2. Preview the detected format, account, accepted records, duplicates, and errors.
-3. Confirm import and browse persistent history with game/account/banner/date filters.
+3. Confirm import and browse persistent history with account/banner/date filters.
 4. View roll totals, rarity breakdowns, and game-specific pity information only
    where the imported evidence and verified rules support it.
-5. Export a versioned portable backup and restore it into a fresh local profile.
-6. Automatically discover and extract request context from `data_2` when requested,
+5. Automatically discover and extract request context from `data_2` when requested,
    with a user-provided cache file as the fallback. Fetch history only when
    requested. Route responses through the same import pipeline; explain
    unsupported sources.
+
+## Later releases
+
+1. Export a versioned portable backup and restore it into a fresh local profile.
+2. Import supported history files through the same import pipeline.
+3. Add Genshin Impact, with game selection.
 
 Honkai: Star Rail API history import came first; [ROADMAP](ROADMAP.md)
 sequences the rest.
