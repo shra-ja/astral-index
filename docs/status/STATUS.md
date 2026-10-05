@@ -29,15 +29,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Milestone reordering (2026-10-05)
-
-On `docs/reorder-milestones`, docs only. The first release now covers Star Rail
-only (decision 0018). Milestone 9, History browsing and statistics, holds account
-switching and filters, banner metadata, pity and the grid layouts; 10 is release
-readiness; 11 is backup, restore and file import; 12 is Genshin Impact and item
-art. The product brief lists backup, file import and Genshin Impact under later
-releases, and backup's per-OS check moved from 0038 to 0037. Evidence:
-`npm run docs:check` and markdownlint pass.
+Nothing. Record work here while it is in progress (see below).
 
 ## Known limitations
 
@@ -127,4 +119,5 @@ research, under a "From" heading.
   the frontend emit flake investigation, the probes' failure snapshots and the
   Markdown checks.
 - [2026-10-05: Astral Index rebrand](history/2026-10-05-astral-index-rebrand.md):
-  the project cleanup milestone and the rename from Roll Tracker.
+  the project cleanup milestone, the rename from Roll Tracker and the reordering
+  of milestones 9 to 12.

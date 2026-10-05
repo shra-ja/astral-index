@@ -18,3 +18,13 @@ paths), then passed. The staged `npm run check` and offline tests passed; a
 release `.deb` bundle built with the new identifier without warnings. The GitHub
 repository is renamed `shra-ja/astral-index`, with `origin` and CONTRIBUTING
 updated. CI passed on the renamed repository with PR #71.
+
+## Milestone reordering (2026-10-05)
+
+Integrated through PR #72. Work was on `docs/reorder-milestones`, docs only.
+The first release now covers Star Rail only (decision 0018). Milestone 9, History browsing and statistics, holds account
+switching and filters, banner metadata, pity and the grid layouts; 10 is release
+readiness; 11 is backup, restore and file import; 12 is Genshin Impact and item
+art. The product brief lists backup, file import and Genshin Impact under later
+releases, and backup's per-OS check moved from 0038 to 0037. Evidence:
+`npm run docs:check` and markdownlint pass.
