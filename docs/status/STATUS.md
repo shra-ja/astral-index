@@ -29,7 +29,15 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Milestone reordering (2026-10-05)
+
+On `docs/reorder-milestones`, docs only. The first release now covers Star Rail
+only (decision 0018). Milestone 9, History browsing and statistics, holds account
+switching and filters, banner metadata, pity and the grid layouts; 10 is release
+readiness; 11 is backup, restore and file import; 12 is Genshin Impact and item
+art. The product brief lists backup, file import and Genshin Impact under later
+releases, and backup's per-OS check moved from 0038 to 0037. Evidence:
+`npm run docs:check` and markdownlint pass.
 
 ## Known limitations
 
@@ -46,12 +54,10 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, the
-features in milestones 9 to 11 are being reordered; after that, propose
-milestone 9's PR split. Its current first items are history-file imports through
-the shared pipeline, the second game's adapter, and account switching with
-filters on the History screen. Native Windows validation of the current build
-belongs to milestone 11.
+If the probe flake recurs, read its snapshot before rerunning. Next, propose
+milestone 9's PR split and break its features into tasks on ROADMAP, starting
+with account and server switching and filters on the History screen (0032).
+Native Windows validation of the current build belongs to milestone 10.
 
 ## Keeping this file current
 
