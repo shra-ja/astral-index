@@ -116,7 +116,7 @@ Git ignores all of these:
 To try the app in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
 experimental; it is not a release process, and installers and signing are
-milestone 11 work. It was used for the
+milestone 10 work. It was used for the
 [native Windows verification](../games/hsr/api-research.md#native-windows-verification-2026-09-27).
 
 ```sh

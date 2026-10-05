@@ -1,6 +1,6 @@
 # 0031 — Second game adapter
 
-Status: Planned · Milestone 9, Additional import sources, multi-game history and statistics
+Status: Planned · Milestone 12, Genshin Impact and item art
 
 Genshin Impact support, independently verified.
 

@@ -1,6 +1,6 @@
 # 0030 — History-file import
 
-Status: Planned · Milestone 9, Additional import sources, multi-game history and statistics
+Status: Planned · Milestone 11, Backup, restore and file import
 
 Import supported history files through the shared import pipeline.
 

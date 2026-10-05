@@ -23,5 +23,5 @@ accessible first screen.
 Milestone 1 implementation and validation are complete on Ubuntu 24.04 x86_64.
 The user confirmed hosted CI passed and required checks were configured on
 2026-09-19. Windows/macOS and installer packaging remain untested and are covered
-by milestone 11 release validation. Review, integration and branch deletion follow
+by milestone 10 release validation. Review, integration and branch deletion follow
 the standard workflow in `../CONTRIBUTING.md`.
