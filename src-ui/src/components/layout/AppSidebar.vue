@@ -23,7 +23,7 @@ const gameIds = Object.keys(games) as Game[]
           stroke-linejoin="round"
         />
       </svg>
-      <span class="text">Roll Tracker</span>
+      <span class="text">Astral Index</span>
     </div>
 
     <div class="group">

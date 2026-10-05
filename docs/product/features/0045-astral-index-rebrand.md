@@ -17,7 +17,7 @@ and decision records keep the old name, as they are never rewritten.
   identifier `astral-index`, without a reverse-domain prefix. No release has
   shipped and no databases need keeping, so the old `Roll-Tracker` and
   `roll-tracker` folders are not migrated.
-- [ ] Rename the app, test first: the product name and window title, the
+- [x] Rename the app, test first: the product name and window title, the
   webview title, the sidebar and import-screen copy, the data folder and mock
   data folder constants, and the `ROLL_TRACKER_ZOOM` and
   `ROLL_TRACKER_MOCK_SCENARIO` development variables.

@@ -48,6 +48,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
   try {
     // Inspect the real webview through its active native session.
     expect(await app.execute('return location.protocol')).toBe('tauri:')
+    expect(await app.execute('return document.title')).toBe('Astral Index')
     // The first screen renders once the router resolves, and its empty state once the
     // saved history has been read, so wait for each rather than reading once.
     await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
@@ -160,16 +161,16 @@ async function launchMock(
 ) {
   if (!keep) rmSync(mockData, { recursive: true, force: true })
   // A module cached by an earlier run, which the mock must not reuse.
-  const staleCache = resolve(mockData, 'roll-tracker-mock/webview/WebKitCache/stale-module')
+  const staleCache = resolve(mockData, 'astral-index-mock/webview/WebKitCache/stale-module')
   mkdirSync(resolve(staleCache, '..'), { recursive: true })
   writeFileSync(staleCache, 'cached before a refactor')
   const app = await launch(
     'roll-tracker-mock',
-    environment({ XDG_DATA_HOME: mockData, ROLL_TRACKER_MOCK_SCENARIO: scenario, ...env }),
+    environment({ XDG_DATA_HOME: mockData, ASTRAL_INDEX_MOCK_SCENARIO: scenario, ...env }),
   )
   return {
     app,
-    database: resolve(mockData, 'roll-tracker-mock/history.sqlite'),
+    database: resolve(mockData, 'astral-index-mock/history.sqlite'),
     staleCache,
   }
 }
@@ -223,7 +224,7 @@ const savedHistory = {
  * mock's database file, so a later import can be shown to leave them unchanged.
  */
 function storedAccounts() {
-  const database = new DatabaseSync(resolve(mockData, 'roll-tracker-mock/history.sqlite'), {
+  const database = new DatabaseSync(resolve(mockData, 'astral-index-mock/history.sqlite'), {
     readOnly: true,
   })
   try {
@@ -671,7 +672,7 @@ test('a retrieval with no history creates no account, and an ended retrieval’s
 }, 120000)
 
 test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
-  const { app } = await launchMock('no-history', { env: { ROLL_TRACKER_ZOOM: '1.25' } })
+  const { app } = await launchMock('no-history', { env: { ASTRAL_INDEX_ZOOM: '1.25' } })
   try {
     await expect
       .poll(() => textOf(app, '[role=status] h2'), { timeout: 10000 })

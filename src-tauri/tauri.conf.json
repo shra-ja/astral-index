@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Roll Tracker",
+  "productName": "Astral Index",
   "version": "0.1.0",
   "identifier": "com.shra-ja.roll-tracker",
   "build": {

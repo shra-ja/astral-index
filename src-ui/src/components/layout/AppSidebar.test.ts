@@ -18,7 +18,7 @@ const links = (wrapper: ReturnType<typeof sidebar>, group: string) =>
 test('lists the games and screens as links, marking the current ones', () => {
   const wrapper = sidebar('honkai-star-rail', 'history')
   expect(wrapper.get('nav').attributes('aria-label')).toBe('Main')
-  expect(wrapper.text()).toContain('Roll Tracker')
+  expect(wrapper.text()).toContain('Astral Index')
   expect(links(wrapper, 'sidebar-games')).toEqual([
     ['Genshin Impact', '#/genshin-impact/history', undefined],
     ['Honkai: Star Rail', '#/honkai-star-rail/history', 'true'],

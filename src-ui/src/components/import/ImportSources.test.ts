@@ -40,6 +40,7 @@ test('file import is shown as coming soon', () => {
   const fileImport = button(wrapper, 'Choose file…')
   expect(fileImport.attributes('disabled')).toBeDefined()
   expect(wrapper.get(`#${fileImport.attributes('aria-describedby')}`).text()).toBe('Coming soon')
+  expect(wrapper.text()).toContain('Load an export from another tracker or an Astral Index backup.')
   wrapper.unmount()
 })
 
