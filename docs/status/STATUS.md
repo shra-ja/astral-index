@@ -29,13 +29,20 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Project cleanup milestone (2026-10-05)
+### Project cleanup and Astral Index rebrand (2026-10-05)
 
-On `docs/project-cleanup-milestone`, docs only. Milestone 8, Project cleanup,
-now holds the Markdown checks (0044, moved from the backlog) and the planned
-Astral Index rebrand (0045); the later milestones moved to 9 to 11, and the
-roadmap's table maps the old numbers. The rebrand itself follows on this branch,
-one commit per task, and integrates as a single PR.
+On `docs/project-cleanup-milestone`, one PR. Milestone 8, Project cleanup, holds
+the Markdown checks (0044, moved from the backlog) and the Astral Index rebrand
+(0045); later milestones moved to 9 to 11. Decision 0017 records the names: data
+folders `Astral-Index` and `astral-index`, identifier `astral-index`, no
+migration of old test folders. The sidebar mark is now the icon's star.
+
+Evidence: the renamed unit, component, guarded-delegate and end-to-end
+assertions failed against the old names (title, folders, variables, binary
+paths), then passed. The staged `npm run check` and offline tests passed; a
+release `.deb` bundle built with the new identifier without warnings. Left: the
+GitHub repository rename, the `origin` and CONTRIBUTING remote, and CI on the
+renamed repository.
 
 ## Known limitations
 
@@ -52,8 +59,8 @@ one commit per task, and integrates as a single PR.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, the Astral
-Index rebrand (feature 0045), starting with its naming decision. Then the
+If the probe flake recurs, read its snapshot before rerunning. Next, finish
+the Astral Index rebrand (feature 0045) with the repository rename. Then the
 features in milestones 9 to 11 are being reordered; after that, propose
 milestone 9's PR split. Its current first items are history-file imports through
 the shared pipeline, the second game's adapter, and account switching with
