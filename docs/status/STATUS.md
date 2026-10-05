@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-04
+Updated: 2026-10-05
 
 ## Current state
 
@@ -29,20 +29,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Project cleanup and Astral Index rebrand (2026-10-05)
-
-On `docs/project-cleanup-milestone`, one PR. Milestone 8, Project cleanup, holds
-the Markdown checks (0044, moved from the backlog) and the Astral Index rebrand
-(0045); later milestones moved to 9 to 11. Decision 0017 records the names: data
-folders `Astral-Index` and `astral-index`, identifier `astral-index`, no
-migration of old test folders. The sidebar mark is now the icon's star.
-
-Evidence: the renamed unit, component, guarded-delegate and end-to-end
-assertions failed against the old names (title, folders, variables, binary
-paths), then passed. The staged `npm run check` and offline tests passed; a
-release `.deb` bundle built with the new identifier without warnings. The GitHub
-repository is renamed `shra-ja/astral-index`, with `origin` and CONTRIBUTING
-updated. CI passed on the renamed repository with PR #71.
+Nothing. Record work here while it is in progress (see below).
 
 ## Known limitations
 
@@ -133,3 +120,5 @@ research, under a "From" heading.
 - [2026-10-04: probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md):
   the frontend emit flake investigation, the probes' failure snapshots and the
   Markdown checks.
+- [2026-10-05: Astral Index rebrand](history/2026-10-05-astral-index-rebrand.md):
+  the project cleanup milestone and the rename from Roll Tracker.
