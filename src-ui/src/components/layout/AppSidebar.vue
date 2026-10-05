@@ -16,10 +16,9 @@ const gameIds = Object.keys(games) as Game[]
       <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
         <rect x="1" y="1" width="24" height="24" rx="7" stroke="currentColor" stroke-width="1.6" />
         <path
-          d="M8 17V9h5.2a2.6 2.6 0 0 1 0 5.2H8m5 0 3.6 2.8"
+          d="M13 6.5 14.9 11.1 19.5 13 14.9 14.9 13 19.5 11.1 14.9 6.5 13 11.1 11.1Z"
           stroke="currentColor"
           stroke-width="1.6"
-          stroke-linecap="round"
           stroke-linejoin="round"
         />
       </svg>
