@@ -3,7 +3,8 @@
 Date: 2026-09-29
 Status: Accepted; supersedes the "no runtime UI framework" and TypeScript version
 parts of [decision 0001](0001-shell-and-test-stack.md). Updated 2026-09-29 as the
-frontend moved into `src-ui/`: paths below are current.
+frontend moved into `src-ui/`: paths below are current. The package name was superseded by
+[decision 0017](0017-astral-index-name.md).
 
 ## Context
 

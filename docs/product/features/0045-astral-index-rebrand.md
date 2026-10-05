@@ -1,7 +1,7 @@
 # 0045 — Astral Index rebrand
 
 Status: Planned · Milestone 8, Project cleanup
-Decisions: [0009](../../architecture/decisions/0009-local-database-location.md)
+Decisions: [0009](../../architecture/decisions/0009-local-database-location.md), [0017](../../architecture/decisions/0017-astral-index-name.md)
 
 Replace the placeholder name Roll Tracker with Astral Index everywhere it
 appears: the app window and webview, package, crate, binary and environment
@@ -11,7 +11,7 @@ and decision records keep the old name, as they are never rewritten.
 
 ## Tasks
 
-- [ ] Record the naming as a decision that supersedes the affected parts of
+- [x] Record the naming as a decision that supersedes the affected parts of
   decision 0009: data folders `Astral-Index` on Windows and macOS and
   `astral-index` on Linux, following 0009's convention, and the bundle
   identifier `astral-index`, without a reverse-domain prefix. No release has
@@ -19,7 +19,8 @@ and decision records keep the old name, as they are never rewritten.
   `roll-tracker` folders are not migrated.
 - [ ] Rename the app, test first: the product name and window title, the
   webview title, the sidebar and import-screen copy, the data folder and mock
-  data folder constants, and the `ROLL_TRACKER_ZOOM` development variable.
+  data folder constants, and the `ROLL_TRACKER_ZOOM` and
+  `ROLL_TRACKER_MOCK_SCENARIO` development variables.
 - [ ] Rename the build identities: the npm packages (`roll-tracker`,
   `roll-tracker-ui`), the Cargo package and library crate (`roll_tracker`), the
   mock binary (`roll-tracker-mock`) and its npm script, the CI AppArmor profile,
