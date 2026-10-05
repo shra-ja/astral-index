@@ -140,14 +140,14 @@ GitHub repository carry the name Astral Index.
 ### 9 — History browsing and statistics
 
 - [ ] [0032 — Account switching and filters](features/0032-account-switching-and-filters.md)
-- [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0035 — Pity](features/0035-pity.md)
+- [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
 
-Done when the History screen switches between accounts and servers, filters and
-searches saved rolls, shows totals and rarity breakdowns, and shows pity only
-where verified banner metadata supports it, with partial histories marked as
-uncertain.
+Done when the History screen switches between accounts and servers, filters
+saved rolls by rarity, name and date, shows totals, rarity breakdowns and pity,
+and shows banners and 50/50 outcomes only where verified banner metadata
+supports them, with partial histories marked as uncertain.
 
 ### 10 — Release readiness
 
