@@ -1,6 +1,6 @@
 # 0045 — Astral Index rebrand
 
-Status: Planned · Milestone 8, Project cleanup
+Status: Done · Milestone 8, Project cleanup
 Decisions: [0009](../../architecture/decisions/0009-local-database-location.md), [0017](../../architecture/decisions/0017-astral-index-name.md)
 
 Replace the placeholder name Roll Tracker with Astral Index everywhere it
@@ -37,7 +37,7 @@ and decision records keep the old name, as they are never rewritten.
   takes in the repository settings. Point `origin` at the new URL and update
   the remote recorded in CONTRIBUTING. GitHub redirects the old URLs, so links
   to earlier PRs keep working.
-- [ ] Verify: `npm run check` passes; searching tracked files for `roll tracker`,
+- [x] Verify: `npm run check` passes; searching tracked files for `roll tracker`,
   `roll-tracker`, `roll_tracker` and `rolltracker` in any case finds only
   archived history, decision records and this feature file; the mock
   binary opens with the new title and creates its data folder under the new

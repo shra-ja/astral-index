@@ -132,7 +132,7 @@ acquisition. This is the first implemented import feature. See
 ### 8 — Project cleanup
 
 - [x] [0044 — Markdown checks](features/0044-markdown-checks.md)
-- [ ] [0045 — Astral Index rebrand](features/0045-astral-index-rebrand.md)
+- [x] [0045 — Astral Index rebrand](features/0045-astral-index-rebrand.md)
 
 Done when the docs are checked in `npm run check` and the app, code, docs and
 GitHub repository carry the name Astral Index.

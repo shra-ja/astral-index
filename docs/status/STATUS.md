@@ -42,7 +42,7 @@ assertions failed against the old names (title, folders, variables, binary
 paths), then passed. The staged `npm run check` and offline tests passed; a
 release `.deb` bundle built with the new identifier without warnings. The GitHub
 repository is renamed `shra-ja/astral-index`, with `origin` and CONTRIBUTING
-updated. Left: CI on the renamed repository.
+updated. CI passed on the renamed repository with PR #71.
 
 ## Known limitations
 
@@ -59,8 +59,7 @@ updated. Left: CI on the renamed repository.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, finish
-the Astral Index rebrand (feature 0045) once CI passes on its PR. Then the
+If the probe flake recurs, read its snapshot before rerunning. Next, the
 features in milestones 9 to 11 are being reordered; after that, propose
 milestone 9's PR split. Its current first items are history-file imports through
 the shared pipeline, the second game's adapter, and account switching with
