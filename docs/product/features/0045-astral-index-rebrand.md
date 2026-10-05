@@ -23,7 +23,7 @@ and decision records keep the old name, as they are never rewritten.
   `ROLL_TRACKER_MOCK_SCENARIO` development variables.
 - [x] Replace the sidebar's "R" brand mark with the app icon's four-point
   star.
-- [ ] Rename the build identities: the npm packages (`roll-tracker`,
+- [x] Rename the build identities: the npm packages (`roll-tracker`,
   `roll-tracker-ui`), the Cargo package and library crate (`roll_tracker`), the
   mock binary (`roll-tracker-mock`) and its npm script, the CI AppArmor profile,
   and the test helpers and probes that name them; regenerate the lock files.

@@ -99,7 +99,7 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
       main,
       original.replace(
         'fn main() {',
-        'fn main() {\n    let _probe = if std::env::var_os("ROLL_TRACKER_UNSET_COVERAGE_PROBE").is_some() { 1 } else { 0 };',
+        'fn main() {\n    let _probe = if std::env::var_os("ASTRAL_INDEX_UNSET_COVERAGE_PROBE").is_some() { 1 } else { 0 };',
       ),
     )
     execFileSync('npm', ['run', 'test:e2e-probe'], { stdio: 'pipe' })
@@ -199,7 +199,7 @@ test('backend coverage requires unit execution even when integration tests cover
     )
     writeFileSync(
       integration,
-      '#[test]\nfn covers_only_in_integration() { assert_eq!(roll_tracker::unit_coverage_probe(true), 1); assert_eq!(roll_tracker::unit_coverage_probe(false), 0); }\n',
+      '#[test]\nfn covers_only_in_integration() { assert_eq!(astral_index::unit_coverage_probe(true), 1); assert_eq!(astral_index::unit_coverage_probe(false), 0); }\n',
     )
     execFileSync('npm', ['run', 'test:backend-probe'], { stdio: 'pipe' })
     const read = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as LlvmCoverageExport

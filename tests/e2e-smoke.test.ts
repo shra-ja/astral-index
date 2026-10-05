@@ -44,7 +44,7 @@ const heading = (app: AppSession) => textOf(app, 'h1')
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
 test('the bundled native shell works offline, supports keyboard navigation, and closes cleanly', async () => {
-  const app = await launch('roll-tracker', environment())
+  const app = await launch('astral-index', environment())
   try {
     // Inspect the real webview through its active native session.
     expect(await app.execute('return location.protocol')).toBe('tauri:')
@@ -165,7 +165,7 @@ async function launchMock(
   mkdirSync(resolve(staleCache, '..'), { recursive: true })
   writeFileSync(staleCache, 'cached before a refactor')
   const app = await launch(
-    'roll-tracker-mock',
+    'astral-index-mock',
     environment({ XDG_DATA_HOME: mockData, ASTRAL_INDEX_MOCK_SCENARIO: scenario, ...env }),
   )
   return {

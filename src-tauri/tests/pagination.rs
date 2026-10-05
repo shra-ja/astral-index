@@ -1,8 +1,8 @@
 //! Retrieved history feeds a real import preview and commit unchanged.
-use roll_tracker::acquisition::{
+use astral_index::acquisition::{
     Transport, TransportError, extract_request_contexts, fetch_history,
 };
-use roll_tracker::storage::{Store, Summary};
+use astral_index::storage::{Store, Summary};
 use std::{collections::VecDeque, sync::Mutex};
 
 const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
@@ -44,7 +44,7 @@ fn retrieved_history_previews_and_commits_through_storage() {
     assert!(transport.0.lock().unwrap().is_empty());
 
     let directory =
-        std::env::temp_dir().join(format!("roll-tracker-pagination-{}", std::process::id()));
+        std::env::temp_dir().join(format!("astral-index-pagination-{}", std::process::id()));
     std::fs::create_dir(&directory).unwrap();
     let mut store = Store::open(&directory.join("history.sqlite")).unwrap();
     // Preview under the account and server resolved from the responses.

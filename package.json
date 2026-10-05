@@ -1,5 +1,5 @@
 {
-  "name": "roll-tracker",
+  "name": "astral-index",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -36,7 +36,7 @@
     "coverage:verify": "vitest run tests/coverage-reports.test.ts",
     "check": "npm run format:check && npm run lint:check && npm run docs:check && npm run build && npm run test:probes && npm run coverage:verify && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings",
     "tauri": "tauri",
-    "tauri:mock": "tauri dev --features mock -- --bin roll-tracker-mock"
+    "tauri:mock": "tauri dev --features mock -- --bin astral-index-mock"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

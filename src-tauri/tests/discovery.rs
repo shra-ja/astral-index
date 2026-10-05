@@ -1,4 +1,4 @@
-use roll_tracker::{
+use astral_index::{
     acquisition::CacheError,
     discovery::{
         LogError, MAX_LOG_HEADER_BYTES, PathMapping, discover_appdata_logs, read_selected_log,
@@ -8,7 +8,7 @@ use std::fs;
 
 #[test]
 fn real_appdata_logs_are_read_only_and_previous_survives_current_failure() {
-    let directory = std::env::temp_dir().join(format!("roll-tracker-logs-{}", std::process::id()));
+    let directory = std::env::temp_dir().join(format!("astral-index-logs-{}", std::process::id()));
     let app_data = directory.join("AppData/Roaming");
     let logs = directory.join("AppData/LocalLow/Cognosphere/Star Rail");
     fs::create_dir_all(&logs).unwrap();
@@ -47,8 +47,8 @@ fn real_appdata_logs_are_read_only_and_previous_survives_current_failure() {
 #[cfg(unix)]
 #[test]
 fn explicit_wsl_mapping_connects_log_candidates_to_selected_cache_reading() {
-    use roll_tracker::acquisition::{discover_cache_files, read_selected_cache};
-    let mount = std::env::temp_dir().join(format!("roll-tracker-mount-{}", std::process::id()));
+    use astral_index::acquisition::{discover_cache_files, read_selected_cache};
+    let mount = std::env::temp_dir().join(format!("astral-index-mount-{}", std::process::id()));
     let game = mount.join("d/Games/Star Rail");
     let cache = game.join("webCaches/2.10.0.0/Cache/Cache_Data/data_2");
     fs::create_dir_all(cache.parent().unwrap()).unwrap();

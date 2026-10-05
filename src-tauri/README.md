@@ -4,7 +4,7 @@ The Rust crate behind the desktop app: Tauri startup, the native commands and
 the services they compose. See [ARCHITECTURE](../docs/architecture/ARCHITECTURE.md)
 for how the parts fit together; run commands from the repository root.
 
-- `src/main.rs` and `src/bin/roll-tracker-mock.rs` only hand a builder to
+- `src/main.rs` and `src/bin/astral-index-mock.rs` only hand a builder to
   unit-tested registration in `src/desktop.rs`: the real app, and the mock debug
   binary with its synthetic HoYoverse. `build.rs` generates build metadata and
   the app command manifest from `src/desktop/commands.in`. These three files are
