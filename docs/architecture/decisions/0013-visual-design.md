@@ -72,6 +72,11 @@ repository; this record holds what the implementation must follow.
   year), From and To date fields using the webview's built-in date picker, a
   line giving the server timezone and the stored period, and Clear and Done.
   Dates are server time, the same as the list's Time column.
+- **Summary strip** (amended 2026-10-06): rates are shares of the category's
+  stored rolls to two decimals ("1.48%"), and a share above zero too small to
+  show reads "<0.01%". A category without rolls keeps the strip, with zero
+  counts, no rates and "None yet" as the period. The period always reads as a
+  range, even within one day ("20 Sep 2026 – 20 Sep 2026").
 - **Account switcher** (amended 2026-10-06): with one saved account the header
   shows it as a plain chip; with more, the chip becomes a menu button. Its menu,
   under a "Saved accounts" heading, lists every saved account of the game, the

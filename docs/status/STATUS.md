@@ -16,7 +16,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   conflicting rolls per warp, and the period covered. Saving is one transaction;
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
-  rolls, with tab counts. It opens on the account imported last; with more than
+  rolls, with tab counts and a summary strip (rolls, 5★ and 4★ counts with
+  rates, stored period). It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
@@ -30,7 +31,21 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Summary strip (2026-10-06)
+
+Feature 0032's second task, on `feat/summary-strip`. Each history page now
+carries a summary of its whole category: 5★ and 4★ counts and the oldest and
+newest roll times, from one grouped query. The strip under the tabs shows rolls
+stored, both counts with two-decimal rates, and the stored period; an empty
+category shows zeros and "None yet" (decision 0013, amended).
+
+Evidence: the storage, formatter, component and app tests failed first (missing
+summary type and field, formatters and component; the app tests without the
+strip), then passed; the real-SQLite test failed with `min` swapped for `max`.
+The end-to-end test checks the rates against the counts, and the two-by-two
+layout at the minimum width.
+The staged `npm run check` and offline tests pass, and a release `.deb` builds
+without warnings.
 
 ## Known limitations
 
@@ -50,9 +65,10 @@ Nothing. Record work here while it is in progress (see below).
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
-second task: the summary strip for the whole category (rolls stored, 5★ and 4★
-counts with rates, stored period). Native Windows validation of the current
-build belongs to milestone 10.
+third task: rarity filters in the rolls panel's toolbar, filtering the whole
+category natively before paging, with a measurement on a large synthetic history
+deciding whether an indexed rarity column is needed. Native Windows validation of
+the current build belongs to milestone 10.
 
 ## Keeping this file current
 
