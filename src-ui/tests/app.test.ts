@@ -224,6 +224,13 @@ function savedHistory(args: Record<string, unknown>) {
       gacha_type,
       total: savedCounts[gacha_type] ?? 0,
     })),
+    // Roll 45 of Character Event Warp is the only 5★.
+    summary: {
+      five_star: category === '11' && total > 0 ? 1 : 0,
+      four_star: 0,
+      first: total > 0 ? '2026-04-26 10:00:00' : null,
+      last: total > 0 ? '2026-09-28 21:14:03' : null,
+    },
     rolls: Array.from({ length: Math.max(0, Math.min(pageSize, first)) }, (_, index) => ({
       number: first - index,
       id: `${category}-${first - index}`,
@@ -258,6 +265,15 @@ const listed = () =>
   [...main().querySelectorAll('.roll-list .body [role="row"]')].map(
     (row) => row.querySelector('[role="cell"]')?.textContent,
   )
+// The summary strip's tiles, as "label: value rate".
+const strip = () =>
+  [...main().querySelectorAll('[aria-label="Category summary"] .tile')].map(
+    (tile) =>
+      `${tile.querySelector('.label')?.textContent}: ` +
+      [...tile.querySelectorAll('.value, .rate')]
+        .map((part) => part.textContent?.replace(/\s+/g, ' ').trim())
+        .join(' '),
+  )
 const showing = () => main().querySelector('.showing')?.textContent?.replace(/\s+/g, ' ').trim()
 const pageButton = (name: string) =>
   main().querySelector<HTMLButtonElement>(`nav[aria-label="Pages"] [aria-label="${name}"]`)!
@@ -279,6 +295,13 @@ test('saved history shows its account, category counts and newest rolls first', 
     'Character Event Warp rolls, newest first',
   )
   expect(main().querySelector('[aria-sort]')?.textContent).toBe('Time (UTC+8)')
+  // The strip summarises the whole category, not just the page shown.
+  expect(strip()).toEqual([
+    'Rolls stored: 45',
+    '5★ rolls: 1 2.22%',
+    '4★ rolls: 0 0.00%',
+    'Stored period: 26 Apr 2026 – 28 Sep 2026',
+  ])
   expect(listed()).toHaveLength(20)
   expect(listed()[0]).toBe('45')
   expect(main().querySelector('.rarity-5 .name')?.textContent).toBe('Synthetic Hero')
@@ -306,6 +329,12 @@ function historyOf(args: Record<string, unknown>) {
       gacha_type,
       total: gacha_type === '1' ? 2 : 0,
     })),
+    summary: {
+      five_star: 0,
+      four_star: 0,
+      first: total > 0 ? '2026-09-20 10:00:00' : null,
+      last: total > 0 ? '2026-09-20 10:00:00' : null,
+    },
     rolls: Array.from({ length: total }, (_, index) => ({
       number: total - index,
       id: `eur-${total - index}`,
@@ -354,6 +383,9 @@ test('with one saved account the header names it; with more it switches between 
     'Switch account. Current: UID 100000002, Europe server',
   )
   expect(tabs()[2]).toEqual(['Stellar 2', 'true'])
+  // The strip follows the account, and a one-day period still reads as a range.
+  expect(strip()[0]).toBe('Rolls stored: 2')
+  expect(strip()[3]).toBe('Stored period: 20 Sep 2026 – 20 Sep 2026')
   expect(main().querySelector('[aria-sort]')?.textContent).toBe('Time (UTC+1)')
   expect(document.activeElement).toBe(switcher())
   // Leaving the screen and coming back keeps the chosen account.

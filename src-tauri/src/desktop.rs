@@ -1975,6 +1975,13 @@ mod tests {
                 { "gacha_type": "22", "total": 0 },
             ])
         );
+        assert_eq!(
+            history["summary"],
+            serde_json::json!({
+                "five_star": 1, "four_star": 2,
+                "first": "2024-01-01 00:00:00", "last": "2024-02-29 12:34:56",
+            })
+        );
         assert_eq!(history["rolls"][0]["number"], 3);
         assert_eq!(history["rolls"][1]["id"], "9007199254740992");
     }
@@ -2035,7 +2042,11 @@ mod tests {
             .map(|code| serde_json::json!({ "gacha_type": code, "total": 0 }));
         assert_eq!(
             json(run(history_into(&database, None, "1", 1, 20)).unwrap()),
-            serde_json::json!({ "account": null, "total": 0, "categories": empty, "rolls": [] })
+            serde_json::json!({
+                "account": null, "total": 0, "categories": empty,
+                "summary": { "five_star": 0, "four_star": 0, "first": null, "last": null },
+                "rolls": [],
+            })
         );
         sql::finish();
         sql::expect(vec![latest_step(vec![vec![Value::Null]])]);

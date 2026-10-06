@@ -3,9 +3,11 @@ import {
   categoryTabs,
   initials,
   localDateTime,
+  rate,
   serverDate,
   serverDateTime,
   serverName,
+  storedPeriod,
   utcOffset,
 } from './format'
 
@@ -65,4 +67,28 @@ test('device times read in local time, here given as UTC', () => {
   expect(localDateTime(1790000000, 'UTC')).toBe('21 Sep 2026, 14:13')
   expect(localDateTime(1790000000, 'Asia/Tokyo')).toBe('21 Sep 2026, 23:13')
   expect(localDateTime(0, 'UTC')).toBe('1 Jan 1970, 00:00')
+})
+
+test('rates are shares of the category to two decimals, never rounded down to zero', () => {
+  expect(rate(19, 1284)).toBe('1.48%')
+  expect(rate(162, 1284)).toBe('12.62%')
+  expect(rate(1, 1)).toBe('100.00%')
+  expect(rate(0, 50)).toBe('0.00%')
+  // A share too small to show is still more than none.
+  expect(rate(1, 20001)).toBe('<0.01%')
+  expect(rate(1, 20000)).toBe('0.01%')
+  // Without rolls there is no rate.
+  expect(rate(0, 0)).toBeUndefined()
+})
+
+test('a stored period runs from the oldest to the newest roll date, breaking only at its dash', () => {
+  expect(storedPeriod('2023-04-26 10:00:00', '2026-09-28 21:14:03')).toEqual([
+    '26 Apr 2023 –',
+    '28 Sep 2026',
+  ])
+  expect(storedPeriod('2026-09-28 01:00:00', '2026-09-28 21:14:03')).toEqual([
+    '28 Sep 2026 –',
+    '28 Sep 2026',
+  ])
+  expect(storedPeriod(null, null)).toEqual(['None yet'])
 })

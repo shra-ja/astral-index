@@ -62,7 +62,9 @@ as a safe storage error rather than repairing it.
 
 - **History page:** one page of a category for one account, newest first by
   server time then numeric roll ID, each roll numbered by its position
-  in the category (1 is the oldest stored), plus every category's count.
+  in the category (1 is the oldest stored), plus every category's count and a
+  summary of the whole category: its 5★ and 4★ counts and the server times of
+  its oldest and newest rolls.
 - **Accounts:** the game's saved accounts with each one's roll count, the one
   imported into most recently first; the account imported last; and one account
   by UID and server, so a history read names only saved accounts.

@@ -198,6 +198,8 @@ pub struct HistoryPage {
     /// Every known category's count for the account, empty ones included, so a
     /// caller can show them all without reading each.
     pub categories: Vec<CategoryTotal>,
+    /// The whole category, not just this page.
+    pub summary: CategorySummary,
     pub rolls: Vec<StoredRoll>,
 }
 impl HistoryPage {
@@ -212,9 +214,20 @@ impl HistoryPage {
                     total: 0,
                 })
                 .collect(),
+            summary: CategorySummary::default(),
             rolls: Vec::new(),
         }
     }
+}
+
+/// A category's rarity counts and stored period, for the summary strip.
+#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+pub struct CategorySummary {
+    pub five_star: usize,
+    pub four_star: usize,
+    /// Server times of the oldest and newest stored rolls; none without rolls.
+    pub first: Option<String>,
+    pub last: Option<String>,
 }
 
 /// How many rolls an account has stored in one category.
@@ -595,6 +608,7 @@ impl Store {
                 total = entry.total;
             }
         }
+        let summary = self.summary(uid, server, code)?;
         let mut statement = self.connection.prepare(
             "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6",
         )?;
@@ -625,8 +639,46 @@ impl Store {
         Ok(HistoryPage {
             total,
             categories,
+            summary,
             rolls,
         })
+    }
+
+    /// The rarity counts and stored period of an account's rolls in one category.
+    fn summary(&self, uid: &str, server: &str, code: &str) -> Result<CategorySummary, Error> {
+        let mut statement = self.connection.prepare(
+            "SELECT json_extract(payload,'$.rank_type'),count(*),min(json_extract(payload,'$.time')),max(json_extract(payload,'$.time')) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 GROUP BY 1",
+        )?;
+        let groups = statement.query_map(params![GAME, uid, server, code], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        let mut summary = CategorySummary::default();
+        for group in groups {
+            let (rank, count, first, last) = group?;
+            let count = usize::try_from(count).map_err(|_| Error::InvalidStoredData)?;
+            match rank.as_str() {
+                "5" => summary.five_star = count,
+                "4" => summary.four_star = count,
+                "3" => {}
+                _ => return Err(Error::InvalidStoredData),
+            }
+            if summary
+                .first
+                .as_ref()
+                .is_none_or(|earliest| first < *earliest)
+            {
+                summary.first = Some(first);
+            }
+            if summary.last.as_ref().is_none_or(|latest| last > *latest) {
+                summary.last = Some(last);
+            }
+        }
+        Ok(summary)
     }
 }
 
@@ -730,6 +782,7 @@ pub(crate) mod tests {
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
     const ACCOUNT_LIST: &str = "SELECT a.uid,a.server,a.timezone,count(r.id) FROM accounts a LEFT JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 GROUP BY a.uid,a.server ORDER BY (SELECT max(b.id) FROM batches b WHERE b.game=a.game AND b.uid=a.uid AND b.server=a.server) DESC";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
+    const SUMMARY: &str = "SELECT json_extract(payload,'$.rank_type'),count(*),min(json_extract(payload,'$.time')),max(json_extract(payload,'$.time')) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 GROUP BY 1";
     const PAGE_ROWS: &str = "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6";
     pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
@@ -1603,7 +1656,7 @@ pub(crate) mod tests {
         limit: i64,
         rows_data: Vec<Vec<Value>>,
     ) -> Vec<Step> {
-        totals_script(
+        let mut steps = totals_script(
             vec![
                 vec![text("1"), Value::Integer(3)],
                 vec![text("11"), Value::Integer(total)],
@@ -1611,7 +1664,26 @@ pub(crate) mod tests {
             offset,
             limit,
             rows_data,
-        )
+        );
+        steps[3] = rows(SUMMARY, category_scope(), summary_rows());
+        steps
+    }
+    /// The fixture account's Character Event Warp rolls by rarity: 1 5★, 2 4★ and
+    /// 2 3★, from 1 Jan to 29 Feb 2024.
+    pub(crate) fn summary_rows() -> Vec<Vec<Value>> {
+        let group = |rank: &str, count, first: &str, last: &str| {
+            vec![text(rank), Value::Integer(count), text(first), text(last)]
+        };
+        vec![
+            group("3", 2, "2024-01-01 00:00:00", "2024-02-01 08:00:00"),
+            group("4", 2, "2024-01-15 10:00:00", "2024-02-29 12:34:56"),
+            group("5", 1, "2024-02-29 12:34:56", "2024-02-29 12:34:56"),
+        ]
+    }
+    fn category_scope() -> Vec<Value> {
+        let mut bindings = scope();
+        bindings.push(text("11"));
+        bindings
     }
     /// The SQL up to the account's counts, for reads that stop there.
     fn counting_script(totals: Vec<Vec<Value>>) -> Vec<Step> {
@@ -1631,6 +1703,8 @@ pub(crate) mod tests {
         vec![
             done(&format!("PREPARE {TOTALS}")),
             rows(TOTALS, scope(), totals),
+            done(&format!("PREPARE {SUMMARY}")),
+            rows(SUMMARY, category_scope(), vec![]),
             done(&format!("PREPARE {PAGE_ROWS}")),
             rows(PAGE_ROWS, bindings, rows_data),
         ]
@@ -1678,8 +1752,21 @@ pub(crate) mod tests {
             HistoryPage {
                 total: 5,
                 categories: totals(&[("1", 3), ("11", 5)]),
+                summary: CategorySummary {
+                    five_star: 1,
+                    four_star: 2,
+                    first: Some("2024-01-01 00:00:00".into()),
+                    last: Some("2024-02-29 12:34:56".into()),
+                },
                 rolls: vec![roll(3, "9007199254740993"), roll(2, "9007199254740992")],
             }
+        );
+        assert_eq!(
+            serde_json::to_value(&page.summary).unwrap(),
+            serde_json::json!({
+                "five_star": 1, "four_star": 2,
+                "first": "2024-01-01 00:00:00", "last": "2024-02-29 12:34:56",
+            })
         );
         assert_eq!(
             serde_json::to_value(&page.categories[0]).unwrap(),
@@ -1712,14 +1799,20 @@ pub(crate) mod tests {
             HistoryPage {
                 total: 0,
                 categories: totals(&[("22", 7)]),
+                summary: CategorySummary::default(),
                 rolls: vec![],
             }
+        );
+        assert_eq!(
+            serde_json::to_value(CategorySummary::default()).unwrap(),
+            serde_json::json!({ "five_star": 0, "four_star": 0, "first": null, "last": null })
         );
         assert_eq!(
             HistoryPage::empty(),
             HistoryPage {
                 total: 0,
                 categories: totals(&[]),
+                summary: CategorySummary::default(),
                 rolls: vec![],
             }
         );
@@ -1763,6 +1856,38 @@ pub(crate) mod tests {
                 Err(Error::Database)
             );
             database::finish();
+        }
+    }
+
+    #[test]
+    fn a_summary_with_an_unknown_rarity_or_unreadable_group_is_rejected() {
+        let summarised = |group: Vec<Value>| {
+            let mut steps = page_script(5, 2, 2, vec![]);
+            steps[3] = rows(SUMMARY, category_scope(), vec![group]);
+            steps.truncate(4);
+            database::expect(steps);
+            let page = store().page(UID, SERVER, Category::CharacterEvent, 2, 2);
+            database::finish();
+            page
+        };
+        let group = || {
+            vec![
+                text("5"),
+                Value::Integer(1),
+                text("2024-02-29 12:34:56"),
+                text("2024-02-29 12:34:56"),
+            ]
+        };
+        // Imports only store rarities 3 to 5, so another is damage, as is a negative count.
+        for (column, value) in [(0, text("6")), (1, Value::Integer(-1))] {
+            let mut damaged = group();
+            damaged[column] = value;
+            assert_eq!(summarised(damaged), Err(Error::InvalidStoredData));
+        }
+        for column in 0..4 {
+            let mut unreadable = group();
+            unreadable[column] = Value::Null;
+            assert_eq!(summarised(unreadable), Err(Error::Database));
         }
     }
 

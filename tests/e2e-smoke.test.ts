@@ -394,6 +394,27 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       ['1250', expect.stringMatching(/^[345]★$/), expect.any(String), '28 Sep 2026, 21:03:03'],
       ['1249', expect.stringMatching(/^[345]★$/), expect.any(String), '28 Sep 2026, 21:03:03'],
     ])
+    // The summary strip covers the whole category: each rate is its count's share of
+    // the 1,250 rolls, and the period ends on the newest roll's date.
+    const strip = await app.execute<{ label: string; parts: string[] }[]>(
+      `return [...document.querySelectorAll('[aria-label="Category summary"] .tile')].map(tile => ({ label: tile.querySelector(".label").textContent, parts: [...tile.querySelectorAll(".value, .rate, .period > span")].map(part => part.textContent.trim()) }))`,
+    )
+    expect(strip.map((tile) => tile.label)).toEqual([
+      'Rolls stored',
+      '5★ rolls',
+      '4★ rolls',
+      'Stored period',
+    ])
+    expect(strip[0].parts).toEqual(['1,250'])
+    for (const tile of [strip[1], strip[2]]) {
+      const [count, shown] = tile.parts
+      expect(Number(count)).toBeGreaterThan(0)
+      expect(shown).toBe(`${((Number(count) / 1250) * 100).toFixed(2)}%`)
+    }
+    expect(strip[3].parts.slice(1)).toEqual([
+      expect.stringMatching(/^\d{1,2} [A-Z][a-z]{2} \d{4} –$/),
+      '28 Sep 2026',
+    ])
     await app.screenshot('e2e-mock-history')
     // At the minimum width they no longer fit, so they become a dropdown.
     await app.command('/window/rect', 'POST', { width: 480, height: 700 })
@@ -401,6 +422,12 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .poll(() => textOf(app, 'label.select select option:checked'), { timeout: 5000 })
       .toMatch(/^\s*Character Event · 1,250\s*$/)
     expect(await tabs()).toEqual([])
+    // The strip wraps to two by two rather than squashing.
+    expect(
+      await app.execute<number>(
+        `return new Set([...document.querySelectorAll('[aria-label="Category summary"] .tile')].map(tile => tile.getBoundingClientRect().top)).size`,
+      ),
+    ).toBe(2)
     await app.screenshot('e2e-mock-history-narrow')
     // Paging reads the next rolls, still from this device.
     await app.execute('document.querySelector(\'[aria-label="Next page"]\').click()')

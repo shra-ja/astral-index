@@ -173,11 +173,19 @@ export interface StoredRoll {
   rank_type: string
   time: string
 }
+/** A whole category's rarity counts and the server times of its oldest and newest rolls. */
+export interface CategorySummary {
+  five_star: number
+  four_star: number
+  first: string | null
+  last: string | null
+}
 /** One page of a category, with every category's count; no account until an import. */
 export interface StoredHistory {
   account: Account | null
   total: number
   categories: { gacha_type: string; total: number }[]
+  summary: CategorySummary
   rolls: StoredRoll[]
 }
 

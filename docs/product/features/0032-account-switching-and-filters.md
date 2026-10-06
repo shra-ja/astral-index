@@ -14,7 +14,7 @@ trigger acquisition.
   server), the history read takes the chosen account, and the header's account
   chip becomes the account switcher. The account imported last stays the
   default.
-- [ ] Show the summary strip for the whole category: rolls stored, 5★ and 4★
+- [x] Show the summary strip for the whole category: rolls stored, 5★ and 4★
   counts with rates, and the stored period
   ([decision 0013](../../architecture/decisions/0013-visual-design.md)).
 - [ ] Filter by rarity (5★, 4★, 3★) in the rolls panel's toolbar. Filters apply

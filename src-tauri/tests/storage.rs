@@ -1,6 +1,6 @@
 use astral_index::acquisition::Category;
 use astral_index::storage::{
-    Account, Error, HistoryPage, LastImport, SavedAccount, Source, Store, Summary,
+    Account, CategorySummary, Error, HistoryPage, LastImport, SavedAccount, Source, Store, Summary,
 };
 use rusqlite::Connection;
 use serde_json::{Value, json};
@@ -794,6 +794,52 @@ fn saved_accounts_count_each_accounts_rolls_and_list_the_newest_import_first() {
     );
     // The same UID on another server is another account.
     assert_eq!(store.account(UID, "another-server").unwrap(), None);
+}
+
+#[test]
+fn a_page_summarises_its_whole_category_by_rarity_and_period() {
+    let db = Database::new();
+    let mut store = db.store();
+    let rolls = [
+        ("1000000000000000001", "11", "3", "2026-09-27 10:00:00"),
+        ("1000000000000000002", "11", "4", "2026-09-28 21:14:03"),
+        ("1000000000000000003", "11", "5", "2026-09-26 08:30:00"),
+        ("1000000000000000004", "11", "5", "2026-09-29 12:00:00"),
+        ("1000000000000000005", "11", "3", "2026-09-29 11:59:59"),
+        ("1000000000000000006", "1", "5", "2026-09-30 12:00:00"),
+    ];
+    let bytes = page(|p| {
+        let template = p["data"]["list"][0].clone();
+        p["data"]["list"] = rolls
+            .iter()
+            .map(|(id, gacha_type, rank_type, time)| {
+                let mut roll = template.clone();
+                roll["id"] = json!(id);
+                roll["gacha_type"] = json!(gacha_type);
+                roll["rank_type"] = json!(rank_type);
+                roll["time"] = json!(time);
+                roll
+            })
+            .collect();
+    });
+    import(&mut store, &bytes);
+    // The summary covers the whole category, whichever page is read.
+    for offset in [0, 2] {
+        let page = store
+            .page(UID, SERVER, Category::CharacterEvent, offset, 2)
+            .unwrap();
+        assert_eq!(
+            page.summary,
+            CategorySummary {
+                five_star: 2,
+                four_star: 1,
+                first: Some("2026-09-26 08:30:00".into()),
+                last: Some("2026-09-29 12:00:00".into()),
+            }
+        );
+    }
+    let departure = store.page(UID, SERVER, Category::Departure, 0, 20).unwrap();
+    assert_eq!(departure.summary, CategorySummary::default());
 }
 
 #[test]
