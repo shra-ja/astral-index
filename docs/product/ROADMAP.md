@@ -140,7 +140,7 @@ GitHub repository carry the name Astral Index.
 ### 9 — History browsing and statistics
 
 - [x] [0032 — Account switching and filters](features/0032-account-switching-and-filters.md)
-- [ ] [0035 — Pity](features/0035-pity.md)
+- [x] [0035 — Pity](features/0035-pity.md)
 - [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
 

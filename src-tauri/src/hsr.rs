@@ -36,6 +36,26 @@ impl Category {
             Self::LightConeCollaboration => "22",
         }
     }
+
+    /// Where 5★ pity turns orange and red, from the observed soft-pity start for
+    /// the category's official hard pity; none for Departure, whose soft pity isn't
+    /// known ([decision 0020](../../docs/architecture/decisions/0020-soft-pity-colours.md)).
+    pub fn soft_pity(self) -> Option<SoftPity> {
+        match self {
+            Self::Departure => None,
+            Self::LightConeEvent | Self::LightConeCollaboration => {
+                Some(SoftPity { near: 40, soft: 65 })
+            }
+            _ => Some(SoftPity { near: 49, soft: 74 }),
+        }
+    }
+}
+
+/// The pity counts from which a 5★ is near soft pity, and in it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct SoftPity {
+    pub near: usize,
+    pub soft: usize,
 }
 
 /// Distinguish actionable failures without exposing response contents.
@@ -172,6 +192,20 @@ mod tests {
 
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
     const EMPTY: &[u8] = include_bytes!("../tests/fixtures/hsr-api/empty.json");
+
+    #[test]
+    fn soft_pity_follows_each_categorys_hard_pity() {
+        let ninety = Some(SoftPity { near: 49, soft: 74 });
+        let eighty = Some(SoftPity { near: 40, soft: 65 });
+        assert_eq!(
+            Category::ALL.map(Category::soft_pity),
+            [ninety, None, ninety, eighty, ninety, eighty]
+        );
+        assert_eq!(
+            serde_json::to_value(ninety).unwrap(),
+            json!({ "near": 49, "soft": 74 })
+        );
+    }
     const ERROR: &[u8] = include_bytes!("../tests/fixtures/hsr-api/error.json");
 
     fn fixture() -> Value {

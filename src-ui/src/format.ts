@@ -1,3 +1,4 @@
+import type { SoftPity } from './commands'
 // Shared display text, kept out of components so screens can be rearranged freely.
 
 /** Warp names by `gacha_type`, as the game shows them. */
@@ -137,6 +138,16 @@ export function dateRangeLabel(from: string | undefined, to: string | undefined,
   if (from) return `From ${serverDate(from)}`
   // With neither day chosen, the first quick range names it, so only `to` is left.
   return `Until ${serverDate(String(to))}`
+}
+
+/** How close a 5★ came to soft pity (decision 0020). */
+export type PityBand = 'early' | 'near' | 'soft'
+
+/** The band of a 5★'s pity by the category's thresholds; none when they aren't known. */
+export function pityBand(pity: number, softPity: SoftPity | null): PityBand | undefined {
+  if (!softPity) return undefined
+  if (pity >= softPity.soft) return 'soft'
+  return pity >= softPity.near ? 'near' : 'early'
 }
 
 /** "28 Sep 2026, 21:14:03", from a server time, read as written. */

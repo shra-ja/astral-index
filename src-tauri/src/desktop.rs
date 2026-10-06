@@ -2238,7 +2238,8 @@ mod tests {
         assert_eq!(
             json(run(history_into(&database, None, None, "1", 1, 20)).unwrap()),
             serde_json::json!({
-                "account": null, "total": 0, "matched": 0, "categories": empty,
+                "account": null, "total": 0, "matched": 0, "soft_pity": null,
+                "categories": empty,
                 "summary": { "five_star": 0, "four_star": 0, "first": null, "last": null },
                 "rolls": [],
             })

@@ -175,6 +175,11 @@ export interface StoredRoll {
   rank_type: string
   time: string
 }
+/** The pity counts from which a category's 5★ is near soft pity, and in it. */
+export interface SoftPity {
+  near: number
+  soft: number
+}
 /** A whole category's rarity counts and the server times of its oldest and newest rolls. */
 export interface CategorySummary {
   five_star: number
@@ -189,6 +194,8 @@ export interface StoredHistory {
   total: number
   /** Rolls in the category of the rarities shown, for paging. */
   matched: number
+  /** The category's soft-pity thresholds; none when its soft pity isn't known. */
+  soft_pity: SoftPity | null
   categories: { gacha_type: string; total: number }[]
   summary: CategorySummary
   rolls: StoredRoll[]

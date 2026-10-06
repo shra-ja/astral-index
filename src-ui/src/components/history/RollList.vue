@@ -2,10 +2,24 @@
 // Presentational: a page of saved rolls, newest first, each with its 5★ pity count.
 // Columns keep stable widths except Item, which takes the spare space; as the list
 // narrows, Type and then Time drop out. Rows scroll under a fixed header.
-import type { StoredRoll } from '../../commands'
-import { initials, serverDateTime } from '../../format'
+import type { SoftPity, StoredRoll } from '../../commands'
+import { initials, pityBand, serverDateTime } from '../../format'
 
-defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
+const props = defineProps<{
+  rolls: readonly StoredRoll[]
+  offset: string
+  caption: string
+  /** The category's soft-pity thresholds, which colour 5★ pity; none leaves it plain. */
+  softPity?: SoftPity | null
+}>()
+
+// Only 5★ pity has a band; the others stay plain (decision 0013).
+const bandOf = (roll: StoredRoll) =>
+  roll.rank_type === '5' ? pityBand(roll.pity, props.softPity ?? null) : undefined
+const bandClass = (roll: StoredRoll) => {
+  const band = bandOf(roll)
+  return band && `band-${band}`
+}
 </script>
 
 <template>
@@ -34,7 +48,7 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
             <span class="icon" aria-hidden="true">{{ initials(roll.name) }}</span>
             <span class="name">{{ roll.name }}</span>
           </span>
-          <span role="cell" class="pity">{{ roll.pity }}</span>
+          <span role="cell" class="pity" :class="bandClass(roll)">{{ roll.pity }}</span>
           <span role="cell"
             ><span class="badge">{{ roll.rank_type }}★</span></span
           >
@@ -120,11 +134,20 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
   color: var(--text-secondary);
   font-size: 13px;
 }
-/* 5★ pity stands out; its colour cues come with the pity rules (feature 0035). */
-.body .rarity-5 .pity,
-.rarity-5 .pity {
+/* 5★ pity stands out, coloured by how close it came to soft pity as a visual
+   convenience; the cell reads its count only (decision 0020). */
+.body .rarity-5 .pity {
   color: var(--text);
   font-weight: 600;
+}
+.body .pity.band-early {
+  color: var(--pity-early);
+}
+.body .pity.band-near {
+  color: var(--pity-near);
+}
+.body .pity.band-soft {
+  color: var(--pity-soft);
 }
 .number {
   color: var(--text-muted);

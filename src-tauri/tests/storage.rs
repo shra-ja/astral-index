@@ -1067,7 +1067,10 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
                 20
             )
             .unwrap(),
-        HistoryPage::empty()
+        HistoryPage {
+            soft_pity: Category::CharacterEvent.soft_pity(),
+            ..HistoryPage::empty()
+        }
     );
     assert_eq!(
         store.latest_account().unwrap(),

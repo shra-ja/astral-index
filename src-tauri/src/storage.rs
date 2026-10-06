@@ -1,7 +1,7 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
 #[cfg(test)]
 use self::tests::database::Connection;
-use crate::hsr::Category;
+use crate::hsr::{Category, SoftPity};
 use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
 #[cfg(not(test))]
 use rusqlite::Connection;
@@ -197,6 +197,8 @@ pub struct HistoryPage {
     pub total: usize,
     /// Rolls in the category of the rarities shown, so callers can page through them.
     pub matched: usize,
+    /// Where the category's 5★ pity is near soft pity and in it, when known.
+    pub soft_pity: Option<SoftPity>,
     /// Every known category's count for the account, empty ones included, so a
     /// caller can show them all without reading each.
     pub categories: Vec<CategoryTotal>,
@@ -210,6 +212,7 @@ impl HistoryPage {
         Self {
             total: 0,
             matched: 0,
+            soft_pity: None,
             categories: Category::ALL
                 .into_iter()
                 .map(|category| CategoryTotal {
@@ -749,6 +752,7 @@ impl Store {
         Ok(HistoryPage {
             total,
             matched,
+            soft_pity: category.soft_pity(),
             categories,
             summary,
             rolls,
@@ -1860,6 +1864,7 @@ pub(crate) mod tests {
             HistoryPage {
                 total: 5,
                 matched: 5,
+                soft_pity: Some(SoftPity { near: 49, soft: 74 }),
                 categories: totals(&[("1", 3), ("11", 5)]),
                 summary: CategorySummary {
                     five_star: 2,
@@ -1893,6 +1898,10 @@ pub(crate) mod tests {
             })
         );
         assert_eq!(serde_json::to_value(&page).unwrap()["matched"], 5);
+        assert_eq!(
+            serde_json::to_value(&page).unwrap()["soft_pity"],
+            serde_json::json!({ "near": 49, "soft": 74 })
+        );
         // A page past the end shows nothing, looking nothing up.
         database::expect(page_script(vec![]));
         assert_eq!(read(&Filter::default(), 5, 20).unwrap().rolls, vec![]);
@@ -1912,6 +1921,7 @@ pub(crate) mod tests {
             HistoryPage {
                 total: 0,
                 matched: 0,
+                soft_pity: Some(SoftPity { near: 49, soft: 74 }),
                 categories: totals(&[("22", 7)]),
                 summary: CategorySummary::default(),
                 rolls: vec![],
@@ -1926,6 +1936,7 @@ pub(crate) mod tests {
             HistoryPage {
                 total: 0,
                 matched: 0,
+                soft_pity: None,
                 categories: totals(&[]),
                 summary: CategorySummary::default(),
                 rolls: vec![],

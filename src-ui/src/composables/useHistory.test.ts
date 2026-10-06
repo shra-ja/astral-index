@@ -30,6 +30,7 @@ function stored(category: string, page: number, size: number, rarities?: string[
     account,
     total: counts[category] ?? 0,
     matched: total,
+    soft_pity: null,
     summary,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
@@ -100,7 +101,15 @@ test('opens on the first category with rolls when Character Event Warp has none'
 
 test('with no saved rolls at all it stays on the opening category', async () => {
   vi.mocked(historyPage).mockResolvedValue({
-    history: { account: null, total: 0, matched: 0, categories: [], summary, rolls: [] },
+    history: {
+      account: null,
+      total: 0,
+      matched: 0,
+      soft_pity: null,
+      categories: [],
+      summary,
+      rolls: [],
+    },
   })
   const history = useHistory(starRail)
   await history.start()
@@ -202,6 +211,7 @@ function serveAccounts() {
         account: other,
         total,
         matched: total,
+        soft_pity: null,
         categories: [{ gacha_type: '1', total: 2 }],
         summary,
         rolls: [],
