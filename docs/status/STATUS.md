@@ -47,6 +47,10 @@ storage and command tests were written before the code but not run red first;
 binding every rarity as shown, or counting every rarity as matched, makes them
 fail. The real-SQLite test checks numbering and paging under filters, and the
 end-to-end test filters the mock's history to its 143 5★ and 4★ rolls.
+The first staged check found two Rust error paths unreached: a damage test's
+two-column row made the fake database panic before the page read failed, and a
+malformed `rarities` argument was untested. Both are now covered; the staged
+`npm run check` and offline tests pass, and a release `.deb` builds cleanly.
 
 ## Known limitations
 
