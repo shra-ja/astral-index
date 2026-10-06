@@ -1,6 +1,7 @@
 use astral_index::acquisition::Category;
 use astral_index::storage::{
-    Account, CategorySummary, Error, HistoryPage, LastImport, SavedAccount, Source, Store, Summary,
+    Account, CategorySummary, Error, HistoryPage, LastImport, Rarities, SavedAccount, Source,
+    Store, Summary,
 };
 use rusqlite::Connection;
 use serde_json::{Value, json};
@@ -826,7 +827,14 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
     // The summary covers the whole category, whichever page is read.
     for offset in [0, 2] {
         let page = store
-            .page(UID, SERVER, Category::CharacterEvent, offset, 2)
+            .page(
+                UID,
+                SERVER,
+                Category::CharacterEvent,
+                Rarities::ALL,
+                offset,
+                2,
+            )
             .unwrap();
         assert_eq!(
             page.summary,
@@ -838,8 +846,39 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
             }
         );
     }
-    let departure = store.page(UID, SERVER, Category::Departure, 0, 20).unwrap();
+    let departure = store
+        .page(UID, SERVER, Category::Departure, Rarities::ALL, 0, 20)
+        .unwrap();
     assert_eq!(departure.summary, CategorySummary::default());
+    // Filters hide rolls before paging; shown rolls keep their category numbers.
+    let shown = |five, four, three, offset, limit| {
+        let page = store
+            .page(
+                UID,
+                SERVER,
+                Category::CharacterEvent,
+                Rarities { five, four, three },
+                offset,
+                limit,
+            )
+            .unwrap();
+        let rolls: Vec<_> = page
+            .rolls
+            .iter()
+            .map(|roll| (roll.number, roll.rank_type.clone()))
+            .collect();
+        (page.total, page.matched, rolls)
+    };
+    // Oldest first, the category runs 5★ 3★ 4★ 3★ 5★, numbered 1 to 5.
+    assert_eq!(
+        shown(true, false, false, 0, 20),
+        (5, 2, vec![(5, "5".into()), (1, "5".into())])
+    );
+    assert_eq!(
+        shown(false, true, true, 1, 2),
+        (5, 3, vec![(3, "4".into()), (2, "3".into())])
+    );
+    assert_eq!(shown(false, false, false, 0, 20), (5, 0, vec![]));
 }
 
 #[test]
@@ -872,7 +911,14 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
     import(&mut store, &bytes);
     let listed = |offset, limit| {
         let page = store
-            .page(UID, SERVER, Category::CharacterEvent, offset, limit)
+            .page(
+                UID,
+                SERVER,
+                Category::CharacterEvent,
+                Rarities::ALL,
+                offset,
+                limit,
+            )
             .unwrap();
         let rolls: Vec<_> = page
             .rolls
@@ -902,7 +948,9 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
         )
     );
     assert_eq!(listed(4, 2), (4, vec![]));
-    let stellar = store.page(UID, SERVER, Category::Stellar, 0, 20).unwrap();
+    let stellar = store
+        .page(UID, SERVER, Category::Stellar, Rarities::ALL, 0, 20)
+        .unwrap();
     assert_eq!((stellar.total, stellar.rolls.len()), (1, 1));
     // Every page counts each category of the account, empty ones included.
     let counts: Vec<_> = stellar
@@ -924,7 +972,14 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
     // Another account's history stays apart, and becomes the latest once imported.
     assert_eq!(
         store
-            .page("100000003", SERVER, Category::CharacterEvent, 0, 20)
+            .page(
+                "100000003",
+                SERVER,
+                Category::CharacterEvent,
+                Rarities::ALL,
+                0,
+                20
+            )
             .unwrap(),
         HistoryPage::empty()
     );

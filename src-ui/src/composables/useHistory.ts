@@ -16,10 +16,14 @@ import {
   savedAccounts,
   type Account,
   type Failure,
+  type Rarity,
   type SavedAccount,
   type StoredHistory,
 } from '../commands'
 import { categoryTabs, type Game } from '../format'
+
+// Every rarity, in the order the filters show them.
+const allRarities: Rarity[] = ['5', '4', '3']
 
 // The account chosen in each game's switcher, kept while the app runs so that
 // leaving the History screen keeps it. Unset, history shows the account imported
@@ -38,6 +42,8 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
   const pageSize = ref(20)
   const history = shallowRef<StoredHistory>()
   const accounts = shallowRef<SavedAccount[]>([])
+  // The rarities shown, kept across categories and accounts while the screen is open.
+  const rarities = ref<Rarity[]>([...allRarities])
   const failure = ref<Failure>()
   const loading = ref(false)
   // Only the latest read may update the screen, whatever order reads finish in.
@@ -51,6 +57,8 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
       page.value,
       pageSize.value,
       chosen[toValue(game)],
+      // Showing every rarity names none, as the native side shows all by default.
+      rarities.value.length < allRarities.length ? [...rarities.value] : undefined,
     )
     if (read !== latest) return
     loading.value = false
@@ -87,6 +95,15 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     return open()
   }
 
+  /** Show or hide `rarity`, starting again from the first page of what matches. */
+  function toggleRarity(rarity: Rarity) {
+    const shown = new Set(rarities.value)
+    if (!shown.delete(rarity)) shown.add(rarity)
+    rarities.value = allRarities.filter((each) => shown.has(each))
+    page.value = 1
+    return load()
+  }
+
   function select(next: string) {
     category.value = next
     page.value = 1
@@ -105,7 +122,9 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     return load()
   }
 
-  const pages = computed(() => Math.max(1, Math.ceil((history.value?.total ?? 0) / pageSize.value)))
+  const pages = computed(() =>
+    Math.max(1, Math.ceil((history.value?.matched ?? 0) / pageSize.value)),
+  )
 
   return {
     category: readonly(category),
@@ -113,11 +132,13 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     pageSize: readonly(pageSize),
     history,
     accounts,
+    rarities: readonly(rarities),
     failure: readonly(failure),
     loading: readonly(loading),
     pages,
     start,
     switchAccount,
+    toggleRarity,
     select,
     goTo,
     resize,

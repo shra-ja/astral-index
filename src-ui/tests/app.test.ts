@@ -214,12 +214,21 @@ test('a retrieval keeps running while another screen is shown', async () => {
 // Synthetic saved history: 45 Character Event and 3 Stellar Warp rolls.
 const savedCounts: Record<string, number> = { '1': 3, '11': 45 }
 function savedHistory(args: Record<string, unknown>) {
-  const { category, page, pageSize } = args as { category: string; page: number; pageSize: number }
+  const { category, page, pageSize, rarities } = args as {
+    category: string
+    page: number
+    pageSize: number
+    rarities?: string[]
+  }
   const total = savedCounts[category] ?? 0
-  const first = total - (page - 1) * pageSize
+  // Newest first, numbered in the whole category, then the rarities shown.
+  const matching = Array.from({ length: total }, (_, index) => total - index).filter((number) =>
+    (rarities ?? ['5', '4', '3']).includes(number === 45 ? '5' : '3'),
+  )
   return {
     account: { uid: '100000001', server: 'prod_official_asia', timezone: 8 },
     total,
+    matched: matching.length,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
       total: savedCounts[gacha_type] ?? 0,
@@ -231,12 +240,12 @@ function savedHistory(args: Record<string, unknown>) {
       first: total > 0 ? '2026-04-26 10:00:00' : null,
       last: total > 0 ? '2026-09-28 21:14:03' : null,
     },
-    rolls: Array.from({ length: Math.max(0, Math.min(pageSize, first)) }, (_, index) => ({
-      number: first - index,
-      id: `${category}-${first - index}`,
-      name: first - index === 45 ? 'Synthetic Hero' : 'Arrows',
-      item_type: first - index === 45 ? 'Character' : 'Light Cone',
-      rank_type: first - index === 45 ? '5' : '3',
+    rolls: matching.slice((page - 1) * pageSize, page * pageSize).map((number) => ({
+      number,
+      id: `${category}-${number}`,
+      name: number === 45 ? 'Synthetic Hero' : 'Arrows',
+      item_type: number === 45 ? 'Character' : 'Light Cone',
+      rank_type: number === 45 ? '5' : '3',
       time: '2026-09-28 21:14:03',
     })),
   }
@@ -325,6 +334,7 @@ function historyOf(args: Record<string, unknown>) {
   return {
     account: { uid: '100000002', server: 'prod_official_eur', timezone: 1 },
     total,
+    matched: total,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
       total: gacha_type === '1' ? 2 : 0,
@@ -420,9 +430,43 @@ test('history pages through a category, resizes pages and switches categories', 
   // A category without rolls says so, with no pages.
   button(main(), 'Departure 0').click()
   await settle()
-  expect(main().querySelector('.none')?.textContent).toBe('No Departure Warp rolls saved yet.')
+  expect(main().querySelector('.none')?.textContent?.trim()).toBe(
+    'No Departure Warp rolls saved yet.',
+  )
   expect(main().querySelector('[role="table"]')).toBeNull()
   expect(main().querySelector('nav[aria-label="Pages"]')).toBeNull()
+})
+
+const filter = (name: string) =>
+  main().querySelector<HTMLButtonElement>(`[aria-label="Show rarities"] .rarity-${name}`)!
+
+test('rarity filters hide rolls across the whole category, keeping their numbers', async () => {
+  const { reads } = await openHistory(savedHistory)
+  expect(
+    [...main().querySelectorAll('[aria-label="Show rarities"] button')].map((button) =>
+      button.getAttribute('aria-pressed'),
+    ),
+  ).toEqual(['true', 'true', 'true'])
+  filter('3').click()
+  await settle()
+  expect(filter('3').getAttribute('aria-pressed')).toBe('false')
+  expect(reads.at(-1)).toEqual({ category: '11', page: 1, pageSize: 20, rarities: ['5', '4'] })
+  // Only the 5★ is left, still numbered 45; the tabs and strip still count everything.
+  expect(listed()).toEqual(['45'])
+  expect(showing()).toBe('Showing 1–1 of 1')
+  expect(tabs()[0]).toEqual(['Character Event 45', 'true'])
+  expect(strip()[0]).toBe('Rolls stored: 45')
+  // With nothing shown, the panel says why and the pages go.
+  filter('5').click()
+  await settle()
+  expect(main().querySelector('.none')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    'No rolls match these filters. Turn on more rarities to see them.',
+  )
+  expect(main().querySelector('nav[aria-label="Pages"]')).toBeNull()
+  // The filters stay when the category changes.
+  button(main(), 'Stellar 3').click()
+  await settle()
+  expect(reads.at(-1)).toEqual({ category: '1', page: 1, pageSize: 20, rarities: ['4'] })
 })
 
 test('history that cannot be read says so, and Try again reads it again', async () => {

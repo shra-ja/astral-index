@@ -234,6 +234,16 @@ test('a history page names the chosen account by UID and server only', async () 
   ])
 })
 
+test('a history page names the rarities shown when some are hidden', async () => {
+  const calls: unknown[] = []
+  mockIPC((_cmd, args) => {
+    calls.push(args)
+    return { account: null, total: 0, matched: 0, categories: [], rolls: [] }
+  })
+  await historyPage('11', 1, 20, undefined, ['5', '4'])
+  expect(calls).toEqual([{ category: '11', page: 1, pageSize: 20, rarities: ['5', '4'] }])
+})
+
 test('saved accounts are read from this device', async () => {
   const accounts = [
     { uid: '100000003', server: 'synthetic-server', timezone: null, rolls: 2 },

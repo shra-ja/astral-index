@@ -415,6 +415,30 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       expect.stringMatching(/^\d{1,2} [A-Z][a-z]{2} \d{4} –$/),
       '28 Sep 2026',
     ])
+    // Hiding 3★ rolls leaves the 5★ and 4★ ones of the whole category, still numbered
+    // in it, while the tabs and strip keep counting everything.
+    const fiveAndFour = Number(strip[1].parts[0]) + Number(strip[2].parts[0])
+    await app.execute(`document.querySelector('[aria-label="Show rarities"] .rarity-3').click()`)
+    await expect
+      .poll(async () => (await textOf(app, '.showing'))?.replace(/\s+/g, ' ').trim(), {
+        timeout: 10000,
+      })
+      .toBe(`Showing 1–20 of ${fiveAndFour}`)
+    const filtered = await app.execute<string[][]>(
+      `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => [...row.querySelectorAll("[role=cell]")].map(cell => cell.textContent.trim()))`,
+    )
+    expect(filtered).toHaveLength(20)
+    expect(filtered.every((cells) => /^[45]★$/.test(cells[2]))).toBe(true)
+    expect(Number(filtered[0][0])).toBeLessThanOrEqual(1250)
+    expect(filtered.map((cells) => Number(cells[0]))).toEqual(
+      filtered.map((cells) => Number(cells[0])).toSorted((a, b) => b - a),
+    )
+    expect(await textOf(app, "[aria-label='Category summary'] .tile .value")).toBe('1,250')
+    await app.screenshot('e2e-mock-history-filtered')
+    await app.execute(`document.querySelector('[aria-label="Show rarities"] .rarity-3').click()`)
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     await app.screenshot('e2e-mock-history')
     // At the minimum width they no longer fit, so they become a dropdown.
     await app.command('/window/rect', 'POST', { width: 480, height: 700 })

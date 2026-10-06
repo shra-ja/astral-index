@@ -12,6 +12,7 @@ import AccountSwitcher from '../components/history/AccountSwitcher.vue'
 import CategoryTabs from '../components/history/CategoryTabs.vue'
 import EmptyState from '../components/history/EmptyState.vue'
 import HistoryFailed from '../components/history/HistoryFailed.vue'
+import RarityFilters from '../components/history/RarityFilters.vue'
 import RollList from '../components/history/RollList.vue'
 import RollPager from '../components/history/RollPager.vue'
 import SummaryStrip from '../components/history/SummaryStrip.vue'
@@ -28,11 +29,13 @@ const {
   pageSize,
   history,
   accounts,
+  rarities,
   failure,
   loading,
   pages,
   start,
   switchAccount,
+  toggleRarity,
   select,
   goTo,
   resize,
@@ -89,20 +92,29 @@ const tabsOf = (counts: StoredHistory['categories']) =>
         <CategoryTabs :tabs="tabsOf(history.categories)" :selected="category" @select="select" />
         <SummaryStrip :total="history.total" :summary="history.summary" />
         <section class="rolls" aria-label="Rolls">
+          <div class="toolbar">
+            <RarityFilters :shown="rarities" @toggle="toggleRarity" />
+          </div>
           <RollList
             v-if="history.rolls.length > 0"
             :rolls="history.rolls"
             :offset="utcOffset(account.timezone)"
             :caption="`${warps[category]} rolls, newest first`"
           />
-          <p v-else class="none">No {{ warps[category] }} rolls saved yet.</p>
+          <p v-else-if="history.total === 0" class="none">
+            No {{ warps[category] }} rolls saved yet.
+          </p>
+          <p v-else class="none">
+            <strong>No rolls match these filters.</strong>
+            Turn on more rarities to see them.
+          </p>
         </section>
         <RollPager
-          v-if="history.total > 0"
+          v-if="history.matched > 0"
           :page
           :pages
           :page-size
-          :total="history.total"
+          :total="history.matched"
           @go="goTo"
           @resize="resize"
         />
@@ -137,6 +149,21 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   border: 1px solid var(--panel-rim);
   border-radius: 12px;
   background: var(--list);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  min-height: 52px;
+  padding: 10px 10px 10px 16px;
+  border-bottom: 1px solid var(--panel-rim);
+  background: var(--panel);
+}
+.none strong {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
 }
 .none {
   margin: auto;

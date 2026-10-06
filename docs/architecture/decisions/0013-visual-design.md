@@ -77,6 +77,11 @@ repository; this record holds what the implementation must follow.
   show reads "<0.01%". A category without rolls keeps the strip, with zero
   counts, no rates and "None yet" as the period. The period always reads as a
   range, even within one day ("20 Sep 2026 – 20 Sep 2026").
+- **Rarity filters** (amended 2026-10-06): all three rarities are shown at
+  first, and the choice stays while the screen is open, across categories and
+  accounts. Hidden rolls keep the numbering of the whole category. With nothing
+  matching, the panel says "No rolls match these filters." and to turn on more
+  rarities, and the pages go.
 - **Account switcher** (amended 2026-10-06): with one saved account the header
   shows it as a plain chip; with more, the chip becomes a menu button. Its menu,
   under a "Saved accounts" heading, lists every saved account of the game, the

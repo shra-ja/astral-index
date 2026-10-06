@@ -21,13 +21,15 @@ const counts: Record<string, number> = { '1': 3, '11': 45 }
 // A category summary this composable only passes on.
 const summary = { five_star: 0, four_star: 0, first: null, last: null }
 // A page as the native side would return it, with numbered placeholder rolls.
-function stored(category: string, page: number, size: number): StoredHistory {
-  const total = counts[category] ?? 0
+function stored(category: string, page: number, size: number, rarities?: string[]): StoredHistory {
+  // Every placeholder roll is 3★, so hiding 3★ hides them all.
+  const total = rarities && !rarities.includes('3') ? 0 : (counts[category] ?? 0)
   const first = total - (page - 1) * size
   const length = Math.max(0, Math.min(size, first))
   return {
     account,
-    total,
+    total: counts[category] ?? 0,
+    matched: total,
     summary,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
@@ -44,8 +46,8 @@ function stored(category: string, page: number, size: number): StoredHistory {
   }
 }
 function serveStored() {
-  vi.mocked(historyPage).mockImplementation((category, page, size) =>
-    Promise.resolve({ history: stored(category, page, size) }),
+  vi.mocked(historyPage).mockImplementation((category, page, size, _account, rarities) =>
+    Promise.resolve({ history: stored(category, page, size, rarities) }),
   )
 }
 // Each read's arguments; reads of the account imported last name no account.
@@ -84,7 +86,7 @@ test('opens on the first category with rolls when Character Event Warp has none'
 
 test('with no saved rolls at all it stays on the opening category', async () => {
   vi.mocked(historyPage).mockResolvedValue({
-    history: { account: null, total: 0, categories: [], summary, rolls: [] },
+    history: { account: null, total: 0, matched: 0, categories: [], summary, rolls: [] },
   })
   const history = useHistory(starRail)
   await history.start()
@@ -184,6 +186,7 @@ function serveAccounts() {
       history: {
         account: other,
         total,
+        matched: total,
         categories: [{ gacha_type: '1', total: 2 }],
         summary,
         rolls: [],
@@ -266,5 +269,29 @@ test('each game keeps its own chosen account, and a save forgets only its game�
   expect(reads().at(-1)).toEqual(['1', 1, 20, saved[0]])
   forgetAccountChoice('honkai-star-rail')
   await history.start()
+  expect(reads().at(-1)).toEqual(['1', 1, 20])
+})
+
+test('every rarity is shown at first; hiding one reads the first page of what matches', async () => {
+  serveStored()
+  const history = useHistory(starRail)
+  await history.start()
+  expect(history.rarities.value).toEqual(['5', '4', '3'])
+  await history.goTo(2)
+  await history.toggleRarity('5')
+  expect(history.rarities.value).toEqual(['4', '3'])
+  expect(reads().at(-1)).toEqual(['11', 1, 20, ['4', '3']])
+  expect(history.page.value).toBe(1)
+  // Pages count the rolls that match, not the whole category.
+  await history.toggleRarity('3')
+  expect(reads().at(-1)).toEqual(['11', 1, 20, ['4']])
+  expect([history.history.value?.total, history.history.value?.matched]).toEqual([45, 0])
+  expect(history.pages.value).toBe(1)
+  // The filters stay when the category changes, and showing every rarity names none.
+  await history.select('1')
+  expect(reads().at(-1)).toEqual(['1', 1, 20, ['4']])
+  await history.toggleRarity('5')
+  await history.toggleRarity('3')
+  expect(history.rarities.value).toEqual(['5', '4', '3'])
   expect(reads().at(-1)).toEqual(['1', 1, 20])
 })

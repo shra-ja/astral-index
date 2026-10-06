@@ -16,8 +16,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   conflicting rolls per warp, and the period covered. Saving is one transaction;
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
-  rolls, with tab counts and a summary strip (rolls, 5★ and 4★ counts with
-  rates, stored period). It opens on the account imported last; with more than
+  rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
+  stored period) and rarity filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
@@ -31,21 +31,26 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Summary strip (2026-10-06)
+### Rarity filters (2026-10-06)
 
-Feature 0032's second task, on `feat/summary-strip`. Each history page now
-carries a summary of its whole category: 5★ and 4★ counts and the oldest and
-newest roll times, from one grouped query. The strip under the tabs shows rolls
-stored, both counts with two-decimal rates, and the stored period; an empty
-category shows zeros and "None yet" (decision 0013, amended).
+Feature 0032's third task, on `feat/rarity-filters`. `history_page` takes the
+rarities shown; rolls are numbered across the whole category before filtering,
+so hidden ones leave gaps, and a new `matched` count drives paging while the
+tabs and strip still count everything. The rolls panel gains a toolbar with
+5★, 4★ and 3★ toggles, kept across categories and accounts, and a "No rolls
+match these filters" state. A filtered page of 20,000 rolls took about 38 ms, so
+no rarity index was added.
 
-Evidence: the storage, formatter, component and app tests failed first (missing
-summary type and field, formatters and component; the app tests without the
-strip), then passed; the real-SQLite test failed with `min` swapped for `max`.
-The end-to-end test checks the rates against the counts, and the two-by-two
-layout at the minimum width.
-The staged `npm run check` and offline tests pass, and a release `.deb` builds
-without warnings.
+Evidence: the client, composable, component and app tests failed first (no
+rarities sent or kept, no component, no filters in the view), then passed. The
+storage and command tests were written before the code but not run red first;
+binding every rarity as shown, or counting every rarity as matched, makes them
+fail. The real-SQLite test checks numbering and paging under filters, and the
+end-to-end test filters the mock's history to its 143 5★ and 4★ rolls.
+The first staged check found two Rust error paths unreached: a damage test's
+two-column row made the fake database panic before the page read failed, and a
+malformed `rarities` argument was untested. Both are now covered; the staged
+`npm run check` and offline tests pass, and a release `.deb` builds cleanly.
 
 ## Known limitations
 
@@ -65,10 +70,9 @@ without warnings.
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
-third task: rarity filters in the rolls panel's toolbar, filtering the whole
-category natively before paging, with a measurement on a large synthetic history
-deciding whether an indexed rarity column is needed. Native Windows validation of
-the current build belongs to milestone 10.
+fourth task: item search by name, case-insensitively, through the same native
+filter as rarity. Native Windows validation of the current build belongs to
+milestone 10.
 
 ## Keeping this file current
 
@@ -141,4 +145,4 @@ research, under a "From" heading.
   the project cleanup milestone, the rename from Roll Tracker, the reordering
   of milestones 9 to 12 and milestone 9's tasks.
 - [2026-10-06: account switching](history/2026-10-06-account-switching.md):
-  the History screen's account switcher.
+  the History screen's account switcher and summary strip.
