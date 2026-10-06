@@ -408,9 +408,16 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     ])
     // Each roll's pity counts on from the older roll below it, starting again at 1
     // straight after a 5★.
-    const pities = await app.execute<{ pity: number; five: boolean }[]>(
-      `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => ({ pity: Number(row.querySelector(".pity").textContent), five: row.classList.contains("rarity-5") }))`,
+    const pities = await app.execute<{ pity: number; five: boolean; band: string | null }[]>(
+      `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => { const cell = row.querySelector(".pity"); return { pity: Number(cell.firstChild.textContent), five: row.classList.contains("rarity-5"), band: [...cell.classList].find(name => name.startsWith("band-")) ?? null } })`,
     )
+    // Character Event Warp's 5★ pity turns orange from 49 and red from 74; the rest
+    // stay plain.
+    expect(pities.some((roll) => roll.five)).toBe(true)
+    for (const roll of pities) {
+      const band = roll.pity >= 74 ? 'band-soft' : roll.pity >= 49 ? 'band-near' : 'band-early'
+      expect(roll.band).toBe(roll.five ? band : null)
+    }
     expect(pities).toHaveLength(20)
     for (const [newer, older] of pities
       .slice(0, -1)
