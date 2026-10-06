@@ -23,7 +23,7 @@ trigger acquisition.
   read on a large synthetic history; add an indexed rarity column to the schema
   only if the measurement needs one. Measured: about 38 ms for 20,000 rolls in
   one category, so none was added ([storage](../../architecture/storage.md)).
-- [ ] Search items by name, case-insensitively, through the same native filter
+- [x] Search items by name, case-insensitively, through the same native filter
   as rarity.
 - [ ] Filter by a date range in server time, through the same native filter: the
   toolbar's date-range button and popover, with quick ranges and From and To

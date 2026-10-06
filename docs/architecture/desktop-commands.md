@@ -19,7 +19,7 @@ is refused. No plugins, arbitrary filesystem access or shell access are exposed.
 | `cancel_acquisition` | Cancel the running operation and drop the context and any preview | No |
 | `commit_import` | Commit the held preview | No |
 | `discard_import` | Drop the held preview | No |
-| `history_page` | One page of saved history, every category's count and the category's summary, for the `account` named (UID and server) or else the account imported last, and of the `rarities` named (`5`, `4`, `3`) or else all | No |
+| `history_page` | One page of saved history, every category's count and the category's summary, for the `account` named (UID and server) or else the account imported last, of the `rarities` named (`5`, `4`, `3`) or else all, and of items whose names contain `search` (at most 100 characters), ignoring case | No |
 | `last_import` | The newest import's summary | No |
 | `saved_accounts` | The game's saved accounts with their roll totals, the account imported last first | No |
 

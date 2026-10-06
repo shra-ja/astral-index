@@ -22,7 +22,9 @@ UI reports them as unavailable rather than guessing.
 ## Proposal: derived on read
 
 Not decided: when and how pity is calculated is settled when the pity work
-starts. The proposal is to derive pity when history is read, not store it. One ordered pass over a pity
+starts. The proposal is to derive pity when history is read, not store it. The
+history page read already makes one ordered pass over the category in Rust
+([storage](storage.md)), where pity could be counted before filters apply. One ordered pass over a pity
 group's rolls (by time, then source ID, with the order verified per game) is O(n);
 even tens of thousands of rolls take well under a millisecond in Rust. A page of
 history still needs that pass, because each roll's pity depends on the rolls
