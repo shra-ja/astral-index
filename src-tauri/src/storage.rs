@@ -761,7 +761,8 @@ pub(crate) mod tests {
             vec![vec![text("database"), Value::Integer(0)]],
         )
     }
-    fn timezone(value: Option<Option<i32>>) -> Step {
+    /// The SQL for an account's offset, answered with `value` when it is saved.
+    pub(crate) fn timezone(value: Option<Option<i32>>) -> Step {
         rows(
             TIMEZONE,
             scope(),
