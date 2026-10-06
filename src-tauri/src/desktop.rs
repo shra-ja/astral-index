@@ -984,6 +984,12 @@ mod tests {
         });
         let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
         assert!(malformed.unwrap_err().contains("rarities"));
+        // A search, when named, is text.
+        let request = serde_json::json!({
+            "category": "11", "page": 1, "pageSize": 20, "search": 5,
+        });
+        let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+        assert!(malformed.unwrap_err().contains("search"));
         // An account, when named, needs both its UID and server.
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "100000002" },
