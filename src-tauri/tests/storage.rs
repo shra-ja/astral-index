@@ -859,7 +859,7 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
                 Category::CharacterEvent,
                 &Filter {
                     rarities: Rarities { five, four, three },
-                    name: String::new(),
+                    ..Filter::default()
                 },
                 offset,
                 limit,
@@ -918,6 +918,7 @@ fn item_search_matches_names_ignoring_case_in_any_script() {
                 three: true,
             },
             name: name.into(),
+            ..Filter::default()
         };
         let page = store
             .page(UID, SERVER, Category::CharacterEvent, &filter, 0, 20)
@@ -939,6 +940,17 @@ fn item_search_matches_names_ignoring_case_in_any_script() {
         (2, vec![(3, "Arrows".into()), (2, "Éclair".into())])
     );
     assert_eq!(search("Kafka", true), (0, vec![]));
+    // A date range keeps whole server days at both ends.
+    let dated = Filter {
+        from: Some("2026-09-27".into()),
+        to: Some("2026-09-28".into()),
+        ..Filter::default()
+    };
+    let page = store
+        .page(UID, SERVER, Category::CharacterEvent, &dated, 0, 20)
+        .unwrap();
+    let numbers: Vec<_> = page.rolls.iter().map(|roll| roll.number).collect();
+    assert_eq!((page.matched, numbers), (2, vec![3, 2]));
 }
 
 #[test]

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
-import { DOWN, ENTER, launch, type AppSession } from './app-driver'
+import { DOWN, ENTER, ESCAPE, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
 // A synthetic cache file holding one warp history request, with a key distinctive
@@ -457,6 +457,48 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.execute(
       `const box = document.querySelector('input[type="search"]'); box.value = ''; box.dispatchEvent(new Event('input'))`,
     )
+    // With the keyboard, the date button opens its popover at All dates; choosing
+    // 28 Sep onwards keeps only that day's 5★ and 4★ rolls, and Escape closes it.
+    await app.execute('document.querySelector(\'button[aria-haspopup="dialog"]\').focus()')
+    await app.press(ENTER)
+    await expect
+      .poll(
+        () => app.execute<string | undefined>('return document.activeElement?.textContent?.trim()'),
+        {
+          timeout: 10000,
+        },
+      )
+      .toBe('All dates')
+    expect(await textOf(app, '[role=dialog] .note')).toBe(
+      'Server time (UTC+8). Saved rolls span 25 Sep 2026 – 28 Sep 2026.',
+    )
+    await app.execute(
+      `const from = [...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === 'From').querySelector('input'); from.value = '2026-09-28'; from.dispatchEvent(new Event('change'))`,
+    )
+    await expect
+      .poll(
+        () =>
+          app.execute<string[]>(
+            `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => row.lastElementChild.textContent.trim().slice(0, 11))`,
+          ),
+        { timeout: 10000 },
+      )
+      .toSatisfy((days: string[]) => days.length > 0 && days.every((day) => day === '28 Sep 2026'))
+    await app.screenshot('e2e-mock-history-dates')
+    await app.press(ESCAPE)
+    await expect
+      .poll(() => textOf(app, "button[aria-haspopup='dialog']"), { timeout: 10000 })
+      .toMatch(/^\s*From 28 Sep 2026\s*$/)
+    expect(await app.execute('return document.querySelector("[role=dialog]") === null')).toBe(true)
+    expect(
+      await app.execute(
+        'return document.activeElement === document.querySelector(\'button[aria-haspopup="dialog"]\')',
+      ),
+    ).toBe(true)
+    await app.press(ENTER)
+    await expect.poll(() => textOf(app, '[role=dialog] .clear'), { timeout: 10000 }).toBe('Clear')
+    await app.execute('document.querySelector("[role=dialog] .clear").click()')
+    await app.press(ESCAPE)
     await app.execute(`document.querySelector('[aria-label="Show rarities"] .rarity-3').click()`)
     await expect
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })

@@ -640,6 +640,42 @@ struct AccountKey {
     server: String,
 }
 
+/// Which rolls a history read shows, as the webview names them; each part left
+/// out shows them all.
+#[derive(Default, Deserialize)]
+struct FilterRequest {
+    rarities: Option<Vec<String>>,
+    search: Option<String>,
+    from: Option<String>,
+    to: Option<String>,
+}
+
+/// A server date as `YYYY-MM-DD`, if it names a real day in exactly that form.
+fn date_of(text: &str) -> Option<String> {
+    chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d")
+        .ok()
+        .filter(|date| date.format("%Y-%m-%d").to_string() == text)
+        .map(|_| text.to_owned())
+}
+
+/// The filter a history read asked for, or none if any part of it is invalid.
+fn filter_of(request: FilterRequest) -> Option<Filter> {
+    let name = request.search.unwrap_or_default();
+    if name.chars().count() > MAX_SEARCH {
+        return None;
+    }
+    let date = |text: Option<String>| match text {
+        Some(text) => date_of(&text).map(Some),
+        None => Some(None),
+    };
+    Some(Filter {
+        rarities: rarities_of(request.rarities)?,
+        name,
+        from: date(request.from)?,
+        to: date(request.to)?,
+    })
+}
+
 /// The rarities a history read shows: every one unless some are named, each as
 /// "5", "4" or "3". None for anything else.
 fn rarities_of(named: Option<Vec<String>>) -> Option<Rarities> {
@@ -666,14 +702,13 @@ fn rarities_of(named: Option<Vec<String>>) -> Option<Rarities> {
 }
 
 /// Read one page of saved history: of `account` when named, otherwise of the
-/// account imported into last, showing the `rarities` named, or all, and only
-/// items whose names contain `search`, ignoring case. The request is checked
-/// before the database is opened; nothing is ever requested from HoYoverse.
+/// account imported into last, showing only the rolls `filter` asks for. The
+/// request is checked before the database is opened; nothing is ever requested
+/// from HoYoverse.
 async fn history_into(
     database: &Database,
     account: Option<AccountKey>,
-    rarities: Option<Vec<String>>,
-    search: Option<String>,
+    filter: Option<FilterRequest>,
     category: &str,
     page: usize,
     page_size: usize,
@@ -684,17 +719,14 @@ async fn history_into(
     let offset = page
         .checked_sub(1)
         .and_then(|before| before.checked_mul(page_size));
-    let name = search.unwrap_or_default();
-    let (Some(category), Some(offset), Some(rarities), 1..=MAX_PAGE_SIZE, 0..=MAX_SEARCH) = (
+    let (Some(category), Some(offset), Some(filter), 1..=MAX_PAGE_SIZE) = (
         category,
         offset,
-        rarities_of(rarities),
+        filter_of(filter.unwrap_or_default()),
         page_size,
-        name.chars().count(),
     ) else {
         return Err(Failure::InvalidRequest);
     };
-    let filter = Filter { rarities, name };
     let field = |value: &str| (1..=MAX_ACCOUNT_FIELD).contains(&value.len());
     if account
         .as_ref()
@@ -744,13 +776,9 @@ async fn history_page(
     page: usize,
     page_size: usize,
     account: Option<AccountKey>,
-    rarities: Option<Vec<String>>,
-    search: Option<String>,
+    filter: Option<FilterRequest>,
 ) -> Result<StoredHistory, Failure> {
-    history_into(
-        &database, account, rarities, search, &category, page, page_size,
-    )
-    .await
+    history_into(&database, account, filter, &category, page, page_size).await
 }
 
 /// The game's saved accounts with their roll totals, the one imported into last
@@ -978,18 +1006,27 @@ mod tests {
             invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
-        // Rarities, when named, are a list.
+        // A filter, when named, is an object of the expected parts.
+        for filter in [
+            serde_json::json!(5),
+            serde_json::json!({ "rarities": "5" }),
+            serde_json::json!({ "search": 5 }),
+            serde_json::json!({ "from": 20240101 }),
+        ] {
+            let request = serde_json::json!({
+                "category": "11", "page": 1, "pageSize": 20, "filter": filter,
+            });
+            let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+            assert!(malformed.unwrap_err().contains("filter"));
+        }
+        // A filter's parts are checked before the database is opened.
         let request = serde_json::json!({
-            "category": "11", "page": 1, "pageSize": 20, "rarities": "5",
+            "category": "11", "page": 1, "pageSize": 20, "filter": { "to": "2024-13-01" },
         });
-        let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
-        assert!(malformed.unwrap_err().contains("rarities"));
-        // A search, when named, is text.
-        let request = serde_json::json!({
-            "category": "11", "page": 1, "pageSize": 20, "search": 5,
-        });
-        let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
-        assert!(malformed.unwrap_err().contains("search"));
+        assert_eq!(
+            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            Err(r#"{"kind":"invalid_request"}"#.into())
+        );
         // An account, when named, needs both its UID and server.
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "100000002" },
@@ -1985,41 +2022,28 @@ mod tests {
             ("11", usize::MAX, 100),
         ] {
             assert_eq!(
-                run(history_into(
-                    &database, None, None, None, category, page, size
-                )),
+                run(history_into(&database, None, None, category, page, size)),
                 Err(Failure::InvalidRequest)
             );
         }
-        // Named rarities must each be 5, 4 or 3, at most three of them.
-        for named in [vec!["6"], vec!["5", "four"], vec!["5", "4", "3", "5"]] {
-            let named = named.into_iter().map(String::from).collect();
+        // Named rarities must each be 5, 4 or 3, at most three of them; a search is
+        // at most 100 characters, whatever their size in bytes; and each date is a
+        // real day written as YYYY-MM-DD.
+        let invalid = [
+            asking(Some(&["6"]), None, None, None),
+            asking(Some(&["5", "four"]), None, None, None),
+            asking(Some(&["5", "4", "3", "5"]), None, None, None),
+            asking(None, Some(&"é".repeat(101)), None, None),
+            asking(None, None, Some("2024-02-30"), None),
+            asking(None, None, Some("2024-2-1"), None),
+            asking(None, None, None, Some("yesterday")),
+        ];
+        for filter in invalid {
             assert_eq!(
-                run(history_into(
-                    &database,
-                    None,
-                    Some(named),
-                    None,
-                    "11",
-                    1,
-                    20
-                )),
+                run(history_into(&database, None, Some(filter), "11", 1, 20)),
                 Err(Failure::InvalidRequest)
             );
         }
-        // A search is at most 100 characters, whatever their size in bytes.
-        assert_eq!(
-            run(history_into(
-                &database,
-                None,
-                None,
-                Some("é".repeat(101)),
-                "11",
-                1,
-                20
-            )),
-            Err(Failure::InvalidRequest)
-        );
         // A named account must have a UID and server of at most 64 bytes each.
         let long = "1".repeat(65);
         for (uid, server) in [
@@ -2033,15 +2057,7 @@ mod tests {
                 server: server.into(),
             };
             assert_eq!(
-                run(history_into(
-                    &database,
-                    Some(account),
-                    None,
-                    None,
-                    "11",
-                    1,
-                    20
-                )),
+                run(history_into(&database, Some(account), None, "11", 1, 20)),
                 Err(Failure::InvalidRequest)
             );
         }
@@ -2062,7 +2078,7 @@ mod tests {
             "9007199254740992",
         ])));
         sql::expect(script);
-        let history = run(history_into(&database, None, None, None, "11", 2, 2)).unwrap();
+        let history = run(history_into(&database, None, None, "11", 2, 2)).unwrap();
         sql::finish();
         let history = json(history);
         assert_eq!(
@@ -2109,7 +2125,7 @@ mod tests {
             "9007199254740992",
         ])));
         sql::expect(script);
-        let history = json(run(history_into(&database, chosen(), None, None, "11", 2, 2)).unwrap());
+        let history = json(run(history_into(&database, chosen(), None, "11", 2, 2)).unwrap());
         sql::finish();
         assert_eq!(
             history["account"],
@@ -2120,7 +2136,7 @@ mod tests {
         // An account that isn't saved is not shown as an empty history.
         sql::expect(vec![timezone(None)]);
         assert_eq!(
-            run(history_into(&database, chosen(), None, None, "11", 1, 20)),
+            run(history_into(&database, chosen(), None, "11", 1, 20)),
             Err(Failure::InvalidRequest)
         );
         sql::finish();
@@ -2135,52 +2151,74 @@ mod tests {
             Reply::Rows(vec![Ok(vec![text("8")])]),
         )]);
         assert_eq!(
-            run(history_into(&database, chosen(), None, None, "11", 1, 20)),
+            run(history_into(&database, chosen(), None, "11", 1, 20)),
             Err(Failure::Storage)
         );
         sql::finish();
     }
 
+    /// A filter as the webview would send it.
+    fn asking(
+        rarities: Option<&[&str]>,
+        search: Option<&str>,
+        from: Option<&str>,
+        to: Option<&str>,
+    ) -> FilterRequest {
+        FilterRequest {
+            rarities: rarities.map(|named| named.iter().map(|rank| (*rank).to_owned()).collect()),
+            search: search.map(String::from),
+            from: from.map(String::from),
+            to: to.map(String::from),
+        }
+    }
+
     #[test]
-    fn history_shows_only_the_rarities_and_names_asked_for() {
+    fn history_shows_only_the_rolls_the_filter_asks_for() {
         let database = database();
         // The database is opened on the first read only.
         let mut script = opening();
-        for (named, search, shown) in [
+        for (filter, shown) in [
             (
-                Some(vec!["5"]),
-                None,
+                asking(Some(&["5"]), None, None, None),
                 vec!["9007199254740993", "9007199254740992"],
             ),
             (
-                Some(vec!["3", "4"]),
-                None,
+                asking(Some(&["3", "4"]), None, None, None),
                 vec!["9007199254740995", "9007199254740994", "9007199254740989"],
             ),
-            (Some(vec![]), None, vec![]),
-            (None, Some(" ÉCLAIR "), vec!["9007199254740995"]),
+            (asking(Some(&[]), None, None, None), vec![]),
             (
-                Some(vec!["5", "4", "3"]),
-                Some("pe"),
+                asking(None, Some(" ÉCLAIR "), None, None),
+                vec!["9007199254740995"],
+            ),
+            (
+                asking(Some(&["5", "4", "3"]), Some("pe"), None, None),
                 vec!["9007199254740994"],
+            ),
+            (
+                asking(None, None, Some("2024-02-29"), Some("2024-03-01")),
+                vec!["9007199254740994", "9007199254740993", "9007199254740992"],
+            ),
+            (
+                asking(None, None, None, Some("2024-01-01")),
+                vec!["9007199254740989"],
+            ),
+            (
+                FilterRequest::default(),
+                vec![
+                    "9007199254740995",
+                    "9007199254740994",
+                    "9007199254740993",
+                    "9007199254740992",
+                    "9007199254740989",
+                ],
             ),
         ] {
             script.push(latest_step(vec![latest_row()]));
             script.extend(page_script(found(&shown)));
             sql::expect(std::mem::take(&mut script));
-            let named = named.map(|named| named.into_iter().map(String::from).collect());
-            let history = json(
-                run(history_into(
-                    &database,
-                    None,
-                    named,
-                    search.map(String::from),
-                    "11",
-                    1,
-                    20,
-                ))
-                .unwrap(),
-            );
+            let history =
+                json(run(history_into(&database, None, Some(filter), "11", 1, 20)).unwrap());
             sql::finish();
             assert_eq!(
                 (history["total"].clone(), history["matched"].clone()),
@@ -2198,7 +2236,7 @@ mod tests {
         let empty = ["1", "2", "11", "12", "21", "22"]
             .map(|code| serde_json::json!({ "gacha_type": code, "total": 0 }));
         assert_eq!(
-            json(run(history_into(&database, None, None, None, "1", 1, 20)).unwrap()),
+            json(run(history_into(&database, None, None, "1", 1, 20)).unwrap()),
             serde_json::json!({
                 "account": null, "total": 0, "matched": 0, "categories": empty,
                 "summary": { "five_star": 0, "four_star": 0, "first": null, "last": null },
@@ -2208,7 +2246,7 @@ mod tests {
         sql::finish();
         sql::expect(vec![latest_step(vec![vec![Value::Null]])]);
         assert_eq!(
-            run(history_into(&database, None, None, None, "11", 1, 20)),
+            run(history_into(&database, None, None, "11", 1, 20)),
             Err(Failure::Storage)
         );
         sql::finish();
@@ -2216,7 +2254,7 @@ mod tests {
         script.extend(page_script(vec![lookup("9007199254740993", Some("{"))]));
         sql::expect(script);
         assert_eq!(
-            run(history_into(&database, None, None, None, "11", 2, 2)),
+            run(history_into(&database, None, None, "11", 2, 2)),
             Err(Failure::Storage)
         );
         sql::finish();

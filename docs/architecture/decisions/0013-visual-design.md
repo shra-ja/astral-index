@@ -71,7 +71,11 @@ repository; this record holds what the implementation must follow.
   with quick ranges (All dates, Last 7 days, Last 30 days, Last 6 months, This
   year), From and To date fields using the webview's built-in date picker, a
   line giving the server timezone and the stored period, and Clear and Done.
-  Dates are server time, the same as the list's Time column.
+  Dates are server time, the same as the list's Time column. (Amended
+  2026-10-06:) both ends are whole days; quick ranges count today in server
+  time (this device's when the offset is unknown) and leave the end open; every
+  change applies at once and keeps the popover open, and Done, Escape, Tab out
+  or a press outside close it.
 - **Summary strip** (amended 2026-10-06): rates are shares of the category's
   stored rolls to two decimals ("1.48%"), and a share above zero too small to
   show reads "<0.01%". A category without rolls keeps the strip, with zero

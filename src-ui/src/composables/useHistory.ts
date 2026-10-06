@@ -20,7 +20,7 @@ import {
   type SavedAccount,
   type StoredHistory,
 } from '../commands'
-import { categoryTabs, type Game } from '../format'
+import { categoryTabs, type DateRange, type Game } from '../format'
 
 // Every rarity, in the order the filters show them.
 const allRarities: Rarity[] = ['5', '4', '3']
@@ -46,6 +46,8 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
   const rarities = ref<Rarity[]>([...allRarities])
   // The search box's text, and the trimmed search last read, kept the same way.
   const query = ref('')
+  // The server days shown, kept the same way.
+  const dates = ref<DateRange>({})
   let searched = ''
   let pending: ReturnType<typeof setTimeout> | undefined
   const failure = ref<Failure>()
@@ -61,6 +63,8 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
       // Showing every rarity names none, as the native side shows all by default.
       rarities: rarities.value.length < allRarities.length ? [...rarities.value] : undefined,
       search: searched || undefined,
+      from: dates.value.from,
+      to: dates.value.to,
     })
     if (read !== latest) return
     loading.value = false
@@ -117,6 +121,13 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     }, 250)
   }
 
+  /** Show the rolls on and between these server days, from the first page. */
+  function setDates(range: DateRange) {
+    dates.value = { ...range }
+    page.value = 1
+    return load()
+  }
+
   function select(next: string) {
     category.value = next
     page.value = 1
@@ -147,6 +158,7 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     accounts,
     rarities: readonly(rarities),
     query: readonly(query),
+    dates: readonly(dates),
     failure: readonly(failure),
     loading: readonly(loading),
     pages,
@@ -154,6 +166,7 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     switchAccount,
     toggleRarity,
     search,
+    setDates,
     select,
     goTo,
     resize,

@@ -55,9 +55,16 @@ const reads = () =>
   vi
     .mocked(historyPage)
     .mock.calls.map(([category, page, size, options]) =>
-      [category, page, size, options?.account, options?.rarities, options?.search].filter(
-        (arg) => arg !== undefined,
-      ),
+      [
+        category,
+        page,
+        size,
+        options?.account,
+        options?.rarities,
+        options?.search,
+        options?.from,
+        options?.to,
+      ].filter((arg) => arg !== undefined),
     )
 
 test('opens on the first page of Character Event Warp, 20 rows at a time', async () => {
@@ -328,4 +335,22 @@ test('a search reads again 250 ms after the last keystroke, from the first page'
 })
 afterEach(() => {
   vi.useRealTimers()
+})
+
+test('choosing days reads the first page of rolls on and between them at once', async () => {
+  serveStored()
+  const history = useHistory(starRail)
+  await history.start()
+  expect(history.dates.value).toEqual({})
+  await history.goTo(2)
+  await history.setDates({ from: '2026-09-30' })
+  expect(history.dates.value).toEqual({ from: '2026-09-30' })
+  expect(reads().at(-1)).toEqual(['11', 1, 20, '2026-09-30'])
+  expect(history.page.value).toBe(1)
+  // The days stay when the category changes, and clearing them reads everything.
+  await history.setDates({ from: '2026-04-26', to: '2026-09-28' })
+  await history.select('1')
+  expect(reads().at(-1)).toEqual(['1', 1, 20, '2026-04-26', '2026-09-28'])
+  await history.setDates({})
+  expect(reads().at(-1)).toEqual(['1', 1, 20])
 })

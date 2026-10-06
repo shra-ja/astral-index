@@ -17,7 +17,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
   rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
-  stored period), rarity filters and item search. It opens on the account imported last; with more than
+  stored period), and rarity, item name and date-range filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
@@ -31,31 +31,31 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Item search (2026-10-06)
+### Date-range filter (2026-10-06)
 
-Feature 0032's fourth task, on `feat/item-search`. `history_page` takes a
-`search` of up to 100 characters. SQLite folds case only for ASCII, so the page
-read now makes one ordered pass in Rust: it summarises and numbers the category,
-keeps the rarities and names shown (Unicode case folding, trimmed), then reads
-only the page's payloads; the separate summary query is gone. About 48 ms for 20,000 rolls. The toolbar's search box reads
-again 250 ms after typing pauses (decision 0013, amended).
+Feature 0032's fifth and last task, on `feat/date-range-filter`; 0032 is done.
+`history_page` now takes one optional `filter` (rarities, search, and `from`
+and `to` server days, each a real `YYYY-MM-DD` date), and the ordered pass keeps
+whole days at both ends. The toolbar's date button opens the popover from
+decision 0013: quick ranges counting today in server time, From and To fields,
+the timezone and stored period, Clear and Done; changes apply at once.
 
-Evidence: the client, composable, component and app tests failed first (no
-options or search, no component, no box in the view), then passed. The storage
-and command tests were written first but could not compile against the old
-signatures; making every name match fails three of them. Real-SQLite tests
-match Cyrillic and accented names in any case, and the end-to-end test types
-"acheron" to find the mock's six Acheron rolls.
-The first staged check found the malformed `search` argument untested; it is
-now covered. The staged `npm run check` and offline tests pass, and a release
-`.deb` builds cleanly.
+Evidence: the storage, formatter, client, composable, component and app tests
+failed first (missing date fields, helpers, filter object, dates, component and
+button), then passed; the desktop tests were reshaped with the code, and a date
+filter that keeps everything fails them. The end-to-end test opens the popover
+with the keyboard, keeps only 28 Sep's rolls, and closes it with Escape.
+The staged `npm run check` and offline tests pass on the first run, and a
+release `.deb` builds cleanly.
 
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
   CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
-- No history-file import, Genshin Impact adapter, filters, statistics or pity
-  yet.
+- No history-file import, Genshin Impact adapter or pity yet.
+- The date fields use the webview's built-in picker, so they show dates in its
+  locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
+  grey in an empty field.
 - Server names other than Asia (`prod_official_asia`) have not been seen in a
   real retrieval.
 - An intermittent frontend test failure, components' events going unrecorded
@@ -67,10 +67,10 @@ now covered. The staged `npm run check` and offline tests pass, and a release
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
-fifth task: the date-range filter, with the toolbar button and popover from
-decision 0013. Native Windows validation of the current build belongs to
-milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, feature
+0035's first task: settle when and how pity is calculated, record it as a
+decision, and show a Pity column counted in the page read's ordered pass. Native
+Windows validation of the current build belongs to milestone 10.
 
 ## Keeping this file current
 
@@ -143,4 +143,5 @@ research, under a "From" heading.
   the project cleanup milestone, the rename from Roll Tracker, the reordering
   of milestones 9 to 12 and milestone 9's tasks.
 - [2026-10-06: account switching](history/2026-10-06-account-switching.md):
-  the History screen's account switcher, summary strip and rarity filters.
+  the History screen's account switcher, summary strip, rarity filters and
+  item search.

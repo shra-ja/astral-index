@@ -1,6 +1,6 @@
 # 0032 — Account switching and filters
 
-Status: Planned · Milestone 9, History browsing and statistics
+Status: Done · Milestone 9, History browsing and statistics
 Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 Switch accounts and servers, filter and search, with totals and rarity breakdowns.
@@ -25,6 +25,6 @@ trigger acquisition.
   one category, so none was added ([storage](../../architecture/storage.md)).
 - [x] Search items by name, case-insensitively, through the same native filter
   as rarity.
-- [ ] Filter by a date range in server time, through the same native filter: the
+- [x] Filter by a date range in server time, through the same native filter: the
   toolbar's date-range button and popover, with quick ranges and From and To
   fields ([decision 0013](../../architecture/decisions/0013-visual-design.md)).
