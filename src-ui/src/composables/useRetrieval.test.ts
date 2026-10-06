@@ -295,7 +295,7 @@ test('saving reports what was added and ends the review', async () => {
   commit.resolve({ summary: { inserted: 2, duplicates: 88, conflicts: 0 } })
   await settle()
   // History then shows the account just saved into, whichever was chosen before.
-  expect(forgetAccountChoice).toHaveBeenCalledOnce()
+  expect(forgetAccountChoice).toHaveBeenCalledExactlyOnceWith('honkai-star-rail')
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
   expect(flow.outcome.value).toEqual({

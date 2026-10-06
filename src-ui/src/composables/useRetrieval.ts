@@ -197,7 +197,8 @@ export function useRetrieval() {
       status.value = 'Saving…'
       const result = await commitImport()
       // History then shows the account just saved into, whichever was chosen before.
-      if ('summary' in result) forgetAccountChoice()
+      // Retrieval is Star Rail's alone until another game has an adapter.
+      if ('summary' in result) forgetAccountChoice('honkai-star-rail')
       finish(
         'failure' in result
           ? failed(result.failure, describe(result.failure, commitMessages))

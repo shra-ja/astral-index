@@ -2,7 +2,15 @@
 // category, page and page size are shown, and the page read for them. Only this
 // composable reads history; it reads this device only and never fetches from
 // HoYoverse.
-import { computed, readonly, ref, shallowRef } from 'vue'
+import {
+  computed,
+  readonly,
+  ref,
+  shallowReactive,
+  shallowRef,
+  toValue,
+  type MaybeRefOrGetter,
+} from 'vue'
 import {
   historyPage,
   savedAccounts,
@@ -11,18 +19,20 @@ import {
   type SavedAccount,
   type StoredHistory,
 } from '../commands'
-import { categoryTabs } from '../format'
+import { categoryTabs, type Game } from '../format'
 
-// The account chosen in the switcher, kept while the app runs so that leaving the
-// History screen keeps it. Unset, history shows the account imported into last.
-const chosen = shallowRef<Account>()
+// The account chosen in each game's switcher, kept while the app runs so that
+// leaving the History screen keeps it. Unset, history shows the account imported
+// into last.
+const chosen = shallowReactive<Partial<Record<Game, Account>>>({})
 
-/** Show the account imported into last again, as after every save. */
-export function forgetAccountChoice() {
-  chosen.value = undefined
+/** Show `game`'s account imported into last again, as after every save into it. */
+export function forgetAccountChoice(game: Game) {
+  delete chosen[game]
 }
 
-export function useHistory() {
+/** Saved history of `game`, which may change while the screen stays open. */
+export function useHistory(game: MaybeRefOrGetter<Game>) {
   const category = ref<string>(categoryTabs[0].gacha_type)
   const page = ref(1)
   const pageSize = ref(20)
@@ -36,7 +46,12 @@ export function useHistory() {
   async function load() {
     const read = ++latest
     loading.value = true
-    const result = await historyPage(category.value, page.value, pageSize.value, chosen.value)
+    const result = await historyPage(
+      category.value,
+      page.value,
+      pageSize.value,
+      chosen[toValue(game)],
+    )
     if (read !== latest) return
     loading.value = false
     if ('failure' in result) {
@@ -67,7 +82,7 @@ export function useHistory() {
 
   /** Show `account`'s history from now on, starting from the first page. */
   function switchAccount(account: Account) {
-    chosen.value = account
+    chosen[toValue(game)] = account
     page.value = 1
     return open()
   }

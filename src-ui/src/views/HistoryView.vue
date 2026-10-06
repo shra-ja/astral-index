@@ -36,7 +36,7 @@ const {
   goTo,
   resize,
   retry,
-} = useHistory()
+} = useHistory(() => props.game)
 
 const available = computed(() => props.game === 'honkai-star-rail')
 // The router keeps this screen when only the game changes, so each switch to Star

@@ -78,7 +78,8 @@ repository; this record holds what the implementation must follow.
   one imported into last first, each with its UID, server badge and rolls
   stored, and a check on the current one. Arrow keys, Home and End move through
   it; Enter chooses; Escape, Tab or a press outside close it. History opens on
-  the account imported last, and a choice lasts until the app restarts or a save.
+  the account imported last, and each game's choice lasts until the app
+  restarts or a save into that game.
 - **Pity column:** 5★ pity is coloured by closeness to soft pity, with
   thresholds per banner category (placeholders 1–49, 50–74, 75+), or, with the
   50/50 button on, by outcome: won (green), lost (red), guaranteed (orange).
