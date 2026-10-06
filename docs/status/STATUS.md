@@ -35,9 +35,9 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 Feature 0032's fourth task, on `feat/item-search`. `history_page` takes a
 `search` of up to 100 characters. SQLite folds case only for ASCII, so the page
-read now makes one ordered pass in Rust: it numbers the category, keeps the
-rarities and names shown (Unicode case folding, trimmed), then reads only the
-page's payloads. About 48 ms for 20,000 rolls. The toolbar's search box reads
+read now makes one ordered pass in Rust: it summarises and numbers the category,
+keeps the rarities and names shown (Unicode case folding, trimmed), then reads
+only the page's payloads; the separate summary query is gone. About 48 ms for 20,000 rolls. The toolbar's search box reads
 again 250 ms after typing pauses (decision 0013, amended).
 
 Evidence: the client, composable, component and app tests failed first (no

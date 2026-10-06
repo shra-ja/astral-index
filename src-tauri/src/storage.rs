@@ -666,26 +666,36 @@ impl Store {
                 total = entry.total;
             }
         }
-        let summary = self.summary(uid, server, code)?;
-        // One pass over the whole category, oldest first, numbers every roll before
-        // the filter hides any, so shown rolls keep their place in it.
+        // One pass over the whole category, oldest first, summarises it and numbers
+        // every roll before the filter hides any, so shown rolls keep their place.
         let mut ordered = self.connection.prepare(
-            "SELECT id,json_extract(payload,'$.rank_type'),json_extract(payload,'$.name') FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time'),length(id),id",
+            "SELECT id,json_extract(payload,'$.rank_type'),json_extract(payload,'$.name'),json_extract(payload,'$.time') FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time'),length(id),id",
         )?;
         let rows = ordered.query_map(params![GAME, uid, server, code], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
             ))
         })?;
         let search = fold(filter.name.trim());
+        let mut summary = CategorySummary::default();
         let mut shown = Vec::new();
         for (index, row) in rows.enumerate() {
-            let (id, rank, name) = row?;
+            let (id, rank, name, time) = row?;
+            match rank.as_str() {
+                "5" => summary.five_star += 1,
+                "4" => summary.four_star += 1,
+                _ => {}
+            }
             if filter.rarities.shows(&rank)? && Filter::matches_name(&name, &search) {
                 shown.push((index + 1, id));
             }
+            if summary.first.is_none() {
+                summary.first = Some(time.clone());
+            }
+            summary.last = Some(time);
         }
         let matched = shown.len();
         // Only the page's rolls are read in full, newest first.
@@ -716,43 +726,6 @@ impl Store {
             summary,
             rolls,
         })
-    }
-
-    /// The rarity counts and stored period of an account's rolls in one category.
-    fn summary(&self, uid: &str, server: &str, code: &str) -> Result<CategorySummary, Error> {
-        let mut statement = self.connection.prepare(
-            "SELECT json_extract(payload,'$.rank_type'),count(*),min(json_extract(payload,'$.time')),max(json_extract(payload,'$.time')) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 GROUP BY 1",
-        )?;
-        let groups = statement.query_map(params![GAME, uid, server, code], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-            ))
-        })?;
-        let mut summary = CategorySummary::default();
-        for group in groups {
-            let (rank, count, first, last) = group?;
-            let count = usize::try_from(count).map_err(|_| Error::InvalidStoredData)?;
-            match rank.as_str() {
-                "5" => summary.five_star = count,
-                "4" => summary.four_star = count,
-                "3" => {}
-                _ => return Err(Error::InvalidStoredData),
-            }
-            if summary
-                .first
-                .as_ref()
-                .is_none_or(|earliest| first < *earliest)
-            {
-                summary.first = Some(first);
-            }
-            if summary.last.as_ref().is_none_or(|latest| last > *latest) {
-                summary.last = Some(last);
-            }
-        }
-        Ok(summary)
     }
 }
 
@@ -856,8 +829,7 @@ pub(crate) mod tests {
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
     const ACCOUNT_LIST: &str = "SELECT a.uid,a.server,a.timezone,count(r.id) FROM accounts a LEFT JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 GROUP BY a.uid,a.server ORDER BY (SELECT max(b.id) FROM batches b WHERE b.game=a.game AND b.uid=a.uid AND b.server=a.server) DESC";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
-    const SUMMARY: &str = "SELECT json_extract(payload,'$.rank_type'),count(*),min(json_extract(payload,'$.time')),max(json_extract(payload,'$.time')) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 GROUP BY 1";
-    const ORDER: &str = "SELECT id,json_extract(payload,'$.rank_type'),json_extract(payload,'$.name') FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time'),length(id),id";
+    const ORDER: &str = "SELECT id,json_extract(payload,'$.rank_type'),json_extract(payload,'$.name'),json_extract(payload,'$.time') FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time'),length(id),id";
     pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
     }
@@ -1724,21 +1696,32 @@ pub(crate) mod tests {
         vec![text(UID), text(SERVER), Value::Integer(8)]
     }
     /// The fixture account's 5 Character Event Warp rolls, oldest first: ID,
-    /// rarity and name. The fixture page's two 5★ rolls are numbers 2 and 3.
-    const CATEGORY: [(&str, &str, &str); 5] = [
-        ("9007199254740989", "3", "Arrows"),
-        ("9007199254740992", "5", "Synthetic item"),
-        ("9007199254740993", "5", "Synthetic item"),
-        ("9007199254740994", "4", "Pela"),
-        ("9007199254740995", "4", "Éclair"),
+    /// rarity, name and time. The fixture page's two 5★ rolls are numbers 2 and 3.
+    const CATEGORY: [(&str, &str, &str, &str); 5] = [
+        ("9007199254740989", "3", "Arrows", "2024-01-01 00:00:00"),
+        (
+            "9007199254740992",
+            "5",
+            "Synthetic item",
+            "2024-02-29 12:34:56",
+        ),
+        (
+            "9007199254740993",
+            "5",
+            "Synthetic item",
+            "2024-02-29 12:34:56",
+        ),
+        ("9007199254740994", "4", "Pela", "2024-03-01 09:00:00"),
+        ("9007199254740995", "4", "Éclair", "2024-03-02 10:00:00"),
     ];
     /// The stored payload of the category's roll with this ID.
     pub(crate) fn payload(id: &str) -> String {
-        let (_, rank, name) = CATEGORY.iter().find(|(each, ..)| *each == id).unwrap();
+        let (_, rank, name, time) = CATEGORY.iter().find(|(each, ..)| *each == id).unwrap();
         let mut roll = parse_response(PAGE).unwrap().list.remove(0);
         roll.id = id.into();
         roll.rank_type = (*rank).into();
         roll.name = (*name).into();
+        roll.time = (*time).into();
         serde_json::json!(roll).to_string()
     }
     /// Lookups that find each of these rolls' payloads, in this order.
@@ -1748,34 +1731,21 @@ pub(crate) mod tests {
             .collect()
     }
     /// The SQL for a Character Event Warp page of the fixture account, which also
-    /// holds 3 Stellar Warp rolls: its counts, summary and rolls in order, then
-    /// `lookups` of the rolls shown.
+    /// holds 3 Stellar Warp rolls: its counts and rolls in order, then `lookups` of
+    /// the rolls shown.
     pub(crate) fn page_script(lookups: Vec<Step>) -> Vec<Step> {
         let mut steps = category_script(
             vec![
                 vec![text("1"), Value::Integer(3)],
                 vec![text("11"), Value::Integer(5)],
             ],
-            summary_rows(),
             CATEGORY
                 .iter()
-                .map(|(id, rank, name)| vec![text(id), text(rank), text(name)])
+                .map(|(id, rank, name, time)| vec![text(id), text(rank), text(name), text(time)])
                 .collect(),
         );
         steps.extend(lookups);
         steps
-    }
-    /// The fixture account's Character Event Warp rolls by rarity: 1 3★, 2 4★ and
-    /// 2 5★, from 1 Jan to 29 Feb 2024.
-    pub(crate) fn summary_rows() -> Vec<Vec<Value>> {
-        let group = |rank: &str, count, first: &str, last: &str| {
-            vec![text(rank), Value::Integer(count), text(first), text(last)]
-        };
-        vec![
-            group("3", 1, "2024-01-01 00:00:00", "2024-02-01 08:00:00"),
-            group("4", 2, "2024-01-15 10:00:00", "2024-02-29 12:34:56"),
-            group("5", 2, "2024-02-29 12:34:56", "2024-02-29 12:34:56"),
-        ]
     }
     fn category_scope() -> Vec<Value> {
         let mut bindings = scope();
@@ -1784,22 +1754,16 @@ pub(crate) mod tests {
     }
     /// The SQL up to the account's counts, for reads that stop there.
     fn counting_script(totals: Vec<Vec<Value>>) -> Vec<Step> {
-        let mut steps = category_script(totals, vec![], vec![]);
+        let mut steps = category_script(totals, vec![]);
         steps.truncate(2);
         steps
     }
     /// The SQL for a Character Event Warp page before any lookup: the account's
-    /// counts per category, the category's summary and its rolls in order.
-    fn category_script(
-        totals: Vec<Vec<Value>>,
-        summary: Vec<Vec<Value>>,
-        order: Vec<Vec<Value>>,
-    ) -> Vec<Step> {
+    /// counts per category and the category's rolls in order.
+    fn category_script(totals: Vec<Vec<Value>>, order: Vec<Vec<Value>>) -> Vec<Step> {
         vec![
             done(&format!("PREPARE {TOTALS}")),
             rows(TOTALS, scope(), totals),
-            done(&format!("PREPARE {SUMMARY}")),
-            rows(SUMMARY, category_scope(), summary),
             done(&format!("PREPARE {ORDER}")),
             rows(ORDER, category_scope(), order),
             done(&format!("PREPARE {LOOKUP}")),
@@ -1863,7 +1827,7 @@ pub(crate) mod tests {
                     five_star: 2,
                     four_star: 2,
                     first: Some("2024-01-01 00:00:00".into()),
-                    last: Some("2024-02-29 12:34:56".into()),
+                    last: Some("2024-03-02 10:00:00".into()),
                 },
                 rolls: vec![roll(3, "9007199254740993"), roll(2, "9007199254740992")],
             }
@@ -1872,7 +1836,7 @@ pub(crate) mod tests {
             serde_json::to_value(&page.summary).unwrap(),
             serde_json::json!({
                 "five_star": 2, "four_star": 2,
-                "first": "2024-01-01 00:00:00", "last": "2024-02-29 12:34:56",
+                "first": "2024-01-01 00:00:00", "last": "2024-03-02 10:00:00",
             })
         );
         assert_eq!(
@@ -1898,7 +1862,6 @@ pub(crate) mod tests {
     fn an_empty_category_still_lists_the_other_categories_counts() {
         database::expect(category_script(
             vec![vec![text("22"), Value::Integer(7)]],
-            vec![],
             vec![],
         ));
         let page = read(&Filter::default(), 0, 20).unwrap();
@@ -1954,13 +1917,18 @@ pub(crate) mod tests {
             assert_eq!(read(&Filter::default(), 0, 20), Err(Error::Database));
             database::finish();
         }
-        // Each ordered roll needs its ID, rarity and name.
-        for column in 0..3 {
-            let mut ordered = vec![text("9007199254740989"), text("3"), text("Arrows")];
+        // Each ordered roll needs its ID, rarity, name and time.
+        for column in 0..4 {
+            let mut ordered = vec![
+                text("9007199254740989"),
+                text("3"),
+                text("Arrows"),
+                text("2024-01-01 00:00:00"),
+            ];
             ordered[column] = Value::Null;
             let mut steps = page_script(vec![]);
-            steps[5] = rows(ORDER, category_scope(), vec![ordered]);
-            steps.truncate(6);
+            steps[3] = rows(ORDER, category_scope(), vec![ordered]);
+            steps.truncate(4);
             database::expect(steps);
             assert_eq!(read(&Filter::default(), 0, 20), Err(Error::Database));
             database::finish();
@@ -1974,12 +1942,17 @@ pub(crate) mod tests {
     #[test]
     fn an_ordered_roll_of_an_unknown_rarity_is_damage() {
         let mut steps = page_script(vec![]);
-        steps[5] = rows(
+        steps[3] = rows(
             ORDER,
             category_scope(),
-            vec![vec![text("9007199254740989"), text("6"), text("Arrows")]],
+            vec![vec![
+                text("9007199254740989"),
+                text("6"),
+                text("Arrows"),
+                text("2024-01-01 00:00:00"),
+            ]],
         );
-        steps.truncate(6);
+        steps.truncate(4);
         database::expect(steps);
         assert_eq!(
             read(&Filter::default(), 0, 20),
@@ -1997,8 +1970,14 @@ pub(crate) mod tests {
         let page = read(&showing(true, false, false, ""), 0, 20).unwrap();
         database::finish();
         // The tabs and strip still count the whole category; paging counts what matches.
+        let whole = CategorySummary {
+            five_star: 2,
+            four_star: 2,
+            first: Some("2024-01-01 00:00:00".into()),
+            last: Some("2024-03-02 10:00:00".into()),
+        };
         assert_eq!((page.total, page.matched), (5, 2));
-        assert_eq!(page.summary.five_star, 2);
+        assert_eq!(page.summary, whole);
         let numbers = |page: &HistoryPage| -> Vec<usize> {
             page.rolls.iter().map(|roll| roll.number).collect()
         };
@@ -2012,6 +1991,11 @@ pub(crate) mod tests {
         let page = read(&showing(false, true, true, ""), 0, 20).unwrap();
         database::finish();
         assert_eq!((page.matched, numbers(&page)), (3, vec![5, 4, 1]));
+        // A search leaves the summary whole too.
+        database::expect(page_script(found(&["9007199254740989"])));
+        let page = read(&showing(true, true, true, "arrows"), 0, 20).unwrap();
+        database::finish();
+        assert_eq!((page.matched, page.summary), (1, whole));
         database::expect(page_script(vec![]));
         assert_eq!(
             read(&showing(false, false, false, ""), 0, 20)
@@ -2068,38 +2052,6 @@ pub(crate) mod tests {
             assert!(Filter::matches_name(name, &fold(search)), "{name} {search}");
         }
         assert!(!Filter::matches_name("Pela", &fold("kafka")));
-    }
-
-    #[test]
-    fn a_summary_with_an_unknown_rarity_or_unreadable_group_is_rejected() {
-        let summarised = |group: Vec<Value>| {
-            let mut steps = page_script(vec![]);
-            steps[3] = rows(SUMMARY, category_scope(), vec![group]);
-            steps.truncate(4);
-            database::expect(steps);
-            let page = read(&Filter::default(), 2, 2);
-            database::finish();
-            page
-        };
-        let group = || {
-            vec![
-                text("5"),
-                Value::Integer(1),
-                text("2024-02-29 12:34:56"),
-                text("2024-02-29 12:34:56"),
-            ]
-        };
-        // Imports only store rarities 3 to 5, so another is damage, as is a negative count.
-        for (column, value) in [(0, text("6")), (1, Value::Integer(-1))] {
-            let mut damaged = group();
-            damaged[column] = value;
-            assert_eq!(summarised(damaged), Err(Error::InvalidStoredData));
-        }
-        for column in 0..4 {
-            let mut unreadable = group();
-            unreadable[column] = Value::Null;
-            assert_eq!(summarised(unreadable), Err(Error::Database));
-        }
     }
 
     #[test]

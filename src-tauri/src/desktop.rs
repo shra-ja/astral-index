@@ -2085,7 +2085,7 @@ mod tests {
             history["summary"],
             serde_json::json!({
                 "five_star": 2, "four_star": 2,
-                "first": "2024-01-01 00:00:00", "last": "2024-02-29 12:34:56",
+                "first": "2024-01-01 00:00:00", "last": "2024-03-02 10:00:00",
             })
         );
         assert_eq!(history["rolls"][0]["number"], 3);
