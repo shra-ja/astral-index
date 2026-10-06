@@ -1,12 +1,14 @@
 <script setup lang="ts">
 // The History screen: a game's saved history, read from this device only. It shows
-// the account the latest import went into, its banner categories with their counts,
-// and a page of the chosen category, newest first. Only Star Rail has an adapter;
-// until something is saved, it points to the Import screen.
+// the account the latest import went into, or the one chosen in the switcher when
+// more than one is saved, its banner categories with their counts, and a page of
+// the chosen category, newest first. Only Star Rail has an adapter; until something
+// is saved, it points to the Import screen.
 import { Download } from '@lucide/vue'
 import { computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AccountChip from '../components/history/AccountChip.vue'
+import AccountSwitcher from '../components/history/AccountSwitcher.vue'
 import CategoryTabs from '../components/history/CategoryTabs.vue'
 import EmptyState from '../components/history/EmptyState.vue'
 import HistoryFailed from '../components/history/HistoryFailed.vue'
@@ -24,10 +26,12 @@ const {
   page,
   pageSize,
   history,
+  accounts,
   failure,
   loading,
   pages,
   start,
+  switchAccount,
   select,
   goTo,
   resize,
@@ -59,7 +63,13 @@ const tabsOf = (counts: StoredHistory['categories']) =>
 <template>
   <main>
     <ScreenHeader :title="`${terms[game]} History`" :game="games[game]">
-      <AccountChip v-if="account" :uid="account.uid" :server="account.server" />
+      <AccountSwitcher
+        v-if="account && accounts.length > 1"
+        :accounts
+        :current="account"
+        @switch="switchAccount"
+      />
+      <AccountChip v-else-if="account" :uid="account.uid" :server="account.server" />
     </ScreenHeader>
     <div class="body" :class="{ centred: empty || failure }" :aria-busy="loading">
       <EmptyState v-if="empty" :term="terms[game]" :game="games[game]">

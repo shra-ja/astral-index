@@ -199,11 +199,11 @@ test('switching accounts reads its first page, then keeps it for every read', as
   await history.start()
   await history.select('1')
   await history.goTo(1)
-  await history.switchAccount(saved[1]!)
+  await history.switchAccount(saved[1])
   expect(reads().at(-1)).toEqual(['1', 1, 20, saved[1]])
   // Without rolls in the shown category, it moves to the first category with some.
   await history.select('11')
-  await history.switchAccount(saved[0]!)
+  await history.switchAccount(saved[0])
   expect(reads().slice(-2)).toEqual([
     ['11', 1, 20, saved[0]],
     ['1', 1, 20, saved[0]],
@@ -218,7 +218,7 @@ test('the chosen account outlasts the screen until a save forgets it', async () 
   serveAccounts()
   const first = useHistory()
   await first.start()
-  await first.switchAccount(saved[0]!)
+  await first.switchAccount(saved[0])
   // Leaving the History screen and coming back keeps the choice.
   const again = useHistory()
   await again.start()
