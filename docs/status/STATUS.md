@@ -17,7 +17,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
   rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
-  stored period), and rarity, item name and date-range filters. It opens on the account imported last; with more than
+  stored period), each roll's 5★ pity, and rarity, item name and date-range
+  filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
@@ -31,13 +32,28 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Pity column (2026-10-06)
+
+Feature 0035's first task, on `feat/pity-column`. Decision 0019 records the
+user's choices: pity is counted on read, in the page read's ordered pass before
+filters, as a 5★ count on every roll (rolls since the previous 5★, counting
+itself), shown as plain numbers even where older rolls may be missing. The list
+gains a Pity column after Item, with 5★ counts emphasised.
+
+Evidence: the storage, roll list and app tests failed first (no `pity` field or
+column), then passed; real-SQLite tests check counts and that filters don't
+change them. The end-to-end test checks every row's pity follows from the roll
+before it in the mock's history.
+The staged `npm run check` and offline tests pass on the first run, and a
+release `.deb` builds cleanly.
 
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
   CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
-- No history-file import, Genshin Impact adapter or pity yet.
+- No history-file import or Genshin Impact adapter yet. Pity has no colour cues
+  or guarantees, and counts before a category's first stored 5★ are not marked
+  as possibly incomplete (decision 0019).
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
   grey in an empty field.
@@ -52,10 +68,10 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, feature
-0035's first task: settle when and how pity is calculated, record it as a
-decision, and show a Pity column counted in the page read's ordered pass. Native
-Windows validation of the current build belongs to milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, 0035's
+second task: colour 5★ pity by closeness to soft pity, with thresholds per
+banner category from verified rules and their evidence. Native Windows
+validation of the current build belongs to milestone 10.
 
 ## Keeping this file current
 
