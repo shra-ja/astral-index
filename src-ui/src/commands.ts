@@ -183,21 +183,29 @@ export interface CategorySummary {
 /** One page of a category, with every category's count; no account until an import. */
 export interface StoredHistory {
   account: Account | null
+  /** Rolls in the category altogether, for its tab and summary. */
   total: number
+  /** Rolls in the category of the rarities shown, for paging. */
+  matched: number
   categories: { gacha_type: string; total: number }[]
   summary: CategorySummary
   rolls: StoredRoll[]
 }
 
+/** A roll's rarity, as HoYoverse names it. */
+export type Rarity = '5' | '4' | '3'
+
 /**
  * Read one page of saved history, newest first: of `account` when given, otherwise of
- * the account imported into last. Reads this device only; never fetches.
+ * the account imported into last, and of the `rarities` given, otherwise all. Rolls
+ * keep their numbers in the whole category. Reads this device only; never fetches.
  */
 export async function historyPage(
   category: string,
   page: number,
   pageSize: number,
   account?: Account,
+  rarities?: Rarity[],
 ): Promise<{ history: StoredHistory } | { failure: Failure }> {
   const named = account && { uid: account.uid, server: account.server }
   try {
@@ -207,6 +215,7 @@ export async function historyPage(
         page,
         pageSize,
         account: named,
+        rarities,
       }),
     }
   } catch (error) {
