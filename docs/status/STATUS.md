@@ -45,6 +45,8 @@ failed first (missing date fields, helpers, filter object, dates, component and
 button), then passed; the desktop tests were reshaped with the code, and a date
 filter that keeps everything fails them. The end-to-end test opens the popover
 with the keyboard, keeps only 28 Sep's rolls, and closes it with Escape.
+The staged `npm run check` and offline tests pass on the first run, and a
+release `.deb` builds cleanly.
 
 ## Known limitations
 
