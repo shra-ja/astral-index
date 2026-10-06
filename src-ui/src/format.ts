@@ -150,13 +150,6 @@ export function pityBand(pity: number, softPity: SoftPity | null): PityBand | un
   return pity >= softPity.near ? 'near' : 'early'
 }
 
-/** Each pity band in words, for assistive technology. */
-export const pityBandText: Record<PityBand, string> = {
-  early: 'before soft pity',
-  near: 'near soft pity',
-  soft: 'in soft pity',
-}
-
 /** "28 Sep 2026, 21:14:03", from a server time, read as written. */
 export const serverDateTime = (time: string) => `${serverDate(time)}, ${time.slice(11)}`
 

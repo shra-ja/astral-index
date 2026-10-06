@@ -24,9 +24,10 @@ before it, orange from 25 warps before it, and red from it.
 | Departure | 50 | Not known | Uncoloured | Uncoloured |
 
 The thresholds are game rules, so they belong to the Star Rail adapter, which
-sends them with each history page; the webview only applies them. The band is
-also named in text for assistive technology, so the meaning never rests on
-colour alone. The user chose this basis and grouping on 2026-10-06.
+sends them with each history page; the webview only applies them. The colour is
+a visual convenience: each pity cell reads only its count, since soft-pity
+thresholds are well known enough that a band read aloud adds nothing. The user
+chose this basis, grouping and reading on 2026-10-06.
 
 ## Alternatives and consequences
 

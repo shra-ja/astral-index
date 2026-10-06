@@ -3,7 +3,7 @@
 // Columns keep stable widths except Item, which takes the spare space; as the list
 // narrows, Type and then Time drop out. Rows scroll under a fixed header.
 import type { SoftPity, StoredRoll } from '../../commands'
-import { initials, pityBand, pityBandText, serverDateTime } from '../../format'
+import { initials, pityBand, serverDateTime } from '../../format'
 
 const props = defineProps<{
   rolls: readonly StoredRoll[]
@@ -19,11 +19,6 @@ const bandOf = (roll: StoredRoll) =>
 const bandClass = (roll: StoredRoll) => {
   const band = bandOf(roll)
   return band && `band-${band}`
-}
-// Read after the count, so it starts with a space.
-const bandWords = (roll: StoredRoll) => {
-  const band = bandOf(roll)
-  return band && ` ${pityBandText[band]}`
 }
 </script>
 
@@ -53,10 +48,7 @@ const bandWords = (roll: StoredRoll) => {
             <span class="icon" aria-hidden="true">{{ initials(roll.name) }}</span>
             <span class="name">{{ roll.name }}</span>
           </span>
-          <span role="cell" class="pity" :class="bandClass(roll)"
-            >{{ roll.pity
-            }}<span v-if="bandClass(roll)" class="hidden">{{ bandWords(roll) }}</span></span
-          >
+          <span role="cell" class="pity" :class="bandClass(roll)">{{ roll.pity }}</span>
           <span role="cell"
             ><span class="badge">{{ roll.rank_type }}★</span></span
           >
@@ -142,7 +134,8 @@ const bandWords = (roll: StoredRoll) => {
   color: var(--text-secondary);
   font-size: 13px;
 }
-/* 5★ pity stands out, coloured by how close it came to soft pity (decision 0020). */
+/* 5★ pity stands out, coloured by how close it came to soft pity as a visual
+   convenience; the cell reads its count only (decision 0020). */
 .body .rarity-5 .pity {
   color: var(--text);
   font-weight: 600;
@@ -155,14 +148,6 @@ const bandWords = (roll: StoredRoll) => {
 }
 .body .pity.band-soft {
   color: var(--pity-soft);
-}
-.hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 .number {
   color: var(--text-muted);

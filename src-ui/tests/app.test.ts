@@ -342,7 +342,7 @@ test('saved history shows its account, category counts and newest rolls first', 
     [...main().querySelectorAll('.roll-list .body [role="row"]')]
       .slice(0, 2)
       .map((row) => row.querySelector('.pity')?.textContent),
-  ).toEqual(['45 before soft pity', '44'])
+  ).toEqual(['45', '44'])
   // The 5★'s pity is coloured by the category's soft pity; the others stay plain.
   expect(main().querySelector('.rarity-5 .pity')?.classList.contains('band-early')).toBe(true)
   expect(document.body.textContent).not.toMatch(/guarantee|win rate|50\/50/i)

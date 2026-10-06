@@ -65,7 +65,7 @@ test('lists rolls newest first with number, item, pity, rarity, type and server 
   expect(rows.map((row) => row.get('.icon').text())).toEqual(['SH', 'SC', 'A'])
 })
 
-test('5★ pity is coloured by the category’s soft pity and named in text; others stay plain', () => {
+test('5★ pity is coloured by the category’s soft pity, and every pity cell reads its count only', () => {
   const wrapper = mount(RollList, {
     props: {
       rolls: [
@@ -86,14 +86,8 @@ test('5★ pity is coloured by the category’s soft pity and named in text; oth
     'band-early',
     undefined,
   ])
-  expect(pity.map((cell) => cell.text())).toEqual([
-    '80 in soft pity',
-    '60 near soft pity',
-    '10 before soft pity',
-    '80',
-  ])
-  // The words are for assistive technology; the colour shows them on screen.
-  expect(pity[0].get('.hidden').text()).toBe('in soft pity')
+  // The colour is a convenience; well-known thresholds aren't read out.
+  expect(pity.map((cell) => cell.text())).toEqual(['80', '60', '10', '80'])
   // Without known soft pity, as on Departure Warp, 5★ pity is plain too.
   const plain = mount(RollList, {
     props: { rolls: [roll(1, 'Hero', '5', 'Character', 40)], offset: 'UTC+8', caption: 'rolls' },
