@@ -64,3 +64,39 @@ test('lists rolls newest first with number, item, pity, rarity, type and server 
   ])
   expect(rows.map((row) => row.get('.icon').text())).toEqual(['SH', 'SC', 'A'])
 })
+
+test('5★ pity is coloured by the category’s soft pity and named in text; others stay plain', () => {
+  const wrapper = mount(RollList, {
+    props: {
+      rolls: [
+        roll(4, 'Late Hero', '5', 'Character', 80),
+        roll(3, 'Near Hero', '5', 'Character', 60),
+        roll(2, 'Early Hero', '5', 'Character', 10),
+        roll(1, 'Arrows', '3', 'Light Cone', 80),
+      ],
+      offset: 'UTC+8',
+      caption: 'rolls',
+      softPity: { near: 49, soft: 74 },
+    },
+  })
+  const pity = wrapper.findAll('.body .pity')
+  expect(pity.map((cell) => cell.classes().find((name) => name.startsWith('band-')))).toEqual([
+    'band-soft',
+    'band-near',
+    'band-early',
+    undefined,
+  ])
+  expect(pity.map((cell) => cell.text())).toEqual([
+    '80 in soft pity',
+    '60 near soft pity',
+    '10 before soft pity',
+    '80',
+  ])
+  // The words are for assistive technology; the colour shows them on screen.
+  expect(pity[0].get('.hidden').text()).toBe('in soft pity')
+  // Without known soft pity, as on Departure Warp, 5★ pity is plain too.
+  const plain = mount(RollList, {
+    props: { rolls: [roll(1, 'Hero', '5', 'Character', 40)], offset: 'UTC+8', caption: 'rolls' },
+  })
+  expect(plain.get('.body .pity').text()).toBe('40')
+})

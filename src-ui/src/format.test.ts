@@ -4,6 +4,7 @@ import {
   dateRangeLabel,
   initials,
   localDateTime,
+  pityBand,
   quickRanges,
   rate,
   serverDate,
@@ -128,4 +129,18 @@ test('the date button names a quick range, the dates chosen, or all dates', () =
   expect(dateRangeLabel('2026-04-26', '2026-09-28', today)).toBe('26 Apr 2026 – 28 Sep 2026')
   expect(dateRangeLabel('2026-04-26', undefined, today)).toBe('From 26 Apr 2026')
   expect(dateRangeLabel(undefined, '2026-09-28', today)).toBe('Until 28 Sep 2026')
+})
+
+test('5★ pity is early, near or in soft pity by the category’s thresholds', () => {
+  const ninety = { near: 49, soft: 74 }
+  expect([1, 48, 49, 73, 74, 90].map((pity) => pityBand(pity, ninety))).toEqual([
+    'early',
+    'early',
+    'near',
+    'near',
+    'soft',
+    'soft',
+  ])
+  // Without known soft pity there is no band.
+  expect(pityBand(50, null)).toBeUndefined()
 })

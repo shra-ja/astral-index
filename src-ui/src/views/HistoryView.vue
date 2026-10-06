@@ -127,6 +127,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
             :rolls="history.rolls"
             :offset="utcOffset(account.timezone)"
             :caption="`${warps[category]} rolls, newest first`"
+            :soft-pity="history.soft_pity"
           />
           <p v-else-if="history.total === 0" class="none">
             No {{ warps[category] }} rolls saved yet.

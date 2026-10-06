@@ -23,6 +23,9 @@
   --rarity-five: #f5b94e;
   --rarity-four: #b79cff;
   --rarity-three: #7c9cbf;
+  --pity-early: #6ccb8f;
+  --pity-near: #f0a35e;
+  --pity-soft: #f07a6e;
   --error: #ff9b8a;
   --error-tint: #3a1f1c;
   --gutter: clamp(16px, 2.5vw, 32px);

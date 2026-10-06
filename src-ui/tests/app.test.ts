@@ -237,6 +237,7 @@ function savedHistory(args: Record<string, unknown>) {
     account: { uid: '100000001', server: 'prod_official_asia', timezone: 8 },
     total,
     matched: matching.length,
+    soft_pity: { near: 49, soft: 74 },
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
       total: savedCounts[gacha_type] ?? 0,
@@ -341,7 +342,9 @@ test('saved history shows its account, category counts and newest rolls first', 
     [...main().querySelectorAll('.roll-list .body [role="row"]')]
       .slice(0, 2)
       .map((row) => row.querySelector('.pity')?.textContent),
-  ).toEqual(['45', '44'])
+  ).toEqual(['45 before soft pity', '44'])
+  // The 5★'s pity is coloured by the category's soft pity; the others stay plain.
+  expect(main().querySelector('.rarity-5 .pity')?.classList.contains('band-early')).toBe(true)
   expect(document.body.textContent).not.toMatch(/guarantee|win rate|50\/50/i)
 })
 
@@ -358,6 +361,7 @@ function historyOf(args: Record<string, unknown>) {
     account: { uid: '100000002', server: 'prod_official_eur', timezone: 1 },
     total,
     matched: total,
+    soft_pity: null,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
       total: gacha_type === '1' ? 2 : 0,
