@@ -140,6 +140,18 @@ pub struct Account {
     pub timezone: Option<i32>,
 }
 
+/// A saved account of the game, for the account switcher. Holds a player identifier:
+/// never log it.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct SavedAccount {
+    pub uid: String,
+    pub server: String,
+    /// UTC offset in hours of the server-local times, when known.
+    pub timezone: Option<i32>,
+    /// Rolls stored for the account in every category.
+    pub rolls: usize,
+}
+
 /// The newest import's summary, for the Import screen. Holds a player identifier:
 /// never log it.
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -502,6 +514,50 @@ impl Store {
             .optional()?)
     }
 
+    /// The game's saved accounts with their roll totals, the one imported into most
+    /// recently first.
+    pub fn accounts(&self) -> Result<Vec<SavedAccount>, Error> {
+        let mut statement = self.connection.prepare(
+            "SELECT a.uid,a.server,a.timezone,count(r.id) FROM accounts a LEFT JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 GROUP BY a.uid,a.server ORDER BY (SELECT max(b.id) FROM batches b WHERE b.game=a.game AND b.uid=a.uid AND b.server=a.server) DESC",
+        )?;
+        let rows = statement.query_map(params![GAME], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<i32>>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
+        })?;
+        let mut accounts = Vec::new();
+        for row in rows {
+            let (uid, server, timezone, rolls) = row?;
+            accounts.push(SavedAccount {
+                uid,
+                server,
+                timezone,
+                rolls: usize::try_from(rolls).map_err(|_| Error::InvalidStoredData)?,
+            });
+        }
+        Ok(accounts)
+    }
+
+    /// The saved account with this UID and server, if there is one.
+    pub fn account(&self, uid: &str, server: &str) -> Result<Option<Account>, Error> {
+        let timezone: Option<Option<i32>> = self
+            .connection
+            .query_row(
+                "SELECT timezone FROM accounts WHERE game=?1 AND uid=?2 AND server=?3",
+                params![GAME, uid, server],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(timezone.map(|timezone| Account {
+            uid: uid.into(),
+            server: server.into(),
+            timezone,
+        }))
+    }
+
     /// One page of an account's rolls in `category`, newest first: by server time,
     /// then by numeric roll ID within the same second, which matches the descending
     /// order HoYoverse lists them in. Digit-only IDs order numerically by length,
@@ -672,6 +728,7 @@ pub(crate) mod tests {
     const SAVED: &str = "SELECT uid,server,id FROM rolls WHERE game=?1";
     const LAST: &str = "SELECT imported_at,adapter,uid,server,inserted FROM batches WHERE game=?1 ORDER BY id DESC LIMIT 1";
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
+    const ACCOUNT_LIST: &str = "SELECT a.uid,a.server,a.timezone,count(r.id) FROM accounts a LEFT JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 GROUP BY a.uid,a.server ORDER BY (SELECT max(b.id) FROM batches b WHERE b.game=a.game AND b.uid=a.uid AND b.server=a.server) DESC";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
     const PAGE_ROWS: &str = "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6";
     pub(crate) fn text(value: &str) -> Value {
@@ -704,7 +761,8 @@ pub(crate) mod tests {
             vec![vec![text("database"), Value::Integer(0)]],
         )
     }
-    fn timezone(value: Option<Option<i32>>) -> Step {
+    /// The SQL for an account's offset, answered with `value` when it is saved.
+    pub(crate) fn timezone(value: Option<Option<i32>>) -> Step {
         rows(
             TIMEZONE,
             scope(),
@@ -1321,6 +1379,110 @@ pub(crate) mod tests {
             None,
             &mut || store().latest_account().map(|_| ()),
         );
+    }
+
+    #[test]
+    fn saved_accounts_list_each_account_with_its_rolls_newest_import_first() {
+        let list = |found: Vec<Vec<Value>>| {
+            database::expect(accounts_script(found));
+            let accounts = store().accounts();
+            database::finish();
+            accounts
+        };
+        let found = list(vec![
+            accounts_row(),
+            vec![
+                text("100000003"),
+                text(SERVER),
+                Value::Null,
+                Value::Integer(0),
+            ],
+        ])
+        .unwrap();
+        assert_eq!(
+            found,
+            vec![
+                SavedAccount {
+                    uid: UID.into(),
+                    server: SERVER.into(),
+                    timezone: Some(8),
+                    rolls: 15,
+                },
+                SavedAccount {
+                    uid: "100000003".into(),
+                    server: SERVER.into(),
+                    timezone: None,
+                    rolls: 0,
+                },
+            ]
+        );
+        assert_eq!(
+            serde_json::to_value(&found[0]).unwrap(),
+            serde_json::json!({ "uid": UID, "server": SERVER, "timezone": 8, "rolls": 15 })
+        );
+        assert_eq!(list(vec![]), Ok(vec![]));
+        for column in 0..4 {
+            let mut unreadable = accounts_row();
+            unreadable[column] = if column == 2 { text("8") } else { Value::Null };
+            assert_eq!(list(vec![unreadable]), Err(Error::Database));
+        }
+        // A count is never negative, so one is damage.
+        let mut negative = accounts_row();
+        negative[3] = Value::Integer(-1);
+        assert_eq!(list(vec![negative]), Err(Error::InvalidStoredData));
+        fail_each(&|| accounts_script(vec![]), None, &mut || {
+            store().accounts().map(|_| ())
+        });
+    }
+
+    #[test]
+    fn an_account_is_found_by_uid_and_server_with_its_offset() {
+        let find = |value: Option<Option<i32>>| {
+            database::expect(vec![timezone(value)]);
+            let account = store().account(UID, SERVER);
+            database::finish();
+            account
+        };
+        assert_eq!(
+            find(Some(Some(8))),
+            Ok(Some(Account {
+                uid: UID.into(),
+                server: SERVER.into(),
+                timezone: Some(8),
+            }))
+        );
+        assert_eq!(
+            find(Some(None)),
+            Ok(Some(Account {
+                uid: UID.into(),
+                server: SERVER.into(),
+                timezone: None,
+            }))
+        );
+        assert_eq!(find(None), Ok(None));
+        database::expect(vec![rows(TIMEZONE, scope(), vec![vec![text("8")]])]);
+        assert_eq!(store().account(UID, SERVER), Err(Error::Database));
+        database::finish();
+        fail_each(&|| vec![timezone(None)], None, &mut || {
+            store().account(UID, SERVER).map(|_| ())
+        });
+    }
+
+    /// The SQL for listing the saved accounts, answered with `found`.
+    pub(crate) fn accounts_script(found: Vec<Vec<Value>>) -> Vec<Step> {
+        vec![
+            done(&format!("PREPARE {ACCOUNT_LIST}")),
+            rows(ACCOUNT_LIST, vec![text(GAME)], found),
+        ]
+    }
+    /// The fixture account with 15 rolls and its offset.
+    pub(crate) fn accounts_row() -> Vec<Value> {
+        vec![
+            text(UID),
+            text(SERVER),
+            Value::Integer(8),
+            Value::Integer(15),
+        ]
     }
 
     #[test]

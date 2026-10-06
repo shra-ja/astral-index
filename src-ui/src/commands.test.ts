@@ -11,6 +11,7 @@ import {
   lastImport,
   MAX_CACHE_BYTES,
   retrieveHistory,
+  savedAccounts,
 } from './commands'
 
 // Tauri rejects a command with the native failure as plain data, not an Error.
@@ -213,6 +214,40 @@ test('a history page is read by category, page and size, and never fetches', asy
   expect(calls).toEqual([['history_page', { category: '11', page: 2, pageSize: 50 }]])
   mockIPC(() => reject({ kind: 'invalid_request' }))
   expect(await historyPage('99', 1, 20)).toEqual({ failure: { kind: 'invalid_request' } })
+})
+
+test('a history page names the chosen account by UID and server only', async () => {
+  const calls: unknown[] = []
+  mockIPC((_cmd, args) => {
+    calls.push(args)
+    return { account: null, total: 0, categories: [], rolls: [] }
+  })
+  const account = { uid: '100000003', server: 'synthetic-server', timezone: 8, rolls: 2 }
+  await historyPage('11', 1, 20, account)
+  expect(calls).toEqual([
+    {
+      category: '11',
+      page: 1,
+      pageSize: 20,
+      account: { uid: '100000003', server: 'synthetic-server' },
+    },
+  ])
+})
+
+test('saved accounts are read from this device', async () => {
+  const accounts = [
+    { uid: '100000003', server: 'synthetic-server', timezone: null, rolls: 2 },
+    { uid: '100000002', server: 'synthetic-server', timezone: 8, rolls: 1284 },
+  ]
+  const calls: string[] = []
+  mockIPC((cmd) => {
+    calls.push(cmd)
+    return accounts
+  })
+  expect(await savedAccounts()).toEqual({ accounts })
+  expect(calls).toEqual(['saved_accounts'])
+  mockIPC(() => reject({ kind: 'storage' }))
+  expect(await savedAccounts()).toEqual({ failure: { kind: 'storage' } })
 })
 
 test('the last import is read from this device, and is null before the first', async () => {

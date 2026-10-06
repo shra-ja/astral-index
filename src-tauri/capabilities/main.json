@@ -12,6 +12,7 @@
     "allow-commit-import",
     "allow-discard-import",
     "allow-history-page",
-    "allow-last-import"
+    "allow-last-import",
+    "allow-saved-accounts"
   ]
 }

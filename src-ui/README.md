@@ -16,7 +16,9 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   `shared/` for pieces any screen may use (`CachePicker`).
 - `src/composables/` holds flow logic and is the only caller of the native
   commands: `useRetrieval.ts` runs retrieval, review and saving, and
-  `useHistory.ts` reads saved history a page at a time.
+  `useHistory.ts` reads the saved accounts and saved history a page at a time,
+  keeping each game's account chosen in the switcher until the app restarts or
+  a save into that game.
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep
   native I/O behind typed backend commands rather than adding it here.

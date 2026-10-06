@@ -10,7 +10,7 @@ Switch accounts and servers, filter and search, with totals and rarity breakdown
 Each task is one PR, in this order. Stored-history reads stay local and never
 trigger acquisition.
 
-- [ ] Switch accounts: a native command lists the game's saved accounts (UID and
+- [x] Switch accounts: a native command lists the game's saved accounts (UID and
   server), the history read takes the chosen account, and the header's account
   chip becomes the account switcher. The account imported last stays the
   default.

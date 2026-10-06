@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
-import { ENTER, launch, type AppSession } from './app-driver'
+import { DOWN, ENTER, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
 // A synthetic cache file holding one warp history request, with a key distinctive
@@ -608,19 +608,43 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     expect(await textOf(app, '.review .account .chip')).toBe('America')
     await save(app, '2,060')
     expect(await textOf(app, '.saved p')).toBe('Added to UID 100000002 (America).')
-    // The History screen follows the account imported last.
+    // The History screen follows the account imported last, and now that two are
+    // saved its header switches between them.
     expect(await stored(app)).toEqual({ ...savedHistory, uid: '100000002' })
     await app.execute('document.querySelector("nav a[aria-label=\'Warp History\']").click()')
+    const switcherLabel = () =>
+      app.execute<string | null>(
+        'return document.querySelector("button[aria-haspopup=menu]")?.getAttribute("aria-label")',
+      )
+    await expect
+      .poll(switcherLabel, { timeout: 10000 })
+      .toBe('Switch account. Current: UID 100000002, America server')
+    await app.screenshot('e2e-mock-second-account')
+    // With the keyboard: open the menu at the current account, move to the other one
+    // and choose it.
+    await app.execute('document.querySelector("button[aria-haspopup=menu]").focus()')
+    await app.press(DOWN)
     await expect
       .poll(
         () =>
-          app.execute<string | null>(
-            'return document.querySelector(".account")?.getAttribute("aria-label")',
+          app.execute<string[]>(
+            'return [...document.querySelectorAll("[role=menuitemradio]")].map((item) => [".uid", ".server", ".rolls"].map((part) => item.querySelector(part).textContent))',
           ),
         { timeout: 10000 },
       )
-      .toBe('Account: UID 100000002, America server')
-    await app.screenshot('e2e-mock-second-account')
+      .toEqual([
+        ['100000002', 'America', '2,060 rolls'],
+        ['100000001', 'Asia', '2,210 rolls'],
+      ])
+    await app.screenshot('e2e-mock-account-menu')
+    await app.press(DOWN, ENTER)
+    await expect
+      .poll(switcherLabel, { timeout: 10000 })
+      .toBe('Switch account. Current: UID 100000001, Asia server')
+    // Its own Character Event Warp rolls, including the 25 the quick refresh added.
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,275\s*$/)
   })
   // Pages that disagree on the account are refused as a whole.
   await withMock('mixed-accounts', { keep: true }, async (app) => {

@@ -110,6 +110,7 @@ function serve(handlers: Record<string, Handler>) {
   const served: Record<string, Handler> = {
     history_page: () => nothingSaved,
     last_import: () => null,
+    saved_accounts: () => [],
     ...handlers,
   }
   mockIPC((cmd, args) => {
@@ -234,13 +235,14 @@ function savedHistory(args: Record<string, unknown>) {
   }
 }
 // Serve the given history, then open the History screen afresh so it reads it.
-async function openHistory(handler: Handler) {
+async function openHistory(handler: Handler, handlers: Record<string, Handler> = {}) {
   const reads: unknown[] = []
   const calls = serve({
     history_page: (args) => {
       reads.push(args)
       return handler(args)
     },
+    ...handlers,
   })
   await openImport()
   await follow(named(sidebar(), 'Warp History'))
@@ -282,10 +284,82 @@ test('saved history shows its account, category counts and newest rolls first', 
   expect(main().querySelector('.rarity-5 .name')?.textContent).toBe('Synthetic Hero')
   expect(showing()).toBe('Showing 1–20 of 45')
   // Reading saved history only reads this device; it never asks HoYoverse for anything.
-  expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import']))
+  expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import', 'saved_accounts']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
   expect(icons().slice(3)).toEqual(['chevron-left', 'chevron-right', 'chevron-down'])
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
+})
+
+// A second saved account, on the Europe server, with 2 Stellar Warp rolls only.
+const accounts = [
+  { uid: '100000001', server: 'prod_official_asia', timezone: 8, rolls: 48 },
+  { uid: '100000002', server: 'prod_official_eur', timezone: 1, rolls: 2 },
+]
+function historyOf(args: Record<string, unknown>) {
+  const account = args.account as { uid: string; server: string } | undefined
+  if (account?.uid !== '100000002') return savedHistory(args)
+  const total = args.category === '1' ? 2 : 0
+  return {
+    account: { uid: '100000002', server: 'prod_official_eur', timezone: 1 },
+    total,
+    categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
+      gacha_type,
+      total: gacha_type === '1' ? 2 : 0,
+    })),
+    rolls: Array.from({ length: total }, (_, index) => ({
+      number: total - index,
+      id: `eur-${total - index}`,
+      name: 'Arrows',
+      item_type: 'Light Cone',
+      rank_type: '3',
+      time: '2026-09-20 10:00:00',
+    })),
+  }
+}
+const switcher = () => main().querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')
+
+test('with one saved account the header names it; with more it switches between them', async () => {
+  await openHistory(savedHistory, { saved_accounts: () => accounts.slice(0, 1) })
+  expect(switcher()).toBeNull()
+  expect(main().querySelector('.account')).not.toBeNull()
+  const { reads } = await openHistory(historyOf, { saved_accounts: () => accounts })
+  expect(main().querySelector('.account')).toBeNull()
+  expect(switcher()?.getAttribute('aria-label')).toBe(
+    'Switch account. Current: UID 100000001, Asia server',
+  )
+  await click(switcher()!)
+  const items = [...main().querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')]
+  expect(items.map((item) => item.querySelector('.rolls')?.textContent)).toEqual([
+    '48 rolls',
+    '2 rolls',
+  ])
+  items[1].click()
+  await settle()
+  // Its history opens on its first category with rolls, in its own server time.
+  expect(reads.slice(-2)).toEqual([
+    {
+      category: '11',
+      page: 1,
+      pageSize: 20,
+      account: { uid: '100000002', server: 'prod_official_eur' },
+    },
+    {
+      category: '1',
+      page: 1,
+      pageSize: 20,
+      account: { uid: '100000002', server: 'prod_official_eur' },
+    },
+  ])
+  expect(switcher()?.getAttribute('aria-label')).toBe(
+    'Switch account. Current: UID 100000002, Europe server',
+  )
+  expect(tabs()[2]).toEqual(['Stellar 2', 'true'])
+  expect(main().querySelector('[aria-sort]')?.textContent).toBe('Time (UTC+1)')
+  expect(document.activeElement).toBe(switcher())
+  // Leaving the screen and coming back keeps the chosen account.
+  await openImport()
+  await follow(named(sidebar(), 'Warp History'))
+  expect(switcher()?.getAttribute('aria-label')).toContain('UID 100000002')
 })
 
 test('history pages through a category, resizes pages and switches categories', async () => {
@@ -342,9 +416,9 @@ test('Genshin Impact’s history reads nothing until it has an adapter', async (
   await follow(named(sidebar(), 'Genshin Impact'))
   expect(calls).toEqual([])
   expect(main().querySelector('[role="status"]')?.textContent).toContain('No Wish History Yet')
-  // Returning to Star Rail reads its history again.
+  // Returning to Star Rail reads its saved accounts and history again.
   await follow(named(sidebar(), 'Honkai: Star Rail'))
-  expect(calls).toEqual(['history_page'])
+  expect(calls).toEqual(['saved_accounts', 'history_page'])
 })
 
 test('an unknown address returns to Star Rail’s history', async () => {

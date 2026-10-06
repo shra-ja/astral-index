@@ -10,8 +10,10 @@ use crate::discovery::{
     ExtractionError,
     system::{DiscoveryError, extract_current_user_contexts},
 };
-use crate::storage::{self, Account, HistoryPage, LastImport, Preview, Review, Summary};
-use serde::Serialize;
+use crate::storage::{
+    self, Account, HistoryPage, LastImport, Preview, Review, SavedAccount, Summary,
+};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
@@ -267,7 +269,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         commit_import,
         discard_import,
         history_page,
-        last_import
+        last_import,
+        saved_accounts
     ])
 }
 
@@ -622,10 +625,23 @@ pub struct StoredHistory {
 /// The largest page the history list asks for.
 const MAX_PAGE_SIZE: usize = 100;
 
-/// Read one page of saved history. The request is checked before the database is
+/// The longest UID or server name a history read accepts.
+const MAX_ACCOUNT_FIELD: usize = 64;
+
+/// The saved account a history read is for, as the account switcher names it.
+/// Holds a player identifier: never log it.
+#[derive(Deserialize)]
+struct AccountKey {
+    uid: String,
+    server: String,
+}
+
+/// Read one page of saved history: of `account` when named, otherwise of the
+/// account imported into last. The request is checked before the database is
 /// opened; nothing is ever requested from HoYoverse.
 async fn history_into(
     database: &Database,
+    account: Option<AccountKey>,
     category: &str,
     page: usize,
     page_size: usize,
@@ -639,23 +655,38 @@ async fn history_into(
     let (Some(category), Some(offset), 1..=MAX_PAGE_SIZE) = (category, offset, page_size) else {
         return Err(Failure::InvalidRequest);
     };
+    let field = |value: &str| (1..=MAX_ACCOUNT_FIELD).contains(&value.len());
+    if account
+        .as_ref()
+        .is_some_and(|key| !field(&key.uid) || !field(&key.server))
+    {
+        return Err(Failure::InvalidRequest);
+    }
     database
         .run(move |store| {
-            let Some(account) = store.latest_account()? else {
-                return Ok(StoredHistory {
+            let found = match &account {
+                Some(key) => match store.account(&key.uid, &key.server)? {
+                    Some(found) => Some(found),
+                    // Only saved accounts are offered, so another is not a request to honour.
+                    None => return Ok(Err(Failure::InvalidRequest)),
+                },
+                None => store.latest_account()?,
+            };
+            let Some(account) = found else {
+                return Ok(Ok(StoredHistory {
                     account: None,
                     page: HistoryPage::empty(),
-                });
+                }));
             };
             let page = store.page(&account.uid, &account.server, category, offset, page_size)?;
-            Ok(StoredHistory {
+            Ok(Ok(StoredHistory {
                 account: Some(account),
                 page,
-            })
+            }))
         })
         .await
         .and_then(|history| history)
-        .map_err(Failure::from)
+        .map_err(Failure::from)?
 }
 
 /// Stored history only: never contacts HoYoverse.
@@ -665,8 +696,25 @@ async fn history_page(
     category: String,
     page: usize,
     page_size: usize,
+    account: Option<AccountKey>,
 ) -> Result<StoredHistory, Failure> {
-    history_into(&database, &category, page, page_size).await
+    history_into(&database, account, &category, page, page_size).await
+}
+
+/// The game's saved accounts with their roll totals, the one imported into last
+/// first. Never contacts HoYoverse.
+async fn saved_accounts_into(database: &Database) -> Result<Vec<SavedAccount>, Failure> {
+    database
+        .run(|store| store.accounts())
+        .await
+        .and_then(|accounts| accounts)
+        .map_err(Failure::from)
+}
+
+/// Stored history only: never contacts HoYoverse.
+#[tauri::command]
+async fn saved_accounts(database: State<'_, Database>) -> Result<Vec<SavedAccount>, Failure> {
+    saved_accounts_into(&database).await
 }
 
 /// The newest import's summary; none before the first. Never contacts HoYoverse.
@@ -733,9 +781,9 @@ mod tests {
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
-        commit_script, last_import_row, last_import_step, latest_row, latest_step, page_rows,
-        page_script, preview, preview_script, saved_rolls_script, setup, stale_commit_script, step,
-        text,
+        accounts_row, accounts_script, commit_script, last_import_row, last_import_step,
+        latest_row, latest_step, page_rows, page_script, preview, preview_script,
+        saved_rolls_script, setup, stale_commit_script, step, text, timezone,
     };
     use rusqlite::types::Value;
     use std::path::PathBuf;
@@ -848,8 +896,13 @@ mod tests {
                 "commit_import",
                 "discard_import",
                 "history_page",
-                "last_import"
+                "last_import",
+                "saved_accounts"
             ]
+        );
+        assert_eq!(
+            invoke(&window, COMMANDS[8], InvokeBody::default()),
+            Err(r#"{"kind":"storage"}"#.into())
         );
         // The test doubles can't serve worker threads, so the read fails safely.
         assert_eq!(
@@ -869,6 +922,19 @@ mod tests {
             assert!(missing.unwrap_err().contains(argument));
         }
         let request = serde_json::json!({ "category": "99", "page": 1, "pageSize": 20 });
+        assert_eq!(
+            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            Err(r#"{"kind":"invalid_request"}"#.into())
+        );
+        // An account, when named, needs both its UID and server.
+        let request = serde_json::json!({
+            "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "100000002" },
+        });
+        let missing = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+        assert!(missing.unwrap_err().contains("server"));
+        let request = serde_json::json!({
+            "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "", "server": "x" },
+        });
         assert_eq!(
             invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
@@ -1855,7 +1921,24 @@ mod tests {
             ("11", usize::MAX, 100),
         ] {
             assert_eq!(
-                run(history_into(&database, category, page, size)),
+                run(history_into(&database, None, category, page, size)),
+                Err(Failure::InvalidRequest)
+            );
+        }
+        // A named account must have a UID and server of at most 64 bytes each.
+        let long = "1".repeat(65);
+        for (uid, server) in [
+            ("", "synthetic-server"),
+            ("100000002", ""),
+            (long.as_str(), "synthetic-server"),
+            ("100000002", long.as_str()),
+        ] {
+            let account = AccountKey {
+                uid: uid.into(),
+                server: server.into(),
+            };
+            assert_eq!(
+                run(history_into(&database, Some(account), "11", 1, 20)),
                 Err(Failure::InvalidRequest)
             );
         }
@@ -1873,7 +1956,7 @@ mod tests {
         script.push(latest_step(vec![latest_row()]));
         script.extend(page_script(5, 2, 2, page_rows()));
         sql::expect(script);
-        let history = run(history_into(&database, "11", 2, 2)).unwrap();
+        let history = run(history_into(&database, None, "11", 2, 2)).unwrap();
         sql::finish();
         let history = json(history);
         assert_eq!(
@@ -1896,6 +1979,52 @@ mod tests {
         assert_eq!(history["rolls"][1]["id"], "9007199254740992");
     }
 
+    fn chosen() -> Option<AccountKey> {
+        Some(AccountKey {
+            uid: "100000002".into(),
+            server: "synthetic-server".into(),
+        })
+    }
+
+    #[test]
+    fn history_reads_a_page_of_the_chosen_account() {
+        let database = database();
+        let mut script = opening();
+        script.push(timezone(Some(Some(8))));
+        script.extend(page_script(5, 2, 2, page_rows()));
+        sql::expect(script);
+        let history = json(run(history_into(&database, chosen(), "11", 2, 2)).unwrap());
+        sql::finish();
+        assert_eq!(
+            history["account"],
+            serde_json::json!({ "uid": "100000002", "server": "synthetic-server", "timezone": 8 })
+        );
+        assert_eq!(history["total"], 5);
+        assert_eq!(history["rolls"][1]["id"], "9007199254740992");
+        // An account that isn't saved is not shown as an empty history.
+        sql::expect(vec![timezone(None)]);
+        assert_eq!(
+            run(history_into(&database, chosen(), "11", 1, 20)),
+            Err(Failure::InvalidRequest)
+        );
+        sql::finish();
+        // A damaged offset is a storage failure.
+        sql::expect(vec![step(
+            "SELECT timezone FROM accounts WHERE game=?1 AND uid=?2 AND server=?3",
+            vec![
+                text("honkai-star-rail"),
+                text("100000002"),
+                text("synthetic-server"),
+            ],
+            Reply::Rows(vec![Ok(vec![text("8")])]),
+        )]);
+        assert_eq!(
+            run(history_into(&database, chosen(), "11", 1, 20)),
+            Err(Failure::Storage)
+        );
+        sql::finish();
+    }
+
     #[test]
     fn without_an_account_history_is_empty_and_damage_is_a_storage_failure() {
         let database = database();
@@ -1905,13 +2034,13 @@ mod tests {
         let empty = ["1", "2", "11", "12", "21", "22"]
             .map(|code| serde_json::json!({ "gacha_type": code, "total": 0 }));
         assert_eq!(
-            json(run(history_into(&database, "1", 1, 20)).unwrap()),
+            json(run(history_into(&database, None, "1", 1, 20)).unwrap()),
             serde_json::json!({ "account": null, "total": 0, "categories": empty, "rolls": [] })
         );
         sql::finish();
         sql::expect(vec![latest_step(vec![vec![Value::Null]])]);
         assert_eq!(
-            run(history_into(&database, "11", 1, 20)),
+            run(history_into(&database, None, "11", 1, 20)),
             Err(Failure::Storage)
         );
         sql::finish();
@@ -1919,9 +2048,33 @@ mod tests {
         script.extend(page_script(5, 2, 2, vec![vec![text("1"), text("{")]]));
         sql::expect(script);
         assert_eq!(
-            run(history_into(&database, "11", 2, 2)),
+            run(history_into(&database, None, "11", 2, 2)),
             Err(Failure::Storage)
         );
+        sql::finish();
+    }
+
+    #[test]
+    fn saved_accounts_are_read_from_storage_only() {
+        let database = database();
+        let mut script = opening();
+        script.extend(accounts_script(vec![accounts_row()]));
+        sql::expect(script);
+        assert_eq!(
+            json(run(saved_accounts_into(&database)).unwrap()),
+            serde_json::json!([
+                { "uid": "100000002", "server": "synthetic-server", "timezone": 8, "rolls": 15 },
+            ])
+        );
+        sql::finish();
+        sql::expect(accounts_script(vec![]));
+        assert_eq!(
+            json(run(saved_accounts_into(&database)).unwrap()),
+            serde_json::json!([])
+        );
+        sql::finish();
+        sql::expect(accounts_script(vec![vec![Value::Null]]));
+        assert_eq!(run(saved_accounts_into(&database)), Err(Failure::Storage));
         sql::finish();
     }
 

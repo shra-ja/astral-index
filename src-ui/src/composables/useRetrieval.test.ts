@@ -11,9 +11,11 @@ import {
   type Retrieved,
   type Review,
 } from '../commands'
+import { forgetAccountChoice } from './useHistory'
 import { useRetrieval } from './useRetrieval'
 
 vi.mock('../commands')
+vi.mock('./useHistory')
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(extractAutomatically).mockResolvedValue(undefined)
@@ -289,8 +291,11 @@ test('saving reports what was added and ends the review', async () => {
   void flow.save()
   expect(flow.phase.value).toBe('saving')
   expect(flow.status.value).toBe('Saving…')
+  expect(forgetAccountChoice).not.toHaveBeenCalled()
   commit.resolve({ summary: { inserted: 2, duplicates: 88, conflicts: 0 } })
   await settle()
+  // History then shows the account just saved into, whichever was chosen before.
+  expect(forgetAccountChoice).toHaveBeenCalledExactlyOnceWith('honkai-star-rail')
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
   expect(flow.outcome.value).toEqual({
@@ -309,6 +314,7 @@ test('a failed save is explained and ends the review', async () => {
   const flow = await reviewing()
   vi.mocked(commitImport).mockResolvedValue({ failure: { kind: 'stale_preview' } })
   await flow.save()
+  expect(forgetAccountChoice).not.toHaveBeenCalled()
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
   expect(flow.outcome.value).toEqual({

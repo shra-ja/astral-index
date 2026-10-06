@@ -26,6 +26,7 @@ import {
   titleOf,
   type Messages,
 } from '../messages'
+import { forgetAccountChoice } from './useHistory'
 
 /**
  * `acquiring` runs from validation until the review; `saving` and `leaving` keep
@@ -195,6 +196,9 @@ export function useRetrieval() {
       phase.value = 'saving'
       status.value = 'Saving…'
       const result = await commitImport()
+      // History then shows the account just saved into, whichever was chosen before.
+      // Retrieval is Star Rail's alone until another game has an adapter.
+      if ('summary' in result) forgetAccountChoice('honkai-star-rail')
       finish(
         'failure' in result
           ? failed(result.failure, describe(result.failure, commitMessages))

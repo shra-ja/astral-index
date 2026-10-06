@@ -1,5 +1,7 @@
 use astral_index::acquisition::Category;
-use astral_index::storage::{Account, Error, HistoryPage, LastImport, Source, Store, Summary};
+use astral_index::storage::{
+    Account, Error, HistoryPage, LastImport, SavedAccount, Source, Store, Summary,
+};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -724,6 +726,74 @@ fn ambiguous_stored_json_is_rejected_before_deserialization() {
         )
         .unwrap();
     assert_eq!(store.history(UID, SERVER), Err(Error::InvalidStoredData));
+}
+
+#[test]
+fn saved_accounts_count_each_accounts_rolls_and_list_the_newest_import_first() {
+    let db = Database::new();
+    let mut store = db.store();
+    assert_eq!(store.accounts().unwrap(), vec![]);
+    assert_eq!(store.account(UID, SERVER).unwrap(), None);
+    let fixture_rolls = page(|_| {});
+    let fixture_count = serde_json::from_slice::<Value>(&fixture_rolls).unwrap()["data"]["list"]
+        .as_array()
+        .unwrap()
+        .len();
+    import(&mut store, &fixture_rolls);
+    let other = page(|p| {
+        let list = p["data"]["list"].as_array_mut().unwrap();
+        list.truncate(2);
+        for roll in list {
+            roll["uid"] = json!("100000003");
+        }
+        p["data"]
+            .as_object_mut()
+            .unwrap()
+            .remove("region_time_zone");
+    });
+    let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
+    store.commit(preview, 1235).unwrap();
+    let saved = |uid: &str, timezone, rolls| SavedAccount {
+        uid: uid.into(),
+        server: SERVER.into(),
+        timezone,
+        rolls,
+    };
+    assert_eq!(
+        store.accounts().unwrap(),
+        vec![
+            saved("100000003", None, 2),
+            saved(UID, Some(8), fixture_count)
+        ]
+    );
+    // Importing into the first account again moves it to the front, even when
+    // nothing new was saved.
+    import(&mut store, &fixture_rolls);
+    assert_eq!(
+        store.accounts().unwrap(),
+        vec![
+            saved(UID, Some(8), fixture_count),
+            saved("100000003", None, 2)
+        ]
+    );
+    assert_eq!(
+        store.account(UID, SERVER).unwrap(),
+        Some(Account {
+            uid: UID.into(),
+            server: SERVER.into(),
+            timezone: Some(8)
+        })
+    );
+    assert_eq!(
+        store
+            .account("100000003", SERVER)
+            .unwrap()
+            .unwrap()
+            .timezone,
+        None
+    );
+    // The same UID on another server is another account.
+    assert_eq!(store.account(UID, "another-server").unwrap(), None);
 }
 
 #[test]

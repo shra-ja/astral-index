@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Presentational: the account whose history is shown. Text for now; it becomes the
-// account switcher once more than one account can be shown (milestone 4).
+// Presentational: the account whose history is shown, as text, while it is the only
+// saved account; with more, the screen shows the account switcher instead.
 import { serverName } from '../../format'
 
 defineProps<{ uid: string; server: string }>()
