@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { ref } from 'vue'
 import { historyPage, savedAccounts, type StoredHistory } from '../commands'
 import type { Game } from '../format'
@@ -46,13 +46,19 @@ function stored(category: string, page: number, size: number, rarities?: string[
   }
 }
 function serveStored() {
-  vi.mocked(historyPage).mockImplementation((category, page, size, _account, rarities) =>
-    Promise.resolve({ history: stored(category, page, size, rarities) }),
+  vi.mocked(historyPage).mockImplementation((category, page, size, options) =>
+    Promise.resolve({ history: stored(category, page, size, options?.rarities) }),
   )
 }
 // Each read's arguments; reads of the account imported last name no account.
 const reads = () =>
-  vi.mocked(historyPage).mock.calls.map((call) => call.filter((arg) => arg !== undefined))
+  vi
+    .mocked(historyPage)
+    .mock.calls.map(([category, page, size, options]) =>
+      [category, page, size, options?.account, options?.rarities, options?.search].filter(
+        (arg) => arg !== undefined,
+      ),
+    )
 
 test('opens on the first page of Character Event Warp, 20 rows at a time', async () => {
   serveStored()
@@ -179,8 +185,9 @@ const saved = [
 ]
 function serveAccounts() {
   vi.mocked(savedAccounts).mockResolvedValue({ accounts: saved })
-  vi.mocked(historyPage).mockImplementation((category, page, size, chosen) => {
-    if (chosen?.uid !== other.uid) return Promise.resolve({ history: stored(category, page, size) })
+  vi.mocked(historyPage).mockImplementation((category, page, size, options) => {
+    if (options?.account?.uid !== other.uid)
+      return Promise.resolve({ history: stored(category, page, size) })
     const total = category === '1' ? 2 : 0
     return Promise.resolve({
       history: {
@@ -294,4 +301,31 @@ test('every rarity is shown at first; hiding one reads the first page of what ma
   await history.toggleRarity('3')
   expect(history.rarities.value).toEqual(['5', '4', '3'])
   expect(reads().at(-1)).toEqual(['1', 1, 20])
+})
+
+test('a search reads again 250 ms after the last keystroke, from the first page', async () => {
+  vi.useFakeTimers()
+  serveStored()
+  const history = useHistory(starRail)
+  await history.start()
+  await history.goTo(2)
+  history.search('Ar')
+  history.search('Arr')
+  // The box shows what was typed straight away; the read waits for a pause.
+  expect(history.query.value).toBe('Arr')
+  await vi.advanceTimersByTimeAsync(249)
+  expect(reads()).toHaveLength(2)
+  await vi.advanceTimersByTimeAsync(1)
+  expect(reads()).toHaveLength(3)
+  expect(reads().at(-1)).toEqual(['11', 1, 20, 'Arr'])
+  expect(history.page.value).toBe(1)
+  // The search stays for every later read, and blank text searches nothing.
+  await history.select('1')
+  expect(reads().at(-1)).toEqual(['1', 1, 20, 'Arr'])
+  history.search('   ')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(reads().at(-1)).toEqual(['1', 1, 20])
+})
+afterEach(() => {
+  vi.useRealTimers()
 })

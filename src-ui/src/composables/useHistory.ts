@@ -44,6 +44,10 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
   const accounts = shallowRef<SavedAccount[]>([])
   // The rarities shown, kept across categories and accounts while the screen is open.
   const rarities = ref<Rarity[]>([...allRarities])
+  // The search box's text, and the trimmed search last read, kept the same way.
+  const query = ref('')
+  let searched = ''
+  let pending: ReturnType<typeof setTimeout> | undefined
   const failure = ref<Failure>()
   const loading = ref(false)
   // Only the latest read may update the screen, whatever order reads finish in.
@@ -52,14 +56,12 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
   async function load() {
     const read = ++latest
     loading.value = true
-    const result = await historyPage(
-      category.value,
-      page.value,
-      pageSize.value,
-      chosen[toValue(game)],
+    const result = await historyPage(category.value, page.value, pageSize.value, {
+      account: chosen[toValue(game)],
       // Showing every rarity names none, as the native side shows all by default.
-      rarities.value.length < allRarities.length ? [...rarities.value] : undefined,
-    )
+      rarities: rarities.value.length < allRarities.length ? [...rarities.value] : undefined,
+      search: searched || undefined,
+    })
     if (read !== latest) return
     loading.value = false
     if ('failure' in result) {
@@ -104,6 +106,17 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     return load()
   }
 
+  /** Search item names as typed, reading again once typing pauses for 250 ms. */
+  function search(text: string) {
+    query.value = text
+    clearTimeout(pending)
+    pending = setTimeout(() => {
+      searched = text.trim()
+      page.value = 1
+      void load()
+    }, 250)
+  }
+
   function select(next: string) {
     category.value = next
     page.value = 1
@@ -133,12 +146,14 @@ export function useHistory(game: MaybeRefOrGetter<Game>) {
     history,
     accounts,
     rarities: readonly(rarities),
+    query: readonly(query),
     failure: readonly(failure),
     loading: readonly(loading),
     pages,
     start,
     switchAccount,
     toggleRarity,
+    search,
     select,
     goTo,
     resize,
