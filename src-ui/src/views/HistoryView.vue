@@ -15,6 +15,7 @@ import HistoryFailed from '../components/history/HistoryFailed.vue'
 import RarityFilters from '../components/history/RarityFilters.vue'
 import RollList from '../components/history/RollList.vue'
 import RollPager from '../components/history/RollPager.vue'
+import RollSearch from '../components/history/RollSearch.vue'
 import SummaryStrip from '../components/history/SummaryStrip.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import type { StoredHistory } from '../commands'
@@ -30,12 +31,14 @@ const {
   history,
   accounts,
   rarities,
+  query,
   failure,
   loading,
   pages,
   start,
   switchAccount,
   toggleRarity,
+  search,
   select,
   goTo,
   resize,
@@ -94,6 +97,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
         <section class="rolls" aria-label="Rolls">
           <div class="toolbar">
             <RarityFilters :shown="rarities" @toggle="toggleRarity" />
+            <RollSearch :query @search="search" />
           </div>
           <RollList
             v-if="history.rolls.length > 0"
@@ -106,7 +110,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
           </p>
           <p v-else class="none">
             <strong>No rolls match these filters.</strong>
-            Turn on more rarities to see them.
+            Try another search or turn on more rarities.
           </p>
         </section>
         <RollPager

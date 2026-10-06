@@ -195,17 +195,25 @@ export interface StoredHistory {
 /** A roll's rarity, as HoYoverse names it. */
 export type Rarity = '5' | '4' | '3'
 
+/** Which rolls a history page shows; each one left out shows them all. */
+export interface HistoryOptions {
+  /** The account to read; otherwise the account imported into last. */
+  account?: Account
+  /** The rarities shown. */
+  rarities?: Rarity[]
+  /** Text the item names contain, ignoring case. */
+  search?: string
+}
+
 /**
- * Read one page of saved history, newest first: of `account` when given, otherwise of
- * the account imported into last, and of the `rarities` given, otherwise all. Rolls
- * keep their numbers in the whole category. Reads this device only; never fetches.
+ * Read one page of saved history, newest first. Rolls keep their numbers in the
+ * whole category. Reads this device only; never fetches.
  */
 export async function historyPage(
   category: string,
   page: number,
   pageSize: number,
-  account?: Account,
-  rarities?: Rarity[],
+  { account, rarities, search }: HistoryOptions = {},
 ): Promise<{ history: StoredHistory } | { failure: Failure }> {
   const named = account && { uid: account.uid, server: account.server }
   try {
@@ -216,6 +224,7 @@ export async function historyPage(
         pageSize,
         account: named,
         rarities,
+        search,
       }),
     }
   } catch (error) {

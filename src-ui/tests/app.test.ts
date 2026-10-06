@@ -214,16 +214,22 @@ test('a retrieval keeps running while another screen is shown', async () => {
 // Synthetic saved history: 45 Character Event and 3 Stellar Warp rolls.
 const savedCounts: Record<string, number> = { '1': 3, '11': 45 }
 function savedHistory(args: Record<string, unknown>) {
-  const { category, page, pageSize, rarities } = args as {
+  const { category, page, pageSize, rarities, search } = args as {
     category: string
     page: number
     pageSize: number
     rarities?: string[]
+    search?: string
   }
+  const nameOf = (number: number) => (number === 45 ? 'Synthetic Hero' : 'Arrows')
   const total = savedCounts[category] ?? 0
   // Newest first, numbered in the whole category, then the rarities shown.
-  const matching = Array.from({ length: total }, (_, index) => total - index).filter((number) =>
-    (rarities ?? ['5', '4', '3']).includes(number === 45 ? '5' : '3'),
+  const matching = Array.from({ length: total }, (_, index) => total - index).filter(
+    (number) =>
+      (rarities ?? ['5', '4', '3']).includes(number === 45 ? '5' : '3') &&
+      nameOf(number)
+        .toLowerCase()
+        .includes((search ?? '').trim().toLowerCase()),
   )
   return {
     account: { uid: '100000001', server: 'prod_official_asia', timezone: 8 },
@@ -243,7 +249,7 @@ function savedHistory(args: Record<string, unknown>) {
     rolls: matching.slice((page - 1) * pageSize, page * pageSize).map((number) => ({
       number,
       id: `${category}-${number}`,
-      name: number === 45 ? 'Synthetic Hero' : 'Arrows',
+      name: nameOf(number),
       item_type: number === 45 ? 'Character' : 'Light Cone',
       rank_type: number === 45 ? '5' : '3',
       time: '2026-09-28 21:14:03',
@@ -318,7 +324,7 @@ test('saved history shows its account, category counts and newest rolls first', 
   // Reading saved history only reads this device; it never asks HoYoverse for anything.
   expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import', 'saved_accounts']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
-  expect(icons().slice(3)).toEqual(['chevron-left', 'chevron-right', 'chevron-down'])
+  expect(icons().slice(3)).toEqual(['search', 'chevron-left', 'chevron-right', 'chevron-down'])
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
 })
 
@@ -460,13 +466,35 @@ test('rarity filters hide rolls across the whole category, keeping their numbers
   filter('5').click()
   await settle()
   expect(main().querySelector('.none')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-    'No rolls match these filters. Turn on more rarities to see them.',
+    'No rolls match these filters. Try another search or turn on more rarities.',
   )
   expect(main().querySelector('nav[aria-label="Pages"]')).toBeNull()
   // The filters stay when the category changes.
   button(main(), 'Stellar 3').click()
   await settle()
   expect(reads.at(-1)).toEqual({ category: '1', page: 1, pageSize: 20, rarities: ['4'] })
+})
+
+test('searching item names narrows the list once typing pauses, keeping roll numbers', async () => {
+  const { reads } = await openHistory(savedHistory)
+  const box = main().querySelector<HTMLInputElement>('input[type="search"]')!
+  expect(main().querySelector(`label[for="${box.id}"]`)?.textContent).toBe('Search items')
+  box.value = 'synthetic h'
+  box.dispatchEvent(new Event('input'))
+  await settle()
+  // Nothing is read until typing pauses.
+  expect(reads).toHaveLength(1)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  expect(reads.at(-1)).toEqual({ category: '11', page: 1, pageSize: 20, search: 'synthetic h' })
+  expect(listed()).toEqual(['45'])
+  expect(showing()).toBe('Showing 1–1 of 1')
+  expect(strip()[0]).toBe('Rolls stored: 45')
+  box.value = 'kafka'
+  box.dispatchEvent(new Event('input'))
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  expect(main().querySelector('.none')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    'No rolls match these filters. Try another search or turn on more rarities.',
+  )
 })
 
 test('history that cannot be read says so, and Try again reads it again', async () => {

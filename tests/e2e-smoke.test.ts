@@ -435,6 +435,28 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     )
     expect(await textOf(app, "[aria-label='Category summary'] .tile .value")).toBe('1,250')
     await app.screenshot('e2e-mock-history-filtered')
+    // Typing a lowercase search narrows the 5★ and 4★ rolls to that item, once
+    // typing pauses, still numbered in the whole category.
+    await app.execute('document.querySelector(\'input[type="search"]\').focus()')
+    await app.press(...'acheron')
+    await expect
+      .poll(
+        () =>
+          app.execute<string[]>(
+            `return [...document.querySelectorAll(".roll-list .body [role=row] .name")].map(name => name.textContent.trim())`,
+          ),
+        { timeout: 10000 },
+      )
+      .toSatisfy((names: string[]) => names.length > 0 && names.every((name) => name === 'Acheron'))
+    const searched = Number(
+      (await textOf(app, '.showing'))?.replace(/\s+/g, ' ').match(/of ([\d,]+)$/)?.[1],
+    )
+    expect(searched).toBeGreaterThan(0)
+    expect(searched).toBeLessThan(fiveAndFour)
+    await app.screenshot('e2e-mock-history-search')
+    await app.execute(
+      `const box = document.querySelector('input[type="search"]'); box.value = ''; box.dispatchEvent(new Event('input'))`,
+    )
     await app.execute(`document.querySelector('[aria-label="Show rarities"] .rarity-3').click()`)
     await expect
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })

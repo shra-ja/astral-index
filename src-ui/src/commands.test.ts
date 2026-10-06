@@ -223,7 +223,7 @@ test('a history page names the chosen account by UID and server only', async () 
     return { account: null, total: 0, categories: [], rolls: [] }
   })
   const account = { uid: '100000003', server: 'synthetic-server', timezone: 8, rolls: 2 }
-  await historyPage('11', 1, 20, account)
+  await historyPage('11', 1, 20, { account })
   expect(calls).toEqual([
     {
       category: '11',
@@ -240,8 +240,18 @@ test('a history page names the rarities shown when some are hidden', async () =>
     calls.push(args)
     return { account: null, total: 0, matched: 0, categories: [], rolls: [] }
   })
-  await historyPage('11', 1, 20, undefined, ['5', '4'])
+  await historyPage('11', 1, 20, { rarities: ['5', '4'] })
   expect(calls).toEqual([{ category: '11', page: 1, pageSize: 20, rarities: ['5', '4'] }])
+})
+
+test('a history page sends an item search as typed', async () => {
+  const calls: unknown[] = []
+  mockIPC((_cmd, args) => {
+    calls.push(args)
+    return { account: null, total: 0, matched: 0, categories: [], rolls: [] }
+  })
+  await historyPage('11', 1, 20, { search: 'Кафка' })
+  expect(calls).toEqual([{ category: '11', page: 1, pageSize: 20, search: 'Кафка' }])
 })
 
 test('saved accounts are read from this device', async () => {

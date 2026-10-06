@@ -1,17 +1,22 @@
 
 
-## Summary strip (2026-10-06)
+## Rarity filters (2026-10-06)
 
-Integrated through PR #75. Feature 0032's second task, on `feat/summary-strip`.
-Each history page now carries a summary of its whole category: 5★ and 4★
-counts and the oldest and newest roll times, from one grouped query. The strip under the tabs shows rolls
-stored, both counts with two-decimal rates, and the stored period; an empty
-category shows zeros and "None yet" (decision 0013, amended).
+Integrated through PR #76. Feature 0032's third task, on `feat/rarity-filters`.
+`history_page` takes the rarities shown; rolls are numbered across the whole category before filtering,
+so hidden ones leave gaps, and a new `matched` count drives paging while the
+tabs and strip still count everything. The rolls panel gains a toolbar with
+5★, 4★ and 3★ toggles, kept across categories and accounts, and a "No rolls
+match these filters" state. A filtered page of 20,000 rolls took about 38 ms, so
+no rarity index was added.
 
-Evidence: the storage, formatter, component and app tests failed first (missing
-summary type and field, formatters and component; the app tests without the
-strip), then passed; the real-SQLite test failed with `min` swapped for `max`.
-The end-to-end test checks the rates against the counts, and the two-by-two
-layout at the minimum width.
-The staged `npm run check` and offline tests pass, and a release `.deb` builds
-without warnings.
+Evidence: the client, composable, component and app tests failed first (no
+rarities sent or kept, no component, no filters in the view), then passed. The
+storage and command tests were written before the code but not run red first;
+binding every rarity as shown, or counting every rarity as matched, makes them
+fail. The real-SQLite test checks numbering and paging under filters, and the
+end-to-end test filters the mock's history to its 143 5★ and 4★ rolls.
+The first staged check found two Rust error paths unreached: a damage test's
+two-column row made the fake database panic before the page read failed, and a
+malformed `rarities` argument was untested. Both are now covered; the staged
+`npm run check` and offline tests pass, and a release `.deb` builds cleanly.
