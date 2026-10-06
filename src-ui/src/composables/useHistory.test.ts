@@ -18,6 +18,8 @@ const settle = () => new Promise((resolve) => setTimeout(resolve))
 const account = { uid: '100000001', server: 'synthetic-server', timezone: 8 }
 // Synthetic counts by category: 45 Character Event and 3 Stellar Warp rolls.
 const counts: Record<string, number> = { '1': 3, '11': 45 }
+// A category summary this composable only passes on.
+const summary = { five_star: 0, four_star: 0, first: null, last: null }
 // A page as the native side would return it, with numbered placeholder rolls.
 function stored(category: string, page: number, size: number): StoredHistory {
   const total = counts[category] ?? 0
@@ -26,6 +28,7 @@ function stored(category: string, page: number, size: number): StoredHistory {
   return {
     account,
     total,
+    summary,
     categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type) => ({
       gacha_type,
       total: counts[gacha_type] ?? 0,
@@ -81,7 +84,7 @@ test('opens on the first category with rolls when Character Event Warp has none'
 
 test('with no saved rolls at all it stays on the opening category', async () => {
   vi.mocked(historyPage).mockResolvedValue({
-    history: { account: null, total: 0, categories: [], rolls: [] },
+    history: { account: null, total: 0, categories: [], summary, rolls: [] },
   })
   const history = useHistory(starRail)
   await history.start()
@@ -182,6 +185,7 @@ function serveAccounts() {
         account: other,
         total,
         categories: [{ gacha_type: '1', total: 2 }],
+        summary,
         rolls: [],
       },
     })

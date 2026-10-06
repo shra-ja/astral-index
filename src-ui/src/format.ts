@@ -62,6 +62,28 @@ export function serverDate(time: string) {
   return `${Number(day)} ${months[Number(month) - 1]} ${year}`
 }
 
+const percent = new Intl.NumberFormat('en', {
+  style: 'percent',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/** "1.48%": `count` as a share of `total`, never shown as none when there is some; none without a total. */
+export function rate(count: number, total: number) {
+  if (total === 0) return undefined
+  const shown = percent.format(count / total)
+  return count > 0 && shown === '0.00%' ? '<0.01%' : shown
+}
+
+/**
+ * "26 Apr 2023 –", "28 Sep 2026": the dates of the oldest and newest stored rolls,
+ * split so the range only breaks at its dash, or "None yet" without rolls.
+ */
+export function storedPeriod(first: string | null, last: string | null) {
+  if (first === null || last === null) return ['None yet']
+  return [`${serverDate(first)} –`, serverDate(last)]
+}
+
 /** "28 Sep 2026, 21:14:03", from a server time, read as written. */
 export const serverDateTime = (time: string) => `${serverDate(time)}, ${time.slice(11)}`
 

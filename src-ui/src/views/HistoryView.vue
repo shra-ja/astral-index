@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // The History screen: a game's saved history, read from this device only. It shows
 // the account the latest import went into, or the one chosen in the switcher when
-// more than one is saved, its banner categories with their counts, and a page of
-// the chosen category, newest first. Only Star Rail has an adapter; until something
-// is saved, it points to the Import screen.
+// more than one is saved, its banner categories with their counts, a summary of
+// the chosen category, and a page of it, newest first. Only Star Rail has an
+// adapter; until something is saved, it points to the Import screen.
 import { Download } from '@lucide/vue'
 import { computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -14,6 +14,7 @@ import EmptyState from '../components/history/EmptyState.vue'
 import HistoryFailed from '../components/history/HistoryFailed.vue'
 import RollList from '../components/history/RollList.vue'
 import RollPager from '../components/history/RollPager.vue'
+import SummaryStrip from '../components/history/SummaryStrip.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import type { StoredHistory } from '../commands'
 import { useHistory } from '../composables/useHistory'
@@ -86,6 +87,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
       />
       <template v-else-if="account && history">
         <CategoryTabs :tabs="tabsOf(history.categories)" :selected="category" @select="select" />
+        <SummaryStrip :total="history.total" :summary="history.summary" />
         <section class="rolls" aria-label="Rolls">
           <RollList
             v-if="history.rolls.length > 0"
@@ -117,6 +119,8 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   gap: 14px;
   min-height: 0;
   padding: 16px var(--gutter) 20px;
+  /* The summary strip lays itself out by the content area's width. */
+  container: content / inline-size;
 }
 .body.centred {
   align-items: center;
