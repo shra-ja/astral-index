@@ -1,19 +1,16 @@
 
 
-## Bounded probe commands (2026-10-06)
+## Pity column (2026-10-06)
 
-Integrated through PR #79, whose CI run took 10 minutes. On
-`fix/probe-native-timeouts`. PR #78's first CI run was cancelled at the job's
-30-minute limit: a native end-to-end run inside the mutation probes stalled, and
-the probes ran it synchronously with its output captured, so nothing showed
-where. The rerun passed in 14 minutes. Every probe command now runs for at most
-10 minutes under coreutils `timeout`, which stops its whole process group, and
-any unexpected outcome, timeouts included, saves a snapshot with the output. The
-two native probes now run only the end-to-end shell test, about 5 s instead of
-the full 2-minute suite each; the probes' final refresh still runs it all.
+Integrated through PR #80. Feature 0035's first task, on `feat/pity-column`.
+Decision 0019 records the user's choices: pity is counted on read, in the page
+read's ordered pass before filters, as a 5★ count on every roll (rolls since the
+previous 5★, counting itself), shown as plain numbers even where older rolls may
+be missing. The list gains a Pity column after Item, with 5★ counts emphasised.
 
-Evidence: the new `tooling/probe-run.ts` tests failed first (missing module),
-then passed at 100% coverage; a command whose background child holds the output
-pipe is stopped within seconds of its bound.
-The staged `npm run check` passes; with the scoped native probes the probes
-stage takes 238 s locally instead of 473 s.
+Evidence: the storage, roll list and app tests failed first (no `pity` field or
+column), then passed; real-SQLite tests check counts and that filters don't
+change them. The end-to-end test checks every row's pity follows from the roll
+before it in the mock's history.
+The staged `npm run check` and offline tests pass on the first run, and a
+release `.deb` builds cleanly.
