@@ -46,6 +46,9 @@ and command tests were written first but could not compile against the old
 signatures; making every name match fails three of them. Real-SQLite tests
 match Cyrillic and accented names in any case, and the end-to-end test types
 "acheron" to find the mock's six Acheron rolls.
+The first staged check found the malformed `search` argument untested; it is
+now covered. The staged `npm run check` and offline tests pass, and a release
+`.deb` builds cleanly.
 
 ## Known limitations
 
