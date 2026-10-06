@@ -12,6 +12,8 @@ const driverUrl = 'http://127.0.0.1:4444'
 export const ENTER = ''
 /** The Down Arrow key, as WebDriver names it. */
 export const DOWN = ''
+/** The Escape key, as WebDriver names it. */
+export const ESCAPE = '\uE00C'
 
 export interface AppSession {
   /** Send a WebDriver command for this session; `path` follows the session's URL. */
