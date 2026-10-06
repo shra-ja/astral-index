@@ -1,7 +1,7 @@
 use astral_index::acquisition::Category;
 use astral_index::storage::{
-    Account, CategorySummary, Error, HistoryPage, LastImport, Rarities, SavedAccount, Source,
-    Store, Summary,
+    Account, CategorySummary, Error, Filter, HistoryPage, LastImport, Rarities, SavedAccount,
+    Source, Store, Summary,
 };
 use rusqlite::Connection;
 use serde_json::{Value, json};
@@ -831,7 +831,7 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
                 UID,
                 SERVER,
                 Category::CharacterEvent,
-                Rarities::ALL,
+                &Filter::default(),
                 offset,
                 2,
             )
@@ -847,7 +847,7 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
         );
     }
     let departure = store
-        .page(UID, SERVER, Category::Departure, Rarities::ALL, 0, 20)
+        .page(UID, SERVER, Category::Departure, &Filter::default(), 0, 20)
         .unwrap();
     assert_eq!(departure.summary, CategorySummary::default());
     // Filters hide rolls before paging; shown rolls keep their category numbers.
@@ -857,7 +857,10 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
                 UID,
                 SERVER,
                 Category::CharacterEvent,
-                Rarities { five, four, three },
+                &Filter {
+                    rarities: Rarities { five, four, three },
+                    name: String::new(),
+                },
                 offset,
                 limit,
             )
@@ -879,6 +882,63 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
         (5, 3, vec![(3, "4".into()), (2, "3".into())])
     );
     assert_eq!(shown(false, false, false, 0, 20), (5, 0, vec![]));
+}
+
+#[test]
+fn item_search_matches_names_ignoring_case_in_any_script() {
+    let db = Database::new();
+    let mut store = db.store();
+    let rolls = [
+        ("1000000000000000001", "Кафка", "5", "2026-09-26 08:30:00"),
+        ("1000000000000000002", "Éclair", "4", "2026-09-27 10:00:00"),
+        ("1000000000000000003", "Arrows", "3", "2026-09-28 21:14:03"),
+        ("1000000000000000004", "Кафка", "5", "2026-09-29 12:00:00"),
+    ];
+    let bytes = page(|p| {
+        let template = p["data"]["list"][0].clone();
+        p["data"]["list"] = rolls
+            .iter()
+            .map(|(id, name, rank_type, time)| {
+                let mut roll = template.clone();
+                roll["id"] = json!(id);
+                roll["gacha_type"] = json!("11");
+                roll["name"] = json!(name);
+                roll["rank_type"] = json!(rank_type);
+                roll["time"] = json!(time);
+                roll
+            })
+            .collect();
+    });
+    import(&mut store, &bytes);
+    let search = |name: &str, five: bool| {
+        let filter = Filter {
+            rarities: Rarities {
+                five,
+                four: true,
+                three: true,
+            },
+            name: name.into(),
+        };
+        let page = store
+            .page(UID, SERVER, Category::CharacterEvent, &filter, 0, 20)
+            .unwrap();
+        let rolls: Vec<_> = page
+            .rolls
+            .iter()
+            .map(|roll| (roll.number, roll.name.clone()))
+            .collect();
+        (page.matched, rolls)
+    };
+    assert_eq!(
+        search("КАФ", true),
+        (2, vec![(4, "Кафка".into()), (1, "Кафка".into())])
+    );
+    assert_eq!(search(" éCLAIR ", true), (1, vec![(2, "Éclair".into())]));
+    assert_eq!(
+        search("a", false),
+        (2, vec![(3, "Arrows".into()), (2, "Éclair".into())])
+    );
+    assert_eq!(search("Kafka", true), (0, vec![]));
 }
 
 #[test]
@@ -915,7 +975,7 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
                 UID,
                 SERVER,
                 Category::CharacterEvent,
-                Rarities::ALL,
+                &Filter::default(),
                 offset,
                 limit,
             )
@@ -949,7 +1009,7 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
     );
     assert_eq!(listed(4, 2), (4, vec![]));
     let stellar = store
-        .page(UID, SERVER, Category::Stellar, Rarities::ALL, 0, 20)
+        .page(UID, SERVER, Category::Stellar, &Filter::default(), 0, 20)
         .unwrap();
     assert_eq!((stellar.total, stellar.rolls.len()), (1, 1));
     // Every page counts each category of the account, empty ones included.
@@ -976,7 +1036,7 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
                 "100000003",
                 SERVER,
                 Category::CharacterEvent,
-                Rarities::ALL,
+                &Filter::default(),
                 0,
                 20
             )

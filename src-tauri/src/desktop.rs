@@ -11,7 +11,8 @@ use crate::discovery::{
     system::{DiscoveryError, extract_current_user_contexts},
 };
 use crate::storage::{
-    self, Account, HistoryPage, LastImport, Preview, Rarities, Review, SavedAccount, Summary,
+    self, Account, Filter, HistoryPage, LastImport, Preview, Rarities, Review, SavedAccount,
+    Summary,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -625,6 +626,9 @@ pub struct StoredHistory {
 /// The largest page the history list asks for.
 const MAX_PAGE_SIZE: usize = 100;
 
+/// The longest item search a history read accepts, in characters.
+const MAX_SEARCH: usize = 100;
+
 /// The longest UID or server name a history read accepts.
 const MAX_ACCOUNT_FIELD: usize = 64;
 
@@ -662,13 +666,14 @@ fn rarities_of(named: Option<Vec<String>>) -> Option<Rarities> {
 }
 
 /// Read one page of saved history: of `account` when named, otherwise of the
-/// account imported into last, showing the `rarities` named, or all. The request
-/// is checked before the database is opened; nothing is ever requested from
-/// HoYoverse.
+/// account imported into last, showing the `rarities` named, or all, and only
+/// items whose names contain `search`, ignoring case. The request is checked
+/// before the database is opened; nothing is ever requested from HoYoverse.
 async fn history_into(
     database: &Database,
     account: Option<AccountKey>,
     rarities: Option<Vec<String>>,
+    search: Option<String>,
     category: &str,
     page: usize,
     page_size: usize,
@@ -679,11 +684,17 @@ async fn history_into(
     let offset = page
         .checked_sub(1)
         .and_then(|before| before.checked_mul(page_size));
-    let (Some(category), Some(offset), Some(rarities), 1..=MAX_PAGE_SIZE) =
-        (category, offset, rarities_of(rarities), page_size)
-    else {
+    let name = search.unwrap_or_default();
+    let (Some(category), Some(offset), Some(rarities), 1..=MAX_PAGE_SIZE, 0..=MAX_SEARCH) = (
+        category,
+        offset,
+        rarities_of(rarities),
+        page_size,
+        name.chars().count(),
+    ) else {
         return Err(Failure::InvalidRequest);
     };
+    let filter = Filter { rarities, name };
     let field = |value: &str| (1..=MAX_ACCOUNT_FIELD).contains(&value.len());
     if account
         .as_ref()
@@ -711,7 +722,7 @@ async fn history_into(
                 &account.uid,
                 &account.server,
                 category,
-                rarities,
+                &filter,
                 offset,
                 page_size,
             )?;
@@ -734,8 +745,12 @@ async fn history_page(
     page_size: usize,
     account: Option<AccountKey>,
     rarities: Option<Vec<String>>,
+    search: Option<String>,
 ) -> Result<StoredHistory, Failure> {
-    history_into(&database, account, rarities, &category, page, page_size).await
+    history_into(
+        &database, account, rarities, search, &category, page, page_size,
+    )
+    .await
 }
 
 /// The game's saved accounts with their roll totals, the one imported into last
@@ -818,8 +833,8 @@ mod tests {
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
-        accounts_row, accounts_script, commit_script, filtered_page_script, last_import_row,
-        last_import_step, latest_row, latest_step, page_rows, page_script, preview, preview_script,
+        accounts_row, accounts_script, commit_script, found, last_import_row, last_import_step,
+        latest_row, latest_step, lookup, page_rows, page_script, preview, preview_script,
         saved_rolls_script, setup, stale_commit_script, step, text, timezone,
     };
     use rusqlite::types::Value;
@@ -1964,7 +1979,9 @@ mod tests {
             ("11", usize::MAX, 100),
         ] {
             assert_eq!(
-                run(history_into(&database, None, None, category, page, size)),
+                run(history_into(
+                    &database, None, None, None, category, page, size
+                )),
                 Err(Failure::InvalidRequest)
             );
         }
@@ -1972,10 +1989,31 @@ mod tests {
         for named in [vec!["6"], vec!["5", "four"], vec!["5", "4", "3", "5"]] {
             let named = named.into_iter().map(String::from).collect();
             assert_eq!(
-                run(history_into(&database, None, Some(named), "11", 1, 20)),
+                run(history_into(
+                    &database,
+                    None,
+                    Some(named),
+                    None,
+                    "11",
+                    1,
+                    20
+                )),
                 Err(Failure::InvalidRequest)
             );
         }
+        // A search is at most 100 characters, whatever their size in bytes.
+        assert_eq!(
+            run(history_into(
+                &database,
+                None,
+                None,
+                Some("é".repeat(101)),
+                "11",
+                1,
+                20
+            )),
+            Err(Failure::InvalidRequest)
+        );
         // A named account must have a UID and server of at most 64 bytes each.
         let long = "1".repeat(65);
         for (uid, server) in [
@@ -1989,7 +2027,15 @@ mod tests {
                 server: server.into(),
             };
             assert_eq!(
-                run(history_into(&database, Some(account), None, "11", 1, 20)),
+                run(history_into(
+                    &database,
+                    Some(account),
+                    None,
+                    None,
+                    "11",
+                    1,
+                    20
+                )),
                 Err(Failure::InvalidRequest)
             );
         }
@@ -2005,9 +2051,12 @@ mod tests {
         let database = database();
         let mut script = opening();
         script.push(latest_step(vec![latest_row()]));
-        script.extend(page_script(5, 2, 2, page_rows()));
+        script.extend(page_script(found(&[
+            "9007199254740993",
+            "9007199254740992",
+        ])));
         sql::expect(script);
-        let history = run(history_into(&database, None, None, "11", 2, 2)).unwrap();
+        let history = run(history_into(&database, None, None, None, "11", 2, 2)).unwrap();
         sql::finish();
         let history = json(history);
         assert_eq!(
@@ -2029,7 +2078,7 @@ mod tests {
         assert_eq!(
             history["summary"],
             serde_json::json!({
-                "five_star": 1, "four_star": 2,
+                "five_star": 2, "four_star": 2,
                 "first": "2024-01-01 00:00:00", "last": "2024-02-29 12:34:56",
             })
         );
@@ -2049,9 +2098,12 @@ mod tests {
         let database = database();
         let mut script = opening();
         script.push(timezone(Some(Some(8))));
-        script.extend(page_script(5, 2, 2, page_rows()));
+        script.extend(page_script(found(&[
+            "9007199254740993",
+            "9007199254740992",
+        ])));
         sql::expect(script);
-        let history = json(run(history_into(&database, chosen(), None, "11", 2, 2)).unwrap());
+        let history = json(run(history_into(&database, chosen(), None, None, "11", 2, 2)).unwrap());
         sql::finish();
         assert_eq!(
             history["account"],
@@ -2062,7 +2114,7 @@ mod tests {
         // An account that isn't saved is not shown as an empty history.
         sql::expect(vec![timezone(None)]);
         assert_eq!(
-            run(history_into(&database, chosen(), None, "11", 1, 20)),
+            run(history_into(&database, chosen(), None, None, "11", 1, 20)),
             Err(Failure::InvalidRequest)
         );
         sql::finish();
@@ -2077,34 +2129,56 @@ mod tests {
             Reply::Rows(vec![Ok(vec![text("8")])]),
         )]);
         assert_eq!(
-            run(history_into(&database, chosen(), None, "11", 1, 20)),
+            run(history_into(&database, chosen(), None, None, "11", 1, 20)),
             Err(Failure::Storage)
         );
         sql::finish();
     }
 
     #[test]
-    fn history_shows_only_the_rarities_named() {
+    fn history_shows_only_the_rarities_and_names_asked_for() {
         let database = database();
         // The database is opened on the first read only.
         let mut script = opening();
-        for (named, rarities, matched) in [
-            (vec!["5"], (true, false, false), 1),
-            (vec!["3", "4"], (false, true, true), 4),
-            (vec![], (false, false, false), 0),
-            (vec!["5", "4", "3"], (true, true, true), 5),
+        for (named, search, shown) in [
+            (
+                Some(vec!["5"]),
+                None,
+                vec!["9007199254740993", "9007199254740992"],
+            ),
+            (
+                Some(vec!["3", "4"]),
+                None,
+                vec!["9007199254740995", "9007199254740994", "9007199254740989"],
+            ),
+            (Some(vec![]), None, vec![]),
+            (None, Some(" ÉCLAIR "), vec!["9007199254740995"]),
+            (
+                Some(vec!["5", "4", "3"]),
+                Some("pe"),
+                vec!["9007199254740994"],
+            ),
         ] {
             script.push(latest_step(vec![latest_row()]));
-            let (five, four, three) = rarities;
-            script.extend(filtered_page_script(Rarities { five, four, three }, vec![]));
+            script.extend(page_script(found(&shown)));
             sql::expect(std::mem::take(&mut script));
-            let named = named.into_iter().map(String::from).collect();
-            let history =
-                json(run(history_into(&database, None, Some(named), "11", 1, 20)).unwrap());
+            let named = named.map(|named| named.into_iter().map(String::from).collect());
+            let history = json(
+                run(history_into(
+                    &database,
+                    None,
+                    named,
+                    search.map(String::from),
+                    "11",
+                    1,
+                    20,
+                ))
+                .unwrap(),
+            );
             sql::finish();
             assert_eq!(
                 (history["total"].clone(), history["matched"].clone()),
-                (5.into(), matched.into())
+                (5.into(), shown.len().into())
             );
         }
     }
@@ -2118,7 +2192,7 @@ mod tests {
         let empty = ["1", "2", "11", "12", "21", "22"]
             .map(|code| serde_json::json!({ "gacha_type": code, "total": 0 }));
         assert_eq!(
-            json(run(history_into(&database, None, None, "1", 1, 20)).unwrap()),
+            json(run(history_into(&database, None, None, None, "1", 1, 20)).unwrap()),
             serde_json::json!({
                 "account": null, "total": 0, "matched": 0, "categories": empty,
                 "summary": { "five_star": 0, "four_star": 0, "first": null, "last": null },
@@ -2128,20 +2202,15 @@ mod tests {
         sql::finish();
         sql::expect(vec![latest_step(vec![vec![Value::Null]])]);
         assert_eq!(
-            run(history_into(&database, None, None, "11", 1, 20)),
+            run(history_into(&database, None, None, None, "11", 1, 20)),
             Err(Failure::Storage)
         );
         sql::finish();
         let mut script = vec![latest_step(vec![latest_row()])];
-        script.extend(page_script(
-            5,
-            2,
-            2,
-            vec![vec![text("1"), text("{"), Value::Integer(1)]],
-        ));
+        script.extend(page_script(vec![lookup("9007199254740993", Some("{"))]));
         sql::expect(script);
         assert_eq!(
-            run(history_into(&database, None, None, "11", 2, 2)),
+            run(history_into(&database, None, None, None, "11", 2, 2)),
             Err(Failure::Storage)
         );
         sql::finish();
