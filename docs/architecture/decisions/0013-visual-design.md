@@ -72,6 +72,13 @@ repository; this record holds what the implementation must follow.
   year), From and To date fields using the webview's built-in date picker, a
   line giving the server timezone and the stored period, and Clear and Done.
   Dates are server time, the same as the list's Time column.
+- **Account switcher** (amended 2026-10-06): with one saved account the header
+  shows it as a plain chip; with more, the chip becomes a menu button. Its menu,
+  under a "Saved accounts" heading, lists every saved account of the game, the
+  one imported into last first, each with its UID, server badge and rolls
+  stored, and a check on the current one. Arrow keys, Home and End move through
+  it; Enter chooses; Escape, Tab or a press outside close it. History opens on
+  the account imported last, and a choice lasts until the app restarts or a save.
 - **Pity column:** 5★ pity is coloured by closeness to soft pity, with
   thresholds per banner category (placeholders 1–49, 50–74, 75+), or, with the
   50/50 button on, by outcome: won (green), lost (red), guaranteed (orange).

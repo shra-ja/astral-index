@@ -19,8 +19,9 @@ is refused. No plugins, arbitrary filesystem access or shell access are exposed.
 | `cancel_acquisition` | Cancel the running operation and drop the context and any preview | No |
 | `commit_import` | Commit the held preview | No |
 | `discard_import` | Drop the held preview | No |
-| `history_page` | One page of saved history and every category's count | No |
+| `history_page` | One page of saved history and every category's count, for the `account` named (UID and server) or else the account imported last | No |
 | `last_import` | The newest import's summary | No |
+| `saved_accounts` | The game's saved accounts with their roll totals, the account imported last first | No |
 
 ## Session
 

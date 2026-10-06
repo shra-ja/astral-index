@@ -16,7 +16,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   conflicting rolls per warp, and the period covered. Saving is one transaction;
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
-  rolls for the account imported last, with tab counts. The Import screen shows
+  rolls, with tab counts. It opens on the account imported last; with more than
+  one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
@@ -29,27 +30,43 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Account switching (2026-10-06)
+
+Feature 0032's first task, on `feat/account-switcher`. A new `saved_accounts`
+command lists the game's accounts with their roll totals, newest import first,
+and `history_page` takes an optional account, refusing one that isn't saved.
+With more than one account, the header's chip becomes a menu button (decision
+0013, amended with the canvas mockup): arrow keys, Home, End, Enter, and Escape,
+Tab or a press outside to close. The choice lasts until restart or a save.
+
+Evidence: the storage, command, client, composable, component and app tests each
+failed first (missing methods, command, export and component; the old Genshin
+call list), then passed; the real-SQLite test failed with the order reversed.
+The end-to-end test now switches accounts with the keyboard in the mock binary.
+The staged `npm run check` and offline tests pass, and a release `.deb` builds
+without warnings.
 
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
   CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
-- No history-file import, Genshin Impact adapter, account switching, filters,
-  statistics or pity yet.
+- No history-file import, Genshin Impact adapter, filters, statistics or pity
+  yet.
 - Server names other than Asia (`prod_official_asia`) have not been seen in a
   real retrieval.
-- An intermittent frontend test failure has been seen only inside the
-  suite-discovery mutation probe; a failing probe now saves a snapshot to
+- An intermittent frontend test failure, components' events going unrecorded
+  after a click, was seen inside the suite-discovery mutation probe and, on
+  2026-10-06, once in a plain run alongside typecheck and lint (CategoryTabs,
+  RetrievalProgress). A failing probe saves a snapshot to
   `test-results/probe-failures/`. See
   [probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md).
 
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
-first task: account switching on the History screen, with a native command that
-lists the game's saved accounts. Native Windows validation of the current build
-belongs to milestone 10.
+second task: the summary strip for the whole category (rolls stored, 5★ and 4★
+counts with rates, stored period). Native Windows validation of the current
+build belongs to milestone 10.
 
 ## Keeping this file current
 
