@@ -241,7 +241,9 @@ test('a history page names the rarities shown when some are hidden', async () =>
     return { account: null, total: 0, matched: 0, categories: [], rolls: [] }
   })
   await historyPage('11', 1, 20, { rarities: ['5', '4'] })
-  expect(calls).toEqual([{ category: '11', page: 1, pageSize: 20, rarities: ['5', '4'] }])
+  expect(calls).toEqual([
+    { category: '11', page: 1, pageSize: 20, filter: { rarities: ['5', '4'] } },
+  ])
 })
 
 test('a history page sends an item search as typed', async () => {
@@ -251,7 +253,24 @@ test('a history page sends an item search as typed', async () => {
     return { account: null, total: 0, matched: 0, categories: [], rolls: [] }
   })
   await historyPage('11', 1, 20, { search: 'Кафка' })
-  expect(calls).toEqual([{ category: '11', page: 1, pageSize: 20, search: 'Кафка' }])
+  expect(calls).toEqual([{ category: '11', page: 1, pageSize: 20, filter: { search: 'Кафка' } }])
+})
+
+test('a history page sends the days chosen as one filter with the rest', async () => {
+  const calls: unknown[] = []
+  mockIPC((_cmd, args) => {
+    calls.push(args)
+    return { account: null, total: 0, matched: 0, categories: [], rolls: [] }
+  })
+  await historyPage('11', 1, 20, { from: '2026-09-30', to: '2026-10-06', rarities: ['5'] })
+  expect(calls).toEqual([
+    {
+      category: '11',
+      page: 1,
+      pageSize: 20,
+      filter: { rarities: ['5'], from: '2026-09-30', to: '2026-10-06' },
+    },
+  ])
 })
 
 test('saved accounts are read from this device', async () => {

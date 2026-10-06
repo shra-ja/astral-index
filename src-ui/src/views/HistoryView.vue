@@ -10,6 +10,7 @@ import { RouterLink } from 'vue-router'
 import AccountChip from '../components/history/AccountChip.vue'
 import AccountSwitcher from '../components/history/AccountSwitcher.vue'
 import CategoryTabs from '../components/history/CategoryTabs.vue'
+import DateRangeFilter from '../components/history/DateRangeFilter.vue'
 import EmptyState from '../components/history/EmptyState.vue'
 import HistoryFailed from '../components/history/HistoryFailed.vue'
 import RarityFilters from '../components/history/RarityFilters.vue'
@@ -20,7 +21,16 @@ import SummaryStrip from '../components/history/SummaryStrip.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import type { StoredHistory } from '../commands'
 import { useHistory } from '../composables/useHistory'
-import { categoryTabs, games, terms, utcOffset, warps, type Game } from '../format'
+import {
+  categoryTabs,
+  games,
+  serverToday,
+  storedPeriod,
+  terms,
+  utcOffset,
+  warps,
+  type Game,
+} from '../format'
 import { historyFailure } from '../messages'
 
 const props = defineProps<{ game: Game }>()
@@ -32,6 +42,7 @@ const {
   accounts,
   rarities,
   query,
+  dates,
   failure,
   loading,
   pages,
@@ -39,6 +50,7 @@ const {
   switchAccount,
   toggleRarity,
   search,
+  setDates,
   select,
   goTo,
   resize,
@@ -58,6 +70,9 @@ watch(
 
 const account = computed(() => (available.value ? history.value?.account : undefined))
 const empty = computed(() => !available.value || history.value?.account === null)
+// The saved rolls' period as one line, for the date filter's note.
+const spanOf = (summary: StoredHistory['summary']) =>
+  storedPeriod(summary.first, summary.last).join(' ')
 // The categories the native side counted, in the tabs' order with their short names.
 const tabsOf = (counts: StoredHistory['categories']) =>
   categoryTabs.flatMap((tab) =>
@@ -98,6 +113,14 @@ const tabsOf = (counts: StoredHistory['categories']) =>
           <div class="toolbar">
             <RarityFilters :shown="rarities" @toggle="toggleRarity" />
             <RollSearch :query @search="search" />
+            <DateRangeFilter
+              :from="dates.from"
+              :to="dates.to"
+              :today="serverToday(account.timezone)"
+              :offset="utcOffset(account.timezone)"
+              :span="history.summary.first ? spanOf(history.summary) : undefined"
+              @change="setDates"
+            />
           </div>
           <RollList
             v-if="history.rolls.length > 0"

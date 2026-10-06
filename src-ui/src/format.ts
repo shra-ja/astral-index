@@ -84,6 +84,61 @@ export function storedPeriod(first: string | null, last: string | null) {
   return [`${serverDate(first)} –`, serverDate(last)]
 }
 
+/** A day as `YYYY-MM-DD`, from a date read in UTC. */
+const isoDay = (date: Date) => date.toISOString().slice(0, 10)
+
+/** Year, month (1–12) and day of a `YYYY-MM-DD` day. */
+const partsOf = (day: string) => day.split('-').map(Number) as [number, number, number]
+
+/**
+ * Today's date in the server's time when its UTC offset in hours is known,
+ * otherwise this device's, as `YYYY-MM-DD`.
+ */
+export function serverToday(timezone: number | null, now = new Date()) {
+  if (timezone !== null) return isoDay(new Date(now.getTime() + timezone * 3_600_000))
+  return isoDay(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())))
+}
+
+/** The day `count` days before `day`. */
+function daysBefore(day: string, count: number) {
+  const [year, month, date] = partsOf(day)
+  return isoDay(new Date(Date.UTC(year, month - 1, date - count)))
+}
+
+/** The same day `count` months before `day`, or that month's last day if it is shorter. */
+function monthsBefore(day: string, count: number) {
+  const [year, month, date] = partsOf(day)
+  const last = new Date(Date.UTC(year, month - count, 0)).getUTCDate()
+  return isoDay(new Date(Date.UTC(year, month - 1 - count, Math.min(date, last))))
+}
+
+/** A date range: its first and last days, each left open when absent. */
+export interface DateRange {
+  from?: string
+  to?: string
+}
+
+/** The date filter's quick ranges, each counting today and open at its end. */
+export function quickRanges(today: string): (DateRange & { label: string })[] {
+  return [
+    { label: 'All dates', from: undefined, to: undefined },
+    { label: 'Last 7 days', from: daysBefore(today, 6), to: undefined },
+    { label: 'Last 30 days', from: daysBefore(today, 29), to: undefined },
+    { label: 'Last 6 months', from: monthsBefore(today, 6), to: undefined },
+    { label: 'This year', from: `${today.slice(0, 4)}-01-01`, to: undefined },
+  ]
+}
+
+/** The date filter button's text: a quick range's name, or the days chosen. */
+export function dateRangeLabel(from: string | undefined, to: string | undefined, today: string) {
+  const quick = quickRanges(today).find((range) => range.from === from && range.to === to)
+  if (quick) return quick.label
+  if (from && to) return `${serverDate(from)} – ${serverDate(to)}`
+  if (from) return `From ${serverDate(from)}`
+  // With neither day chosen, the first quick range names it, so only `to` is left.
+  return `Until ${serverDate(String(to))}`
+}
+
 /** "28 Sep 2026, 21:14:03", from a server time, read as written. */
 export const serverDateTime = (time: string) => `${serverDate(time)}, ${time.slice(11)}`
 

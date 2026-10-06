@@ -1,12 +1,15 @@
 import { expect, test } from 'vitest'
 import {
   categoryTabs,
+  dateRangeLabel,
   initials,
   localDateTime,
+  quickRanges,
   rate,
   serverDate,
   serverDateTime,
   serverName,
+  serverToday,
   storedPeriod,
   utcOffset,
 } from './format'
@@ -91,4 +94,38 @@ test('a stored period runs from the oldest to the newest roll date, breaking onl
     '28 Sep 2026',
   ])
   expect(storedPeriod(null, null)).toEqual(['None yet'])
+})
+
+test('today is the server’s date when its offset is known, otherwise this device’s', () => {
+  // 20:30 UTC on 5 Oct is already 6 Oct at UTC+8, and still 5 Oct at UTC−5.
+  const now = new Date(Date.UTC(2026, 9, 5, 20, 30))
+  expect(serverToday(8, now)).toBe('2026-10-06')
+  expect(serverToday(-5, now)).toBe('2026-10-05')
+  expect(serverToday(0, now)).toBe('2026-10-05')
+  const local = new Date(2026, 0, 2, 9, 0)
+  expect(serverToday(null, local)).toBe('2026-01-02')
+})
+
+test('quick ranges end today, counting today, and leave the end open', () => {
+  expect(quickRanges('2026-10-06')).toEqual([
+    { label: 'All dates', from: undefined, to: undefined },
+    { label: 'Last 7 days', from: '2026-09-30', to: undefined },
+    { label: 'Last 30 days', from: '2026-09-07', to: undefined },
+    { label: 'Last 6 months', from: '2026-04-06', to: undefined },
+    { label: 'This year', from: '2026-01-01', to: undefined },
+  ])
+  // Six months back from a month's last day stays within the earlier, shorter month.
+  expect(quickRanges('2026-08-31')[3]?.from).toBe('2026-02-28')
+  expect(quickRanges('2024-08-31')[3]?.from).toBe('2024-02-29')
+  // Counting back crosses the year.
+  expect(quickRanges('2026-01-03')[1]?.from).toBe('2025-12-28')
+})
+
+test('the date button names a quick range, the dates chosen, or all dates', () => {
+  const today = '2026-10-06'
+  expect(dateRangeLabel(undefined, undefined, today)).toBe('All dates')
+  expect(dateRangeLabel('2026-09-30', undefined, today)).toBe('Last 7 days')
+  expect(dateRangeLabel('2026-04-26', '2026-09-28', today)).toBe('26 Apr 2026 – 28 Sep 2026')
+  expect(dateRangeLabel('2026-04-26', undefined, today)).toBe('From 26 Apr 2026')
+  expect(dateRangeLabel(undefined, '2026-09-28', today)).toBe('Until 28 Sep 2026')
 })

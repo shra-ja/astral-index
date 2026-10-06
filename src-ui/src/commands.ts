@@ -203,6 +203,9 @@ export interface HistoryOptions {
   rarities?: Rarity[]
   /** Text the item names contain, ignoring case. */
   search?: string
+  /** The first and last server days shown, as `YYYY-MM-DD`. */
+  from?: string
+  to?: string
 }
 
 /**
@@ -213,9 +216,11 @@ export async function historyPage(
   category: string,
   page: number,
   pageSize: number,
-  { account, rarities, search }: HistoryOptions = {},
+  { account, ...shown }: HistoryOptions = {},
 ): Promise<{ history: StoredHistory } | { failure: Failure }> {
   const named = account && { uid: account.uid, server: account.server }
+  // Only the parts given are sent; with none, the native side shows everything.
+  const filter = Object.values(shown).some((part) => part !== undefined) ? shown : undefined
   try {
     return {
       history: await invoke<StoredHistory>('history_page', {
@@ -223,8 +228,7 @@ export async function historyPage(
         page,
         pageSize,
         account: named,
-        rarities,
-        search,
+        filter,
       }),
     }
   } catch (error) {

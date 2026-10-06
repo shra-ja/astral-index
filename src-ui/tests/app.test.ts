@@ -214,19 +214,21 @@ test('a retrieval keeps running while another screen is shown', async () => {
 // Synthetic saved history: 45 Character Event and 3 Stellar Warp rolls.
 const savedCounts: Record<string, number> = { '1': 3, '11': 45 }
 function savedHistory(args: Record<string, unknown>) {
-  const { category, page, pageSize, rarities, search } = args as {
+  const { category, page, pageSize, filter } = args as {
     category: string
     page: number
     pageSize: number
-    rarities?: string[]
-    search?: string
+    filter?: { rarities?: string[]; search?: string; from?: string; to?: string }
   }
+  const { rarities, search, from } = filter ?? {}
+  // Roll 45 is on 28 Sep and the rest earlier, so a range from 28 Sep keeps it alone.
   const nameOf = (number: number) => (number === 45 ? 'Synthetic Hero' : 'Arrows')
   const total = savedCounts[category] ?? 0
   // Newest first, numbered in the whole category, then the rarities shown.
   const matching = Array.from({ length: total }, (_, index) => total - index).filter(
     (number) =>
       (rarities ?? ['5', '4', '3']).includes(number === 45 ? '5' : '3') &&
+      (!from || number === 45 || from <= '2026-09-27') &&
       nameOf(number)
         .toLowerCase()
         .includes((search ?? '').trim().toLowerCase()),
@@ -324,7 +326,13 @@ test('saved history shows its account, category counts and newest rolls first', 
   // Reading saved history only reads this device; it never asks HoYoverse for anything.
   expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import', 'saved_accounts']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
-  expect(icons().slice(3)).toEqual(['search', 'chevron-left', 'chevron-right', 'chevron-down'])
+  expect(icons().slice(3)).toEqual([
+    'search',
+    'calendar-days',
+    'chevron-left',
+    'chevron-right',
+    'chevron-down',
+  ])
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
 })
 
@@ -456,7 +464,12 @@ test('rarity filters hide rolls across the whole category, keeping their numbers
   filter('3').click()
   await settle()
   expect(filter('3').getAttribute('aria-pressed')).toBe('false')
-  expect(reads.at(-1)).toEqual({ category: '11', page: 1, pageSize: 20, rarities: ['5', '4'] })
+  expect(reads.at(-1)).toEqual({
+    category: '11',
+    page: 1,
+    pageSize: 20,
+    filter: { rarities: ['5', '4'] },
+  })
   // Only the 5★ is left, still numbered 45; the tabs and strip still count everything.
   expect(listed()).toEqual(['45'])
   expect(showing()).toBe('Showing 1–1 of 1')
@@ -472,7 +485,12 @@ test('rarity filters hide rolls across the whole category, keeping their numbers
   // The filters stay when the category changes.
   button(main(), 'Stellar 3').click()
   await settle()
-  expect(reads.at(-1)).toEqual({ category: '1', page: 1, pageSize: 20, rarities: ['4'] })
+  expect(reads.at(-1)).toEqual({
+    category: '1',
+    page: 1,
+    pageSize: 20,
+    filter: { rarities: ['4'] },
+  })
 })
 
 test('searching item names narrows the list once typing pauses, keeping roll numbers', async () => {
@@ -485,7 +503,12 @@ test('searching item names narrows the list once typing pauses, keeping roll num
   // Nothing is read until typing pauses.
   expect(reads).toHaveLength(1)
   await new Promise((resolve) => setTimeout(resolve, 300))
-  expect(reads.at(-1)).toEqual({ category: '11', page: 1, pageSize: 20, search: 'synthetic h' })
+  expect(reads.at(-1)).toEqual({
+    category: '11',
+    page: 1,
+    pageSize: 20,
+    filter: { search: 'synthetic h' },
+  })
   expect(listed()).toEqual(['45'])
   expect(showing()).toBe('Showing 1–1 of 1')
   expect(strip()[0]).toBe('Rolls stored: 45')
@@ -495,6 +518,37 @@ test('searching item names narrows the list once typing pauses, keeping roll num
   expect(main().querySelector('.none')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
     'No rolls match these filters. Try another search or turn on more rarities.',
   )
+})
+
+test('choosing days in the date popover reads only rolls on and after them', async () => {
+  const { reads } = await openHistory(savedHistory)
+  const dates = main().querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!
+  expect(dates.textContent?.trim()).toBe('All dates')
+  await click(dates)
+  const dialog = main().querySelector<HTMLElement>('[role="dialog"]')!
+  expect(dialog.querySelector('.note')?.textContent).toBe(
+    'Server time (UTC+8). Saved rolls span 26 Apr 2026 – 28 Sep 2026.',
+  )
+  const from = [...dialog.querySelectorAll('label')]
+    .find((label) => label.textContent?.trim() === 'From')!
+    .querySelector('input')!
+  from.value = '2026-09-28'
+  from.dispatchEvent(new Event('change'))
+  await settle()
+  expect(reads.at(-1)).toEqual({
+    category: '11',
+    page: 1,
+    pageSize: 20,
+    filter: { from: '2026-09-28' },
+  })
+  expect(listed()).toEqual(['45'])
+  expect(dates.textContent?.trim()).toBe('From 28 Sep 2026')
+  // The tabs and strip still count everything; Clear shows every date again.
+  expect(strip()[0]).toBe('Rolls stored: 45')
+  await click(dialog.querySelector<HTMLButtonElement>('button.clear')!)
+  await settle()
+  expect(reads.at(-1)).toEqual({ category: '11', page: 1, pageSize: 20 })
+  expect(showing()).toBe('Showing 1–20 of 45')
 })
 
 test('history that cannot be read says so, and Try again reads it again', async () => {
