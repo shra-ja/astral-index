@@ -1,10 +1,12 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { historyPage, type StoredHistory } from '../commands'
-import { useHistory } from './useHistory'
+import { historyPage, savedAccounts, type StoredHistory } from '../commands'
+import { forgetAccountChoice, useHistory } from './useHistory'
 
 vi.mock('../commands')
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(savedAccounts).mockResolvedValue({ accounts: [] })
+  forgetAccountChoice()
 })
 
 // Resolve the mocked commands and the composable's follow-up reads.
@@ -39,7 +41,9 @@ function serveStored() {
     Promise.resolve({ history: stored(category, page, size) }),
   )
 }
-const reads = () => vi.mocked(historyPage).mock.calls
+// Each read's arguments; reads of the account imported last name no account.
+const reads = () =>
+  vi.mocked(historyPage).mock.calls.map((call) => call.filter((arg) => arg !== undefined))
 
 test('opens on the first page of Character Event Warp, 20 rows at a time', async () => {
   serveStored()
@@ -156,4 +160,81 @@ test('a failed opening read shows the failure and reads nothing more', async () 
   expect(history.failure.value).toEqual({ kind: 'storage' })
   expect(history.history.value).toBeUndefined()
   expect(history.pages.value).toBe(1)
+})
+
+// A second saved account, with 2 Stellar Warp rolls only.
+const other = { uid: '100000003', server: 'synthetic-server', timezone: null }
+const saved = [
+  { ...other, rolls: 2 },
+  { ...account, rolls: 48 },
+]
+function serveAccounts() {
+  vi.mocked(savedAccounts).mockResolvedValue({ accounts: saved })
+  vi.mocked(historyPage).mockImplementation((category, page, size, chosen) => {
+    if (chosen?.uid !== other.uid) return Promise.resolve({ history: stored(category, page, size) })
+    const total = category === '1' ? 2 : 0
+    return Promise.resolve({
+      history: {
+        account: other,
+        total,
+        categories: [{ gacha_type: '1', total: 2 }],
+        rolls: [],
+      },
+    })
+  })
+}
+
+test('opening lists the saved accounts and reads the account imported last', async () => {
+  serveAccounts()
+  const history = useHistory()
+  await history.start()
+  expect(history.accounts.value).toEqual(saved)
+  expect(reads()).toEqual([['11', 1, 20]])
+  expect(history.history.value?.account).toEqual(account)
+})
+
+test('switching accounts reads its first page, then keeps it for every read', async () => {
+  serveAccounts()
+  const history = useHistory()
+  await history.start()
+  await history.select('1')
+  await history.goTo(1)
+  await history.switchAccount(saved[1]!)
+  expect(reads().at(-1)).toEqual(['1', 1, 20, saved[1]])
+  // Without rolls in the shown category, it moves to the first category with some.
+  await history.select('11')
+  await history.switchAccount(saved[0]!)
+  expect(reads().slice(-2)).toEqual([
+    ['11', 1, 20, saved[0]],
+    ['1', 1, 20, saved[0]],
+  ])
+  expect([history.category.value, history.page.value]).toEqual(['1', 1])
+  expect(history.history.value?.account).toEqual(other)
+  await history.resize(50)
+  expect(reads().at(-1)).toEqual(['1', 1, 50, saved[0]])
+})
+
+test('the chosen account outlasts the screen until a save forgets it', async () => {
+  serveAccounts()
+  const first = useHistory()
+  await first.start()
+  await first.switchAccount(saved[0]!)
+  // Leaving the History screen and coming back keeps the choice.
+  const again = useHistory()
+  await again.start()
+  expect(reads().at(-1)).toEqual(['1', 1, 20, saved[0]])
+  forgetAccountChoice()
+  const afterSave = useHistory()
+  await afterSave.start()
+  expect(reads().at(-1)).toEqual(['11', 1, 20])
+})
+
+test('when the accounts cannot be listed, history is still shown without a switcher', async () => {
+  serveStored()
+  vi.mocked(savedAccounts).mockResolvedValue({ failure: { kind: 'storage' } })
+  const history = useHistory()
+  await history.start()
+  expect(history.accounts.value).toEqual([])
+  expect(history.failure.value).toBeUndefined()
+  expect(history.history.value?.total).toBe(45)
 })

@@ -1,15 +1,33 @@
-// Saved history for the History screen: which category, page and page size are
-// shown, and the page read for them. Only this composable reads history; it reads
-// this device only and never fetches from HoYoverse.
+// Saved history for the History screen: the saved accounts, which account,
+// category, page and page size are shown, and the page read for them. Only this
+// composable reads history; it reads this device only and never fetches from
+// HoYoverse.
 import { computed, readonly, ref, shallowRef } from 'vue'
-import { historyPage, type Failure, type StoredHistory } from '../commands'
+import {
+  historyPage,
+  savedAccounts,
+  type Account,
+  type Failure,
+  type SavedAccount,
+  type StoredHistory,
+} from '../commands'
 import { categoryTabs } from '../format'
+
+// The account chosen in the switcher, kept while the app runs so that leaving the
+// History screen keeps it. Unset, history shows the account imported into last.
+const chosen = shallowRef<Account>()
+
+/** Show the account imported into last again, as after every save. */
+export function forgetAccountChoice() {
+  chosen.value = undefined
+}
 
 export function useHistory() {
   const category = ref<string>(categoryTabs[0].gacha_type)
   const page = ref(1)
   const pageSize = ref(20)
   const history = shallowRef<StoredHistory>()
+  const accounts = shallowRef<SavedAccount[]>([])
   const failure = ref<Failure>()
   const loading = ref(false)
   // Only the latest read may update the screen, whatever order reads finish in.
@@ -18,7 +36,7 @@ export function useHistory() {
   async function load() {
     const read = ++latest
     loading.value = true
-    const result = await historyPage(category.value, page.value, pageSize.value)
+    const result = await historyPage(category.value, page.value, pageSize.value, chosen.value)
     if (read !== latest) return
     loading.value = false
     if ('failure' in result) {
@@ -29,13 +47,29 @@ export function useHistory() {
     history.value = result.history
   }
 
-  /** Read the opening page, moving to the first category with rolls if it has none. */
+  /** Read the opening page and the saved accounts, as on opening the screen. */
   async function start() {
+    const listed = savedAccounts()
+    await open()
+    const result = await listed
+    // Without the list, history is still shown, just without a switcher.
+    accounts.value = 'accounts' in result ? result.accounts : []
+  }
+
+  /** Read the shown category's first page, moving to the first category with rolls if it has none. */
+  async function open() {
     await load()
     const { total, categories } = history.value ?? { total: 0, categories: [] }
     const counted = new Map(categories.map((each) => [each.gacha_type, each.total]))
     const first = categoryTabs.find((tab) => (counted.get(tab.gacha_type) ?? 0) > 0)
     if (total === 0 && first) await select(first.gacha_type)
+  }
+
+  /** Show `account`'s history from now on, starting from the first page. */
+  function switchAccount(account: Account) {
+    chosen.value = account
+    page.value = 1
+    return open()
   }
 
   function select(next: string) {
@@ -63,10 +97,12 @@ export function useHistory() {
     page: readonly(page),
     pageSize: readonly(pageSize),
     history,
+    accounts,
     failure: readonly(failure),
     loading: readonly(loading),
     pages,
     start,
+    switchAccount,
     select,
     goTo,
     resize,

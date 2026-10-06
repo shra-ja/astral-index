@@ -153,12 +153,16 @@ export function discardImport(): Promise<Failure | undefined> {
   return run(() => invoke('discard_import'))
 }
 
-/** The account an import last went into. */
+/** The account whose history is shown: the one chosen, or the one an import last went into. */
 export interface Account {
   uid: string
   server: string
   /** UTC offset in hours of the server times, when known. */
   timezone: number | null
+}
+/** A saved account of the game, with the rolls stored for it in every category. */
+export interface SavedAccount extends Account {
+  rolls: number
 }
 /** A saved roll; `number` counts from 1 at the category's oldest saved roll. */
 export interface StoredRoll {
@@ -177,14 +181,37 @@ export interface StoredHistory {
   rolls: StoredRoll[]
 }
 
-/** Read one page of saved history, newest first. Reads this device only; never fetches. */
+/**
+ * Read one page of saved history, newest first: of `account` when given, otherwise of
+ * the account imported into last. Reads this device only; never fetches.
+ */
 export async function historyPage(
   category: string,
   page: number,
   pageSize: number,
+  account?: Account,
 ): Promise<{ history: StoredHistory } | { failure: Failure }> {
+  const named = account && { uid: account.uid, server: account.server }
   try {
-    return { history: await invoke<StoredHistory>('history_page', { category, page, pageSize }) }
+    return {
+      history: await invoke<StoredHistory>('history_page', {
+        category,
+        page,
+        pageSize,
+        account: named,
+      }),
+    }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
+}
+
+/** The game's saved accounts, the one imported into last first. Reads this device only. */
+export async function savedAccounts(): Promise<
+  { accounts: SavedAccount[] } | { failure: Failure }
+> {
+  try {
+    return { accounts: await invoke<SavedAccount[]>('saved_accounts') }
   } catch (error) {
     return { failure: parse(error) }
   }
