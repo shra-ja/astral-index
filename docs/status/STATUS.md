@@ -17,7 +17,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
   rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
-  stored period), rarity filters and item search. It opens on the account imported last; with more than
+  stored period), and rarity, item name and date-range filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
@@ -31,14 +31,29 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Date-range filter (2026-10-06)
+
+Feature 0032's fifth and last task, on `feat/date-range-filter`; 0032 is done.
+`history_page` now takes one optional `filter` (rarities, search, and `from`
+and `to` server days, each a real `YYYY-MM-DD` date), and the ordered pass keeps
+whole days at both ends. The toolbar's date button opens the popover from
+decision 0013: quick ranges counting today in server time, From and To fields,
+the timezone and stored period, Clear and Done; changes apply at once.
+
+Evidence: the storage, formatter, client, composable, component and app tests
+failed first (missing date fields, helpers, filter object, dates, component and
+button), then passed; the desktop tests were reshaped with the code, and a date
+filter that keeps everything fails them. The end-to-end test opens the popover
+with the keyboard, keeps only 28 Sep's rolls, and closes it with Escape.
 
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
   CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
-- No history-file import, Genshin Impact adapter, filters, statistics or pity
-  yet.
+- No history-file import, Genshin Impact adapter or pity yet.
+- The date fields use the webview's built-in picker, so they show dates in its
+  locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
+  grey in an empty field.
 - Server names other than Asia (`prod_official_asia`) have not been seen in a
   real retrieval.
 - An intermittent frontend test failure, components' events going unrecorded
@@ -50,10 +65,10 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
-fifth task: the date-range filter, with the toolbar button and popover from
-decision 0013. Native Windows validation of the current build belongs to
-milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, feature
+0035's first task: settle when and how pity is calculated, record it as a
+decision, and show a Pity column counted in the page read's ordered pass. Native
+Windows validation of the current build belongs to milestone 10.
 
 ## Keeping this file current
 

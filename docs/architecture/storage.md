@@ -60,8 +60,9 @@ History reads never touch the network. They validate stored payloads and their
 agreement with the indexed columns before returning anything, reporting damage
 as a safe storage error rather than repairing it.
 
-- **History page:** one page of a category for one account, of the rarities and
-  item names shown, newest first by server time then numeric roll ID, each roll numbered by its position
+- **History page:** one page of a category for one account, of the rarities,
+  item names and server days shown, newest first by server time then numeric
+  roll ID, each roll numbered by its position
   in the category (1 is the oldest stored), plus every category's count and a
   summary of the whole category: its 5★ and 4★ counts and the server times of
   its oldest and newest rolls. One ordered pass in Rust reads each roll's ID,
