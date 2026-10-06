@@ -1,8 +1,9 @@
 # Statistics
 
 Status: partly implemented. Pity is counted on read as a 5★ count on every roll
-([decision 0019](decisions/0019-pity-derived-on-read.md)); banner metadata, pity
-colours and guarantees are not. See roadmap features
+([decision 0019](decisions/0019-pity-derived-on-read.md)) and coloured by soft
+pity ([decision 0020](decisions/0020-soft-pity-colours.md)); banner metadata and
+guarantees are not. See roadmap features
 [0034 — Banner metadata](../product/features/0034-banner-metadata.md) and
 [0035 — Pity](../product/features/0035-pity.md).
 
@@ -17,6 +18,10 @@ oldest stored roll starts the count. Otherwise an account's first rolls would
 never show pity, even when its history is known to be complete. Importing older
 rolls therefore changes the pity of every later roll in that group. Until verified
 metadata defines pity groups, each banner category keeps its own count.
+
+5★ pity is coloured by closeness to soft pity, from thresholds the Star Rail
+adapter sends with each page ([decision 0020](decisions/0020-soft-pity-colours.md)).
+Hard pity is official; the soft-pity starts are observed, not published.
 
 Guarantees and 50/50 outcomes need verified banner metadata; until it exists the
 UI reports them as unavailable rather than guessing.

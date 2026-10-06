@@ -99,7 +99,8 @@ repository; this record holds what the implementation must follow.
   the account imported last, and each game's choice lasts until the app
   restarts or a save into that game.
 - **Pity column:** 5★ pity is coloured by closeness to soft pity, with
-  thresholds per banner category (placeholders 1–49, 50–74, 75+), or, with the
+  thresholds per banner category (placeholders 1–49, 50–74, 75+; set by
+  [decision 0020](0020-soft-pity-colours.md) on 2026-10-06), or, with the
   50/50 button on, by outcome: won (green), lost (red), guaranteed (orange).
   The button stays disabled, with a tooltip saying banner details are not
   available yet, until banner metadata exists. 4★ and 3★ pity stays uncoloured.

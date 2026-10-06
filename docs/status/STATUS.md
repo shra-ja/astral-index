@@ -17,7 +17,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
   rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
-  stored period), each roll's 5★ pity, and rarity, item name and date-range
+  stored period), each roll's 5★ pity coloured by soft pity, and rarity, item name and date-range
   filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
@@ -32,14 +32,23 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Pity colours (2026-10-06)
+
+Feature 0035's last task, on `feat/pity-colours`; 0035 is done. Decision 0020:
+soft pity isn't published, so bands use its observed start per official hard
+pity (orange from 49, red from 74 on 90-pity warps; 40 and 65 on 80; Departure
+plain). The adapter sends them with each page; 5★ pity is coloured and named in
+hidden text. Evidence: the adapter, storage, formatter, list and app tests
+failed first, then passed; end to end, Acheron at 70 shows orange. The staged
+`npm run check` passes on the first run, and a release `.deb` builds cleanly.
 
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
   CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
-- No history-file import or Genshin Impact adapter yet. Pity has no colour cues
-  or guarantees, and counts before a category's first stored 5★ are not marked
+- No history-file import or Genshin Impact adapter yet. Pity has no guarantees
+  or 50/50 outcomes, its colours use observed rather than published soft pity
+  (decision 0020), and counts before a category's first stored 5★ are not marked
   as possibly incomplete (decision 0019).
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
@@ -55,10 +64,11 @@ Nothing. Record work here while it is in progress (see below).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, 0035's
-second task: colour 5★ pity by closeness to soft pity, with thresholds per
-banner category from verified rules and their evidence. Native Windows
-validation of the current build belongs to milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, feature
+0034's first task: decide where banner metadata comes from (pool IDs to banners,
+dates and featured items), shipped with the app since nothing is fetched at
+runtime, and record it as a decision. Native Windows validation of the current
+build belongs to milestone 10.
 
 ## Keeping this file current
 
