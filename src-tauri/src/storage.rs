@@ -193,8 +193,10 @@ impl SavedRolls {
 /// One page of an account's rolls in one category, newest first, for display.
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct HistoryPage {
-    /// Rolls in the category altogether, so callers can page through them.
+    /// Rolls in the category altogether.
     pub total: usize,
+    /// Rolls in the category of the rarities shown, so callers can page through them.
+    pub matched: usize,
     /// Every known category's count for the account, empty ones included, so a
     /// caller can show them all without reading each.
     pub categories: Vec<CategoryTotal>,
@@ -207,6 +209,7 @@ impl HistoryPage {
     pub fn empty() -> Self {
         Self {
             total: 0,
+            matched: 0,
             categories: Category::ALL
                 .into_iter()
                 .map(|category| CategoryTotal {
@@ -218,6 +221,22 @@ impl HistoryPage {
             rolls: Vec::new(),
         }
     }
+}
+
+/// Which rarities a history page shows. Hidden rolls keep their place in the
+/// category's numbering, and the category's counts still include them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Rarities {
+    pub five: bool,
+    pub four: bool,
+    pub three: bool,
+}
+impl Rarities {
+    pub const ALL: Self = Self {
+        five: true,
+        four: true,
+        three: true,
+    };
 }
 
 /// A category's rarity counts and stored period, for the summary strip.
@@ -580,6 +599,7 @@ impl Store {
         uid: &str,
         server: &str,
         category: Category,
+        rarities: Rarities,
         offset: usize,
         limit: usize,
     ) -> Result<HistoryPage, Error> {
@@ -608,27 +628,45 @@ impl Store {
                 total = entry.total;
             }
         }
-        let summary = self.summary(uid, server, code)?;
+        let (summary, matched) = self.summary(uid, server, code, rarities)?;
+        // Numbered across the whole category, oldest first, before rarities are hidden.
         let mut statement = self.connection.prepare(
-            "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6",
+            "SELECT id,payload,number FROM (SELECT id,payload,row_number() OVER (ORDER BY json_extract(payload,'$.time'),length(id),id) AS number,json_extract(payload,'$.rank_type') AS rank FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4) WHERE (rank='5' AND ?5) OR (rank='4' AND ?6) OR (rank='3' AND ?7) ORDER BY number DESC LIMIT ?8 OFFSET ?9",
         )?;
-        let (limit, offset_value) = (
+        let (limit, offset) = (
             i64::try_from(limit).unwrap_or(i64::MAX),
             i64::try_from(offset).unwrap_or(i64::MAX),
         );
         let rows = statement.query_map(
-            params![GAME, uid, server, code, limit, offset_value],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            params![
+                GAME,
+                uid,
+                server,
+                code,
+                rarities.five,
+                rarities.four,
+                rarities.three,
+                limit,
+                offset
+            ],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            },
         )?;
         let mut rolls = Vec::new();
-        for (index, row) in rows.enumerate() {
-            let (id, payload) = row?;
+        for row in rows {
+            let (id, payload, number) = row?;
             let roll = stored(uid, &id, &payload)?;
             if roll.gacha_type != code {
                 return Err(Error::InvalidStoredData);
             }
             rolls.push(StoredRoll {
-                number: total.saturating_sub(offset + index),
+                // A row number is never negative.
+                number: usize::try_from(number).unwrap_or_default(),
                 id: roll.id,
                 name: roll.name,
                 item_type: roll.item_type,
@@ -638,14 +676,22 @@ impl Store {
         }
         Ok(HistoryPage {
             total,
+            matched,
             categories,
             summary,
             rolls,
         })
     }
 
-    /// The rarity counts and stored period of an account's rolls in one category.
-    fn summary(&self, uid: &str, server: &str, code: &str) -> Result<CategorySummary, Error> {
+    /// The rarity counts and stored period of an account's rolls in one category,
+    /// and how many of them are of the rarities shown.
+    fn summary(
+        &self,
+        uid: &str,
+        server: &str,
+        code: &str,
+        rarities: Rarities,
+    ) -> Result<(CategorySummary, usize), Error> {
         let mut statement = self.connection.prepare(
             "SELECT json_extract(payload,'$.rank_type'),count(*),min(json_extract(payload,'$.time')),max(json_extract(payload,'$.time')) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 GROUP BY 1",
         )?;
@@ -658,14 +704,24 @@ impl Store {
             ))
         })?;
         let mut summary = CategorySummary::default();
+        let mut matched = 0;
         for group in groups {
             let (rank, count, first, last) = group?;
             let count = usize::try_from(count).map_err(|_| Error::InvalidStoredData)?;
-            match rank.as_str() {
-                "5" => summary.five_star = count,
-                "4" => summary.four_star = count,
-                "3" => {}
+            let shown = match rank.as_str() {
+                "5" => {
+                    summary.five_star = count;
+                    rarities.five
+                }
+                "4" => {
+                    summary.four_star = count;
+                    rarities.four
+                }
+                "3" => rarities.three,
                 _ => return Err(Error::InvalidStoredData),
+            };
+            if shown {
+                matched += count;
             }
             if summary
                 .first
@@ -678,7 +734,7 @@ impl Store {
                 summary.last = Some(last);
             }
         }
-        Ok(summary)
+        Ok((summary, matched))
     }
 }
 
@@ -783,7 +839,7 @@ pub(crate) mod tests {
     const ACCOUNT_LIST: &str = "SELECT a.uid,a.server,a.timezone,count(r.id) FROM accounts a LEFT JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 GROUP BY a.uid,a.server ORDER BY (SELECT max(b.id) FROM batches b WHERE b.game=a.game AND b.uid=a.uid AND b.server=a.server) DESC";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
     const SUMMARY: &str = "SELECT json_extract(payload,'$.rank_type'),count(*),min(json_extract(payload,'$.time')),max(json_extract(payload,'$.time')) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 GROUP BY 1";
-    const PAGE_ROWS: &str = "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time') DESC,length(id) DESC,id DESC LIMIT ?5 OFFSET ?6";
+    const PAGE_ROWS: &str = "SELECT id,payload,number FROM (SELECT id,payload,row_number() OVER (ORDER BY json_extract(payload,'$.time'),length(id),id) AS number,json_extract(payload,'$.rank_type') AS rank FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4) WHERE (rank='5' AND ?5) OR (rank='4' AND ?6) OR (rank='3' AND ?7) ORDER BY number DESC LIMIT ?8 OFFSET ?9";
     pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
     }
@@ -1699,7 +1755,9 @@ pub(crate) mod tests {
         rows_data: Vec<Vec<Value>>,
     ) -> Vec<Step> {
         let mut bindings = scope();
-        bindings.extend([text("11"), Value::Integer(limit), Value::Integer(offset)]);
+        bindings.extend([text("11")]);
+        bindings.extend(shown(Rarities::ALL));
+        bindings.extend([Value::Integer(limit), Value::Integer(offset)]);
         vec![
             done(&format!("PREPARE {TOTALS}")),
             rows(TOTALS, scope(), totals),
@@ -1722,21 +1780,45 @@ pub(crate) mod tests {
             })
             .collect()
     }
-    /// The fixture page's rolls as stored rows.
+    /// The fixture page's rolls as stored rows, numbered 3 and 2 in their category.
     pub(crate) fn page_rows() -> Vec<Vec<Value>> {
         parse_response(PAGE)
             .unwrap()
             .list
             .iter()
-            .map(|roll| vec![text(&roll.id), text(&serde_json::json!(roll).to_string())])
+            .zip([3, 2])
+            .map(|(roll, number)| {
+                vec![
+                    text(&roll.id),
+                    text(&serde_json::json!(roll).to_string()),
+                    Value::Integer(number),
+                ]
+            })
             .collect()
+    }
+    /// The SQL for the first 20 rows of the fixture account's Character Event Warp
+    /// page showing `rarities`, answered with `rows_data`.
+    pub(crate) fn filtered_page_script(
+        rarities: Rarities,
+        rows_data: Vec<Vec<Value>>,
+    ) -> Vec<Step> {
+        let mut steps = page_script(5, 0, 20, vec![]);
+        let mut bindings = category_scope();
+        bindings.extend(shown(rarities));
+        bindings.extend([Value::Integer(20), Value::Integer(0)]);
+        steps[5] = rows(PAGE_ROWS, bindings, rows_data);
+        steps
+    }
+    /// The page query's bindings for the rarities shown: 5★, 4★, then 3★.
+    fn shown(rarities: Rarities) -> [Value; 3] {
+        [rarities.five, rarities.four, rarities.three].map(|on| Value::Integer(on.into()))
     }
 
     #[test]
     fn a_page_lists_one_category_newest_first_numbered_from_its_total() {
         database::expect(page_script(5, 2, 2, page_rows()));
         let page = store()
-            .page(UID, SERVER, Category::CharacterEvent, 2, 2)
+            .page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 2, 2)
             .unwrap();
         database::finish();
         let roll = |number, id: &str| StoredRoll {
@@ -1751,6 +1833,7 @@ pub(crate) mod tests {
             page,
             HistoryPage {
                 total: 5,
+                matched: 5,
                 categories: totals(&[("1", 3), ("11", 5)]),
                 summary: CategorySummary {
                     five_star: 1,
@@ -1791,13 +1874,14 @@ pub(crate) mod tests {
             vec![],
         ));
         let page = store()
-            .page(UID, SERVER, Category::CharacterEvent, 0, 20)
+            .page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 0, 20)
             .unwrap();
         database::finish();
         assert_eq!(
             page,
             HistoryPage {
                 total: 0,
+                matched: 0,
                 categories: totals(&[("22", 7)]),
                 summary: CategorySummary::default(),
                 rolls: vec![],
@@ -1811,6 +1895,7 @@ pub(crate) mod tests {
             HistoryPage::empty(),
             HistoryPage {
                 total: 0,
+                matched: 0,
                 categories: totals(&[]),
                 summary: CategorySummary::default(),
                 rolls: vec![],
@@ -1822,7 +1907,7 @@ pub(crate) mod tests {
     fn counts_of_an_unknown_category_are_damage() {
         database::expect(counting_script(vec![vec![text("99"), Value::Integer(1)]]));
         assert_eq!(
-            store().page(UID, SERVER, Category::CharacterEvent, 0, 20),
+            store().page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 0, 20),
             Err(Error::InvalidStoredData)
         );
         database::finish();
@@ -1832,7 +1917,7 @@ pub(crate) mod tests {
     fn page_query_and_row_failures_are_safe() {
         fail_each(&|| page_script(5, 2, 2, vec![]), None, &mut || {
             store()
-                .page(UID, SERVER, Category::CharacterEvent, 2, 2)
+                .page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 2, 2)
                 .map(|_| ())
         });
         for unreadable in [
@@ -1841,21 +1926,78 @@ pub(crate) mod tests {
         ] {
             database::expect(counting_script(vec![unreadable]));
             assert_eq!(
-                store().page(UID, SERVER, Category::CharacterEvent, 0, 20),
+                store().page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 0, 20),
                 Err(Error::Database)
             );
             database::finish();
         }
         for rows_data in [
-            vec![vec![Value::Null, text("{}")]],
-            vec![vec![text("1"), Value::Null]],
+            vec![vec![Value::Null, text("{}"), Value::Integer(1)]],
+            vec![vec![text("1"), Value::Null, Value::Integer(1)]],
+            vec![vec![
+                page_rows()[0][0].clone(),
+                page_rows()[0][1].clone(),
+                Value::Null,
+            ]],
         ] {
             database::expect(page_script(5, 2, 2, rows_data));
             assert_eq!(
-                store().page(UID, SERVER, Category::CharacterEvent, 2, 2),
+                store().page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 2, 2),
                 Err(Error::Database)
             );
             database::finish();
+        }
+    }
+
+    #[test]
+    fn a_filtered_page_shows_the_chosen_rarities_keeping_category_numbers() {
+        let five_only = Rarities {
+            five: true,
+            four: false,
+            three: false,
+        };
+        database::expect(filtered_page_script(
+            five_only,
+            vec![page_rows()[0].clone()],
+        ));
+        let page = store()
+            .page(UID, SERVER, Category::CharacterEvent, five_only, 0, 20)
+            .unwrap();
+        database::finish();
+        // The tabs and strip still count the whole category; paging counts what matches.
+        assert_eq!((page.total, page.matched), (5, 1));
+        assert_eq!(page.summary.five_star, 1);
+        assert_eq!(page.rolls.len(), 1);
+        assert_eq!(page.rolls[0].number, 3);
+        assert_eq!(
+            serde_json::to_value(&page).unwrap()["matched"],
+            serde_json::json!(1)
+        );
+        // Only 4★ and 3★ rolls match 4 of the 5; none match nothing.
+        for (rarities, matched) in [
+            (
+                Rarities {
+                    five: false,
+                    four: true,
+                    three: true,
+                },
+                4,
+            ),
+            (
+                Rarities {
+                    five: false,
+                    four: false,
+                    three: false,
+                },
+                0,
+            ),
+        ] {
+            database::expect(filtered_page_script(rarities, vec![]));
+            let page = store()
+                .page(UID, SERVER, Category::CharacterEvent, rarities, 0, 20)
+                .unwrap();
+            database::finish();
+            assert_eq!(page.matched, matched);
         }
     }
 
@@ -1866,7 +2008,7 @@ pub(crate) mod tests {
             steps[3] = rows(SUMMARY, category_scope(), vec![group]);
             steps.truncate(4);
             database::expect(steps);
-            let page = store().page(UID, SERVER, Category::CharacterEvent, 2, 2);
+            let page = store().page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 2, 2);
             database::finish();
             page
         };
@@ -1897,10 +2039,13 @@ pub(crate) mod tests {
         let mut other = parse_response(PAGE).unwrap().list.remove(1);
         other.gacha_type = "1".into();
         rows_data[1][1] = text(&serde_json::json!(other).to_string());
-        for corrupt in [rows_data, vec![vec![text("1"), text("{")]]] {
+        for corrupt in [
+            rows_data,
+            vec![vec![text("1"), text("{"), Value::Integer(1)]],
+        ] {
             database::expect(page_script(5, 2, 2, corrupt));
             assert_eq!(
-                store().page(UID, SERVER, Category::CharacterEvent, 2, 2),
+                store().page(UID, SERVER, Category::CharacterEvent, Rarities::ALL, 2, 2),
                 Err(Error::InvalidStoredData)
             );
             database::finish();
