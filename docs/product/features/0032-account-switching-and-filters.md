@@ -17,11 +17,12 @@ trigger acquisition.
 - [x] Show the summary strip for the whole category: rolls stored, 5★ and 4★
   counts with rates, and the stored period
   ([decision 0013](../../architecture/decisions/0013-visual-design.md)).
-- [ ] Filter by rarity (5★, 4★, 3★) in the rolls panel's toolbar. Filters apply
+- [x] Filter by rarity (5★, 4★, 3★) in the rolls panel's toolbar. Filters apply
   to the whole category, not only the current page, so the native read filters
   before paging and returns the filtered count for "Showing … of N". Measure the
   read on a large synthetic history; add an indexed rarity column to the schema
-  only if the measurement needs one.
+  only if the measurement needs one. Measured: about 38 ms for 20,000 rolls in
+  one category, so none was added ([storage](../../architecture/storage.md)).
 - [ ] Search items by name, case-insensitively, through the same native filter
   as rarity.
 - [ ] Filter by a date range in server time, through the same native filter: the

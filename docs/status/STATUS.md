@@ -16,8 +16,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   conflicting rolls per warp, and the period covered. Saving is one transaction;
   failures, cancellations and discards save nothing.
 - **Saved history:** the History screen pages through each category's saved
-  rolls, with tab counts and a summary strip (rolls, 5★ and 4★ counts with
-  rates, stored period). It opens on the account imported last; with more than
+  rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
+  stored period) and rarity filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
@@ -31,7 +31,22 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-Nothing. Record work here while it is in progress (see below).
+### Rarity filters (2026-10-06)
+
+Feature 0032's third task, on `feat/rarity-filters`. `history_page` takes the
+rarities shown; rolls are numbered across the whole category before filtering,
+so hidden ones leave gaps, and a new `matched` count drives paging while the
+tabs and strip still count everything. The rolls panel gains a toolbar with
+5★, 4★ and 3★ toggles, kept across categories and accounts, and a "No rolls
+match these filters" state. A filtered page of 20,000 rolls took about 38 ms, so
+no rarity index was added.
+
+Evidence: the client, composable, component and app tests failed first (no
+rarities sent or kept, no component, no filters in the view), then passed. The
+storage and command tests were written before the code but not run red first;
+binding every rarity as shown, or counting every rarity as matched, makes them
+fail. The real-SQLite test checks numbering and paging under filters, and the
+end-to-end test filters the mock's history to its 143 5★ and 4★ rolls.
 
 ## Known limitations
 
@@ -51,10 +66,9 @@ Nothing. Record work here while it is in progress (see below).
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
-third task: rarity filters in the rolls panel's toolbar, filtering the whole
-category natively before paging, with a measurement on a large synthetic history
-deciding whether an indexed rarity column is needed. Native Windows validation of
-the current build belongs to milestone 10.
+fourth task: item search by name, case-insensitively, through the same native
+filter as rarity. Native Windows validation of the current build belongs to
+milestone 10.
 
 ## Keeping this file current
 

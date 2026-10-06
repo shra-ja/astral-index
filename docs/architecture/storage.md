@@ -60,11 +60,16 @@ History reads never touch the network. They validate stored payloads and their
 agreement with the indexed columns before returning anything, reporting damage
 as a safe storage error rather than repairing it.
 
-- **History page:** one page of a category for one account, newest first by
-  server time then numeric roll ID, each roll numbered by its position
+- **History page:** one page of a category for one account, of the rarities
+  shown, newest first by server time then numeric roll ID, each roll numbered by its position
   in the category (1 is the oldest stored), plus every category's count and a
   summary of the whole category: its 5★ and 4★ counts and the server times of
-  its oldest and newest rolls.
+  its oldest and newest rolls. Rolls are numbered across the whole category with
+  a window function before hidden rarities are filtered out, and the number
+  matching comes from the summary's per-rarity counts. On 2026-10-06 a filtered
+  page of 20,000 rolls in one category took about 38 ms (about 0.2 s at 100,000)
+  in SQLite 3.53, so no indexed rarity column was added: the numbering scans the
+  category either way.
 - **Accounts:** the game's saved accounts with each one's roll count, the one
   imported into most recently first; the account imported last; and one account
   by UID and server, so a history read names only saved accounts.
