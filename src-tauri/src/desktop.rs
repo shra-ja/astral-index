@@ -963,6 +963,12 @@ mod tests {
             invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
+        // Rarities, when named, are a list.
+        let request = serde_json::json!({
+            "category": "11", "page": 1, "pageSize": 20, "rarities": "5",
+        });
+        let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+        assert!(malformed.unwrap_err().contains("rarities"));
         // An account, when named, needs both its UID and server.
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "100000002" },
@@ -2127,7 +2133,12 @@ mod tests {
         );
         sql::finish();
         let mut script = vec![latest_step(vec![latest_row()])];
-        script.extend(page_script(5, 2, 2, vec![vec![text("1"), text("{")]]));
+        script.extend(page_script(
+            5,
+            2,
+            2,
+            vec![vec![text("1"), text("{"), Value::Integer(1)]],
+        ));
         sql::expect(script);
         assert_eq!(
             run(history_into(&database, None, None, "11", 2, 2)),
