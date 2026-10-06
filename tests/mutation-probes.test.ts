@@ -1,9 +1,5 @@
-import { execFileSync, spawnSync } from 'node:child_process'
 import {
-  copyFileSync,
   existsSync,
-  globSync,
-  mkdirSync,
   readFileSync,
   writeFileSync,
   unlinkSync,
@@ -13,6 +9,7 @@ import {
 } from 'node:fs'
 import { afterAll, expect, test } from 'vitest'
 import { refreshProbeCoverage } from '../tooling/backend-coverage'
+import { runBounded, saveFailureSnapshot } from '../tooling/probe-run'
 import type { LlvmCoverageExport } from '../tooling/coverage'
 
 // Per-probe finally blocks restore files; even failed assertions reach this full refresh.
@@ -22,37 +19,30 @@ afterAll(refreshProbeCoverage, 600000)
 const unrelatedIntegration =
   '#[test] fn unrelated_must_not_run() { panic!("probe ran unrelated integration tests"); }\n'
 
+// Snapshots of unexpected probe outcomes; passing runs write nothing.
+const failures = 'test-results/probe-failures'
+
 /**
- * Run a command that must fail, naming `message` in its output. If it does not, save
- * what a rare failure can't show afterwards before asserting: the full output, the
- * machine's processes, load and memory, and Vitest's results caches, which order the
- * next run. Snapshots go to `test-results/probe-failures/`; passing runs write nothing.
+ * Run a command that must fail, naming `message` in its output, within the probe
+ * bound. If it does not, save a failure snapshot before asserting, since a rare
+ * failure can't be seen afterwards.
  */
 function expectCommandFailure(command: string, args: string[], message: string): void {
-  const result = spawnSync(command, args, { encoding: 'utf8' })
-  const output = result.stdout + result.stderr
-  if (result.status === 0 || !output.includes(message)) {
-    const folder = `test-results/probe-failures/${new Date().toISOString().replace(/[:.]/g, '-')}`
-    mkdirSync(folder, { recursive: true })
-    const machine = (file: string, args: string[]) =>
-      spawnSync(file, args, { encoding: 'utf8' }).stdout ?? ''
-    writeFileSync(
-      `${folder}/snapshot.log`,
-      [
-        `$ ${command} ${args.join(' ')}`,
-        `exit ${result.status} signal ${result.signal}; expected a failure naming ${message}`,
-        `load ${readFileSync('/proc/loadavg', 'utf8')}`,
-        machine('free', ['-m']),
-        machine('ps', ['-eo', 'pid,ppid,etime,pcpu,rss,args', '--sort=-pcpu']),
-        output,
-      ].join('\n'),
-    )
-    for (const cache of globSync('{,src-ui/}node_modules/.vite/vitest/*/results.json')) {
-      copyFileSync(cache, `${folder}/${cache.replaceAll('/', '_')}`)
-    }
+  const run = runBounded(command, args)
+  if (run.status === 0 || run.timedOut || !run.output.includes(message)) {
+    saveFailureSnapshot(failures, command, args, run, `a failure naming ${message}`)
   }
-  expect(result.status).not.toBe(0)
-  expect(output).toContain(message)
+  expect(run.timedOut).toBe(false)
+  expect(run.status).not.toBe(0)
+  expect(run.output).toContain(message)
+}
+
+/** Run a command that must succeed within the probe bound, saving a snapshot if not. */
+function expectCommandSuccess(command: string, args: string[]): void {
+  const run = runBounded(command, args)
+  if (run.status !== 0) saveFailureSnapshot(failures, command, args, run, 'success')
+  expect(run.timedOut).toBe(false)
+  expect(run.status).toBe(0)
 }
 
 // Run one report check and require it to fail for the expected reason.
@@ -102,7 +92,7 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
         'fn main() {\n    let _probe = if std::env::var_os("ASTRAL_INDEX_UNSET_COVERAGE_PROBE").is_some() { 1 } else { 0 };',
       ),
     )
-    execFileSync('npm', ['run', 'test:e2e-probe'], { stdio: 'pipe' })
+    expectCommandSuccess('npm', ['run', 'test:e2e-probe'])
     const report = JSON.parse(
       readFileSync('coverage/backend/coverage.json', 'utf8'),
     ) as LlvmCoverageExport
@@ -201,7 +191,7 @@ test('backend coverage requires unit execution even when integration tests cover
       integration,
       '#[test]\nfn covers_only_in_integration() { assert_eq!(astral_index::unit_coverage_probe(true), 1); assert_eq!(astral_index::unit_coverage_probe(false), 0); }\n',
     )
-    execFileSync('npm', ['run', 'test:backend-probe'], { stdio: 'pipe' })
+    expectCommandSuccess('npm', ['run', 'test:backend-probe'])
     const read = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as LlvmCoverageExport
     const unit = read('coverage/backend-unit/coverage.json')
     const combined = read('coverage/backend/coverage.json')
