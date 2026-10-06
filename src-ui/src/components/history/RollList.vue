@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// Presentational: a page of saved rolls, newest first. Columns keep stable widths
-// except Item, which takes the spare space; as the list narrows, Type and then Time
-// drop out. Rows scroll under a fixed header.
+// Presentational: a page of saved rolls, newest first, each with its 5★ pity count.
+// Columns keep stable widths except Item, which takes the spare space; as the list
+// narrows, Type and then Time drop out. Rows scroll under a fixed header.
 import type { StoredRoll } from '../../commands'
 import { initials, serverDateTime } from '../../format'
 
@@ -15,6 +15,7 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
         <div class="row" role="row">
           <span role="columnheader">#</span>
           <span role="columnheader">Item</span>
+          <span role="columnheader">Pity</span>
           <span role="columnheader">Rarity</span>
           <span role="columnheader" class="type">Type</span>
           <span role="columnheader" class="time" aria-sort="descending">Time ({{ offset }})</span>
@@ -33,6 +34,7 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
             <span class="icon" aria-hidden="true">{{ initials(roll.name) }}</span>
             <span class="name">{{ roll.name }}</span>
           </span>
+          <span role="cell" class="pity">{{ roll.pity }}</span>
           <span role="cell"
             ><span class="badge">{{ roll.rank_type }}★</span></span
           >
@@ -52,7 +54,7 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
   min-height: 0;
 }
 .table {
-  --columns: 56px minmax(120px, 1fr) 64px minmax(84px, 140px) minmax(150px, 190px);
+  --columns: 56px minmax(120px, 1fr) 52px 64px minmax(84px, 140px) minmax(150px, 190px);
 
   display: flex;
   flex-direction: column;
@@ -62,7 +64,7 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
 }
 @container rolls (max-width: 600px) {
   .table {
-    --columns: 56px minmax(120px, 1fr) 64px minmax(150px, 190px);
+    --columns: 56px minmax(120px, 1fr) 52px 64px minmax(150px, 190px);
   }
   .type {
     display: none;
@@ -70,7 +72,7 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
 }
 @container rolls (max-width: 440px) {
   .table {
-    --columns: 56px minmax(120px, 1fr) 64px;
+    --columns: 56px minmax(120px, 1fr) 52px 64px;
   }
   .time {
     display: none;
@@ -110,8 +112,19 @@ defineProps<{ rolls: readonly StoredRoll[]; offset: string; caption: string }>()
   text-align: right;
 }
 .number,
+.pity,
 .time {
   font-variant-numeric: tabular-nums;
+}
+.body .pity {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+/* 5★ pity stands out; its colour cues come with the pity rules (feature 0035). */
+.body .rarity-5 .pity,
+.rarity-5 .pity {
+  color: var(--text);
+  font-weight: 600;
 }
 .number {
   color: var(--text-muted);

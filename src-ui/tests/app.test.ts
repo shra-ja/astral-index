@@ -248,8 +248,10 @@ function savedHistory(args: Record<string, unknown>) {
       first: total > 0 ? '2026-04-26 10:00:00' : null,
       last: total > 0 ? '2026-09-28 21:14:03' : null,
     },
+    // No 5★ comes before roll 45, so each roll's pity is its number.
     rolls: matching.slice((page - 1) * pageSize, page * pageSize).map((number) => ({
       number,
+      pity: number,
       id: `${category}-${number}`,
       name: nameOf(number),
       item_type: number === 45 ? 'Character' : 'Light Cone',
@@ -333,7 +335,14 @@ test('saved history shows its account, category counts and newest rolls first', 
     'chevron-right',
     'chevron-down',
   ])
-  expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
+  // Pity shows for every roll, the 5★ at the pity it came at; guarantees and win
+  // rates need banner metadata, so nothing claims them.
+  expect(
+    [...main().querySelectorAll('.roll-list .body [role="row"]')]
+      .slice(0, 2)
+      .map((row) => row.querySelector('.pity')?.textContent),
+  ).toEqual(['45', '44'])
+  expect(document.body.textContent).not.toMatch(/guarantee|win rate|50\/50/i)
 })
 
 // A second saved account, on the Europe server, with 2 Stellar Warp rolls only.
@@ -361,6 +370,7 @@ function historyOf(args: Record<string, unknown>) {
     },
     rolls: Array.from({ length: total }, (_, index) => ({
       number: total - index,
+      pity: total - index,
       id: `eur-${total - index}`,
       name: 'Arrows',
       item_type: 'Light Cone',

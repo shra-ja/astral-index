@@ -68,7 +68,7 @@ as a safe storage error rather than repairing it.
   its oldest and newest rolls. One ordered pass in Rust reads each roll's ID,
   rarity, name and time, counts the 5★ and 4★ rolls and takes the period from
   the first and last before any filter applies, numbers each roll in the
-  category, and keeps those the filter shows:
+  category and counts its pity, and keeps those the filter shows:
   names match by Unicode case folding, which SQLite's `lower()` and `LIKE` do
   not do beyond ASCII. Only the page's payloads are then read, by ID. On
   2026-10-06 a whole page read of 20,000 rolls in one category took about 48 ms

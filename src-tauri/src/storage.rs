@@ -312,6 +312,9 @@ pub struct CategoryTotal {
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct StoredRoll {
     pub number: usize,
+    /// Rolls since the previous 5★ in the category, counting this one, so a 5★
+    /// shows the pity it came at ([decision 0019](../../docs/architecture/decisions/0019-pity-derived-on-read.md)).
+    pub pity: usize,
     pub id: String,
     pub name: String,
     pub item_type: String,
@@ -695,10 +698,17 @@ impl Store {
         let search = fold(filter.name.trim());
         let mut summary = CategorySummary::default();
         let mut shown = Vec::new();
+        // Counted from the oldest stored roll, before the filter hides any.
+        let mut pity = 0;
         for (index, row) in rows.enumerate() {
             let (id, rank, name, time) = row?;
+            pity += 1;
+            let roll_pity = pity;
             match rank.as_str() {
-                "5" => summary.five_star += 1,
+                "5" => {
+                    summary.five_star += 1;
+                    pity = 0;
+                }
                 "4" => summary.four_star += 1,
                 _ => {}
             }
@@ -706,7 +716,7 @@ impl Store {
                 && Filter::matches_name(&name, &search)
                 && filter.shows_time(&time)
             {
-                shown.push((index + 1, id));
+                shown.push((index + 1, roll_pity, id));
             }
             if summary.first.is_none() {
                 summary.first = Some(time.clone());
@@ -719,7 +729,7 @@ impl Store {
             "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4",
         )?;
         let mut rolls = Vec::new();
-        for (number, id) in shown.into_iter().rev().skip(offset).take(limit) {
+        for (number, pity, id) in shown.into_iter().rev().skip(offset).take(limit) {
             let payload: String =
                 lookup.query_row(params![GAME, uid, server, id], |row| row.get(0))?;
             let roll = stored(uid, &id, &payload)?;
@@ -728,6 +738,7 @@ impl Store {
             }
             rolls.push(StoredRoll {
                 number,
+                pity,
                 id: roll.id,
                 name: roll.name,
                 item_type: roll.item_type,
@@ -1833,8 +1844,11 @@ pub(crate) mod tests {
         ])));
         let page = read(&Filter::default(), 2, 2).unwrap();
         database::finish();
-        let roll = |number, id: &str| StoredRoll {
+        // Oldest first the category runs 3★ 5★ 5★ 4★ 4★, so its pity counts run
+        // 1, 2 (a 5★ at pity 2), 1 (straight after it), then 1, 2.
+        let roll = |number, pity, id: &str| StoredRoll {
             number,
+            pity,
             id: id.into(),
             name: "Synthetic item".into(),
             item_type: "Synthetic category".into(),
@@ -1853,7 +1867,10 @@ pub(crate) mod tests {
                     first: Some("2024-01-01 00:00:00".into()),
                     last: Some("2024-03-02 10:00:00".into()),
                 },
-                rolls: vec![roll(3, "9007199254740993"), roll(2, "9007199254740992")],
+                rolls: vec![
+                    roll(3, 1, "9007199254740993"),
+                    roll(2, 2, "9007199254740992")
+                ],
             }
         );
         assert_eq!(
@@ -1870,7 +1887,7 @@ pub(crate) mod tests {
         assert_eq!(
             serde_json::to_value(&page.rolls[0]).unwrap(),
             serde_json::json!({
-                "number": 3, "id": "9007199254740993", "name": "Synthetic item",
+                "number": 3, "pity": 1, "id": "9007199254740993", "name": "Synthetic item",
                 "item_type": "Synthetic category", "rank_type": "5",
                 "time": "2024-02-29 12:34:56",
             })
@@ -2015,6 +2032,9 @@ pub(crate) mod tests {
         let page = read(&showing(false, true, true, ""), 0, 20).unwrap();
         database::finish();
         assert_eq!((page.matched, numbers(&page)), (3, vec![5, 4, 1]));
+        // Hidden rolls still count towards pity: the 4★ after the hidden 5★ starts again.
+        let pity: Vec<usize> = page.rolls.iter().map(|roll| roll.pity).collect();
+        assert_eq!(pity, [2, 1, 1]);
         // A search leaves the summary whole too.
         database::expect(page_script(found(&["9007199254740989"])));
         let page = read(&showing(true, true, true, "arrows"), 0, 20).unwrap();

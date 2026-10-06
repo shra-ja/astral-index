@@ -167,6 +167,8 @@ export interface SavedAccount extends Account {
 /** A saved roll; `number` counts from 1 at the category's oldest saved roll. */
 export interface StoredRoll {
   number: number
+  /** Rolls since the previous 5★ in the category, counting this one. */
+  pity: number
   id: string
   name: string
   item_type: string

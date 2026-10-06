@@ -1,6 +1,8 @@
 # Statistics
 
-Status: tentative. Nothing here is implemented yet; see roadmap features
+Status: partly implemented. Pity is counted on read as a 5★ count on every roll
+([decision 0019](decisions/0019-pity-derived-on-read.md)); banner metadata, pity
+colours and guarantees are not. See roadmap features
 [0034 — Banner metadata](../product/features/0034-banner-metadata.md) and
 [0035 — Pity](../product/features/0035-pity.md).
 
@@ -19,16 +21,12 @@ metadata defines pity groups, each banner category keeps its own count.
 Guarantees and 50/50 outcomes need verified banner metadata; until it exists the
 UI reports them as unavailable rather than guessing.
 
-## Proposal: derived on read
+## Derived on read
 
-Not decided: when and how pity is calculated is settled when the pity work
-starts. The proposal is to derive pity when history is read, not store it. The
-history page read already makes one ordered pass over the category in Rust
-([storage](storage.md)), where pity could be counted before filters apply. One ordered pass over a pity
-group's rolls (by time, then source ID, with the order verified per game) is O(n);
-even tens of thousands of rolls take well under a millisecond in Rust. A page of
-history still needs that pass, because each roll's pity depends on the rolls
-before it, not only the rows shown.
+Pity is counted in the history page read's one ordered pass over the category in
+Rust ([storage](storage.md)), before filters apply, so filters, search and dates
+never change it. Every roll shows how many rolls it is since the previous 5★,
+counting itself; a 5★ shows the pity it came at. Nothing is stored.
 
 Storing pity would make every import of older rolls rewrite all later rows in the
 same transaction, and every change to pity-group or rule mappings a data

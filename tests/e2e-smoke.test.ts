@@ -391,9 +391,32 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         `return [...document.querySelectorAll(".roll-list .body [role=row]")].slice(0, 2).map(row => [...row.querySelectorAll("[role=cell]")].map(cell => cell.textContent.trim()).filter((_, index) => index !== 1))`,
       ),
     ).toEqual([
-      ['1250', expect.stringMatching(/^[345]★$/), expect.any(String), '28 Sep 2026, 21:03:03'],
-      ['1249', expect.stringMatching(/^[345]★$/), expect.any(String), '28 Sep 2026, 21:03:03'],
+      [
+        '1250',
+        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^[345]★$/),
+        expect.any(String),
+        '28 Sep 2026, 21:03:03',
+      ],
+      [
+        '1249',
+        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^[345]★$/),
+        expect.any(String),
+        '28 Sep 2026, 21:03:03',
+      ],
     ])
+    // Each roll's pity counts on from the older roll below it, starting again at 1
+    // straight after a 5★.
+    const pities = await app.execute<{ pity: number; five: boolean }[]>(
+      `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => ({ pity: Number(row.querySelector(".pity").textContent), five: row.classList.contains("rarity-5") }))`,
+    )
+    expect(pities).toHaveLength(20)
+    for (const [newer, older] of pities
+      .slice(0, -1)
+      .map((roll, index) => [roll, pities[index + 1]])) {
+      expect(newer.pity).toBe(older.five ? 1 : older.pity + 1)
+    }
     // The summary strip covers the whole category: each rate is its count's share of
     // the 1,250 rolls, and the period ends on the newest roll's date.
     const strip = await app.execute<{ label: string; parts: string[] }[]>(
@@ -428,7 +451,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => [...row.querySelectorAll("[role=cell]")].map(cell => cell.textContent.trim()))`,
     )
     expect(filtered).toHaveLength(20)
-    expect(filtered.every((cells) => /^[45]★$/.test(cells[2]))).toBe(true)
+    expect(filtered.every((cells) => /^[45]★$/.test(cells[3]))).toBe(true)
     expect(Number(filtered[0][0])).toBeLessThanOrEqual(1250)
     expect(filtered.map((cells) => Number(cells[0]))).toEqual(
       filtered.map((cells) => Number(cells[0])).toSorted((a, b) => b - a),

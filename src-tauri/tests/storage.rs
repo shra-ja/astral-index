@@ -882,6 +882,20 @@ fn a_page_summarises_its_whole_category_by_rarity_and_period() {
         (5, 3, vec![(3, "4".into()), (2, "3".into())])
     );
     assert_eq!(shown(false, false, false, 0, 20), (5, 0, vec![]));
+    // Pity counts every roll since the previous 5★, newest first here: the 5★ came
+    // at pity 4, after a 5★ at pity 1, and hiding 3★ rolls changes neither.
+    let pity = |five, four, three| {
+        let filter = Filter {
+            rarities: Rarities { five, four, three },
+            ..Filter::default()
+        };
+        let page = store
+            .page(UID, SERVER, Category::CharacterEvent, &filter, 0, 20)
+            .unwrap();
+        page.rolls.iter().map(|roll| roll.pity).collect::<Vec<_>>()
+    };
+    assert_eq!(pity(true, true, true), [4, 3, 2, 1, 1]);
+    assert_eq!(pity(true, true, false), [4, 2, 1]);
 }
 
 #[test]
