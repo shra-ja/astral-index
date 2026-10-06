@@ -37,6 +37,7 @@ function stored(category: string, page: number, size: number, rarities?: string[
     })),
     rolls: Array.from({ length }, (_, index) => ({
       number: first - index,
+      pity: first - index,
       id: `${category}-${first - index}`,
       name: 'Synthetic item',
       item_type: 'Character',

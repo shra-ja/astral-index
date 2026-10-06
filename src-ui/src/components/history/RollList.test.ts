@@ -8,8 +8,15 @@ function spoken(cell: Element) {
   copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
   return copy.textContent?.trim()
 }
-const roll = (number: number, name: string, rank_type: string, item_type: string) => ({
+const roll = (
+  number: number,
+  name: string,
+  rank_type: string,
+  item_type: string,
+  pity = number,
+) => ({
   number,
+  pity,
   id: String(1000 + number),
   name,
   item_type,
@@ -17,11 +24,11 @@ const roll = (number: number, name: string, rank_type: string, item_type: string
   time: '2026-09-28 21:14:03',
 })
 
-test('lists rolls newest first with number, item, rarity, type and server time', () => {
+test('lists rolls newest first with number, item, pity, rarity, type and server time', () => {
   const wrapper = mount(RollList, {
     props: {
       rolls: [
-        roll(3, 'Synthetic Hero', '5', 'Character'),
+        roll(3, 'Synthetic Hero', '5', 'Character', 78),
         roll(2, 'Synthetic Cone', '4', 'Light Cone'),
         roll(1, 'Arrows', '3', 'Light Cone'),
       ],
@@ -34,6 +41,7 @@ test('lists rolls newest first with number, item, rarity, type and server time',
   expect(wrapper.findAll('[role="columnheader"]').map((header) => header.text())).toEqual([
     '#',
     'Item',
+    'Pity',
     'Rarity',
     'Type',
     'Time (UTC+8)',
@@ -44,9 +52,9 @@ test('lists rolls newest first with number, item, rarity, type and server time',
   expect(
     rows.map((row) => row.findAll('[role="cell"]').map((cell) => spoken(cell.element))),
   ).toEqual([
-    ['3', 'Synthetic Hero', '5★', 'Character', '28 Sep 2026, 21:14:03'],
-    ['2', 'Synthetic Cone', '4★', 'Light Cone', '28 Sep 2026, 21:14:03'],
-    ['1', 'Arrows', '3★', 'Light Cone', '28 Sep 2026, 21:14:03'],
+    ['3', 'Synthetic Hero', '78', '5★', 'Character', '28 Sep 2026, 21:14:03'],
+    ['2', 'Synthetic Cone', '2', '4★', 'Light Cone', '28 Sep 2026, 21:14:03'],
+    ['1', 'Arrows', '1', '3★', 'Light Cone', '28 Sep 2026, 21:14:03'],
   ])
   // Rarity is in the text as well as the colour; the icon is decoration.
   expect(rows.map((row) => row.classes().find((name) => name.startsWith('rarity-')))).toEqual([
