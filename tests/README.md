@@ -18,7 +18,8 @@ Tests that belong to neither the frontend nor the backend alone.
   their coverage reports.
 - `coverage-reports.test.ts` holds the coverage gates, and
   `mutation-probes.test.ts` the mutation probes proving each gate fails when it
-  should. A probe command that does not fail as expected leaves a snapshot in
+  should. Each probe command is stopped after 10 minutes. One that does not end
+  as expected, or runs out of time, leaves a snapshot in
   `test-results/probe-failures/`: its full output, the machine's processes, load
   and memory, and Vitest's results caches.
 
