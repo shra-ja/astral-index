@@ -90,7 +90,10 @@ unexecuted TypeScript file and branch, an uncovered Rust branch, an uncompiled R
 file, stale, missing and incomplete reports, integration coverage standing in for
 unit coverage, a permissive CSP, and logic added to a delegate. Each probe changes
 source briefly and restores it in `finally`; a suite-level hook then regenerates
-every report once, even after a failure. Each probe command runs for at most 10
+every report once, even after a failure. The native coverage and CSP probes run
+only the end-to-end shell test (`test:e2e-probe`), which launches the real app
+and holds the CSP assertion; the full suite runs once in that refresh. Each
+probe command runs for at most 10
 minutes under coreutils `timeout`, which stops its whole process group, so a
 stalled native run fails well within CI's 30-minute job (`tooling/probe-run.ts`).
 A probe command that does not end as expected, or runs out of time, saves a
