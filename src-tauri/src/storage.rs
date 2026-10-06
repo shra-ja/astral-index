@@ -256,16 +256,29 @@ pub struct Filter {
     /// Shown when a roll's name contains it, ignoring case and surrounding spaces;
     /// empty shows every name.
     pub name: String,
+    /// The first and last server dates shown, as `YYYY-MM-DD`, each a whole day;
+    /// none leaves that end open.
+    pub from: Option<String>,
+    pub to: Option<String>,
 }
 impl Default for Filter {
     fn default() -> Self {
         Self {
             rarities: Rarities::ALL,
             name: String::new(),
+            from: None,
+            to: None,
         }
     }
 }
 impl Filter {
+    /// Whether a roll at this server time falls within the dates shown.
+    fn shows_time(&self, time: &str) -> bool {
+        let day = time.get(..10).unwrap_or(time);
+        self.from.as_deref().is_none_or(|from| day >= from)
+            && self.to.as_deref().is_none_or(|to| day <= to)
+    }
+
     /// Whether `name` contains `search`, which is already folded.
     fn matches_name(name: &str, search: &str) -> bool {
         fold(name).contains(search)
@@ -689,7 +702,10 @@ impl Store {
                 "4" => summary.four_star += 1,
                 _ => {}
             }
-            if filter.rarities.shows(&rank)? && Filter::matches_name(&name, &search) {
+            if filter.rarities.shows(&rank)?
+                && Filter::matches_name(&name, &search)
+                && filter.shows_time(&time)
+            {
                 shown.push((index + 1, id));
             }
             if summary.first.is_none() {
@@ -1798,6 +1814,14 @@ pub(crate) mod tests {
         Filter {
             rarities: Rarities { five, four, three },
             name: name.into(),
+            ..Filter::default()
+        }
+    }
+    fn dated(from: Option<&str>, to: Option<&str>) -> Filter {
+        Filter {
+            from: from.map(String::from),
+            to: to.map(String::from),
+            ..Filter::default()
         }
     }
 
@@ -2038,6 +2062,43 @@ pub(crate) mod tests {
         assert_eq!(
             search(showing(true, true, true, "kafka"), &[]),
             (5, 0, vec![])
+        );
+    }
+
+    #[test]
+    fn a_date_range_keeps_rolls_on_and_between_its_days_in_server_time() {
+        let read_dated = |filter: Filter, ids: &[&str]| {
+            database::expect(page_script(found(ids)));
+            let page = read(&filter, 0, 20).unwrap();
+            database::finish();
+            let numbers: Vec<usize> = page.rolls.iter().map(|roll| roll.number).collect();
+            (page.matched, numbers, page.summary.first)
+        };
+        let first = || Some("2024-01-01 00:00:00".to_owned());
+        // Both ends are whole days, so 29 Feb to 1 Mar keeps 12:34:56 and 09:00:00.
+        assert_eq!(
+            read_dated(
+                dated(Some("2024-02-29"), Some("2024-03-01")),
+                &["9007199254740994", "9007199254740993", "9007199254740992"]
+            ),
+            (3, vec![4, 3, 2], first())
+        );
+        // Either end may be open.
+        assert_eq!(
+            read_dated(
+                dated(Some("2024-03-01"), None),
+                &["9007199254740995", "9007199254740994"]
+            ),
+            (2, vec![5, 4], first())
+        );
+        assert_eq!(
+            read_dated(dated(None, Some("2024-01-01")), &["9007199254740989"]),
+            (1, vec![1], first())
+        );
+        // A range that ends before it starts keeps nothing.
+        assert_eq!(
+            read_dated(dated(Some("2024-03-02"), Some("2024-01-01")), &[]),
+            (0, vec![], first())
         );
     }
 
