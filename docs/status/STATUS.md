@@ -29,15 +29,16 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Milestone reordering (2026-10-05)
+### Milestone 9 tasks (2026-10-05)
 
-On `docs/reorder-milestones`, docs only. The first release now covers Star Rail
-only (decision 0018). Milestone 9, History browsing and statistics, holds account
-switching and filters, banner metadata, pity and the grid layouts; 10 is release
-readiness; 11 is backup, restore and file import; 12 is Genshin Impact and item
-art. The product brief lists backup, file import and Genshin Impact under later
-releases, and backup's per-OS check moved from 0038 to 0037. Evidence:
-`npm run docs:check` and markdownlint pass.
+On `docs/milestone-9-tasks`, docs only. Milestone 9's features are broken into
+one-PR tasks: 0032 switches accounts, then adds the summary strip and rarity,
+name and date-range filters, all applied natively to the whole category; 0035's
+Pity column and soft-pity colouring come before 0034's banner metadata, which
+now also holds 50/50 colouring; 0033 adds the styled tooltip, then the layouts.
+The date-range filter is new: decision 0013 now describes its toolbar button and
+popover, chosen from three mockups.
+Evidence: `npm run docs:check` and markdownlint pass.
 
 ## Known limitations
 
@@ -54,10 +55,10 @@ releases, and backup's per-OS check moved from 0038 to 0037. Evidence:
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, propose
-milestone 9's PR split and break its features into tasks on ROADMAP, starting
-with account and server switching and filters on the History screen (0032).
-Native Windows validation of the current build belongs to milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Next, 0032's
+first task: account switching on the History screen, with a native command that
+lists the game's saved accounts. Native Windows validation of the current build
+belongs to milestone 10.
 
 ## Keeping this file current
 
@@ -127,4 +128,5 @@ research, under a "From" heading.
   the frontend emit flake investigation, the probes' failure snapshots and the
   Markdown checks.
 - [2026-10-05: Astral Index rebrand](history/2026-10-05-astral-index-rebrand.md):
-  the project cleanup milestone and the rename from Roll Tracker.
+  the project cleanup milestone, the rename from Roll Tracker and the reordering
+  of milestones 9 to 12.
