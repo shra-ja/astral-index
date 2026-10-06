@@ -51,3 +51,4 @@ HoYoverse fetching.
 - [0016 — Markdown checks](0016-markdown-checks.md)
 - [0017 — Astral Index name](0017-astral-index-name.md)
 - [0018 — Star Rail first release](0018-star-rail-first-release.md)
+- [0019 — Pity derived on read](0019-pity-derived-on-read.md)
