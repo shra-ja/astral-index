@@ -32,14 +32,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Banner catalogue plan (2026-10-07)
-
-On `docs/banner-catalogue-plan`, docs only. Decision 0022: a separate,
-standalone downloader writes a catalogue folder of banner metadata and art that
-the app loads; the app never fetches either. Features 0034 and 0036 move to
-milestone 12. Decision 0021: history completeness is the user's responsibility;
-the partial-history clause leaves milestone 9 for backlog feature 0046. Evidence:
-`npm run docs:check` and markdownlint pass.
+No work in progress.
 
 ## Known limitations
 
@@ -141,3 +134,6 @@ research, under a "From" heading.
   the History screen's account switcher, summary strip, and rarity, item name
   and date-range filters, the bounded, faster mutation probes, and the Pity
   column.
+- [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
+  the standalone downloader and catalogue folder for banner metadata and art,
+  and history completeness as the user's responsibility.
