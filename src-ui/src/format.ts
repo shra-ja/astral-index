@@ -1,4 +1,4 @@
-import type { SoftPity } from './commands'
+import type { SoftPity, StoredRoll } from './commands'
 // Shared display text, kept out of components so screens can be rearranged freely.
 
 /** Warp names by `gacha_type`, as the game shows them. */
@@ -150,6 +150,12 @@ export function pityBand(pity: number, softPity: SoftPity | null): PityBand | un
   return pity >= softPity.near ? 'near' : 'early'
 }
 
+/** A roll's pity band: only 5★ pity has one (decision 0013). */
+export const rollBand = (
+  roll: Pick<StoredRoll, 'rank_type' | 'pity'>,
+  softPity?: SoftPity | null,
+) => (roll.rank_type === '5' ? pityBand(roll.pity, softPity ?? null) : undefined)
+
 /** "28 Sep 2026, 21:14:03", from a server time, read as written. */
 export const serverDateTime = (time: string) => `${serverDate(time)}, ${time.slice(11)}`
 
@@ -169,6 +175,13 @@ export const categoryTabs = [
   { gacha_type: '21', label: 'Character Collab' },
   { gacha_type: '22', label: 'Light Cone Collab' },
 ] as const
+
+/** The History screen's layouts, in the switch's order (decision 0013). */
+export const layouts = [
+  { id: 'list', label: 'List' },
+  { id: 'grid', label: 'Grid' },
+] as const
+export type Layout = (typeof layouts)[number]['id']
 
 /** Up to two initials for an item's placeholder icon, skipping words without letters. */
 export const initials = (name: string) =>

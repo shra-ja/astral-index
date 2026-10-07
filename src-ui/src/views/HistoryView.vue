@@ -2,10 +2,10 @@
 // The History screen: a game's saved history, read from this device only. It shows
 // the account the latest import went into, or the one chosen in the switcher when
 // more than one is saved, its banner categories with their counts, a summary of
-// the chosen category, and a page of it, newest first. Only Star Rail has an
-// adapter; until something is saved, it points to the Import screen.
+// the chosen category, and a page of it, newest first, as a list or tiles. Only Star
+// Rail has an adapter; until something is saved, it points to the Import screen.
 import { Download } from '@lucide/vue'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AccountChip from '../components/history/AccountChip.vue'
 import AccountSwitcher from '../components/history/AccountSwitcher.vue'
@@ -13,7 +13,9 @@ import CategoryTabs from '../components/history/CategoryTabs.vue'
 import DateRangeFilter from '../components/history/DateRangeFilter.vue'
 import EmptyState from '../components/history/EmptyState.vue'
 import HistoryFailed from '../components/history/HistoryFailed.vue'
+import LayoutSwitch from '../components/history/LayoutSwitch.vue'
 import RarityFilters from '../components/history/RarityFilters.vue'
+import RollGrid from '../components/history/RollGrid.vue'
 import RollList from '../components/history/RollList.vue'
 import RollPager from '../components/history/RollPager.vue'
 import RollSearch from '../components/history/RollSearch.vue'
@@ -30,6 +32,7 @@ import {
   utcOffset,
   warps,
   type Game,
+  type Layout,
 } from '../format'
 import { historyFailure } from '../messages'
 
@@ -56,6 +59,9 @@ const {
   resize,
   retry,
 } = useHistory(() => props.game)
+
+// Kept across categories and accounts while the screen is open.
+const layout = ref<Layout>('list')
 
 const available = computed(() => props.game === 'honkai-star-rail')
 // The router keeps this screen when only the game changes, so each switch to Star
@@ -121,14 +127,23 @@ const tabsOf = (counts: StoredHistory['categories']) =>
               :span="history.summary.first ? spanOf(history.summary) : undefined"
               @change="setDates"
             />
+            <LayoutSwitch class="layout" :layout @change="layout = $event" />
           </div>
-          <RollList
-            v-if="history.rolls.length > 0"
-            :rolls="history.rolls"
-            :offset="utcOffset(account.timezone)"
-            :caption="`${warps[category]} rolls, newest first`"
-            :soft-pity="history.soft_pity"
-          />
+          <template v-if="history.rolls.length > 0">
+            <RollGrid
+              v-if="layout === 'grid'"
+              :rolls="history.rolls"
+              :caption="`${warps[category]} rolls, newest first`"
+              :soft-pity="history.soft_pity"
+            />
+            <RollList
+              v-else
+              :rolls="history.rolls"
+              :offset="utcOffset(account.timezone)"
+              :caption="`${warps[category]} rolls, newest first`"
+              :soft-pity="history.soft_pity"
+            />
+          </template>
           <p v-else-if="history.total === 0" class="none">
             No {{ warps[category] }} rolls saved yet.
           </p>
@@ -187,6 +202,9 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   padding: 10px 10px 10px 16px;
   border-bottom: 1px solid var(--panel-rim);
   background: var(--panel);
+}
+.layout {
+  margin-left: auto;
 }
 .none strong {
   display: block;

@@ -3,7 +3,7 @@
 // Columns keep stable widths except Item, which takes the spare space; as the list
 // narrows, Type and then Time drop out. Rows scroll under a fixed header.
 import type { SoftPity, StoredRoll } from '../../commands'
-import { pityBand, serverDateTime } from '../../format'
+import { rollBand, serverDateTime } from '../../format'
 import ItemIcon from './ItemIcon.vue'
 import RarityBadge from './RarityBadge.vue'
 
@@ -15,11 +15,8 @@ const props = defineProps<{
   softPity?: SoftPity | null
 }>()
 
-// Only 5★ pity has a band; the others stay plain (decision 0013).
-const bandOf = (roll: StoredRoll) =>
-  roll.rank_type === '5' ? pityBand(roll.pity, props.softPity ?? null) : undefined
 const bandClass = (roll: StoredRoll) => {
-  const band = bandOf(roll)
+  const band = rollBand(roll, props.softPity)
   return band && `band-${band}`
 }
 </script>
