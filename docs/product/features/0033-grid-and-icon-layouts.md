@@ -11,7 +11,7 @@ Each task is one PR, in this order.
 
 - [x] Add the styled tooltip from decision 0013 as a shared component: shown
   after a short delay and on keyboard focus, never the browser's `title`.
-- [ ] Add the List, Grid and Icons layout switch with the Grid layout, with
+- [x] Add the List, Grid and Icons layout switch with the Grid layout, with
   placeholder art. The chosen layout lasts while the screen is open, across
   categories and accounts.
 - [ ] Add the Icons layout: tiles with placeholder art and pity, one Tab stop

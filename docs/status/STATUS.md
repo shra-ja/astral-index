@@ -33,7 +33,15 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-No work in progress.
+### Grid layout (2026-10-07)
+
+Feature 0033's second task, on `feat/history-layouts`. The History toolbar's
+layout switch (List, Grid; Icons comes next) shows the page as tiles, kept while
+the screen is open. The art button, Banner column and 50/50 button moved to 0034
+and 0036. Evidence: the switch, grid and History tests failed first, then
+passed. Natively, three layout bugs were caught red then fixed: list icons
+stretched by a leaking `.row` style, the toolbar squeezed under the rolls in
+short windows, and the tabs' measuring copy widening the screen.
 
 ## Known limitations
 
@@ -57,7 +65,7 @@ No work in progress.
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, feature
-0033's second task: the List, Grid and Icons layout switch. Banner metadata and
+0033's third task: the Icons layout. Banner metadata and
 art wait for the downloader and milestone 12 (decision 0022). Native Windows
 validation of the current build belongs to milestone 10.
 
