@@ -35,11 +35,18 @@ test('offers retrieval from HoYoverse, by search or a chosen cache file', async 
   wrapper.unmount()
 })
 
-test('file import is shown as coming soon', () => {
+test('file import is shown as coming soon, focusable so its tooltip can explain', async () => {
   const wrapper = sources({ term: 'Warp', game: 'Honkai: Star Rail', available: true })
   const fileImport = button(wrapper, 'Choose file…')
-  expect(fileImport.attributes('disabled')).toBeDefined()
-  expect(wrapper.get(`#${fileImport.attributes('aria-describedby')}`).text()).toBe('Coming soon')
+  expect(fileImport.attributes('disabled')).toBeUndefined()
+  expect(fileImport.attributes('aria-disabled')).toBe('true')
+  const description = wrapper.get(`#${fileImport.attributes('aria-describedby')}`)
+  expect(description.attributes('role')).toBe('tooltip')
+  expect(description.text()).toBe('Importing from a file isn’t available yet.')
+  expect(wrapper.get('[aria-labelledby="source-file"] .hint').text()).toBe('Coming soon')
+  await fileImport.trigger('click')
+  expect(wrapper.emitted()).not.toHaveProperty('search')
+  expect(wrapper.emitted()).not.toHaveProperty('choose')
   expect(wrapper.text()).toContain('Load an export from another tracker or an Astral Index backup.')
   wrapper.unmount()
 })

@@ -13,7 +13,7 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   events and never make native calls, grouped by where they are used:
   `layout/` for the shell and screen frame (`AppSidebar`, `ScreenHeader`),
   `history/` for the History screen, `import/` for the Import screen, and
-  `shared/` for pieces any screen may use (`CachePicker`).
+  `shared/` for pieces any screen may use (`AppTooltip`, `CachePicker`).
 - `src/composables/` holds flow logic and is the only caller of the native
   commands: `useRetrieval.ts` runs retrieval, review and saving, and
   `useHistory.ts` reads the saved accounts and saved history a page at a time,
@@ -22,6 +22,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep
   native I/O behind typed backend commands rather than adding it here.
+- `src/input-modality.ts` tracks whether the latest press came from the
+  keyboard, so tooltips show at once on keyboard focus.
 - `src/messages.ts` says what the app tells the user about failures, progress
   and saving; `src/format.ts` holds other shared display text such as warp, game
   and tab names, dates and times.

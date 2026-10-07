@@ -8,6 +8,7 @@ import { CloudDownload, FileText } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
 import type { Mode } from '../../commands'
 import type { Source } from '../../composables/useRetrieval'
+import AppTooltip from '../shared/AppTooltip.vue'
 import CachePicker from '../shared/CachePicker.vue'
 
 defineProps<{ term: string; game: string; available: boolean; note?: string }>()
@@ -109,10 +110,17 @@ defineExpose({
           <li>Rolls you already have are skipped</li>
         </ul>
         <div class="actions">
-          <button type="button" class="secondary" disabled aria-describedby="file-import-soon">
-            Choose file…
-          </button>
-          <p id="file-import-soon" class="hint">Coming soon</p>
+          <AppTooltip v-slot="{ tooltipId }" text="Importing from a file isn’t available yet.">
+            <button
+              type="button"
+              class="secondary"
+              aria-disabled="true"
+              :aria-describedby="tooltipId"
+            >
+              Choose file…
+            </button>
+          </AppTooltip>
+          <p class="hint">Coming soon</p>
         </div>
       </section>
     </div>

@@ -32,14 +32,16 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Banner catalogue plan (2026-10-07)
+### Styled tooltip (2026-10-07)
 
-On `docs/banner-catalogue-plan`, docs only. Decision 0022: a separate,
-standalone downloader writes a catalogue folder of banner metadata and art that
-the app loads; the app never fetches either. Features 0034 and 0036 move to
-milestone 12. Decision 0021: history completeness is the user's responsibility;
-the partial-history clause leaves milestone 9 for backlog feature 0046. Evidence:
-`npm run docs:check` and markdownlint pass.
+Feature 0033's first task, on `feat/styled-tooltip`. A shared `AppTooltip`
+(decision 0013, amended): 400 ms under the pointer, at once on keyboard focus,
+hoverable, Escape hides it, placed by `@floating-ui/vue`. The collapsed sidebar
+names its links in tooltips; "Choose file…" is `aria-disabled`, with a tooltip.
+Evidence: the tooltip, sidebar and file-import tests failed first, then passed.
+WebKitGTK's automation never sets `:focus-visible`, so the native Tab check
+failed; the tooltip now tracks the last input (`input-modality.ts`, red then
+green), and end to end checks hover, Escape and Tab.
 
 ## Known limitations
 
@@ -63,7 +65,7 @@ the partial-history clause leaves milestone 9 for backlog feature 0046. Evidence
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, feature
-0033's first task: the styled tooltip as a shared component. Banner metadata and
+0033's second task: the List, Grid and Icons layout switch. Banner metadata and
 art wait for the downloader and milestone 12 (decision 0022). Native Windows
 validation of the current build belongs to milestone 10.
 
@@ -141,3 +143,6 @@ research, under a "From" heading.
   the History screen's account switcher, summary strip, and rarity, item name
   and date-range filters, the bounded, faster mutation probes, and the Pity
   column.
+- [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
+  the standalone downloader and catalogue folder for banner metadata and art,
+  and history completeness as the user's responsibility.
