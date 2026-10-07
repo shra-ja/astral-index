@@ -2,7 +2,7 @@
 // The History screen: a game's saved history, read from this device only. It shows
 // the account the latest import went into, or the one chosen in the switcher when
 // more than one is saved, its banner categories with their counts, a summary of
-// the chosen category, and a page of it, newest first, as a list or tiles. Only Star
+// the chosen category, and a page of it, newest first, as a list, tiles or icons. Only Star
 // Rail has an adapter; until something is saved, it points to the Import screen.
 import { Download } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
@@ -16,6 +16,7 @@ import HistoryFailed from '../components/history/HistoryFailed.vue'
 import LayoutSwitch from '../components/history/LayoutSwitch.vue'
 import RarityFilters from '../components/history/RarityFilters.vue'
 import RollGrid from '../components/history/RollGrid.vue'
+import RollIcons from '../components/history/RollIcons.vue'
 import RollList from '../components/history/RollList.vue'
 import RollPager from '../components/history/RollPager.vue'
 import RollSearch from '../components/history/RollSearch.vue'
@@ -132,6 +133,12 @@ const tabsOf = (counts: StoredHistory['categories']) =>
           <template v-if="history.rolls.length > 0">
             <RollGrid
               v-if="layout === 'grid'"
+              :rolls="history.rolls"
+              :caption="`${warps[category]} rolls, newest first`"
+              :soft-pity="history.soft_pity"
+            />
+            <RollIcons
+              v-else-if="layout === 'icons'"
               :rolls="history.rolls"
               :caption="`${warps[category]} rolls, newest first`"
               :soft-pity="history.soft_pity"

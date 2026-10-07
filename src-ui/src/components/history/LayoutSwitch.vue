@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // Presentational: the History screen's layout switch, a group of icon toggles, each
 // named in a styled tooltip. It emits the chosen layout; the screen keeps it.
-import { LayoutGrid, List } from '@lucide/vue'
+import { Grid3x3, LayoutGrid, List } from '@lucide/vue'
 import { layouts, type Layout } from '../../format'
 import AppTooltip from '../shared/AppTooltip.vue'
 
 defineProps<{ layout: Layout }>()
 const emit = defineEmits<{ change: [layout: Layout] }>()
-const icons = { list: List, grid: LayoutGrid }
+const icons = { list: List, grid: LayoutGrid, icons: Grid3x3 }
 </script>
 
 <template>

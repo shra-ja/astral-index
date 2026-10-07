@@ -4,7 +4,7 @@
 // item's name is always given as text beside or around it.
 import { initials } from '../../format'
 
-withDefaults(defineProps<{ name: string; rarity: string; size?: 'small' | 'medium' }>(), {
+withDefaults(defineProps<{ name: string; rarity: string; size?: 'small' | 'medium' | 'large' }>(), {
   size: 'small',
 })
 </script>
@@ -37,6 +37,16 @@ withDefaults(defineProps<{ name: string; rarity: string; size?: 'small' | 'mediu
   height: 40px;
   border-radius: 11px;
   font-size: 13px;
+}
+.large {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  font-size: 16px;
+}
+/* An icon standing alone marks 5★ with a stronger ring. */
+.large.rarity-5 {
+  border: 2px solid var(--rarity-five);
 }
 .rarity-5 {
   --rarity: var(--rarity-five);
