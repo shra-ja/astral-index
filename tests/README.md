@@ -3,7 +3,8 @@
 Tests that belong to neither the frontend nor the backend alone.
 
 - `e2e-smoke.test.ts` launches the real Tauri app and checks the bundled UI,
-  keyboard operation, network restrictions and graceful shutdown. It then runs
+  keyboard operation, tooltips under the pointer and the keyboard, network
+  restrictions and graceful shutdown. It then runs
   the mock debug binary (decision 0014) against a synthetic HoYoverse: retrieval,
   review and saving, then failed, cancelled and discarded retrievals and a restart
   on the saved data folder, checking that no file the app keeps holds the auth key;

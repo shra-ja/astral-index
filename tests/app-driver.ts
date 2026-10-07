@@ -14,6 +14,8 @@ export const ENTER = ''
 export const DOWN = ''
 /** The Escape key, as WebDriver names it. */
 export const ESCAPE = '\uE00C'
+/** The Tab key, as WebDriver names it. */
+export const TAB = '\uE004'
 
 export interface AppSession {
   /** Send a WebDriver command for this session; `path` follows the session's URL. */
@@ -24,6 +26,8 @@ export interface AppSession {
   executeAsync<T = unknown>(script: string): Promise<T>
   /** Press keys on whatever has focus. */
   press(...keys: string[]): Promise<void>
+  /** Scroll the first element matching `selector` into view and move the mouse pointer to its middle. */
+  hover(selector: string): Promise<void>
   /** Choose a file in a file input, as the native file dialog would. */
   chooseFile(selector: string, path: string): Promise<void>
   /** Save a screenshot of the window under `test-results/`. */
@@ -87,6 +91,8 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
   }
   const command = <T>(path: string, method = 'GET', body?: unknown) =>
     request<T>(`/session/${session}${path}`, method, body)
+  const find = (selector: string) =>
+    command<Record<string, string>>('/element', 'POST', { using: 'css selector', value: selector })
   return {
     command,
     execute: <T>(script: string) => command<T>('/execute/sync', 'POST', { script, args: [] }),
@@ -105,11 +111,26 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
         ],
       })
     },
-    chooseFile: async (selector: string, path: string) => {
-      const element = await command<Record<string, string>>('/element', 'POST', {
-        using: 'css selector',
-        value: selector,
+    hover: async (selector: string) => {
+      await command('/execute/sync', 'POST', {
+        script: 'document.querySelector(arguments[0]).scrollIntoView({ block: "center" })',
+        args: [selector],
       })
+      await command('/actions', 'POST', {
+        actions: [
+          {
+            type: 'pointer',
+            id: 'mouse',
+            parameters: { pointerType: 'mouse' },
+            actions: [
+              { type: 'pointerMove', duration: 0, origin: await find(selector), x: 0, y: 0 },
+            ],
+          },
+        ],
+      })
+    },
+    chooseFile: async (selector: string, path: string) => {
+      const element = await find(selector)
       await command(`/element/${Object.values(element)[0]}/value`, 'POST', { text: path })
     },
     screenshot: async (name: string) => {

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
-import { DOWN, ENTER, ESCAPE, launch, type AppSession } from './app-driver'
+import { DOWN, ENTER, ESCAPE, TAB, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
 // A synthetic cache file holding one warp history request, with a key distinctive
@@ -41,6 +41,20 @@ const environment = (extra: NodeJS.ProcessEnv = {}) => ({
 const textOf = (app: AppSession, selector: string) =>
   app.execute<string | undefined>(`return document.querySelector("${selector}")?.textContent`)
 const heading = (app: AppSession) => textOf(app, 'h1')
+/** The tooltip of the element matching `selector`: its text, whether it shows, and where. */
+const tooltipFor = (app: AppSession, selector: string) =>
+  app.execute<{ text: string; shown: boolean; inWindow: boolean; overlaps: boolean }>(`
+    const target = document.querySelector(${JSON.stringify(selector)});
+    const tip = target.parentElement.querySelector('[role=tooltip]');
+    const own = target.getBoundingClientRect(), box = tip.getBoundingClientRect();
+    return {
+      text: tip.textContent,
+      shown: getComputedStyle(tip).display !== 'none',
+      inWindow: box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight,
+      overlaps: box.left < own.right && own.left < box.right && box.top < own.bottom && own.top < box.bottom,
+    };
+  `)
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms))
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
 test('the bundled native shell works offline, supports keyboard navigation, and closes cleanly', async () => {
@@ -57,6 +71,17 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       .toContain('No Warp History Yet')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
     await app.screenshot('e2e-history')
+    // The expanded sidebar shows its links' names, so their tooltips stay hidden.
+    const importLink = 'nav a[aria-label=Import]'
+    expect(
+      await app.execute(
+        `return getComputedStyle(document.querySelector("${importLink} .text")).display`,
+      ),
+    ).not.toBe('none')
+    await app.hover(importLink)
+    await pause(600)
+    expect(await tooltipFor(app, importLink)).toMatchObject({ text: 'Import', shown: false })
+    await app.hover('h1')
     // The sidebar works from the keyboard: Enter on the Import link opens that screen.
     await app.execute('document.querySelector("nav a[aria-label=Import]").focus()')
     await app.press(ENTER)
@@ -81,6 +106,38 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       width: 480,
       height: 560,
     })
+    // Collapsed to icons, the sidebar names its links in themed tooltips (decision 0013):
+    // after a pause under the pointer, beside the link and inside the window.
+    await app.hover(importLink)
+    await expect
+      .poll(() => tooltipFor(app, importLink), { timeout: 5000 })
+      .toEqual({ text: 'Import', shown: true, inWindow: true, overlaps: false })
+    // Escape hides it without moving the pointer.
+    await app.press(ESCAPE)
+    await expect.poll(async () => (await tooltipFor(app, importLink)).shown).toBe(false)
+    // Tabbing onto a link shows its tooltip too, with the pointer elsewhere.
+    await app.hover('h1')
+    await app.execute(`document.querySelector("nav a[aria-label='Warp History']").focus()`)
+    await app.press(TAB)
+    expect(await app.execute('return document.activeElement.getAttribute("aria-label")')).toBe(
+      'Import',
+    )
+    await expect
+      .poll(() => tooltipFor(app, importLink), { timeout: 5000 })
+      .toEqual({ text: 'Import', shown: true, inWindow: true, overlaps: false })
+    // File import is coming soon: its button stays focusable, and its tooltip says why.
+    const fileImport = '[aria-labelledby=source-file] button'
+    await app.hover(fileImport)
+    await expect
+      .poll(() => tooltipFor(app, fileImport), { timeout: 5000 })
+      .toEqual({
+        text: 'Importing from a file isn’t available yet.',
+        shown: true,
+        inWindow: true,
+        overlaps: false,
+      })
+    await app.screenshot('e2e-tooltip')
+    await app.hover('h1')
     const network = await app.executeAsync(`
       const done = arguments[arguments.length - 1];
       const timeout = setTimeout(() => done(null), 1000);
