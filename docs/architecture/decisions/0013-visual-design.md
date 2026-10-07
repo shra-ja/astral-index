@@ -150,7 +150,10 @@ widths, and detect overflow where content length varies.
   200px; a window too short for that scrolls the whole History screen, never
   sideways. The layout switch is a group of icon toggles named in tooltips, and
   the chosen layout lasts while the screen is open, across categories and
-  accounts.
+  accounts. Icons are one Tab stop: arrow keys move by icon and by row (down
+  onto a short last row lands on its last icon), Home and End jump to the ends,
+  and each icon names its roll ("name, 5★, pity 74, #123, 28 Sep 2026") in a
+  tooltip and to assistive technology.
 - **Review:** the two panels sit side by side, each scrolling with a fixed
   header, and stack at 1100px, where the whole screen scrolls instead. The footer
   actions stay fixed. Centred panels (progress, saved, failures) have a maximum

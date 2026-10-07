@@ -33,7 +33,14 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-No work in progress.
+### Icons layout (2026-10-07)
+
+Feature 0033's last task, on `feat/icons-layout`; 0033 and milestone 9's
+features are done. Icons show each roll's placeholder icon and pity; they are
+one Tab stop, arrows move by icon and row, and each names its roll in a tooltip
+and to assistive technology. Evidence: the icons, switch and History tests
+failed first, then passed; end to end, Tab, Right and Down move as expected and
+the tooltip shows.
 
 ## Known limitations
 
@@ -56,10 +63,10 @@ No work in progress.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next, feature
-0033's third task: the Icons layout. Banner metadata and
-art wait for the downloader and milestone 12 (decision 0022). Native Windows
-validation of the current build belongs to milestone 10.
+If the probe flake recurs, read its snapshot before rerunning. Milestone 9 is
+complete; next is milestone 10, release readiness, starting with feature 0038's
+checks, which include native Windows validation of the current build. Banner
+metadata and art wait for the downloader and milestone 12 (decision 0022).
 
 ## Keeping this file current
 

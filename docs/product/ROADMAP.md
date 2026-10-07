@@ -141,7 +141,7 @@ GitHub repository carry the name Astral Index.
 
 - [x] [0032 — Account switching and filters](features/0032-account-switching-and-filters.md)
 - [x] [0035 — Pity](features/0035-pity.md)
-- [ ] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
+- [x] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
 
 Done when the History screen switches between accounts and servers, filters
 saved rolls by rarity, name and date, shows totals, rarity breakdowns and pity,
