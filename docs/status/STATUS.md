@@ -18,7 +18,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 - **Saved history:** the History screen pages through each category's saved
   rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
   stored period), each roll's 5★ pity coloured by soft pity, and rarity, item name and date-range
-  filters. It opens on the account imported last; with more than
+  filters, as a list or a grid of tiles. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only. Themed
   tooltips name the collapsed sidebar's links and explain unavailable controls.
@@ -33,15 +33,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Grid layout (2026-10-07)
-
-Feature 0033's second task, on `feat/history-layouts`. The History toolbar's
-layout switch (List, Grid; Icons comes next) shows the page as tiles, kept while
-the screen is open. The art button, Banner column and 50/50 button moved to 0034
-and 0036. Evidence: the switch, grid and History tests failed first, then
-passed. Natively, three layout bugs were caught red then fixed: list icons
-stretched by a leaking `.row` style, the toolbar squeezed under the rolls in
-short windows, and the tabs' measuring copy widening the screen.
+No work in progress.
 
 ## Known limitations
 
@@ -145,4 +137,5 @@ research, under a "From" heading.
   column.
 - [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
   the standalone downloader and catalogue folder for banner metadata and art,
-  history completeness as the user's responsibility, and the styled tooltip.
+  history completeness as the user's responsibility, the styled tooltip and the
+  grid layout.
