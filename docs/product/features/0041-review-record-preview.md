@@ -9,4 +9,5 @@ Show individual records in the review as a quick accuracy check.
 - [ ] Extend the review DTO with individual records, starting with highlighted
   5-star characters and light cones as a quick accuracy check. Rarity
   (`rank_type`), `item_type` and localized `name` are already in each record;
-  banner meaning (limited or standard, pity) needs the milestone 9 metadata.
+  banner meaning (limited or standard, pity) needs the banner catalogue
+  from [0034 — Banner metadata](0034-banner-metadata.md).
