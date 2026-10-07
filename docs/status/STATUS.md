@@ -36,15 +36,12 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 Feature 0033's first task, on `feat/styled-tooltip`. A shared `AppTooltip`
 (decision 0013, amended): 400 ms under the pointer, at once on keyboard focus,
-hoverable, Escape hides it, positioned by `@floating-ui/vue`. The collapsed
-sidebar names its links in tooltips, and "Choose file…" is `aria-disabled` with
-a tooltip saying file import isn't available yet. Evidence: the tooltip tests
-failed against a slot-only stub, then passed; the sidebar and file-import tests
-failed (no tooltips, still `disabled`), then passed. Natively, WebKitGTK never
-sets `:focus-visible` after a WebDriver Tab, so the end-to-end Tab check failed;
-the tooltip now tracks the last input itself (`input-modality.ts`, red then
-green), and the end-to-end test checks hover, Escape and Tab on the icon rail and
-the file-import tooltip.
+hoverable, Escape hides it, placed by `@floating-ui/vue`. The collapsed sidebar
+names its links in tooltips; "Choose file…" is `aria-disabled`, with a tooltip.
+Evidence: the tooltip, sidebar and file-import tests failed first, then passed.
+WebKitGTK's automation never sets `:focus-visible`, so the native Tab check
+failed; the tooltip now tracks the last input (`input-modality.ts`, red then
+green), and end to end checks hover, Escape and Tab.
 
 ## Known limitations
 
