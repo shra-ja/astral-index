@@ -68,7 +68,9 @@ repository; this record holds what the implementation must follow.
   icons-and-banner-art button (list layout only, on by default), a 50/50 colouring button, and a List, Grid and Icons
   layout switch. The list shows #, item with icon, Pity, banner art, rarity,
   type and time (server time, offset in the header), newest first, paged at
-  20, 50 or 100 rows. Grid tiles show icon, name, type, roll number, rarity,
+  20, 50 or 100 rows. (Amended 2026-10-07: the art button, Banner column and
+  50/50 button wait for the banner catalogue, features 0034 and 0036.) Grid
+  tiles show icon, name, type, roll number, rarity,
   pity and date; Icons tiles show the icon with its pity in the corner. The
   summary strip covers the whole category; filters, search and the date range
   only hide rows and change the "Showing … of N" count. An empty state links to

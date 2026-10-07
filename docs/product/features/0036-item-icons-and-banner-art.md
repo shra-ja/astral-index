@@ -11,3 +11,6 @@ Show real item icons and banner art from the loaded catalogue folder.
   matched through its manifest, wherever placeholders appear now. Keep
   placeholders for missing or invalid images. The application never fetches art,
   and no game assets are committed to this repository.
+- [ ] Add the list's Banner column, with each roll's banner art, and the
+  icons-and-banner-art toggle (list layout only, on by default), as decision
+  0013 describes.

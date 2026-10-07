@@ -22,7 +22,7 @@ catalogue folder (decision 0022).
   show its version and coverage. No network requests.
 - [ ] Show banner names in the list's Banner column, keeping placeholder art,
   with rolls on pools the catalogue lacks shown as unknown rather than guessed.
-- [ ] Colour 5★ pity by 50/50 outcome (won, lost, guaranteed) from verified
-  featured items. Where the catalogue does not verify a roll's banner, its
+- [ ] Add the 50/50 button to the History toolbar and colour 5★ pity by
+  outcome (won, lost, guaranteed) from verified featured items. Where the catalogue does not verify a roll's banner, its
   outcome is unavailable and the control stays disabled with an explanatory
   tooltip.
