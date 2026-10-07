@@ -32,15 +32,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Pity colours (2026-10-06)
-
-Feature 0035's last task, on `feat/pity-colours`; 0035 is done. Decision 0020:
-soft pity isn't published, so bands use its observed start per official hard
-pity (orange from 49, red from 74 on 90-pity warps; 40 and 65 on 80; Departure
-plain). The adapter sends them with each page; 5★ pity is coloured, and every
-pity cell reads only its count. Evidence: the adapter, storage, formatter, list and app tests
-failed first, then passed; end to end, Acheron at 70 shows orange. The staged
-`npm run check` passes on the first run, and a release `.deb` builds cleanly.
+No work in progress.
 
 ## Known limitations
 
