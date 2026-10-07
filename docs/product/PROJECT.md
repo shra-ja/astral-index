@@ -53,7 +53,9 @@ sequences the rest.
 - Data survives application restart; overlapping imports do not inflate history.
 - Different games, accounts, and servers cannot contaminate each other's history.
 - Failed imports leave existing data intact and explain how to correct the input.
-- Missing historical coverage and uncertain statistics are visibly identified.
+- Statistics are calculated from the stored rolls; keeping history complete is
+  the user's responsibility
+  ([decision 0021](../architecture/decisions/0021-history-completeness.md)).
 - Backup/restore preserves records, source identity, and relevant metadata.
 - Import previews and history navigation work with a keyboard and have useful
   loading, empty, success, and error states.
@@ -73,9 +75,9 @@ User-requested HoYoverse history acquisition is in scope; see
   documentation and synthetic or redacted samples before claiming compatibility.
 - How users identify accounts and resolve ambiguous imports, and account
   reconciliation in general.
-- Distribution, and the source of item icons and banner art
-  ([feature 0036](features/0036-item-icons-and-banner-art.md)). The code is
-  MIT-licensed.
+- Distribution. The code is MIT-licensed; banner metadata and art come from a
+  separate downloader
+  ([decision 0022](../architecture/decisions/0022-banner-catalogue-downloader.md)).
 
 These are open decisions, not implied user preferences. Implementation may choose
 reversible technical defaults and record the reasoning. Settled choices are
