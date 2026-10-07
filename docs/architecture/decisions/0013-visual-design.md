@@ -68,7 +68,9 @@ repository; this record holds what the implementation must follow.
   icons-and-banner-art button (list layout only, on by default), a 50/50 colouring button, and a List, Grid and Icons
   layout switch. The list shows #, item with icon, Pity, banner art, rarity,
   type and time (server time, offset in the header), newest first, paged at
-  20, 50 or 100 rows. Grid tiles show icon, name, type, roll number, rarity,
+  20, 50 or 100 rows. (Amended 2026-10-07: the art button, Banner column and
+  50/50 button wait for the banner catalogue, features 0034 and 0036.) Grid
+  tiles show icon, name, type, roll number, rarity,
   pity and date; Icons tiles show the icon with its pity in the corner. The
   summary strip covers the whole category; filters, search and the date range
   only hide rows and change the "Showing … of N" count. An empty state links to
@@ -144,6 +146,11 @@ widths, and detect overflow where content length varies.
   space shrinks, Type drops out (1180px), then Banner (980px, or when art is
   off), then Time (760px). Rows, grid tiles (at least 190px, as many per row as
   fit) and icon tiles (64px) scroll inside the panel, with the list header fixed.
+  (Amended 2026-10-07:) the toolbar never shrinks, and the rolls keep at least
+  200px; a window too short for that scrolls the whole History screen, never
+  sideways. The layout switch is a group of icon toggles named in tooltips, and
+  the chosen layout lasts while the screen is open, across categories and
+  accounts.
 - **Review:** the two panels sit side by side, each scrolling with a fixed
   header, and stack at 1100px, where the whole screen scrolls instead. The footer
   actions stay fixed. Centred panels (progress, saved, failures) have a maximum

@@ -332,6 +332,8 @@ test('saved history shows its account, category counts and newest rolls first', 
   expect(icons().slice(3)).toEqual([
     'search',
     'calendar-days',
+    'list',
+    'layout-grid',
     'chevron-left',
     'chevron-right',
     'chevron-down',
@@ -467,6 +469,36 @@ test('history pages through a category, resizes pages and switches categories', 
 
 const filter = (name: string) =>
   main().querySelector<HTMLButtonElement>(`[aria-label="Show rarities"] .rarity-${name}`)!
+
+test('the layout switch shows rolls as tiles, keeping the layout until the screen closes', async () => {
+  await openHistory(savedHistory)
+  const layout = (name: string) =>
+    main().querySelector<HTMLButtonElement>(`[aria-label="Layout"] [aria-label="${name} view"]`)!
+  const tiles = () =>
+    [...main().querySelectorAll('.roll-grid li')].map(
+      (tile) => tile.querySelector('.detail')?.textContent,
+    )
+  expect(layout('List').getAttribute('aria-pressed')).toBe('true')
+  expect(tiles()).toEqual([])
+  await click(layout('Grid'))
+  expect(layout('Grid').getAttribute('aria-pressed')).toBe('true')
+  expect(main().querySelector('[role="table"]')).toBeNull()
+  expect(main().querySelector('.roll-grid')?.getAttribute('aria-label')).toBe(
+    'Character Event Warp rolls, newest first',
+  )
+  expect(tiles()).toHaveLength(20)
+  expect(tiles()[0]).toBe('Character · #45')
+  expect(showing()).toBe('Showing 1–20 of 45')
+  // Another category keeps the grid.
+  button(main(), 'Stellar 3').click()
+  await settle()
+  expect(tiles()).toHaveLength(3)
+  // Leaving the screen and coming back starts from the list again.
+  await openImport()
+  await follow(named(sidebar(), 'Warp History'))
+  expect(layout('List').getAttribute('aria-pressed')).toBe('true')
+  expect(listed()).toHaveLength(20)
+})
 
 test('rarity filters hide rolls across the whole category, keeping their numbers', async () => {
   const { reads } = await openHistory(savedHistory)

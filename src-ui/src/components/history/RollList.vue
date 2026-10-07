@@ -3,7 +3,9 @@
 // Columns keep stable widths except Item, which takes the spare space; as the list
 // narrows, Type and then Time drop out. Rows scroll under a fixed header.
 import type { SoftPity, StoredRoll } from '../../commands'
-import { initials, pityBand, serverDateTime } from '../../format'
+import { rollBand, serverDateTime } from '../../format'
+import ItemIcon from './ItemIcon.vue'
+import RarityBadge from './RarityBadge.vue'
 
 const props = defineProps<{
   rolls: readonly StoredRoll[]
@@ -13,11 +15,8 @@ const props = defineProps<{
   softPity?: SoftPity | null
 }>()
 
-// Only 5★ pity has a band; the others stay plain (decision 0013).
-const bandOf = (roll: StoredRoll) =>
-  roll.rank_type === '5' ? pityBand(roll.pity, props.softPity ?? null) : undefined
 const bandClass = (roll: StoredRoll) => {
-  const band = bandOf(roll)
+  const band = rollBand(roll, props.softPity)
   return band && `band-${band}`
 }
 </script>
@@ -45,13 +44,11 @@ const bandClass = (roll: StoredRoll) => {
         >
           <span role="cell" class="number">{{ roll.number }}</span>
           <span role="cell" class="item">
-            <span class="icon" aria-hidden="true">{{ initials(roll.name) }}</span>
+            <ItemIcon :name="roll.name" :rarity="roll.rank_type" />
             <span class="name">{{ roll.name }}</span>
           </span>
           <span role="cell" class="pity" :class="bandClass(roll)">{{ roll.pity }}</span>
-          <span role="cell"
-            ><span class="badge">{{ roll.rank_type }}★</span></span
-          >
+          <span role="cell"><RarityBadge :rarity="roll.rank_type" /></span>
           <span role="cell" class="type">{{ roll.item_type }}</span>
           <span role="cell" class="time">{{ serverDateTime(roll.time) }}</span>
         </div>
@@ -65,7 +62,10 @@ const bandClass = (roll: StoredRoll) => {
   container: rolls / inline-size;
   display: flex;
   flex-grow: 1;
-  min-height: 0;
+  /* Sized by the panel, not its rows, with room for a few; the screen scrolls when
+     even that does not fit. */
+  contain: size;
+  min-height: 200px;
 }
 .table {
   --columns: 56px minmax(120px, 1fr) 52px 64px minmax(84px, 140px) minmax(150px, 190px);
@@ -170,46 +170,8 @@ const bandClass = (roll: StoredRoll) => {
   text-overflow: ellipsis;
   color: var(--text-soft);
 }
-.icon {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--rarity-ring);
-  border-radius: 8px;
-  background: var(--rarity-icon);
-  color: var(--rarity);
-  font-size: 11px;
-  font-weight: 700;
-}
-.badge {
-  display: inline-block;
-  min-width: 24px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--rarity) 16%, transparent);
-  color: var(--rarity);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-}
 .rarity-5 {
-  --rarity: var(--rarity-five);
-  --rarity-icon: #3a2c14;
-  --rarity-ring: #6b5124;
-
   background: color-mix(in srgb, var(--rarity-five) 6%, transparent);
-}
-.rarity-4 {
-  --rarity: var(--rarity-four);
-  --rarity-icon: #2a2346;
-  --rarity-ring: #463a72;
-}
-.rarity-3 {
-  --rarity: var(--rarity-three);
-  --rarity-icon: #1c2834;
-  --rarity-ring: #2a3a4a;
 }
 .rarity-5 .name {
   color: var(--rarity-five);
