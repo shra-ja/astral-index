@@ -4,8 +4,8 @@
 // item's name is always given as text beside or around it.
 import { initials } from '../../format'
 
-withDefaults(defineProps<{ name: string; rarity: string; size?: 'row' | 'tile' }>(), {
-  size: 'row',
+withDefaults(defineProps<{ name: string; rarity: string; size?: 'small' | 'medium' }>(), {
+  size: 'small',
 })
 </script>
 
@@ -26,13 +26,13 @@ withDefaults(defineProps<{ name: string; rarity: string; size?: 'row' | 'tile' }
   font-weight: 700;
 }
 /* Corners keep about 0.27 of the size (decision 0013). */
-.row {
+.small {
   width: 30px;
   height: 30px;
   border-radius: 8px;
   font-size: 11px;
 }
-.tile {
+.medium {
   width: 40px;
   height: 40px;
   border-radius: 11px;

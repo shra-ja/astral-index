@@ -24,7 +24,7 @@ const bandClass = (roll: StoredRoll) => {
   <ul class="roll-grid" :aria-label="caption">
     <li v-for="roll in rolls" :key="roll.id" class="tile" :class="`rarity-${roll.rank_type}`">
       <div class="item">
-        <ItemIcon :name="roll.name" :rarity="roll.rank_type" size="tile" />
+        <ItemIcon :name="roll.name" :rarity="roll.rank_type" size="medium" />
         <div class="text">
           <span class="name">{{ roll.name }}</span>
           <span class="detail">{{ roll.item_type }} · #{{ roll.number }}</span>
@@ -46,7 +46,10 @@ const bandClass = (roll: StoredRoll) => {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   align-content: start;
   gap: 12px;
-  min-height: 0;
+  /* Sized by the panel, not its tiles, with room for a row; the screen scrolls when
+     even that does not fit. */
+  contain: size;
+  min-height: 200px;
   margin: 0;
   padding: 16px;
   overflow-y: auto;
