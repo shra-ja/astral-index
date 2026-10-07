@@ -123,11 +123,15 @@ watch(() => props.tabs, measure, { flush: 'post' })
   background: var(--accent-tint);
   color: var(--accent);
 }
-/* Laid out at their natural width, out of sight and out of the page's flow. */
+/* Laid out at their natural width, out of sight and out of the page's flow, inside
+   a box with no size so they never widen what scrolls around them. */
 .measure {
   position: absolute;
   top: 0;
   left: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
   visibility: hidden;
   pointer-events: none;
 }

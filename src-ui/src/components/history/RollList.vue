@@ -62,7 +62,10 @@ const bandClass = (roll: StoredRoll) => {
   container: rolls / inline-size;
   display: flex;
   flex-grow: 1;
-  min-height: 0;
+  /* Sized by the panel, not its rows, with room for a few; the screen scrolls when
+     even that does not fit. */
+  contain: size;
+  min-height: 200px;
 }
 .table {
   --columns: 56px minmax(120px, 1fr) 52px 64px minmax(84px, 140px) minmax(150px, 190px);

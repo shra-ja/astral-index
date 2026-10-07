@@ -174,6 +174,8 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   gap: 14px;
   min-height: 0;
   padding: 16px var(--gutter) 20px;
+  /* A window too short for everything scrolls rather than squashing the rolls. */
+  overflow-y: auto;
   /* The summary strip lays itself out by the content area's width. */
   container: content / inline-size;
 }
@@ -187,14 +189,16 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   display: flex;
   flex-direction: column;
   flex-grow: 1;
-  min-height: 0;
-  overflow: hidden;
+  /* Clipped to the corners without scrolling, so the panel never shrinks below its
+     toolbar and the rolls' own minimum. */
+  overflow: clip;
   border: 1px solid var(--panel-rim);
   border-radius: 12px;
   background: var(--list);
 }
 .toolbar {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 16px;
