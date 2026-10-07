@@ -612,9 +612,9 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   ).toBe('Choose cache file…')
   expect(fileInput().type).toBe('file')
   const fileImport = button(start, 'Choose file…')
-  expect(fileImport.disabled).toBe(true)
+  expect(fileImport.getAttribute('aria-disabled')).toBe('true')
   expect(document.getElementById(fileImport.getAttribute('aria-describedby')!)?.textContent).toBe(
-    'Coming soon',
+    'Importing from a file isn’t available yet.',
   )
   expect(note()).toBeUndefined()
   expect(shown('progress')).toBe(false)

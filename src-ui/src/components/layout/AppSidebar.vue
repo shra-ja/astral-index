@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // Presentational: the app's navigation. Game links keep the current screen; screen
 // links stay within the game. The router does the rest. Below 900px the sidebar
-// collapses to icons, so every link carries its name as a label.
+// collapses to icons, so every link carries its name as a label and in a tooltip.
 import { Download, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
+import AppTooltip from '../shared/AppTooltip.vue'
 import { games, monograms, terms, type Game, type Screen } from '../../format'
 
 defineProps<{ game: Game; screen: Screen }>()
@@ -29,15 +30,17 @@ const gameIds = Object.keys(games) as Game[]
       <h2 id="sidebar-games" class="text">Game</h2>
       <ul aria-labelledby="sidebar-games">
         <li v-for="id in gameIds" :key="id">
-          <RouterLink
-            class="link"
-            :to="{ name: screen, params: { game: id } }"
-            :aria-label="games[id]"
-            :aria-current="id === game ? 'true' : undefined"
-          >
-            <span class="monogram" :class="id" aria-hidden="true">{{ monograms[id] }}</span>
-            <span class="text">{{ games[id] }}</span>
-          </RouterLink>
+          <AppTooltip :text="games[id]" placement="right">
+            <RouterLink
+              class="link"
+              :to="{ name: screen, params: { game: id } }"
+              :aria-label="games[id]"
+              :aria-current="id === game ? 'true' : undefined"
+            >
+              <span class="monogram" :class="id" aria-hidden="true">{{ monograms[id] }}</span>
+              <span class="text">{{ games[id] }}</span>
+            </RouterLink>
+          </AppTooltip>
         </li>
       </ul>
     </div>
@@ -46,26 +49,30 @@ const gameIds = Object.keys(games) as Game[]
       <h2 id="sidebar-screens" class="text">View</h2>
       <ul aria-labelledby="sidebar-screens">
         <li>
-          <RouterLink
-            class="link screen"
-            :to="{ name: 'history', params: { game } }"
-            :aria-label="`${terms[game]} History`"
-            :aria-current="screen === 'history' ? 'page' : undefined"
-          >
-            <TextAlignStart :size="18" />
-            <span class="text">{{ terms[game] }} History</span>
-          </RouterLink>
+          <AppTooltip :text="`${terms[game]} History`" placement="right">
+            <RouterLink
+              class="link screen"
+              :to="{ name: 'history', params: { game } }"
+              :aria-label="`${terms[game]} History`"
+              :aria-current="screen === 'history' ? 'page' : undefined"
+            >
+              <TextAlignStart :size="18" />
+              <span class="text">{{ terms[game] }} History</span>
+            </RouterLink>
+          </AppTooltip>
         </li>
         <li>
-          <RouterLink
-            class="link screen"
-            :to="{ name: 'import', params: { game } }"
-            aria-label="Import"
-            :aria-current="screen === 'import' ? 'page' : undefined"
-          >
-            <Download :size="18" />
-            <span class="text">Import</span>
-          </RouterLink>
+          <AppTooltip text="Import" placement="right">
+            <RouterLink
+              class="link screen"
+              :to="{ name: 'import', params: { game } }"
+              aria-label="Import"
+              :aria-current="screen === 'import' ? 'page' : undefined"
+            >
+              <Download :size="18" />
+              <span class="text">Import</span>
+            </RouterLink>
+          </AppTooltip>
         </li>
       </ul>
     </div>
@@ -197,6 +204,10 @@ ul {
   font-size: 12px;
   line-height: 1.4;
 }
+/* Names show in tooltips only once the labels are hidden. */
+.sidebar :deep(.tooltip) {
+  display: none;
+}
 .local strong {
   color: var(--text-soft);
   font-size: 13px;
@@ -210,6 +221,9 @@ ul {
   }
   .sidebar .text {
     display: none;
+  }
+  .sidebar :deep(.tooltip) {
+    display: block;
   }
   .brand,
   .link,

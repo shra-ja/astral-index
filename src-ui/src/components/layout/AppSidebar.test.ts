@@ -52,3 +52,22 @@ test('labels stay in each link, beside the game monograms, for the expanded side
     'Import',
   ])
 })
+
+test('each link names itself in a tooltip beside it, for the icon rail', () => {
+  const wrapper = sidebar('honkai-star-rail', 'history')
+  expect(
+    wrapper.findAll('li').map((item) => {
+      const tooltip = item.get('[role="tooltip"]')
+      return [tooltip.text(), tooltip.attributes('data-placement')]
+    }),
+  ).toEqual([
+    ['Genshin Impact', 'right'],
+    ['Honkai: Star Rail', 'right'],
+    ['Warp History', 'right'],
+    ['Import', 'right'],
+  ])
+  // The links already carry their names, so the tooltips only show them.
+  expect(
+    wrapper.findAll('a').every((link) => link.attributes('aria-describedby') === undefined),
+  ).toBe(true)
+})
