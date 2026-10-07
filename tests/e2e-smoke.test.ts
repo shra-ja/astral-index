@@ -591,6 +591,44 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     await app.screenshot('e2e-mock-history')
+    // With room to spare, the rolls scroll inside their panel and the screen does not.
+    expect(
+      await app.execute(
+        'const main = document.querySelector("main .body"); return main.scrollHeight <= main.clientHeight',
+      ),
+    ).toBe(true)
+    // The Grid layout shows the same page as tiles, several to a row, from the keyboard.
+    // The toolbar keeps its height above the rolls, however many rows it wraps to.
+    const toolbarClear = () =>
+      app.execute<boolean>(`
+        const controls = [...document.querySelector('.rolls .toolbar').children];
+        const rolls = document.querySelector('.roll-list, .roll-grid').getBoundingClientRect();
+        return Math.max(...controls.map(control => control.getBoundingClientRect().bottom)) <= rolls.top + 1;
+      `)
+    const grid = () =>
+      app.execute<{ tiles: number; columns: number; narrowest: number; fits: boolean }>(`
+        const tiles = [...document.querySelectorAll('.roll-grid li')];
+        return {
+          tiles: tiles.length,
+          columns: new Set(tiles.map(tile => tile.getBoundingClientRect().left)).size,
+          narrowest: Math.min(...tiles.map(tile => tile.getBoundingClientRect().width)),
+          fits: document.documentElement.scrollWidth <= innerWidth,
+        };
+      `)
+    await app.execute('document.querySelector(\'[aria-label="Grid view"]\').focus()')
+    await app.press(ENTER)
+    await expect.poll(async () => (await grid()).tiles, { timeout: 5000 }).toBe(20)
+    const wide = await grid()
+    expect(wide.columns).toBeGreaterThan(2)
+    expect(wide.narrowest).toBeGreaterThanOrEqual(190)
+    expect(wide.fits).toBe(true)
+    await app.screenshot('e2e-mock-history-grid')
+    await app.execute('document.querySelector(\'[aria-label="List view"]\').click()')
+    await expect
+      .poll(() => app.execute('return document.querySelector(".roll-list") !== null'), {
+        timeout: 5000,
+      })
+      .toBe(true)
     // At the minimum width they no longer fit, so they become a dropdown.
     await app.command('/window/rect', 'POST', { width: 480, height: 700 })
     await expect
@@ -603,7 +641,36 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         `return new Set([...document.querySelectorAll('[aria-label="Category summary"] .tile')].map(tile => tile.getBoundingClientRect().top)).size`,
       ),
     ).toBe(2)
+    expect(await toolbarClear()).toBe(true)
+    // In a short window the rolls keep room for a few rows, and the screen scrolls instead.
+    const rollsHeight = () =>
+      app.execute<number>(
+        'return document.querySelector(".roll-list, .roll-grid").getBoundingClientRect().height',
+      )
+    expect(await rollsHeight()).toBeGreaterThanOrEqual(200)
+    // The screen scrolls down only, never sideways.
+    expect(
+      await app.execute(
+        'const main = document.querySelector("main .body"); return main.scrollWidth <= main.clientWidth',
+      ),
+    ).toBe(true)
+    // Item icons keep their 30px size in the list's rows.
+    expect(
+      await app.execute(
+        'const icon = document.querySelector(".roll-list .body .icon").getBoundingClientRect(); return [icon.width, icon.height]',
+      ),
+    ).toEqual([30, 30])
     await app.screenshot('e2e-mock-history-narrow')
+    // Narrow, the grid keeps whole tiles, fewer to a row, without scrolling sideways.
+    await app.execute('document.querySelector(\'[aria-label="Grid view"]\').click()')
+    await expect.poll(async () => (await grid()).tiles, { timeout: 5000 }).toBe(20)
+    const narrow = await grid()
+    expect(narrow.columns).toBeLessThan(wide.columns)
+    expect(narrow.narrowest).toBeGreaterThanOrEqual(190)
+    expect(narrow.fits).toBe(true)
+    expect(await toolbarClear()).toBe(true)
+    expect(await rollsHeight()).toBeGreaterThanOrEqual(200)
+    await app.screenshot('e2e-mock-history-grid-narrow')
     // Paging reads the next rolls, still from this device.
     await app.execute('document.querySelector(\'[aria-label="Next page"]\').click()')
     await expect
