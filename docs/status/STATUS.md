@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-06
+Updated: 2026-10-07
 
 ## Current state
 
@@ -32,24 +32,22 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Pity colours (2026-10-06)
+### Banner catalogue plan (2026-10-07)
 
-Feature 0035's last task, on `feat/pity-colours`; 0035 is done. Decision 0020:
-soft pity isn't published, so bands use its observed start per official hard
-pity (orange from 49, red from 74 on 90-pity warps; 40 and 65 on 80; Departure
-plain). The adapter sends them with each page; 5★ pity is coloured, and every
-pity cell reads only its count. Evidence: the adapter, storage, formatter, list and app tests
-failed first, then passed; end to end, Acheron at 70 shows orange. The staged
-`npm run check` passes on the first run, and a release `.deb` builds cleanly.
+On `docs/banner-catalogue-plan`, docs only. Decision 0022: a separate,
+standalone downloader writes a catalogue folder of banner metadata and art that
+the app loads; the app never fetches either. Features 0034 and 0036 move to
+milestone 12. Decision 0021: history completeness is the user's responsibility;
+the partial-history clause leaves milestone 9 for backlog feature 0046. Evidence:
+`npm run docs:check` and markdownlint pass.
 
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
   CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
-- No history-file import or Genshin Impact adapter yet. Pity has no guarantees
-  or 50/50 outcomes, its colours use observed rather than published soft pity
-  (decision 0020), and counts before a category's first stored 5★ are not marked
-  as possibly incomplete (decision 0019).
+- No history-file import, Genshin Impact adapter or banner catalogue yet, so
+  banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
+  colours use observed rather than published soft pity (decision 0020).
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
   grey in an empty field.
@@ -65,10 +63,9 @@ failed first, then passed; end to end, Acheron at 70 shows orange. The staged
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, feature
-0034's first task: decide where banner metadata comes from (pool IDs to banners,
-dates and featured items), shipped with the app since nothing is fetched at
-runtime, and record it as a decision. Native Windows validation of the current
-build belongs to milestone 10.
+0033's first task: the styled tooltip as a shared component. Banner metadata and
+art wait for the downloader and milestone 12 (decision 0022). Native Windows
+validation of the current build belongs to milestone 10.
 
 ## Keeping this file current
 

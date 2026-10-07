@@ -141,13 +141,11 @@ GitHub repository carry the name Astral Index.
 
 - [x] [0032 — Account switching and filters](features/0032-account-switching-and-filters.md)
 - [x] [0035 — Pity](features/0035-pity.md)
-- [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0033 — Grid and icon layouts](features/0033-grid-and-icon-layouts.md)
 
 Done when the History screen switches between accounts and servers, filters
 saved rolls by rarity, name and date, shows totals, rarity breakdowns and pity,
-and shows banners and 50/50 outcomes only where verified banner metadata
-supports them, with partial histories marked as uncertain.
+and offers list, grid and icon layouts with placeholder art.
 
 ### 10 — Release readiness
 
@@ -168,13 +166,18 @@ its documented formats.
 Done when a fresh profile can recover the same records and metadata from a
 backup, and supported history files reuse the import pipeline.
 
-### 12 — Genshin Impact and item art
+### 12 — Genshin Impact and the banner catalogue
+
+Banner metadata and art come from a catalogue folder written by a separate
+downloader ([decision 0022](../architecture/decisions/0022-banner-catalogue-downloader.md)).
 
 - [ ] [0031 — Second game adapter](features/0031-second-game-adapter.md)
+- [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0036 — Item icons and banner art](features/0036-item-icons-and-banner-art.md)
 
-Done when both games coexist without shared identity or rule assumptions, and
-the way to show item icons and banner art is decided.
+Done when both games coexist without shared identity or rule assumptions, and a
+user-selected catalogue folder supplies banner names, 50/50 outcomes, item icons
+and banner art only where its verified entries support them.
 
 ## Backlog
 
@@ -184,6 +187,7 @@ Low-priority follow-ups, outside any milestone until scheduled.
 - [ ] [0041 — Review record preview](features/0041-review-record-preview.md)
 - [ ] [0042 — Overlap anomaly detection](features/0042-overlap-anomaly-detection.md)
 - [ ] [0043 — Braces audit follow-up](features/0043-braces-audit.md)
+- [ ] [0046 — History gap detection](features/0046-history-gap-detection.md)
 
 ## Earlier milestone numbers
 
@@ -198,6 +202,6 @@ were written with:
 | 0, 1, 2 | Unchanged | Unchanged | Unchanged |
 | 3, First user-requested API history import | 3 to 7 | 3 to 7 | 3 to 7 |
 | None | None | 8, Project cleanup | 8 |
-| 4, Additional import sources, multi-game history and statistics | 8 | 9 | 9 (0032 to 0035), 11 (0030), 12 (0031, 0036) |
+| 4, Additional import sources, multi-game history and statistics | 8 | 9 | 9 (0032, 0033, 0035), 11 (0030), 12 (0031, 0034, 0036) |
 | 5, Backup and restore | 9 | 10 | 11 |
 | 6, Release readiness | 10 | 11 | 10 |

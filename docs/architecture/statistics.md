@@ -23,8 +23,11 @@ metadata defines pity groups, each banner category keeps its own count.
 adapter sends with each page ([decision 0020](decisions/0020-soft-pity-colours.md)).
 Hard pity is official; the soft-pity starts are observed, not published.
 
-Guarantees and 50/50 outcomes need verified banner metadata; until it exists the
-UI reports them as unavailable rather than guessing.
+Guarantees and 50/50 outcomes need verified banner metadata from a catalogue
+folder ([decision 0022](decisions/0022-banner-catalogue-downloader.md)); until
+one covers a roll's banner, the UI reports them as unavailable rather than
+guessing. Statistics show no marks for possibly missing rolls
+([decision 0021](decisions/0021-history-completeness.md)).
 
 ## Derived on read
 

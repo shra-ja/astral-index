@@ -1,12 +1,13 @@
 # 0036 — Item icons and banner art
 
-Status: Planned · Milestone 12, Genshin Impact and item art
+Status: Planned · Milestone 12, Genshin Impact and the banner catalogue
+Decisions: [0022](../../architecture/decisions/0022-banner-catalogue-downloader.md)
 
-Decide how to show real item icons and banner art without committing game assets.
+Show real item icons and banner art from the loaded catalogue folder.
 
 ## Tasks
 
-- [ ] Decide how to obtain item icons and banner art without committing game
-  assets to the MIT-licensed repository. Fetching them on demand would further
-  relax the local-only rule and needs its own decision; placeholders stay until
-  then.
+- [ ] Show item icons and banner art from the catalogue folder's assets,
+  matched through its manifest, wherever placeholders appear now. Keep
+  placeholders for missing or invalid images. The application never fetches art,
+  and no game assets are committed to this repository.
