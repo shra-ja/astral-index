@@ -6,6 +6,7 @@
 // text adds to the element's name.
 import { autoUpdate, flip, offset, shift, useFloating, type Placement } from '@floating-ui/vue'
 import { computed, onBeforeUnmount, ref, toRef, useId, useTemplateRef, watch } from 'vue'
+import { keyboardInput } from '../../input-modality'
 
 const props = withDefaults(defineProps<{ text: string; placement?: Placement }>(), {
   placement: 'top',
@@ -51,9 +52,9 @@ function onPointerLeave() {
   after(hideDelay, () => (hovered.value = false))
 }
 
-function onFocusIn(event: FocusEvent) {
+function onFocusIn() {
   // Focus from a press waits for the pointer, like any hover.
-  if (!(event.target as Element).matches(':focus-visible')) return
+  if (!keyboardInput()) return
   focused.value = true
   dismissed.value = false
 }
