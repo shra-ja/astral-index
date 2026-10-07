@@ -42,7 +42,14 @@ repository; this record holds what the implementation must follow.
   icons use 8px on 30px (about 0.27 of their size) and other rounded squares keep
   that ratio. Badges are full pills.
 - **Tooltips** are styled in the app's theme, appear after a short delay, and
-  also show on keyboard focus; browser `title` tooltips are not used.
+  also show on keyboard focus; browser `title` tooltips are not used. (Amended
+  2026-10-07:) one shared tooltip shows after 400 ms under the pointer and at
+  once on keyboard focus, but not on focus from a press; it stays while the
+  pointer moves onto it, within 100 ms, and while focus stays; Escape hides it
+  without moving focus (WCAG 1.4.13). It floats beside its element and stays in
+  the window, positioned by `@floating-ui/vue` (MIT). Its text describes the
+  element only when it adds to the element's name, as for "Choose file…"; the
+  icon rail's tooltips only show names its links already carry.
 - Icons are Lucide stroke icons (`@lucide/vue`, ISC licence, bundled per
   icon and decorative), with a custom brand mark; no emoji. (Amended
   2026-10-03: the first icons were hand-drawn inline SVGs.) Item icons and

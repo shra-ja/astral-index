@@ -32,7 +32,19 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-No work in progress.
+### Styled tooltip (2026-10-07)
+
+Feature 0033's first task, on `feat/styled-tooltip`. A shared `AppTooltip`
+(decision 0013, amended): 400 ms under the pointer, at once on keyboard focus,
+hoverable, Escape hides it, positioned by `@floating-ui/vue`. The collapsed
+sidebar names its links in tooltips, and "Choose file…" is `aria-disabled` with
+a tooltip saying file import isn't available yet. Evidence: the tooltip tests
+failed against a slot-only stub, then passed; the sidebar and file-import tests
+failed (no tooltips, still `disabled`), then passed. Natively, WebKitGTK never
+sets `:focus-visible` after a WebDriver Tab, so the end-to-end Tab check failed;
+the tooltip now tracks the last input itself (`input-modality.ts`, red then
+green), and the end-to-end test checks hover, Escape and Tab on the icon rail and
+the file-import tooltip.
 
 ## Known limitations
 
@@ -56,7 +68,7 @@ No work in progress.
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next, feature
-0033's first task: the styled tooltip as a shared component. Banner metadata and
+0033's second task: the List, Grid and Icons layout switch. Banner metadata and
 art wait for the downloader and milestone 12 (decision 0022). Native Windows
 validation of the current build belongs to milestone 10.
 
