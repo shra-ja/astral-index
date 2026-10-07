@@ -20,7 +20,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   stored period), each roll's 5★ pity coloured by soft pity, and rarity, item name and date-range
   filters. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
-  the last import. Saved history is read from this device only.
+  the last import. Saved history is read from this device only. Themed
+  tooltips name the collapsed sidebar's links and explain unavailable controls.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -32,16 +33,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Styled tooltip (2026-10-07)
-
-Feature 0033's first task, on `feat/styled-tooltip`. A shared `AppTooltip`
-(decision 0013, amended): 400 ms under the pointer, at once on keyboard focus,
-hoverable, Escape hides it, placed by `@floating-ui/vue`. The collapsed sidebar
-names its links in tooltips; "Choose file…" is `aria-disabled`, with a tooltip.
-Evidence: the tooltip, sidebar and file-import tests failed first, then passed.
-WebKitGTK's automation never sets `:focus-visible`, so the native Tab check
-failed; the tooltip now tracks the last input (`input-modality.ts`, red then
-green), and end to end checks hover, Escape and Tab.
+No work in progress.
 
 ## Known limitations
 
@@ -145,4 +137,4 @@ research, under a "From" heading.
   column.
 - [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
   the standalone downloader and catalogue folder for banner metadata and art,
-  and history completeness as the user's responsibility.
+  history completeness as the user's responsibility, and the styled tooltip.
