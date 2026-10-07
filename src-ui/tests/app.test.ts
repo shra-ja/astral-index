@@ -334,6 +334,7 @@ test('saved history shows its account, category counts and newest rolls first', 
     'calendar-days',
     'list',
     'layout-grid',
+    'grid-3x3',
     'chevron-left',
     'chevron-right',
     'chevron-down',
@@ -493,6 +494,12 @@ test('the layout switch shows rolls as tiles, keeping the layout until the scree
   button(main(), 'Stellar 3').click()
   await settle()
   expect(tiles()).toHaveLength(3)
+  // Icons name each roll for assistive technology, the newest first.
+  await click(layout('Icons'))
+  expect(main().querySelector('.roll-grid')).toBeNull()
+  const icons = [...main().querySelectorAll('.roll-icons [role="img"]')]
+  expect(icons).toHaveLength(3)
+  expect(icons[0].getAttribute('aria-label')).toMatch(/^.+, [345]★, pity \d+, #3, \d+ \w{3} \d{4}$/)
   // Leaving the screen and coming back starts from the list again.
   await openImport()
   await follow(named(sidebar(), 'Warp History'))

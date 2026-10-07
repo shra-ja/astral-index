@@ -1,6 +1,6 @@
 # 0033 — Grid and icon layouts
 
-Status: Planned · Milestone 9, History browsing and statistics
+Status: Done · Milestone 9, History browsing and statistics
 Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 Alternative history layouts with placeholder art.
@@ -14,7 +14,7 @@ Each task is one PR, in this order.
 - [x] Add the List, Grid and Icons layout switch with the Grid layout, with
   placeholder art. The chosen layout lasts while the screen is open, across
   categories and accounts.
-- [ ] Add the Icons layout: tiles with placeholder art and pity, one Tab stop
+- [x] Add the Icons layout: tiles with placeholder art and pity, one Tab stop
   with arrow keys, Home and End moving between tiles, each naming its roll in a
   styled tooltip on focus and under the pointer.
 

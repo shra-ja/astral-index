@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
-import { DOWN, ENTER, ESCAPE, TAB, launch, type AppSession } from './app-driver'
+import { DOWN, ENTER, ESCAPE, RIGHT, TAB, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
 // A synthetic cache file holding one warp history request, with a key distinctive
@@ -623,6 +623,45 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(wide.narrowest).toBeGreaterThanOrEqual(190)
     expect(wide.fits).toBe(true)
     await app.screenshot('e2e-mock-history-grid')
+    // The Icons layout is one Tab stop: arrows move by icon and by row, and each icon
+    // names its roll in a tooltip and to assistive technology.
+    await app.execute('document.querySelector(\'[aria-label="Icons view"]\').focus()')
+    await app.press(ENTER)
+    await expect
+      .poll(
+        () => app.execute('return document.querySelectorAll(".roll-icons [role=img]").length'),
+        {
+          timeout: 5000,
+        },
+      )
+      .toBe(20)
+    const focusedIcon = () =>
+      app.execute<{ index: number; label: string; tip: string; shown: boolean }>(`
+        const icons = [...document.querySelectorAll('.roll-icons [role=img]')];
+        const icon = document.activeElement;
+        const tip = icon.parentElement.querySelector('[role=tooltip]');
+        return {
+          index: icons.indexOf(icon),
+          label: icon.getAttribute('aria-label'),
+          tip: tip?.textContent,
+          shown: tip !== null && getComputedStyle(tip).display !== 'none',
+        };
+      `)
+    await app.press(TAB)
+    await expect.poll(focusedIcon, { timeout: 5000 }).toMatchObject({ index: 0, shown: true })
+    const firstIcon = await focusedIcon()
+    expect(firstIcon.tip).toBe(firstIcon.label)
+    expect(firstIcon.label).toMatch(/^.+, [345]★, pity \d+, #1250, \d+ \w{3} \d{4}$/)
+    await app.press(RIGHT)
+    expect((await focusedIcon()).index).toBe(1)
+    const perRow = await app.execute<number>(`
+      const icons = [...document.querySelectorAll('.roll-icons [role=img]')];
+      return icons.filter(icon => icon.offsetTop === icons[0].offsetTop).length;
+    `)
+    expect(perRow).toBeGreaterThan(1)
+    await app.press(DOWN)
+    expect((await focusedIcon()).index).toBe(1 + perRow)
+    await app.screenshot('e2e-mock-history-icons')
     await app.execute('document.querySelector(\'[aria-label="List view"]\').click()')
     await expect
       .poll(() => app.execute('return document.querySelector(".roll-list") !== null'), {

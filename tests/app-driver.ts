@@ -16,6 +16,8 @@ export const DOWN = ''
 export const ESCAPE = '\uE00C'
 /** The Tab key, as WebDriver names it. */
 export const TAB = '\uE004'
+/** The Right Arrow key, as WebDriver names it. */
+export const RIGHT = '\uE014'
 
 export interface AppSession {
   /** Send a WebDriver command for this session; `path` follows the session's URL. */

@@ -180,6 +180,7 @@ export const categoryTabs = [
 export const layouts = [
   { id: 'list', label: 'List' },
   { id: 'grid', label: 'Grid' },
+  { id: 'icons', label: 'Icons' },
 ] as const
 export type Layout = (typeof layouts)[number]['id']
 
