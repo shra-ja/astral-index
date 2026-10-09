@@ -57,8 +57,9 @@ None.
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Milestone 9 is
-complete; next is milestone 10, release readiness, starting with feature 0038's
-checks, which include native Windows validation of the current build. Banner
+complete; next is milestone 10, release readiness, starting with feature 0047's
+Astral brand (the sidebar lockup, then the application icon), then feature
+0038's checks, which include native Windows validation of the current build. Banner
 metadata and art wait for the downloader and milestone 12 (decision 0022).
 
 ## Keeping this file current
