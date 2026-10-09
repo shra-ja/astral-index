@@ -13,7 +13,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   events and never make native calls, grouped by where they are used:
   `layout/` for the shell and screen frame (`AppSidebar`, `ScreenHeader`),
   `history/` for the History screen, `import/` for the Import screen, and
-  `shared/` for pieces any screen may use (`AppTooltip`, `CachePicker`).
+  `shared/` for pieces any screen may use (`AppTooltip`, `CachePicker`, and
+  `AstralTile`, the brand emblem in its tile).
 - `src/composables/` holds flow logic and is the only caller of the native
   commands: `useRetrieval.ts` runs retrieval, review and saving, and
   `useHistory.ts` reads the saved accounts and saved history a page at a time,
@@ -28,7 +29,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   and saving; `src/format.ts` holds other shared display text such as warp, game
   and tab names, dates and times.
 - `src/assets/main.css` holds the base styles; each component carries scoped
-  styles. Everything is bundled (no remote fonts or assets).
+  styles. `src/assets/brand/` holds the brand's emblem and wordmark, kept as
+  supplied ([decision 0023](../docs/architecture/decisions/0023-astral-brand.md)). Everything is bundled (no remote fonts or assets).
 - `build/vite.ts` holds the Vite configuration, to which `vite.config.ts` only
   delegates.
 

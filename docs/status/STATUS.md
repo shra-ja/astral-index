@@ -33,7 +33,15 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-None.
+### Sidebar lockup (2026-10-09)
+
+Feature 0047's first task, on `feat/sidebar-lockup`. Decision 0023: the sidebar
+shows the Astral emblem tile beside the wordmark, sized from an 18 px wordmark,
+and the collapsed sidebar the 32 px tile alone; the brand's small-set files are
+kept as supplied in `src-ui/src/assets/brand/`. Evidence: the `AstralTile` and
+sidebar tests failed first, then passed; end to end, the lockup check failed on
+the old sidebar, then passed with a 43.2 px tile, 12.6 px gap, 18 × 130 px
+wordmark, 110% emblem and the brand colours, expanded and collapsed.
 
 ## Known limitations
 
@@ -56,11 +64,10 @@ None.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Milestone 9 is
-complete; next is milestone 10, release readiness, starting with feature 0047's
-Astral brand (the sidebar lockup, then the application icon), then feature
-0038's checks, which include native Windows validation of the current build. Banner
-metadata and art wait for the downloader and milestone 12 (decision 0022).
+If the probe flake recurs, read its snapshot before rerunning. Next in milestone
+10 are feature 0047's application icon and docs, then feature 0038's checks,
+which include native Windows validation of the current build. Banner metadata
+and art wait for the downloader and milestone 12 (decision 0022).
 
 ## Keeping this file current
 
