@@ -32,3 +32,13 @@ and 0036. Evidence: the switch, grid and History tests failed first, then
 passed. Natively, three layout bugs were caught red then fixed: list icons
 stretched by a leaking `.row` style, the toolbar squeezed under the rolls in
 short windows, and the tabs' measuring copy widening the screen.
+
+## Icons layout (2026-10-07)
+
+Integrated through PR #85.
+Feature 0033's last task, on `feat/icons-layout`; 0033 and milestone 9's
+features are done. Icons show each roll's placeholder icon and pity; they are
+one Tab stop, arrows move by icon and row, and each names its roll in a tooltip
+and to assistive technology. Evidence: the icons, switch and History tests
+failed first, then passed; end to end, Tab, Right and Down move as expected and
+the tooltip shows.
