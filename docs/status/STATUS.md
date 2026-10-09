@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-07
+Updated: 2026-10-09
 
 ## Current state
 
@@ -18,7 +18,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 - **Saved history:** the History screen pages through each category's saved
   rolls, with tab counts, a summary strip (rolls, 5★ and 4★ counts with rates,
   stored period), each roll's 5★ pity coloured by soft pity, and rarity, item name and date-range
-  filters, as a list or a grid of tiles. It opens on the account imported last; with more than
+  filters, as a list, a grid of tiles or icons. It opens on the account imported last; with more than
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only. Themed
   tooltips name the collapsed sidebar's links and explain unavailable controls.
@@ -33,14 +33,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Icons layout (2026-10-07)
-
-Feature 0033's last task, on `feat/icons-layout`; 0033 and milestone 9's
-features are done. Icons show each roll's placeholder icon and pity; they are
-one Tab stop, arrows move by icon and row, and each names its roll in a tooltip
-and to assistive technology. Evidence: the icons, switch and History tests
-failed first, then passed; end to end, Tab, Right and Down move as expected and
-the tooltip shows.
+None.
 
 ## Known limitations
 
@@ -64,8 +57,9 @@ the tooltip shows.
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Milestone 9 is
-complete; next is milestone 10, release readiness, starting with feature 0038's
-checks, which include native Windows validation of the current build. Banner
+complete; next is milestone 10, release readiness, starting with feature 0047's
+Astral brand (the sidebar lockup, then the application icon), then feature
+0038's checks, which include native Windows validation of the current build. Banner
 metadata and art wait for the downloader and milestone 12 (decision 0022).
 
 ## Keeping this file current
@@ -144,5 +138,5 @@ research, under a "From" heading.
   column.
 - [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
   the standalone downloader and catalogue folder for banner metadata and art,
-  history completeness as the user's responsibility, the styled tooltip and the
-  grid layout.
+  history completeness as the user's responsibility, the styled tooltip, and the
+  grid and icons layouts.

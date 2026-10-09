@@ -152,11 +152,12 @@ and offers list, grid and icon layouts with placeholder art.
 The first release covers Honkai: Star Rail only
 ([decision 0018](../architecture/decisions/0018-star-rail-first-release.md)).
 
+- [ ] [0047 — Astral brand](features/0047-astral-brand.md)
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 
-Done when the first release is verified on each release OS and distributed in
-its documented formats.
+Done when the app carries the Astral brand, and the first release is verified
+on each release OS and distributed in its documented formats.
 
 ### 11 — Backup, restore and file import
 
