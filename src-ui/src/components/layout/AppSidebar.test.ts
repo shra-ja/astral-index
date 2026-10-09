@@ -18,7 +18,6 @@ const links = (wrapper: ReturnType<typeof sidebar>, group: string) =>
 test('lists the games and screens as links, marking the current ones', () => {
   const wrapper = sidebar('honkai-star-rail', 'history')
   expect(wrapper.get('nav').attributes('aria-label')).toBe('Main')
-  expect(wrapper.text()).toContain('Astral Index')
   expect(links(wrapper, 'sidebar-games')).toEqual([
     ['Genshin Impact', '#/genshin-impact/history', undefined],
     ['Honkai: Star Rail', '#/honkai-star-rail/history', 'true'],
@@ -70,4 +69,14 @@ test('each link names itself in a tooltip beside it, for the icon rail', () => {
   expect(
     wrapper.findAll('a').every((link) => link.attributes('aria-describedby') === undefined),
   ).toBe(true)
+})
+
+test('names the app with the wordmark beside the decorative emblem tile', () => {
+  const brand = sidebar('honkai-star-rail', 'history').get('.brand')
+  const wordmark = brand.get('img')
+  expect(wordmark.attributes('alt')).toBe('Astral Index')
+  expect(wordmark.attributes('src')).toContain('astral-index-wordmark-small.svg')
+  expect(brand.get('.astral-tile').attributes('aria-hidden')).toBe('true')
+  // The wordmark is the title: no live text repeats it.
+  expect(brand.text()).toBe('')
 })

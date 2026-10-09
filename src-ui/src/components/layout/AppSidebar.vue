@@ -5,6 +5,8 @@
 import { Download, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
+import AstralTile from '../shared/AstralTile.vue'
+import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
 import { games, monograms, terms, type Game, type Screen } from '../../format'
 
 defineProps<{ game: Game; screen: Screen }>()
@@ -14,16 +16,8 @@ const gameIds = Object.keys(games) as Game[]
 <template>
   <nav class="sidebar" aria-label="Main">
     <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-        <rect x="1" y="1" width="24" height="24" rx="7" stroke="currentColor" stroke-width="1.6" />
-        <path
-          d="M13 6.5 14.9 11.1 19.5 13 14.9 14.9 13 19.5 11.1 14.9 6.5 13 11.1 11.1Z"
-          stroke="currentColor"
-          stroke-width="1.6"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <span class="text">Astral Index</span>
+      <AstralTile />
+      <img class="wordmark" :src="wordmark" alt="Astral Index" />
     </div>
 
     <div class="group">
@@ -99,18 +93,20 @@ const gameIds = Object.keys(games) as Game[]
   border-right: 1px solid var(--divider);
   overflow-y: auto;
 }
+/* The lockup, sized from the wordmark's height H: a 2.4 H tile, then a 0.7 H gap.
+   The sidebar's padding keeps at least 0.7 H clear around it. */
 .brand {
+  --h: 18px;
+  --tile: calc(var(--h) * 2.4);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(var(--h) * 0.7);
   padding: 0 8px;
-  color: var(--accent);
 }
-.brand .text {
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+.wordmark {
+  display: block;
+  height: var(--h);
+  width: auto;
 }
 .group {
   display: flex;
@@ -221,6 +217,17 @@ ul {
   }
   .sidebar .text {
     display: none;
+  }
+  /* The tile alone; the wordmark stays as the app's name for assistive tech. */
+  .brand {
+    --tile: 32px;
+  }
+  .wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   .sidebar :deep(.tooltip) {
     display: block;
