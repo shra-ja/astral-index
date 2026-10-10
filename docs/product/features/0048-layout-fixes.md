@@ -21,7 +21,7 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   appears in release builds or without the variable, so the end-to-end
   screenshots stay clean; it ignores the pointer and is hidden from assistive
   technology. Document it in DEVELOPMENT beside `ASTRAL_INDEX_ZOOM`.
-- [ ] Keep Review Import's category table in reach in small windows. At
+- [x] Keep Review Import's category table in reach in small windows. At
   480×560 the summary and the action bar take the height and the "By Category"
   table shrinks to its heading, with no way to scroll to its rows. The table
   keeps its rows and the screen scrolls instead, with the action bar still in
