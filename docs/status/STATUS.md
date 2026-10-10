@@ -23,7 +23,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   switches between them. The Import screen shows the last import. Saved history
   is read from this device only. Themed tooltips name the collapsed sidebar's
   links and explain unavailable controls. The sidebar shows the Astral brand:
-  the emblem tile beside the wordmark, or the tile alone when collapsed.
+  the emblem tile beside the wordmark, or the tile alone when collapsed; the
+  app's icon is the same tile.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -32,15 +33,11 @@ history import works end to end; Genshin Impact has its screens but no import ye
   drive the app against a synthetic HoYoverse (the mock debug binary). The docs
   are checked too: links and anchors resolve, every doc is reachable from
   `AGENTS.md`, STATUS stays within 150 lines, and markdownlint checks structure.
+  The app icons must match what the brand files produce.
 
 ## In progress
 
-### Application icon (2026-10-10)
-
-Feature 0047's second task, on `feat/app-icon`: `npm run icons` renders the app
-icons from the brand files; `icons:check`, in `npm run check`, fails on stale
-ones. Tests failed first, then passed; the `.deb` and `.exe` carry the icons.
-CI timed out on the suite discovery probe; PR #89 gave it 6 minutes.
+None.
 
 ## Known limitations
 
@@ -148,3 +145,5 @@ research, under a "From" heading.
   grid and icons layouts.
 - [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
   lockup and decision 0023.
+- [2026-10-10: application icon](history/2026-10-10-application-icon.md): the
+  generated app icons, their check and the suite discovery probe's timeout.
