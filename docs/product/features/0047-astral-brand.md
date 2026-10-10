@@ -1,6 +1,6 @@
 # 0047 — Astral brand
 
-Status: In progress · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 Decisions: [0013](../../architecture/decisions/0013-visual-design.md), [0017](../../architecture/decisions/0017-astral-index-name.md), [0023](../../architecture/decisions/0023-astral-brand.md)
 
 Replace the placeholder brand mark and the live-text title with the Astral
@@ -52,7 +52,7 @@ Each task is one PR, in this order.
     Linux window uses the 512 px icon.
   - Verify: the compiled-in window icon, the Windows cross-build's embedded
     icon, and the release `.deb`'s installed icons all show the tile.
-- [ ] Update the living docs and close the feature: decision 0013's brand-mark
+- [x] Update the living docs and close the feature: decision 0013's brand-mark
   line, the frontend README's assets, DEVELOPMENT's icon steps, and STATUS.
   `npm run check` passes and searching tracked files finds no remaining use of
   the old star mark's path or colours outside archived history.

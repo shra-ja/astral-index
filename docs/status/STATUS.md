@@ -23,7 +23,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   switches between them. The Import screen shows the last import. Saved history
   is read from this device only. Themed tooltips name the collapsed sidebar's
   links and explain unavailable controls. The sidebar shows the Astral brand:
-  the emblem tile beside the wordmark, or the tile alone when collapsed.
+  the emblem tile beside the wordmark, or the tile alone when collapsed; the
+  app's icon is the same tile.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -35,12 +36,10 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Application icon (2026-10-10)
+### Astral brand closed (2026-10-10)
 
-Feature 0047's second task, on `feat/app-icon`: `npm run icons` renders the app
-icons from the brand files; `icons:check`, in `npm run check`, fails on stale
-ones. Tests failed first, then passed; the `.deb` and `.exe` carry the icons.
-CI timed out on the suite discovery probe; PR #89 gave it 6 minutes.
+On `docs/close-astral-brand`: decision 0013 points to 0023, and 0047 is done;
+no old mark's path data or colours remain outside archived history.
 
 ## Known limitations
 
@@ -63,10 +62,9 @@ CI timed out on the suite discovery probe; PR #89 gave it 6 minutes.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next in milestone
-10 are feature 0047's closing docs, then feature 0038's checks, including native
-Windows validation. Banner metadata and art wait for the downloader and
-milestone 12 (decision 0022).
+If the probe flake recurs, read its snapshot before rerunning. Next is feature
+0038's checks, including native Windows validation. Banner metadata and art wait
+for the downloader and milestone 12 (decision 0022).
 
 ## Keeping this file current
 
@@ -148,3 +146,5 @@ research, under a "From" heading.
   grid and icons layouts.
 - [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
   lockup and decision 0023.
+- [2026-10-10: application icon](history/2026-10-10-application-icon.md): the
+  generated app icons, their check and the suite discovery probe's timeout.

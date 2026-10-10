@@ -52,7 +52,9 @@ repository; this record holds what the implementation must follow.
   icon rail's tooltips only show names its links already carry.
 - Icons are Lucide stroke icons (`@lucide/vue`, ISC licence, bundled per
   icon and decorative), with a custom brand mark; no emoji. (Amended
-  2026-10-03: the first icons were hand-drawn inline SVGs.) Item icons and
+  2026-10-03: the first icons were hand-drawn inline SVGs. Amended 2026-10-10:
+  the brand mark is now the Astral lockup, per
+  [decision 0023](0023-astral-brand.md).) Item icons and
   banner art are placeholders (rarity-tinted initials and colour bars) until a
   source is decided.
 
