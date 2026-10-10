@@ -152,7 +152,7 @@ and offers list, grid and icon layouts with placeholder art.
 The first release covers Honkai: Star Rail only
 ([decision 0018](../architecture/decisions/0018-star-rail-first-release.md)).
 
-- [ ] [0047 — Astral brand](features/0047-astral-brand.md)
+- [x] [0047 — Astral brand](features/0047-astral-brand.md)
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 

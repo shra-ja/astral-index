@@ -33,11 +33,13 @@ history import works end to end; Genshin Impact has its screens but no import ye
   drive the app against a synthetic HoYoverse (the mock debug binary). The docs
   are checked too: links and anchors resolve, every doc is reachable from
   `AGENTS.md`, STATUS stays within 150 lines, and markdownlint checks structure.
-  The app icons must match what the brand files produce.
 
 ## In progress
 
-None.
+### Astral brand closed (2026-10-10)
+
+On `docs/close-astral-brand`: decision 0013 points to 0023, and 0047 is done;
+no old mark's path data or colours remain outside archived history.
 
 ## Known limitations
 
@@ -60,10 +62,9 @@ None.
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next in milestone
-10 are feature 0047's closing docs, then feature 0038's checks, including native
-Windows validation. Banner metadata and art wait for the downloader and
-milestone 12 (decision 0022).
+If the probe flake recurs, read its snapshot before rerunning. Next is feature
+0038's checks, including native Windows validation. Banner metadata and art wait
+for the downloader and milestone 12 (decision 0022).
 
 ## Keeping this file current
 
