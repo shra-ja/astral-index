@@ -963,6 +963,19 @@ mod tests {
         InvokeBody::Raw(bytes)
     }
 
+    /// The window icon Tauri compiles in is the Astral tile (decision 0023): the
+    /// 512 px icon, the emblem's colour at its centre and the tile's at its edge.
+    #[test]
+    fn the_window_icon_is_the_astral_tile() {
+        let context: tauri::Context<MockRuntime> = tauri::generate_context!();
+        let icon = context.default_window_icon().expect("a window icon");
+        assert_eq!((icon.width(), icon.height()), (512, 512));
+        let pixel = |x: usize, y: usize| &icon.rgba()[(y * 512 + x) * 4..][..4];
+        assert_eq!(pixel(256, 256), [0xfa, 0xf9, 0xf5, 255]);
+        assert_eq!(pixel(40, 256), [0x20, 0x27, 0x35, 255]);
+        assert_eq!(pixel(0, 0), [0, 0, 0, 0]);
+    }
+
     #[test]
     fn registers_exactly_the_manifest_commands_and_rejects_others() {
         let window = window();
