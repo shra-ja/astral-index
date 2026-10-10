@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-09
+Updated: 2026-10-10
 
 ## Current state
 
@@ -22,6 +22,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
   one saved account, its header switches between them. The Import screen shows
   the last import. Saved history is read from this device only. Themed
   tooltips name the collapsed sidebar's links and explain unavailable controls.
+  The sidebar shows the Astral brand: the emblem tile beside the wordmark, or
+  the tile alone when collapsed.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -33,15 +35,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Sidebar lockup (2026-10-09)
-
-Feature 0047's first task, on `feat/sidebar-lockup`. Decision 0023: the sidebar
-shows the Astral emblem tile beside the wordmark, sized from an 18 px wordmark,
-and the collapsed sidebar the 32 px tile alone; the brand's small-set files are
-kept as supplied in `src-ui/src/assets/brand/`. Evidence: the `AstralTile` and
-sidebar tests failed first, then passed; end to end, the lockup check failed on
-the old sidebar, then passed with a 43.2 px tile, 12.6 px gap, 18 × 130 px
-wordmark, 110% emblem and the brand colours, expanded and collapsed.
+None.
 
 ## Known limitations
 
@@ -147,3 +141,5 @@ research, under a "From" heading.
   the standalone downloader and catalogue folder for banner metadata and art,
   history completeness as the user's responsibility, the styled tooltip, and the
   grid and icons layouts.
+- [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
+  lockup and decision 0023.
