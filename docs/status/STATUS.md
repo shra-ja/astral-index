@@ -36,10 +36,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Size overlay (2026-10-10)
-
-0048's first task, on `feat/size-overlay`: `ASTRAL_INDEX_SIZE_OVERLAY=1` shows
-the window's size in debug builds. Tests failed first, then passed natively.
+None.
 
 ## Known limitations
 
@@ -144,5 +141,5 @@ research, under a "From" heading.
 - [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
   lockup and decision 0023.
 - [2026-10-10: application icon](history/2026-10-10-application-icon.md): the
-  generated app icons, their check, the suite discovery probe's timeout and
-  feature 0047's close.
+  generated app icons, their check, the suite discovery probe's timeout,
+  feature 0047's close and the size overlay.
