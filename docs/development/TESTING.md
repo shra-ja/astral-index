@@ -123,6 +123,15 @@ checked like code ([decision 0016](../architecture/decisions/0016-markdown-check
   keeps its hand wrapping; nothing reflows it. Archived status history, decision
   records and agent skills are skipped.
 
+## Icon check
+
+The app icons in `src-tauri/icons/` are generated from the brand's emblems in
+`src-ui/src/assets/brand/` ([decision 0023](../architecture/decisions/0023-astral-brand.md)).
+`npm run icons:check` runs `tests/app-icons.test.ts`, which renders them afresh
+with `tooling/app-icons.ts` and fails, naming each file, when a committed icon
+differs or is missing; `npm run icons` writes them. A mutation probe proves the
+check fails.
+
 ## Network policy in tests
 
 Automated tests are local and self-contained: scripted transports, the mock

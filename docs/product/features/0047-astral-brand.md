@@ -38,17 +38,20 @@ Each task is one PR, in this order.
     stretch or re-type the wordmark, or show the emblem without its tile.
   - Verify natively: end-to-end screenshots of the expanded and collapsed
     sidebar, at 1× and with `ASTRAL_INDEX_ZOOM=1.25`.
-- [ ] Replace the application icon with the Astral tile, test first where the
+- [x] Replace the application icon with the Astral tile, test first where the
   build allows.
   - Replace `src-tauri/icons/source.svg`, the old gold star, with the emblem in
     its tile by the lockup's rules: `#202735` tile filling the canvas with a 21%
     corner radius, the emblem at 110% of the tile, centred, in `#faf9f5`. Use
     the small emblem for icon sizes up to 64 px and the regular emblem above.
-  - Regenerate `icon.png` and `icon.ico` with `npx tauri icon`. If it takes
-    one source only, assemble the small sizes from the small-emblem source and
-    record the steps in DEVELOPMENT.
-  - Verify: the mock binary's window and taskbar icon on Linux, the Windows
-    cross-build's `.ico`, and the release `.deb`'s icon all show the tile.
+  - `tauri icon` renders one source at a time, so a tested script,
+    `npm run icons`, builds both tiles, renders them and assembles `icon.ico`;
+    `npm run icons:check`, part of `npm run check`, fails when the committed
+    icons stop matching the brand files.
+  - List the icons in `tauri.conf.json`, so the `.deb` installs them and the
+    Linux window uses the 512 px icon.
+  - Verify: the compiled-in window icon, the Windows cross-build's embedded
+    icon, and the release `.deb`'s installed icons all show the tile.
 - [ ] Update the living docs and close the feature: decision 0013's brand-mark
   line, the frontend README's assets, DEVELOPMENT's icon steps, and STATUS.
   `npm run check` passes and searching tracked files finds no remaining use of

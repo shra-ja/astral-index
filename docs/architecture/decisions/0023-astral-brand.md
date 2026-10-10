@@ -36,6 +36,14 @@ the live-text name, and the application icon becomes the emblem in its tile
 - **Drawing the wordmark:** an `<img>` of the supplied file, the usual way to
   show a logo whose colours are fixed: the file stays as supplied, the browser
   caches it, and its gradient's `id` stays out of the page.
+- **Application icon** (added 2026-10-10): the emblem in its tile by the same
+  rules, the tile filling a square canvas with transparent corners. Sizes up to
+  64 px use the small emblem and larger ones the regular emblem, so `icon.ico`
+  holds 16 to 64 px from the small set and 256 px from the regular one. Tauri's
+  icon command renders one source at a time, so `tooling/app-icons.ts` builds
+  both tiles from the brand files, renders them, assembles the `.ico` and writes
+  the PNGs the `.deb` installs and the Linux window uses. `npm run icons:check`
+  fails when the committed icons stop matching the brand files.
 - **Accessibility:** the wordmark is an image with the alt text "Astral Index"
   and the tile is decorative. In the collapsed sidebar the wordmark is hidden
   visually but kept for assistive technology, so the app has one name in every
