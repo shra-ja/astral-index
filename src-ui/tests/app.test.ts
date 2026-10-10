@@ -53,7 +53,7 @@ const current = (container: HTMLElement) =>
     link.getAttribute('aria-current'),
   ])
 
-// Every icon on screen is a decorative Lucide icon, apart from the custom brand mark.
+// Every icon on screen is a decorative Lucide icon, apart from the brand's emblem.
 // Returns the Lucide names shown, so each screen's icons can be checked.
 function icons() {
   const drawn = [...document.querySelectorAll('svg')].filter((svg) => !svg.closest('.brand'))
