@@ -248,6 +248,21 @@ test('the docs gate rejects a broken link and an unreachable doc', () => {
   }
 }, 30000)
 
+// The committed app icons must stay what the brand's emblems produce.
+test('the icons gate rejects a changed icon and a missing one', () => {
+  const [changed, missing] = ['src-tauri/icons/64x64.png', 'src-tauri/icons/icon.ico']
+  const original = readFileSync(changed)
+  try {
+    writeFileSync(changed, Buffer.concat([original, Buffer.from('probe')]))
+    renameSync(missing, `${missing}.probe`)
+    expectCommandFailure('npm', ['run', 'icons:check'], "[ 'icon.ico', '64x64.png' ]")
+  } finally {
+    writeFileSync(changed, original)
+    if (existsSync(`${missing}.probe`)) renameSync(`${missing}.probe`, missing)
+  }
+  expectCommandSuccess('npm', ['run', 'icons:check'])
+}, 60000)
+
 test('the wrapper exception guard rejects added startup behavior', () => {
   const path = 'src-tauri/src/main.rs'
   const original = readFileSync(path, 'utf8')

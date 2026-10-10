@@ -65,7 +65,7 @@ WSL the app renders at 1×, so to match a Windows display at 125% run
 
 | Command | Does |
 | --- | --- |
-| `npm run check` | Every gate: formatting, lint, the docs check, build, coverage, probes, report validation, Rust formatting, Clippy and the offline native tests |
+| `npm run check` | Every gate: formatting, lint, the docs check, the icon check, build, coverage, probes, report validation, Rust formatting, Clippy and the offline native tests |
 | `npm test` | The frontend's tests (in `src-ui/`), then the tooling tests |
 | `npm run coverage` / `coverage:json` | Fresh frontend and tooling coverage with per-file 100% thresholds, with or without HTML |
 | `npm run typecheck` | `vue-tsc --build` over the app, UI-test and Node projects, templates included |
@@ -73,6 +73,7 @@ WSL the app renders at 1×, so to match a Windows display at 125% run
 | `npm run format` / `format:check` | Format with Prettier, or only check |
 | `npm run lint` / `lint:check` | Fix what ESLint and markdownlint can, or only check, failing on warnings |
 | `npm run docs:check` | Check that doc links and anchors resolve, every doc is reachable from `AGENTS.md`, and STATUS stays short |
+| `npm run icons` / `icons:check` | Write the app icons in `src-tauri/icons/` from the brand's emblems, or only check that the committed ones match |
 | `npm run test:backend` | Rust unit, integration and end-to-end tests with coverage reports |
 | `npm run test:offline` | `test:backend` in a network namespace with no external route |
 | `npm run coverage:backend-unit` | Reset backend counters, run Rust unit tests and freeze their report |
@@ -135,5 +136,5 @@ read it first. The executable is
 Windows folder and start it from Explorer. It needs the WebView2 runtime, which
 Windows 11 includes. Linker warnings about missing `libcmt` debug information are
 harmless. Release builds use the Windows GUI subsystem, so no console opens;
-debug builds keep it for logs. Windows builds need `src-tauri/icons/icon.ico`,
-generated from `source.svg` with `npx tauri icon`.
+debug builds keep it for logs. The executable embeds `src-tauri/icons/icon.ico`,
+which `npm run icons` generates.

@@ -17,6 +17,9 @@ Tests that belong to neither the frontend nor the backend alone.
 - `backend-coverage-stages.test.ts` holds named stages, selected by the npm
   scripts, that run the instrumented Rust tests (unit, integration) and write
   their coverage reports.
+- `app-icons.test.ts` holds named stages: one writes the app icons from the
+  brand's emblems (`npm run icons`), the other checks the committed ones match
+  (`npm run icons:check`).
 - `coverage-reports.test.ts` holds the coverage gates, and
   `mutation-probes.test.ts` the mutation probes proving each gate fails when it
   should. Each probe command is stopped after 10 minutes. One that does not end
