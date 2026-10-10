@@ -130,6 +130,8 @@ test('the report gate fails closed when a required report is missing or incomple
 }, 30000)
 
 // Exercise the public commands so adding a suite cannot silently bypass either gate.
+// It runs the frontend and tooling suites eight times: 103–180 s on CI runners in
+// October 2026, so it allows 6 minutes, well within CI's 30-minute job.
 test('the test and coverage commands discover additional frontend and tooling suites', () => {
   // Sibling unit tests, frontend integration tests, build tests and tooling tests.
   const paths = [
@@ -153,7 +155,7 @@ test('the test and coverage commands discover additional frontend and tooling su
       unlinkSync(path)
     }
   }
-}, 180000)
+}, 360000)
 
 // A network failure alone must not satisfy the native CSP assertion.
 test('the native CSP test rejects a permissive connection policy', () => {
