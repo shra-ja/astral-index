@@ -55,6 +55,25 @@ const tooltipFor = (app: AppSession, selector: string) =>
     };
   `)
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms))
+// The sidebar's brand lockup as drawn: sizes in CSS px, colours, and whether the
+// bundled wordmark loaded and still names the app.
+const lockup = (app: AppSession) =>
+  app.execute(`
+    const tile = document.querySelector('nav .brand .astral-tile');
+    const emblem = tile.querySelector('svg');
+    const wordmark = document.querySelector('nav .brand img');
+    const [t, e, w] = [tile, emblem, wordmark].map(el => el.getBoundingClientRect());
+    const round = n => Math.round(n * 10) / 10;
+    return {
+      tile: [round(t.width), round(t.height)],
+      radius: getComputedStyle(tile).borderTopLeftRadius,
+      background: getComputedStyle(tile).backgroundColor,
+      emblem: [round(e.width / t.width), getComputedStyle(emblem).color],
+      gap: round(w.left - t.right),
+      wordmark: [round(w.height), round(w.width), wordmark.alt, wordmark.naturalWidth > 0],
+      centred: Math.abs((t.top + t.bottom) / 2 - (w.top + w.bottom) / 2) < 0.5,
+    };
+  `)
 
 // Native integration test; run inside Xvfb. No production test hooks or mocked runtime.
 test('the bundled native shell works offline, supports keyboard navigation, and closes cleanly', async () => {
@@ -71,6 +90,17 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       .toContain('No Warp History Yet')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
     await app.screenshot('e2e-history')
+    // The sidebar shows the brand lockup from the bundled files, sized from the
+    // wordmark's height: an 18 px wordmark, a 2.4× tile, a 0.7× gap, a 110% emblem.
+    expect(await lockup(app)).toEqual({
+      tile: [43.2, 43.2],
+      radius: '21%',
+      background: 'rgb(32, 39, 53)',
+      emblem: [1.1, 'rgb(250, 249, 245)'],
+      gap: 12.6,
+      wordmark: [18, 130, 'Astral Index', true],
+      centred: true,
+    })
     // The expanded sidebar shows its links' names, so their tooltips stay hidden.
     const importLink = 'nav a[aria-label=Import]'
     expect(
@@ -105,6 +135,12 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     expect(await app.execute('return { width: innerWidth, height: innerHeight }')).toEqual({
       width: 480,
       height: 560,
+    })
+    // Collapsed, the sidebar shows the tile alone; the hidden wordmark still names the app.
+    expect(await lockup(app)).toMatchObject({
+      tile: [32, 32],
+      emblem: [1.1, 'rgb(250, 249, 245)'],
+      wordmark: [1, 1, 'Astral Index', true],
     })
     // Collapsed to icons, the sidebar names its links in themed tooltips (decision 0013):
     // after a pause under the pointer, beside the link and inside the window.
