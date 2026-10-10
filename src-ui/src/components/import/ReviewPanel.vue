@@ -130,6 +130,11 @@ onMounted(() => headingElement.value!.focus())
   padding: 20px var(--gutter);
   overflow-y: auto;
 }
+/* Each section keeps its full height, so a short window scrolls the body rather
+   than squeezing a panel and clipping its rows. */
+.body > * {
+  flex-shrink: 0;
+}
 h2 {
   margin: 0;
   font-size: 18px;
@@ -160,7 +165,6 @@ h2:focus {
 }
 .stats {
   display: grid;
-  flex-shrink: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(max-content, 1.3fr);
   gap: 1px;
   overflow: hidden;
