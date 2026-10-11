@@ -955,7 +955,7 @@ test('in a very wide window every screen keeps one content width, centred under 
   }
 }, 120000)
 
-test('as the window narrows, the sidebar gives way first and no fuller layout comes back', async () => {
+test('as the window narrows, the sidebar gives way first, no fuller layout comes back and no list column is clipped', async () => {
   const { app } = await launchMock('history')
   try {
     await retrieveFromFile(app)
@@ -968,21 +968,39 @@ test('as the window narrows, the sidebar gives way first and no fuller layout co
     await expect
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
-    // Which compact layouts apply once the page has laid out at the given width.
-    const compact = (width: number) =>
-      app.executeAsync<Record<string, boolean>>(`
+    // Which compact layouts apply once the page has laid out at the given width, and
+    // what the list cuts off: a column's text (names truncate by design), a row
+    // running past its end, or Pity sitting closer than 12px to the name before it.
+    const layoutAt = (width: number) =>
+      app.executeAsync<{ compact: Record<string, boolean>; clipped: string[] }>(`
         const done = arguments[arguments.length - 1];
         const read = (frames) => {
           if (innerWidth !== ${width} && frames > 0) return requestAnimationFrame(() => read(frames - 1));
           requestAnimationFrame(() => requestAnimationFrame(() => {
-            const hidden = (selector) => getComputedStyle(document.querySelector(selector)).display === 'none';
+            const hidden = (element) => getComputedStyle(element).display === 'none';
+            const headings = [...document.querySelectorAll('.roll-list [role=columnheader]')];
+            const clipped = new Set();
+            for (const row of document.querySelectorAll('.roll-list [role=row]')) {
+              if (row.scrollWidth > row.clientWidth) clipped.add('row');
+              [...row.children].forEach((cell, index) => {
+                if (!cell.classList.contains('item') && !hidden(cell) && cell.scrollWidth > cell.clientWidth)
+                  clipped.add(headings[index].textContent.split(' ')[0]);
+              });
+              const item = row.querySelector('.item, [role=columnheader]:nth-child(2)');
+              const pity = row.children[2];
+              if (pity.getBoundingClientRect().left - item.getBoundingClientRect().right < 12)
+                clipped.add('Pity beside Item');
+            }
             done({
-              'icon rail': document.querySelector('.sidebar').getBoundingClientRect().width < 100,
-              'two by two summary':
-                getComputedStyle(document.querySelector('.strip')).gridTemplateColumns.split(' ').length === 2,
-              'no Type column': hidden('.roll-list .head .type'),
-              'no Time column': hidden('.roll-list .head .time'),
-              'no Rows per page label': document.querySelector('.size-label').getBoundingClientRect().width <= 1,
+              compact: {
+                'icon rail': document.querySelector('.sidebar').getBoundingClientRect().width < 100,
+                'two by two summary':
+                  getComputedStyle(document.querySelector('.strip')).gridTemplateColumns.split(' ').length === 2,
+                'no Type column': hidden(document.querySelector('.roll-list .head .type')),
+                'no Time column': hidden(document.querySelector('.roll-list .head .time')),
+                'no Rows per page label': document.querySelector('.size-label').getBoundingClientRect().width <= 1,
+              },
+              clipped: [...clipped],
             });
           }));
         };
@@ -990,22 +1008,24 @@ test('as the window narrows, the sidebar gives way first and no fuller layout co
       `)
     const early: string[] = []
     const undone: string[] = []
+    const clipped: string[] = []
     let before: Record<string, boolean> = {}
     for (let width = 1700; width >= 480; width -= 10) {
       await app.command('/window/rect', 'POST', { width, height: 760 })
-      const now = await compact(width)
-      for (const [layout, applies] of Object.entries(now)) {
-        if (applies && !now['icon rail']) early.push(`${layout} at ${width}`)
+      const now = await layoutAt(width)
+      for (const [layout, applies] of Object.entries(now.compact)) {
+        if (applies && !now.compact['icon rail']) early.push(`${layout} at ${width}`)
         if (before[layout] && !applies) undone.push(`${layout} undone at ${width}`)
       }
-      before = now
+      clipped.push(...now.clipped.map((what) => `${what} at ${width}`))
+      before = now.compact
     }
-    expect({ early, undone }).toEqual({ early: [], undone: [] })
+    expect({ early, undone, clipped }).toEqual({ early: [], undone: [], clipped: [] })
     // The sidebar collapses at an 1100px window.
     await app.command('/window/rect', 'POST', { width: 1101, height: 760 })
-    expect((await compact(1101))['icon rail']).toBe(false)
+    expect((await layoutAt(1101)).compact['icon rail']).toBe(false)
     await app.command('/window/rect', 'POST', { width: 1100, height: 760 })
-    expect((await compact(1100))['icon rail']).toBe(true)
+    expect((await layoutAt(1100)).compact['icon rail']).toBe(true)
     await app.close()
   } finally {
     await app.dispose()
