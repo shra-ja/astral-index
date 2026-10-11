@@ -39,14 +39,14 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   top-left corner. The Import screen's states align the same way: today the
   saved card is centred in both directions, the failed card only horizontally,
   and the start screen not at all. Small and medium windows keep their layout.
-- [ ] Narrow the shared content width to 1,360 px, amending decision 0013:
+- [x] Narrow the shared content width to 1,360 px, amending decision 0013:
   1,600 px spreads the content too far. The breaks below were found by hand
   with the size overlay at `ASTRAL_INDEX_ZOOM=1.25`, and their sizes are window
-  widths as it showed them. Under that zoom WebKitGTK appears to compare
-  container queries with the unzoomed width, so they fire at 80% of their
-  written width: the sidebar collapsed at 720 rather than 900. Windows display
-  scaling is not a page zoom, so confirm this natively and record in
-  DEVELOPMENT that breakpoints are checked at zoom 1.
+  widths as it showed them. Under that zoom WebKitGTK compares container
+  queries with the unzoomed width, so they fire at 80% of their written width:
+  the sidebar collapsed at 720 rather than 900, confirmed natively. Windows
+  display scaling is not a page zoom, so DEVELOPMENT says to check breakpoints
+  at zoom 1.
 - [ ] Collapse the sidebar before the content gives way, at an 1,100 px app
   width: where the expanded content would reach its first compact layout, the
   summary strip's two by two at 760 px, in a window of about 1,045 px. The

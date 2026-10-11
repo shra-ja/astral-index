@@ -67,6 +67,12 @@ updating while the window is resized, for finding the sizes where a layout
 breaks. Other values, and release builds, show nothing. For example,
 `ASTRAL_INDEX_SIZE_OVERLAY=1 ASTRAL_INDEX_ZOOM=1.25 npm run tauri:mock`.
 
+Check where layouts change at zoom 1. Under a development zoom, WebKitGTK
+compares container queries with the unzoomed width, so they apply at the
+written width divided by the zoom: at 1.25 the sidebar collapses at 720 CSS
+pixels rather than 900. Windows display scaling is not a page zoom, so its
+container queries apply at their written widths, as at zoom 1.
+
 ## Checks
 
 | Command | Does |

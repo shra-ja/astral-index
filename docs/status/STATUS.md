@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ### Layout breaks at narrow sizes (2026-10-11)
 
-0048's last task, as six PRs; the first, on `fix/narrower-content-width`: 1360px.
+0048's last task, six PRs. First, `fix/narrower-content-width`: 1360px, red then green.
 
 ## Known limitations
 
