@@ -22,3 +22,9 @@ no old mark's path data or colours remain outside archived history.
 Integrated through PR #92.
 0048's first task, on `feat/size-overlay`: `ASTRAL_INDEX_SIZE_OVERLAY=1` shows
 the window's size in debug builds. Tests failed first, then passed natively.
+
+## Review in small windows (2026-10-10)
+
+Integrated through PR #93.
+0048's second task, on `fix/review-small-windows`: Review Import's sections no
+longer shrink, so the body scrolls to every category. Native check red, then green.

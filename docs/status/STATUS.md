@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-10
+Updated: 2026-10-11
 
 ## Current state
 
@@ -36,10 +36,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Review in small windows (2026-10-10)
-
-0048's second task, on `fix/review-small-windows`: Review Import's sections no
-longer shrink, so the body scrolls to every category. Native check red, then green.
+None.
 
 ## Known limitations
 
@@ -147,4 +144,4 @@ research, under a "From" heading.
   lockup and decision 0023.
 - [2026-10-10: application icon](history/2026-10-10-application-icon.md): the
   generated app icons, their check, the suite discovery probe's timeout,
-  feature 0047's close and the size overlay.
+  feature 0047's close, the size overlay and the review's small-window fix.
