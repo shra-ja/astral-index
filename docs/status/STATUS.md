@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ### History pager (2026-10-11)
 
-0048's fifth layout-break task, `fix/history-pager`: still page buttons, steady lines.
+0048's fifth layout-break task, `fix/history-pager`: still page buttons; red, then green.
 
 ## Known limitations
 

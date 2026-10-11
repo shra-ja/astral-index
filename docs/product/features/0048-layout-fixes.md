@@ -74,14 +74,16 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   a second row; wrap in two groups instead, the rarity filters and date range on
   the first row and search beside the layout switch on the second. On one row
   the date range now comes before search, as in the keyboard order.
-- [ ] Keep the pager's page buttons still and its lines steady. The buttons
+- [x] Keep the pager's page buttons still and its lines steady. The buttons
   move between pages, since their number changes (four on page 1, seven on
   page 4) and the width of the "Showing" text shifts them: show seven places
   whenever there are seven or more pages, with fixed-width numbers centred
   whatever the text's width. At 859 the pager wraps to two lines with "Rows per
   page" still shown, until the label hides at 782 and one line fits again, and
   the same happens under 720 after the sidebar collapses: hide the label when
-  one line stops fitting, measured in code as the tabs are.
+  one line stops fitting, measured in code as the tabs are. At zoom 1 the
+  two-line stage did not appear, so it came from the development zoom, but the
+  measured fit keeps it from returning at any zoom.
 - [ ] Keep Review Import's figures whole. Below 835 "Existing rolls skipped"
   wraps to three lines and the fixed 78 px tile cuts off its number: the
   figures switch to two by two by window width (760 px) rather than by content
