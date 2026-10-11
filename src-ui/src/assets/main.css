@@ -32,7 +32,7 @@
   /* Every screen's content shares one maximum width, centred: its side padding is the
      gutter, or whatever centres that width when the screen is wider. A percentage
      here resolves where the padding is used, against the screen's width. */
-  --content-width: 1600px;
+  --content-width: 1360px;
   --content-pad: max(var(--gutter), calc((100% - var(--content-width)) / 2));
 
   font-family: 'Hanken Grotesk Variable', system-ui, sans-serif;
