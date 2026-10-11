@@ -157,8 +157,12 @@ widths, and detect overflow where content length varies.
 - **Rolls panel:** the toolbar wraps and search flexes between 160px and 240px.
   List columns have stable widths except Item, which takes the spare space; as
   space shrinks, Type drops out (1180px), then Banner (980px, or when art is
-  off), then Time (760px). Rows, grid tiles (at least 190px, as many per row as
-  fit) and icon tiles (64px) scroll inside the panel, with the list header fixed.
+  off), then Time (760px). (Amended 2026-10-11, feature 0048: columns sit 12px
+  apart, and each drops out where the others would no longer fit at their
+  minimum widths, rather than at those mockup widths: Type in a list narrower
+  than 626px and Time narrower than 530px, so no column is ever cut off.) Rows,
+  grid tiles (at least 190px, as many per row as fit) and icon tiles (64px)
+  scroll inside the panel, with the list header fixed.
   (Amended 2026-10-07:) the toolbar never shrinks, and the rolls keep at least
   200px; a window too short for that scrolls the whole History screen, never
   sideways. (Amended 2026-10-11, feature 0048:) the panel ends at its rolls and

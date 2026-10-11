@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ### List columns (2026-10-11)
 
-0048's third layout-break task, `fix/list-columns`: no clipped or touching columns.
+0048's third layout-break task, `fix/list-columns`: no clipped or touching columns; red, then green.
 
 ## Known limitations
 
