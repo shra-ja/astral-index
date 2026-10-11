@@ -32,7 +32,7 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   screen. The panel ends at its rolls and only the screen scrolls, at every
   size, with the list's column headings and the pager pinned in view; page
   sizes stay 20, 50 and 100. Narrow, the pager keeps to two lines.
-- [ ] Give every screen one shared maximum content width, about 1,600 px,
+- [x] Give every screen one shared maximum content width, about 1,600 px,
   centred, and amend decision 0013 with it. History and Review Import stop
   spreading their columns across very wide windows; Import's source cards
   share the width in a fluid grid rather than stopping at about 1,200 px in the
