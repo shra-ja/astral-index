@@ -42,17 +42,11 @@ const bandClass = (roll: StoredRoll) => {
 <style scoped>
 .roll-grid {
   display: grid;
-  flex-grow: 1;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   align-content: start;
   gap: 12px;
-  /* Sized by the panel, not its tiles, with room for a row; the screen scrolls when
-     even that does not fit. */
-  contain: size;
-  min-height: 200px;
   margin: 0;
   padding: 16px;
-  overflow-y: auto;
   list-style: none;
 }
 .tile {

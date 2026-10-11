@@ -85,17 +85,11 @@ function onKey(event: KeyboardEvent, index: number) {
 <style scoped>
 .roll-icons {
   display: grid;
-  flex-grow: 1;
   grid-template-columns: repeat(auto-fill, 64px);
   align-content: start;
   gap: 10px;
-  /* Sized by the panel, not its icons, with room for a few rows; the screen scrolls
-     when even that does not fit. */
-  contain: size;
-  min-height: 200px;
   margin: 0;
   padding: 16px;
-  overflow-y: auto;
   list-style: none;
 }
 .tile {
