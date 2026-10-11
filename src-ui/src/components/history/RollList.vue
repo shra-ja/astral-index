@@ -71,7 +71,10 @@ const bandClass = (roll: StoredRoll) => {
   min-width: 0;
   font-size: 14px;
 }
-@container rolls (max-width: 600px) {
+/* Each column drops out where the rest would no longer fit at their minimums: the
+   columns' minimums, 12px gaps between them and the rows' 40px of padding. With
+   Type that is 626px, and without it 530px. */
+@container rolls (max-width: 625px) {
   .table {
     --columns: 56px minmax(120px, 1fr) 52px 64px minmax(150px, 190px);
   }
@@ -79,7 +82,7 @@ const bandClass = (roll: StoredRoll) => {
     display: none;
   }
 }
-@container rolls (max-width: 440px) {
+@container rolls (max-width: 529px) {
   .table {
     --columns: 56px minmax(120px, 1fr) 52px 64px;
   }
@@ -90,6 +93,7 @@ const bandClass = (roll: StoredRoll) => {
 .row {
   display: grid;
   grid-template-columns: var(--columns);
+  column-gap: 12px;
   align-items: center;
   padding: 0 20px;
 }
