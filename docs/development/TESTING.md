@@ -74,7 +74,9 @@ keyboard operation, the window minimum, the command capability and that the CSP
 blocks webview connections. The mock debug binary
 ([decision 0014](../architecture/decisions/0014-mock-debug-binary.md)) runs
 retrieval, review, saving, restarts, failures and account scenarios against a
-synthetic HoYoverse. Apps close as a user would, and the test waits for that
+synthetic HoYoverse. A width sweep narrows the History screen from 1700px to the
+480px minimum in 10px steps, checking that the sidebar gives way before the
+content and that no compact layout returns as the window narrows. Apps close as a user would, and the test waits for that
 process's coverage profile; a killed process never counts as covered.
 Screenshots go to `test-results/`.
 

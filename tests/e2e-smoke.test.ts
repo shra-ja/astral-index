@@ -92,6 +92,11 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       .toContain('No Warp History Yet')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
     await app.screenshot('e2e-history')
+    // The window opens wide enough for the full sidebar, which collapses at 1100px.
+    expect(await app.execute('return { width: innerWidth, height: innerHeight }')).toEqual({
+      width: 1200,
+      height: 760,
+    })
     // The sidebar shows the brand lockup from the bundled files, sized from the
     // wordmark's height: an 18 px wordmark, a 2.4× tile, a 0.7× gap, a 110% emblem.
     expect(await lockup(app)).toEqual({
@@ -950,6 +955,63 @@ test('in a very wide window every screen keeps one content width, centred under 
   }
 }, 120000)
 
+test('as the window narrows, the sidebar gives way first and no fuller layout comes back', async () => {
+  const { app } = await launchMock('history')
+  try {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Ready to save 2,060 new rolls')
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    await app.execute('document.querySelector("nav a[aria-label*=History]").click()')
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
+    // Which compact layouts apply once the page has laid out at the given width.
+    const compact = (width: number) =>
+      app.executeAsync<Record<string, boolean>>(`
+        const done = arguments[arguments.length - 1];
+        const read = (frames) => {
+          if (innerWidth !== ${width} && frames > 0) return requestAnimationFrame(() => read(frames - 1));
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const hidden = (selector) => getComputedStyle(document.querySelector(selector)).display === 'none';
+            done({
+              'icon rail': document.querySelector('.sidebar').getBoundingClientRect().width < 100,
+              'two by two summary':
+                getComputedStyle(document.querySelector('.strip')).gridTemplateColumns.split(' ').length === 2,
+              'no Type column': hidden('.roll-list .head .type'),
+              'no Time column': hidden('.roll-list .head .time'),
+              'no Rows per page label': document.querySelector('.size-label').getBoundingClientRect().width <= 1,
+            });
+          }));
+        };
+        read(60);
+      `)
+    const early: string[] = []
+    const undone: string[] = []
+    let before: Record<string, boolean> = {}
+    for (let width = 1700; width >= 480; width -= 10) {
+      await app.command('/window/rect', 'POST', { width, height: 760 })
+      const now = await compact(width)
+      for (const [layout, applies] of Object.entries(now)) {
+        if (applies && !now['icon rail']) early.push(`${layout} at ${width}`)
+        if (before[layout] && !applies) undone.push(`${layout} undone at ${width}`)
+      }
+      before = now
+    }
+    expect({ early, undone }).toEqual({ early: [], undone: [] })
+    // The sidebar collapses at an 1100px window.
+    await app.command('/window/rect', 'POST', { width: 1101, height: 760 })
+    expect((await compact(1101))['icon rail']).toBe(false)
+    await app.command('/window/rect', 'POST', { width: 1100, height: 760 })
+    expect((await compact(1100))['icon rail']).toBe(true)
+    await app.close()
+  } finally {
+    await app.dispose()
+  }
+}, 180000)
+
 test('failed, cancelled and discarded retrievals save nothing, and saved history survives restarts and later failures', async () => {
   // A retrieval that loses the network says where it stopped and saves nothing.
   await withMock('network-failure', {}, async (app, database) => {
@@ -1195,9 +1257,9 @@ test('a development zoom scales the webview, so WSL can match the Windows displa
       .poll(() => textOf(app, '[role=status] h2'), { timeout: 10000 })
       .toBe('No Warp History Yet')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
-    // The window is 1000 pixels wide inside, so at 125% the page is 800 wide.
+    // The window is 1200 pixels wide inside, so at 125% the page is 960 wide.
     const width = await app.execute<number>('return window.innerWidth')
-    expect(Math.abs(width - 800)).toBeLessThanOrEqual(2)
+    expect(Math.abs(width - 960)).toBeLessThanOrEqual(2)
     // Opened with the size overlay, the corner shows the page's size and scale, and
     // follows a resize.
     const overlay = () =>
@@ -1216,7 +1278,7 @@ test('a development zoom scales the webview, so WSL can match the Windows displa
     expect((await overlay()).shown).toMatch(/^\d+ × \d+ · 1\.25×$/)
     await app.screenshot('e2e-mock-zoom')
     await app.command('/window/rect', 'POST', { width: 1280, height: 900 })
-    await expect.poll(async () => (await overlay()).shown, { timeout: 5000 }).not.toMatch(/^80\d /)
+    await expect.poll(async () => (await overlay()).shown, { timeout: 5000 }).not.toMatch(/^96\d /)
     expect(await matches()).toBe(true)
     await app.close()
   } finally {

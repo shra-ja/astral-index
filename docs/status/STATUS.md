@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Layout breaks at narrow sizes (2026-10-11)
+### Sidebar collapse (2026-10-11)
 
-0048's last task, six PRs. First, `fix/narrower-content-width`: 1360px, red then green.
+0048's second layout-break task, `fix/sidebar-collapse`: collapse at 1100px; red, then green.
 
 ## Known limitations
 
@@ -147,4 +147,4 @@ research, under a "From" heading.
   generated app icons, their check, the suite discovery probe's timeout,
   feature 0047's close, the size overlay and the review's small-window fix.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
-  scroll region on the History screen and the shared content width.
+  scroll region on the History screen and the shared content width, narrowed.
