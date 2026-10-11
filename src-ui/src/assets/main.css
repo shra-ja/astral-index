@@ -29,6 +29,11 @@
   --error: #ff9b8a;
   --error-tint: #3a1f1c;
   --gutter: clamp(16px, 2.5vw, 32px);
+  /* Every screen's content shares one maximum width, centred: its side padding is the
+     gutter, or whatever centres that width when the screen is wider. A percentage
+     here resolves where the padding is used, against the screen's width. */
+  --content-width: 1600px;
+  --content-pad: max(var(--gutter), calc((100% - var(--content-width)) / 2));
 
   font-family: 'Hanken Grotesk Variable', system-ui, sans-serif;
   color: var(--text);

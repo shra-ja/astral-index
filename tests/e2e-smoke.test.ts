@@ -371,6 +371,24 @@ const skipped = (app: AppSession) =>
   app.execute<string | undefined>(
     'return [...document.querySelectorAll(".review .stat")].find(stat => stat.querySelector(".stat-label").textContent === "Existing rolls skipped")?.querySelector(".stat-value").textContent',
   )
+/**
+ * Whether a status card sits in the middle of its screen, across and down, or, when it
+ * is taller than the screen, centred across and starting at the top. The screen
+ * carries its step as a class too, so the card is matched as its child.
+ */
+const centredCard = (app: AppSession, card: string) =>
+  app.execute<boolean>(`
+    const element = document.querySelector('.retrieval');
+    const screen = element.getBoundingClientRect();
+    const box = element.querySelector(':scope > ${card}').getBoundingClientRect();
+    const top = screen.top + parseFloat(getComputedStyle(element).paddingTop);
+    const across = Math.abs((screen.left + screen.right) / 2 - (box.left + box.right) / 2) <= 2;
+    const fits = box.height <= element.clientHeight - 2 * (top - screen.top);
+    const down = fits
+      ? Math.abs((screen.top + screen.bottom) / 2 - (box.top + box.bottom) / 2) <= 2
+      : Math.abs(box.top - top) <= 1;
+    return across && down;
+  `)
 const click = (app: AppSession, container: string, name: string) =>
   app.execute(
     `[...document.querySelectorAll("${container} button")].find(b => b.textContent.trim() === ${JSON.stringify(name)}).click()`,
@@ -401,6 +419,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       'Character Collaboration Warp',
       'Light Cone Collaboration Warp',
     ])
+    // The progress card sits in the middle of the screen, as other status cards do.
+    expect(await centredCard(app, '.progress')).toBe(true)
     await app.screenshot('e2e-mock-progress')
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
@@ -874,6 +894,62 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
   }
 }, 120000)
 
+test('in a very wide window every screen keeps one content width, centred under its header', async () => {
+  const { app } = await launchMock('history')
+  try {
+    await app.command('/window/rect', 'POST', { width: 2560, height: 1440 })
+    // The content's width and its gaps to the main area's edges, and whether the
+    // header's title and trailing item line up with the content's edges.
+    const content = (selector: string) =>
+      app.execute<{ width: number; centred: boolean; titleAligned: boolean; endAligned: boolean }>(`
+        const main = document.querySelector('main').getBoundingClientRect();
+        const box = document.querySelector('${selector}').getBoundingClientRect();
+        const title = document.querySelector('.screen-header h1').getBoundingClientRect();
+        const end = document.querySelector('.screen-header').lastElementChild.getBoundingClientRect();
+        return {
+          width: Math.round(box.width),
+          centred: Math.abs((box.left - main.left) - (main.right - box.right)) <= 2,
+          titleAligned: Math.abs(title.left - box.left) <= 1,
+          endAligned: Math.abs(end.right - box.right) <= 1,
+        };
+      `)
+    const fitted = { width: 1600, centred: true, titleAligned: true }
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Ready to save 2,060 new rolls')
+    expect(await content('.review .stats')).toMatchObject(fitted)
+    // The review's actions end where its content does.
+    expect(
+      await app.execute<boolean>(`
+        const stats = document.querySelector('.review .stats').getBoundingClientRect();
+        const save = [...document.querySelectorAll('.review .actions button')].at(-1).getBoundingClientRect();
+        return Math.abs(save.right - stats.right) <= 1;
+      `),
+    ).toBe(true)
+    await app.screenshot('e2e-mock-wide-review')
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    expect(await centredCard(app, '.saved')).toBe(true)
+    await click(app, '.saved', 'Done')
+    // The source cards share the whole content width.
+    await expect
+      .poll(() => app.execute('return document.querySelector(".start") !== null'))
+      .toBe(true)
+    expect(await content('.retrieval > .start')).toMatchObject(fitted)
+    await app.screenshot('e2e-mock-wide-import')
+    await app.execute('document.querySelector("nav a[aria-label*=History]").click()')
+    await expect
+      .poll(() => textOf(app, '.showing'), { timeout: 10000 })
+      .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
+    expect(await content('.rolls')).toEqual({ ...fitted, endAligned: true })
+    await app.screenshot('e2e-mock-wide-history')
+    await app.close()
+  } finally {
+    await app.dispose()
+  }
+}, 120000)
+
 test('failed, cancelled and discarded retrievals save nothing, and saved history survives restarts and later failures', async () => {
   // A retrieval that loses the network says where it stopped and saves nothing.
   await withMock('network-failure', {}, async (app, database) => {
@@ -884,6 +960,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
     expect(await textOf(app, '.failed')).toContain(
       'Retrieval stopped at Light Cone Event Warp, page 1.',
     )
+    expect(await centredCard(app, '.failed')).toBe(true)
     await app.screenshot('e2e-mock-failed')
     // The History screen's read opens the database, but no rolls were saved.
     expect(existsSync(database)).toBe(true)

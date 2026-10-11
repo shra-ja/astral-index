@@ -136,6 +136,9 @@ widths, and detect overflow where content length varies.
   does not fit scrolls rather than squashes.
 - **Shell:** the sidebar is 232px and collapses to a 72px icon rail at a 900px
   app width. Headers wrap; side padding scales from 32px down to 16px.
+  (Amended 2026-10-11, feature 0048:) every screen's content, its header
+  included, shares one maximum width of 1600px, centred, so wide windows keep
+  columns together and headers aligned with what they head.
 - **Tabs** never scroll out of reach: counts drop first, then the tabs become a
   "Banner category" dropdown. Switch when the tabs stop fitting, measured in
   code, rather than at fixed widths per game.
@@ -163,7 +166,10 @@ widths, and detect overflow where content length varies.
 - **Review:** the two panels sit side by side, each scrolling with a fixed
   header, and stack at 1100px, where the whole screen scrolls instead. The footer
   actions stay fixed. Centred panels (progress, saved, failures) have a maximum
-  width and shrink below it.
+  width and shrink below it. (Amended 2026-10-11:) content screens start at the
+  top; single status cards (progress, saved and failure cards, and History's
+  empty and failure states) sit in the middle, across and down, or start at the
+  top when taller than the screen.
 
 ### Accessibility
 

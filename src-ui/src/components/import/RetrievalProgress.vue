@@ -150,7 +150,8 @@ onMounted(() => cancelButton.value!.focus())
   gap: 24px;
   width: 100%;
   max-width: 640px;
-  margin: 0 auto;
+  /* A status card sits in the middle of the screen, across and down. */
+  margin: auto;
   padding: 32px;
   border: 1px solid var(--rim);
   border-radius: 14px;
