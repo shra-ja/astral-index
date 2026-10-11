@@ -641,6 +641,20 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(await textOf(app, '[role=dialog] .note')).toBe(
       'Server time (UTC+8). Saved rolls span 25 Sep 2026 – 28 Sep 2026.',
     )
+    // The popover's buttons keep their own sizes: 30px quick ranges, 32px actions.
+    expect(
+      await app.execute(
+        'return [...document.querySelectorAll("[role=dialog] button")].map(button => [button.textContent.trim(), button.offsetHeight])',
+      ),
+    ).toEqual([
+      ['All dates', 30],
+      ['Last 7 days', 30],
+      ['Last 30 days', 30],
+      ['Last 6 months', 30],
+      ['This year', 30],
+      ['Clear', 32],
+      ['Done', 32],
+    ])
     await app.execute(
       `const from = [...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === 'From').querySelector('input'); from.value = '2026-09-28'; from.dispatchEvent(new Event('change'))`,
     )
@@ -955,7 +969,7 @@ test('in a very wide window every screen keeps one content width, centred under 
   }
 }, 120000)
 
-test('as the window narrows, the sidebar gives way first, no fuller layout comes back and no list column is clipped', async () => {
+test('as the window narrows, the sidebar gives way first, no fuller layout comes back and nothing is clipped or stranded', async () => {
   const { app } = await launchMock('history')
   try {
     await retrieveFromFile(app)
@@ -969,8 +983,10 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     // Which compact layouts apply once the page has laid out at the given width, and
-    // what the list cuts off: a column's text (names truncate by design), a row
-    // running past its end, or Pity sitting closer than 12px to the name before it.
+    // what is out of place: in the list, a column's text cut off (names truncate by
+    // design), a row running past its end, or Pity closer than 12px to the name
+    // before it; in the toolbar, a control other than 32px tall, or a control apart
+    // from its partner when the toolbar wraps.
     const layoutAt = (width: number) =>
       app.executeAsync<{ compact: Record<string, boolean>; clipped: string[] }>(`
         const done = arguments[arguments.length - 1];
@@ -991,6 +1007,16 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
               if (pity.getBoundingClientRect().left - item.getBoundingClientRect().right < 12)
                 clipped.add('Pity beside Item');
             }
+            const toolbar = document.querySelector('.rolls .toolbar');
+            if ([...toolbar.querySelectorAll('button')].some((button) => button.offsetHeight !== 32))
+              clipped.add('toolbar control not 32px');
+            const middle = (selector) => {
+              const box = toolbar.querySelector(selector).getBoundingClientRect();
+              return (box.top + box.bottom) / 2;
+            };
+            const apart = (one, other) => Math.abs(middle(one) - middle(other)) > 1;
+            if (apart('.search', '.layouts')) clipped.add('search apart from layout switch');
+            if (apart('.filters', '.dates')) clipped.add('dates apart from rarities');
             done({
               compact: {
                 'icon rail': document.querySelector('.sidebar').getBoundingClientRect().width < 100,

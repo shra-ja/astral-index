@@ -76,8 +76,9 @@ blocks webview connections. The mock debug binary
 retrieval, review, saving, restarts, failures and account scenarios against a
 synthetic HoYoverse. A width sweep narrows the History screen from 1700px to the
 480px minimum in 10px steps, checking that the sidebar gives way before the
-content, that no compact layout returns as the window narrows and that no list
-column is cut off. Apps close as a user would, and the test waits for that
+content, that no compact layout returns as the window narrows, that no list
+column is cut off and that the toolbar's controls stay 32px tall and in their
+groups. Apps close as a user would, and the test waits for that
 process's coverage profile; a killed process never counts as covered.
 Screenshots go to `test-results/`.
 

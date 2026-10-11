@@ -68,11 +68,12 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   decision 0013's mockup widths (Type 1,180, Banner 980, Time 760) with that
   rule. The width sweep checks that no column's text or row is cut off and that
   Pity stays 12 px from Item.
-- [ ] Match the toolbar to the design. It is taller than the canvas because the
-  shared 44 px button minimum overrides its 32 px controls. Below about 930 only
-  the layout switch wraps, alone on a second row; wrap in two groups instead,
-  the rarity filters and date range on the first row and search, stretching,
-  beside the layout switch on the second.
+- [x] Match the toolbar to the design. It is taller than the canvas because the
+  shared 44 px button minimum overrides its 32 px controls, as it does the
+  date popover's buttons. Below about 930 only the layout switch wraps, alone on
+  a second row; wrap in two groups instead, the rarity filters and date range on
+  the first row and search beside the layout switch on the second. On one row
+  the date range now comes before search, as in the keyboard order.
 - [ ] Keep the pager's page buttons still and its lines steady. The buttons
   move between pages, since their number changes (four on page 1, seven on
   page 4) and the width of the "Showing" text shifts them: show seven places

@@ -155,6 +155,11 @@ widths, and detect overflow where content length varies.
   column is never narrower than the full date range, and the range only breaks
   at its dash. Strips never shrink to make room for the list.
 - **Rolls panel:** the toolbar wraps and search flexes between 160px and 240px.
+  (Amended 2026-10-11, feature 0048:) the toolbar holds two groups that wrap as
+  wholes: the rarity filters and date range, then search beside the layout
+  switch, so a wrapped toolbar has two balanced rows rather than the layout
+  switch alone. Its controls are 32px tall, below the shared 44px button
+  minimum.
   List columns have stable widths except Item, which takes the spare space; as
   space shrinks, Type drops out (1180px), then Banner (980px, or when art is
   off), then Time (760px). (Amended 2026-10-11, feature 0048: columns sit 12px

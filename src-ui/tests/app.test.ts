@@ -346,9 +346,10 @@ test('saved history shows its account, category counts and newest rolls first', 
   // Reading saved history only reads this device; it never asks HoYoverse for anything.
   expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import', 'saved_accounts']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
+  // The toolbar's filters come first, then search beside the layouts.
   expect(icons().slice(3)).toEqual([
-    'search',
     'calendar-days',
+    'search',
     'list',
     'layout-grid',
     'grid-3x3',

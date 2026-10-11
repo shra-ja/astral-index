@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### List columns (2026-10-11)
+### History toolbar (2026-10-11)
 
-0048's third layout-break task, `fix/list-columns`: no clipped or touching columns; red, then green.
+0048's fourth layout-break task, `fix/history-toolbar`: 32px controls, balanced wrap; red, then green.
 
 ## Known limitations
 
@@ -147,4 +147,4 @@ research, under a "From" heading.
   generated app icons, their check, the suite discovery probe's timeout,
   feature 0047's close, the size overlay and the review's small-window fix.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
-  scroll region, the shared content width, narrowed, and the sidebar collapse.
+  scroll region, the content width, the sidebar collapse and the list columns.

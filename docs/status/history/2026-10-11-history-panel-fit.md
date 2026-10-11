@@ -23,3 +23,8 @@ Integrated through PR #96.
 
 Integrated through PR #97.
 0048's second layout-break task, `fix/sidebar-collapse`: collapse at 1100px; red, then green.
+
+## List columns (2026-10-11)
+
+Integrated through PR #98.
+0048's third layout-break task, `fix/list-columns`: no clipped or touching columns; red, then green.
