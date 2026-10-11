@@ -13,3 +13,8 @@ headings and pager pinned. Native check red, then green.
 
 Integrated through PR #95.
 0048's fourth task, on `fix/content-width`: one centred 1600px content width.
+
+## Layout breaks at narrow sizes (2026-10-11)
+
+Integrated through PR #96.
+0048's last task, six PRs. First, `fix/narrower-content-width`: 1360px, red then green.
