@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Presentational: shows what saving would change and reports the user's choice.
 // The caller makes the native calls and renders the panel only while reviewing.
-import { computed, onMounted, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import type { Review } from '../../commands'
 import { plural, serverDate, serverName, warps } from '../../format'
 
@@ -27,9 +27,26 @@ const stats = computed(() => [
   ['Conflicts', props.review.summary.conflicts],
 ])
 
+// The figures keep to one row while each column fits its label and value, then go
+// two by two. A hidden copy, as narrow as one row can be, measures that width, which
+// follows the period's dates (decision 0013).
+const figures = useTemplateRef('figures')
+const narrowest = useTemplateRef('narrowest')
+const square = ref(false)
+function measure() {
+  square.value = narrowest.value!.offsetWidth > figures.value!.clientWidth
+}
+
 // The review takes focus as it appears, so screen readers announce it.
 const headingElement = useTemplateRef<HTMLElement>('heading')
-onMounted(() => headingElement.value!.focus())
+let observer: ResizeObserver
+onMounted(() => {
+  headingElement.value!.focus()
+  observer = new ResizeObserver(measure)
+  observer.observe(figures.value!)
+  observer.observe(narrowest.value!)
+})
+onBeforeUnmount(() => observer.disconnect())
 </script>
 
 <template>
@@ -41,7 +58,7 @@ onMounted(() => headingElement.value!.focus())
         <span class="chip">{{ serverName(review.server) }}</span>
       </p>
 
-      <div class="stats">
+      <div ref="figures" class="stats" :class="{ square }">
         <div v-for="[label, value] in stats" :key="label" class="stat">
           <span class="stat-label">{{ label }}</span>
           <span class="stat-value">{{ value.toLocaleString('en') }}</span>
@@ -52,6 +69,22 @@ onMounted(() => headingElement.value!.focus())
             ><span>{{ serverDate(review.earliest) }} – </span
             ><span>{{ serverDate(review.latest) }}</span></span
           >
+        </div>
+      </div>
+      <!-- The same figures in one row, as narrow as their labels and values allow. -->
+      <div class="measure" aria-hidden="true">
+        <div ref="narrowest" class="stats">
+          <div v-for="[label, value] in stats" :key="label" class="stat">
+            <span class="stat-label">{{ label }}</span>
+            <span class="stat-value">{{ value.toLocaleString('en') }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Retrieved period</span>
+            <span class="stat-value period"
+              ><span>{{ serverDate(review.earliest) }} – </span
+              ><span>{{ serverDate(review.latest) }}</span></span
+            >
+          </div>
         </div>
       </div>
       <p class="caption">Times are server time.</p>
@@ -171,6 +204,27 @@ h2:focus {
   border: 1px solid var(--panel-rim);
   border-radius: 12px;
   background: var(--panel-rim);
+}
+.stats.square {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* Laid out at its narrowest, each column just fits its label and value, in the
+   same shares as the shown row. */
+.measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.measure .stats {
+  width: max-content;
+}
+.measure .stat-label {
+  white-space: nowrap;
 }
 .stat {
   display: flex;
@@ -298,10 +352,5 @@ td + td {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-}
-@container app (max-width: 760px) {
-  .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 </style>
