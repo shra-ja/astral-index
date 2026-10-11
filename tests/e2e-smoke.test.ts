@@ -648,12 +648,46 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     await app.screenshot('e2e-mock-history')
-    // With room to spare, the rolls scroll inside their panel and the screen does not.
-    expect(
-      await app.execute(
-        'const main = document.querySelector("main .body"); return main.scrollHeight <= main.clientHeight',
-      ),
-    ).toBe(true)
+    // The rolls panel ends at its last roll, and only the screen scrolls: the rolls never
+    // scroll on their own, the column headings stay under the top and the pager stays
+    // at the bottom.
+    const scrolling = () =>
+      app.execute<{
+        fitted: boolean
+        rollsScroll: boolean
+        screenScrolls: boolean
+        pagerInView: boolean
+        headPinned: boolean | null
+      }>(`
+        const screen = document.querySelector('main > .body');
+        const view = screen.getBoundingClientRect();
+        const panel = document.querySelector('.rolls').getBoundingClientRect();
+        const rolls = document.querySelector('.roll-list .body, .roll-grid, .roll-icons');
+        const last = [...rolls.querySelectorAll('[role=row], li')].at(-1).getBoundingClientRect();
+        const pager = document.querySelector('.roll-pager').getBoundingClientRect();
+        const head = document.querySelector('.roll-list .head')?.getBoundingClientRect();
+        return {
+          fitted: panel.bottom - last.bottom <= 20,
+          rollsScroll: rolls.scrollHeight > rolls.clientHeight + 1,
+          screenScrolls: screen.scrollHeight > screen.clientHeight,
+          pagerInView: pager.top >= view.top && pager.bottom <= view.bottom + 1,
+          headPinned: head ? Math.abs(head.top - view.top) <= 1 : null,
+        };
+      `)
+    const scrollScreen = (top: number) =>
+      app.execute(`document.querySelector('main > .body').scrollTop = ${top}`)
+    expect(await scrolling()).toMatchObject({
+      fitted: true,
+      rollsScroll: false,
+      screenScrolls: true,
+      pagerInView: true,
+    })
+    await scrollScreen(300)
+    await expect
+      .poll(scrolling, { timeout: 5000 })
+      .toMatchObject({ pagerInView: true, headPinned: true })
+    await app.screenshot('e2e-mock-history-scrolled')
+    await scrollScreen(0)
     // The Grid layout shows the same page as tiles, several to a row, from the keyboard.
     // The toolbar keeps its height above the rolls, however many rows it wraps to.
     const toolbarClear = () =>
@@ -679,6 +713,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(wide.columns).toBeGreaterThan(2)
     expect(wide.narrowest).toBeGreaterThanOrEqual(190)
     expect(wide.fits).toBe(true)
+    // Twenty tiles leave no empty panel below them.
+    expect(await scrolling()).toMatchObject({ fitted: true, rollsScroll: false, pagerInView: true })
     await app.screenshot('e2e-mock-history-grid')
     // The Icons layout is one Tab stop: arrows move by icon and by row, and each icon
     // names its roll in a tooltip and to assistive technology.
@@ -718,6 +754,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(perRow).toBeGreaterThan(1)
     await app.press(DOWN)
     expect((await focusedIcon()).index).toBe(1 + perRow)
+    expect(await scrolling()).toMatchObject({ fitted: true, rollsScroll: false, pagerInView: true })
     await app.screenshot('e2e-mock-history-icons')
     await app.execute('document.querySelector(\'[aria-label="List view"]\').click()')
     await expect
@@ -738,12 +775,24 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       ),
     ).toBe(2)
     expect(await toolbarClear()).toBe(true)
-    // In a short window the rolls keep room for a few rows, and the screen scrolls instead.
-    const rollsHeight = () =>
-      app.execute<number>(
-        'return document.querySelector(".roll-list, .roll-grid").getBoundingClientRect().height',
-      )
-    expect(await rollsHeight()).toBeGreaterThanOrEqual(200)
+    // In a short window too, only the screen scrolls, and the pinned pager keeps to two
+    // lines: the rows-per-page label is hidden but still names its select.
+    expect(await scrolling()).toMatchObject({
+      fitted: true,
+      rollsScroll: false,
+      screenScrolls: true,
+      pagerInView: true,
+    })
+    const pager = () =>
+      app.execute<{ lines: number; sizeName: string }>(`
+        const parts = [...document.querySelector('.roll-pager').children];
+        const select = document.querySelector('.roll-pager select');
+        return {
+          lines: new Set(parts.map(part => Math.round(part.getBoundingClientRect().top))).size,
+          sizeName: select.closest('label').querySelector('.size-label').textContent.trim(),
+        };
+      `)
+    expect(await pager()).toEqual({ lines: 2, sizeName: 'Rows per page' })
     // The screen scrolls down only, never sideways.
     expect(
       await app.execute(
@@ -765,7 +814,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(narrow.narrowest).toBeGreaterThanOrEqual(190)
     expect(narrow.fits).toBe(true)
     expect(await toolbarClear()).toBe(true)
-    expect(await rollsHeight()).toBeGreaterThanOrEqual(200)
+    expect(await scrolling()).toMatchObject({ fitted: true, rollsScroll: false, pagerInView: true })
     await app.screenshot('e2e-mock-history-grid-narrow')
     // Paging reads the next rolls, still from this device.
     await app.execute('document.querySelector(\'[aria-label="Next page"]\').click()')
