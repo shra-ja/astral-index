@@ -36,7 +36,10 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-None.
+### History panel fits its rolls (2026-10-11)
+
+0048's third task, on `fix/history-panel-fit`: only the screen scrolls, with the
+headings and pager pinned. Native check red, then green.
 
 ## Known limitations
 
