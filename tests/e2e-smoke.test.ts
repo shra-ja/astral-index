@@ -824,10 +824,12 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     })
     const pager = () =>
       app.execute<{ lines: number; sizeName: string }>(`
-        const parts = [...document.querySelector('.roll-pager').children];
+        // Its visible parts, by the middle of each, leaving out its measuring copies.
+        const parts = [...document.querySelectorAll('.roll-pager > :not(.measure)')];
         const select = document.querySelector('.roll-pager select');
+        const middle = part => { const box = part.getBoundingClientRect(); return Math.round((box.top + box.bottom) / 2); };
         return {
-          lines: new Set(parts.map(part => Math.round(part.getBoundingClientRect().top))).size,
+          lines: new Set(parts.map(middle)).size,
           sizeName: select.closest('label').querySelector('.size-label').textContent.trim(),
         };
       `)
@@ -986,7 +988,8 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
     // what is out of place: in the list, a column's text cut off (names truncate by
     // design), a row running past its end, or Pity closer than 12px to the name
     // before it; in the toolbar, a control other than 32px tall, or a control apart
-    // from its partner when the toolbar wraps.
+    // from its partner when the toolbar wraps; in the pager, two lines with its label
+    // still shown, or on one line, its page buttons off centre.
     const layoutAt = (width: number) =>
       app.executeAsync<{ compact: Record<string, boolean>; clipped: string[] }>(`
         const done = arguments[arguments.length - 1];
@@ -1017,6 +1020,15 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
             const apart = (one, other) => Math.abs(middle(one) - middle(other)) > 1;
             if (apart('.search', '.layouts')) clipped.add('search apart from layout switch');
             if (apart('.filters', '.dates')) clipped.add('dates apart from rarities');
+            const pager = document.querySelector('.roll-pager');
+            const showing = pager.querySelector(':scope > .showing').getBoundingClientRect();
+            const pages = pager.querySelector('nav').getBoundingClientRect();
+            const label = pager.querySelector('.size-label').getBoundingClientRect();
+            const oneLine = Math.abs((showing.top + showing.bottom) / 2 - (pages.top + pages.bottom) / 2) <= 1;
+            if (!oneLine && label.width > 1) clipped.add('pager on two lines with its label');
+            const box = pager.getBoundingClientRect();
+            if (oneLine && Math.abs((pages.left + pages.right) / 2 - (box.left + box.right) / 2) > 1)
+              clipped.add('pages off centre');
             done({
               compact: {
                 'icon rail': document.querySelector('.sidebar').getBoundingClientRect().width < 100,
@@ -1047,6 +1059,26 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
       before = now.compact
     }
     expect({ early, undone, clipped }).toEqual({ early: [], undone: [], clipped: [] })
+    // Moving between pages keeps every page button in its place, wide or narrow.
+    const pageButtons = () =>
+      app.execute<number[][]>(
+        'return [...document.querySelectorAll(".roll-pager nav > *")].map(each => { const box = each.getBoundingClientRect(); return [Math.round(box.left), Math.round(box.width)]; })',
+      )
+    for (const width of [1280, 480]) {
+      await app.command('/window/rect', 'POST', { width, height: 760 })
+      await layoutAt(width)
+      const places: number[][][] = []
+      for (const page of [1, 2, 3, 4, 5, 6, 7, 8, 63]) {
+        await app.execute(
+          `document.querySelector('.roll-pager [aria-label="${page === 1 ? 'Page 1' : page === 63 ? 'Page 63' : 'Next page'}"]').click()`,
+        )
+        await expect
+          .poll(() => textOf(app, ".roll-pager [aria-current='page']"), { timeout: 10000 })
+          .toMatch(new RegExp(`^\\s*${page}\\s*$`))
+        places.push(await pageButtons())
+      }
+      expect(places.every((each) => JSON.stringify(each) === JSON.stringify(places[0]))).toBe(true)
+    }
     // The sidebar collapses at an 1100px window.
     await app.command('/window/rect', 'POST', { width: 1101, height: 760 })
     expect((await layoutAt(1101)).compact['icon rail']).toBe(false)

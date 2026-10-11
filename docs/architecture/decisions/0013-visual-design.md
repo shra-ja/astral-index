@@ -174,7 +174,12 @@ widths, and detect overflow where content length varies.
   only the screen scrolls, at every size: the rolls never scroll on their own,
   the list's column headings stick under the top and the pager sticks to the
   bottom. Narrower than 640px, the pager hides its "Rows per page" label, which
-  still names its select, so it keeps to two lines. The layout switch is a group of icon toggles named in tooltips, and
+  still names its select, so it keeps to two lines. (Amended 2026-10-11, feature
+  0048:) the pager shows seven places for pages once there are seven or more,
+  each as wide as the last page's number, so its buttons never move between
+  pages. It keeps to one line, with the pages centred, while that fits, measured
+  in code from its widest "Showing" text: the label hides first, then the pages
+  move to a second line, centred under the rows text and the size. The layout switch is a group of icon toggles named in tooltips, and
   the chosen layout lasts while the screen is open, across categories and
   accounts. Icons are one Tab stop: arrow keys move by icon and by row (down
   onto a short last row lands on its last icon), Home and End jump to the ends,
