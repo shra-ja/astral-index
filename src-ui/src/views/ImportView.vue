@@ -131,7 +131,7 @@ watch(
   flex-direction: column;
   flex-grow: 1;
   min-height: 0;
-  padding: clamp(24px, 4vh, 40px) var(--gutter);
+  padding: clamp(24px, 4vh, 40px) var(--content-pad);
   overflow-y: auto;
 }
 /* The review lays out its own scrolling body and fixed footer. */

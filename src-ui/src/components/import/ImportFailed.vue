@@ -39,7 +39,8 @@ onMounted(() => heading.value!.focus())
   gap: 22px;
   width: 100%;
   max-width: 600px;
-  margin: 0 auto;
+  /* A status card sits in the middle of the screen, across and down. */
+  margin: auto;
   padding: 32px;
   border: 1px solid var(--rim);
   border-radius: 14px;

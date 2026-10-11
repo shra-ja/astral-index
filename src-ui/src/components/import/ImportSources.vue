@@ -181,7 +181,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 28px;
-  max-width: 1200px;
 }
 .intro {
   display: flex;

@@ -127,7 +127,7 @@ onMounted(() => headingElement.value!.focus())
   flex-grow: 1;
   gap: 16px;
   min-height: 0;
-  padding: 20px var(--gutter);
+  padding: 20px var(--content-pad);
   overflow-y: auto;
 }
 /* Each section keeps its full height, so a short window scrolls the body rather
@@ -286,7 +286,7 @@ td + td {
   justify-content: space-between;
   gap: 12px 24px;
   min-height: 76px;
-  padding: 14px var(--gutter);
+  padding: 14px var(--content-pad);
   border-top: 1px solid var(--divider);
   background: #0d1014;
 }

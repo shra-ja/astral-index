@@ -22,7 +22,7 @@ defineProps<{ title: string; game: string }>()
   justify-content: space-between;
   gap: 8px 16px;
   min-height: 72px;
-  padding: 12px var(--gutter);
+  padding: 12px var(--content-pad);
   border-bottom: 1px solid var(--divider);
 }
 .titles {

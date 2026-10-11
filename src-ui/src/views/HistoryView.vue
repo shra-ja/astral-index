@@ -186,7 +186,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   flex-grow: 1;
   gap: 14px;
   min-height: 0;
-  padding: var(--pad-top) var(--gutter) var(--pad-bottom);
+  padding: var(--pad-top) var(--content-pad) var(--pad-bottom);
   /* Only the screen scrolls; the rolls panel shows every roll on the page. */
   overflow-y: auto;
   /* The summary strip lays itself out by the content area's width. */
@@ -229,8 +229,8 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   position: sticky;
   bottom: calc(-1 * var(--pad-bottom));
   z-index: 2;
-  margin: 0 calc(-1 * var(--gutter)) calc(-1 * var(--pad-bottom));
-  padding: 12px var(--gutter) var(--pad-bottom);
+  margin-bottom: calc(-1 * var(--pad-bottom));
+  padding: 12px 0 var(--pad-bottom);
   background: var(--window);
 }
 .none strong {
