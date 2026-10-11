@@ -758,7 +758,7 @@ test('starting retrieval shows progress, then the review, then what was saved', 
   expect(reviewPanel().textContent).toContain('UID 100000001')
   expect(reviewPanel().textContent).toContain('synthetic-server')
   expect(
-    [...reviewPanel().querySelectorAll('.stat')].map((stat) => [
+    [...reviewPanel().querySelectorAll('.stats:not(.measure *) .stat')].map((stat) => [
       stat.querySelector('.stat-label')?.textContent,
       stat.querySelector('.stat-value')?.textContent?.trim(),
     ]),

@@ -1,7 +1,22 @@
 import { mount } from '@vue/test-utils'
-import { expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import ReviewPanel from './ReviewPanel.vue'
 import type { Review } from '../../commands'
+
+// jsdom has no layout: a test sets the widths the figures measure, then reports a
+// resize as the browser would.
+let resized: () => void
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    constructor(callback: () => void) {
+      resized = callback
+    }
+    observe() {}
+    disconnect() {}
+  },
+)
+afterEach(() => vi.clearAllMocks())
 
 type Conflict = Review['conflicts'][number]
 // A synthetic review with every count in Stellar Warp.
@@ -42,7 +57,7 @@ test('a review shows the account, a summary, the period and counts for every war
   ])
   expect(
     wrapper
-      .findAll('.stat')
+      .findAll('.stats:not(.measure *) .stat')
       .map((stat) => [stat.get('.stat-label').text(), stat.get('.stat-value').text()]),
   ).toEqual([
     ['New rolls', '412'],
@@ -127,4 +142,31 @@ test('the review moves focus to its heading as it appears, so it is announced', 
   })
   expect(document.activeElement).toBe(wrapper.get('h2').element)
   wrapper.unmount()
+})
+
+test('the figures keep to one row while every label and value fits, else two by two', async () => {
+  const disconnect = vi.spyOn(ResizeObserver.prototype, 'disconnect')
+  const wrapper = panel({ review: review(412) })
+  // A hidden copy, laid out as narrow as one row can be, holds the same figures.
+  expect(wrapper.findAll('.measure .stat').map((stat) => stat.text())).toEqual(
+    wrapper.findAll('.stats:not(.measure *) .stat').map((stat) => stat.text()),
+  )
+  const layout = async (shown: number, needed: number) => {
+    const width = (selector: string, property: string, value: number) =>
+      Object.defineProperty(wrapper.get(selector).element, property, {
+        value,
+        configurable: true,
+      })
+    width('.stats:not(.measure *)', 'clientWidth', shown)
+    width('.measure .stats', 'offsetWidth', needed)
+    resized()
+    await wrapper.vm.$nextTick()
+  }
+  const square = () => wrapper.get('.stats:not(.measure *)').classes().includes('square')
+  await layout(720, 720)
+  expect(square()).toBe(false)
+  await layout(719, 720)
+  expect(square()).toBe(true)
+  wrapper.unmount()
+  expect(disconnect).toHaveBeenCalled()
 })
