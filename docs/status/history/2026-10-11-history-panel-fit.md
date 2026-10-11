@@ -18,3 +18,8 @@ Integrated through PR #95.
 
 Integrated through PR #96.
 0048's last task, six PRs. First, `fix/narrower-content-width`: 1360px, red then green.
+
+## Sidebar collapse (2026-10-11)
+
+Integrated through PR #97.
+0048's second layout-break task, `fix/sidebar-collapse`: collapse at 1100px; red, then green.
