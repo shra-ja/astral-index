@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ### History toolbar (2026-10-11)
 
-0048's fourth layout-break task, `fix/history-toolbar`: 32px controls, balanced wrap.
+0048's fourth layout-break task, `fix/history-toolbar`: 32px controls, balanced wrap; red, then green.
 
 ## Known limitations
 
