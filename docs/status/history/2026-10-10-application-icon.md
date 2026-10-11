@@ -16,3 +16,9 @@ CI timed out on the suite discovery probe; PR #89 gave it 6 minutes.
 Integrated through PR #90.
 On `docs/close-astral-brand`: decision 0013 points to 0023, and 0047 is done;
 no old mark's path data or colours remain outside archived history.
+
+## Size overlay (2026-10-10)
+
+Integrated through PR #92.
+0048's first task, on `feat/size-overlay`: `ASTRAL_INDEX_SIZE_OVERLAY=1` shows
+the window's size in debug builds. Tests failed first, then passed natively.

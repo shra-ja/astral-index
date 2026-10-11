@@ -36,10 +36,10 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Size overlay (2026-10-10)
+### Review in small windows (2026-10-10)
 
-0048's first task, on `feat/size-overlay`: `ASTRAL_INDEX_SIZE_OVERLAY=1` shows
-the window's size in debug builds. Tests failed first, then passed natively.
+0048's second task, on `fix/review-small-windows`: Review Import's sections no
+longer shrink, so the body scrolls to every category. Native check red, then green.
 
 ## Known limitations
 
@@ -54,8 +54,10 @@ the window's size in debug builds. Tests failed first, then passed natively.
 - Server names other than Asia (`prod_official_asia`) have not been seen in a
   real retrieval.
 - An intermittent frontend test failure, events going unrecorded after a click,
-  was seen in the suite-discovery probe and once, on 2026-10-06, in a plain run.
-  A failing probe saves a snapshot to `test-results/probe-failures/`. See
+  was seen in the suite-discovery probe, once on 2026-10-06 in a plain run, and
+  on 2026-10-10 in the probes' closing coverage run (AccountSwitcher), which
+  saves no snapshot. A failing probe saves one to
+  `test-results/probe-failures/`. See
   [probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md).
 
 ## Next
@@ -144,5 +146,5 @@ research, under a "From" heading.
 - [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
   lockup and decision 0023.
 - [2026-10-10: application icon](history/2026-10-10-application-icon.md): the
-  generated app icons, their check, the suite discovery probe's timeout and
-  feature 0047's close.
+  generated app icons, their check, the suite discovery probe's timeout,
+  feature 0047's close and the size overlay.

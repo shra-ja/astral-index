@@ -410,6 +410,25 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     // The mock's prod_official_asia server reads as the game names it.
     expect(await textOf(app, '.review .account .chip')).toBe('Asia')
     await app.screenshot('e2e-mock-review')
+    // In the smallest window the review keeps every category in reach: no panel
+    // clips its rows, the body scrolls to them, and Save stays in the window.
+    await app.command('/window/rect', 'POST', { width: 480, height: 560 })
+    const reviewFits = () =>
+      app.execute<{ clipped: string[]; scrolls: boolean; saveInWindow: boolean }>(`
+        const body = document.querySelector('.review .body');
+        const save = [...document.querySelectorAll('.review .actions button')].at(-1).getBoundingClientRect();
+        return {
+          clipped: [...body.children].filter(child => child.scrollHeight > child.clientHeight + 1).map(child => child.className || child.tagName),
+          scrolls: body.scrollHeight > body.clientHeight,
+          saveInWindow: save.top >= 0 && save.bottom <= innerHeight && save.right <= innerWidth,
+        };
+      `)
+    await expect
+      .poll(reviewFits, { timeout: 5000 })
+      .toEqual({ clipped: [], scrolls: true, saveInWindow: true })
+    await app.execute('document.querySelector(".review tbody tr:last-child").scrollIntoView()')
+    await app.screenshot('e2e-mock-review-small')
+    await app.command('/window/rect', 'POST', { width: 1000, height: 760 })
     await click(app, '.review', 'Save 2,060 rolls')
     await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
     expect(await textOf(app, '.saved p')).toBe('Added to UID 100000001 (Asia).')
