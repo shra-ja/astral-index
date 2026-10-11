@@ -80,7 +80,8 @@ content, that no compact layout returns as the window narrows, that no list
 column is cut off, that the toolbar's controls stay 32px tall and in their
 groups, and that the pager keeps its pages centred and on one line while its
 label shows; at two widths it then steps through pages, checking that no page
-button moves. Apps close as a user would, and the test waits for that
+button moves. A second sweep checks that the review's figures keep each label on
+one line and each figure whole. Apps close as a user would, and the test waits for that
 process's coverage profile; a killed process never counts as covered.
 Screenshots go to `test-results/`.
 

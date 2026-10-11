@@ -33,3 +33,8 @@ Integrated through PR #98.
 
 Integrated through PR #99.
 0048's fourth layout-break task, `fix/history-toolbar`: 32px controls, balanced wrap; red, then green.
+
+## History pager (2026-10-11)
+
+Integrated through PR #100.
+0048's fifth layout-break task, `fix/history-pager`: still page buttons; red, then green.

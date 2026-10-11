@@ -443,7 +443,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         const body = document.querySelector('.review .body');
         const save = [...document.querySelectorAll('.review .actions button')].at(-1).getBoundingClientRect();
         return {
-          clipped: [...body.children].filter(child => child.scrollHeight > child.clientHeight + 1).map(child => child.className || child.tagName),
+          // The body's parts that cut off their own content, its hidden measuring copy aside.
+          clipped: [...body.querySelectorAll(':scope > :not(.measure)')].filter(child => child.scrollHeight > child.clientHeight + 1).map(child => child.className || child.tagName),
           scrolls: body.scrollHeight > body.clientHeight,
           saveInWindow: save.top >= 0 && save.bottom <= innerHeight && save.right <= innerWidth,
         };
@@ -1084,6 +1085,46 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
     expect((await layoutAt(1101)).compact['icon rail']).toBe(false)
     await app.command('/window/rect', 'POST', { width: 1100, height: 760 })
     expect((await layoutAt(1100)).compact['icon rail']).toBe(true)
+    await app.close()
+  } finally {
+    await app.dispose()
+  }
+}, 180000)
+
+test('at every width, the review shows each figure whole, its label on one line', async () => {
+  const { app } = await launchMock('history')
+  try {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
+      .toBe('Ready to save 2,060 new rolls')
+    // The figures whose label takes more than one line or whose value is cut off.
+    const brokenAt = (width: number) =>
+      app.executeAsync<string[]>(`
+        const done = arguments[arguments.length - 1];
+        const read = (frames) => {
+          if (innerWidth !== ${width} && frames > 0) return requestAnimationFrame(() => read(frames - 1));
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const lines = (element) => { const range = document.createRange(); range.selectNodeContents(element); return new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size; };
+            done([...document.querySelectorAll('.review .stats:not(.measure *) .stat')].flatMap((stat) => {
+              const label = stat.querySelector('.stat-label');
+              const value = stat.querySelector('.stat-value').getBoundingClientRect();
+              const box = stat.getBoundingClientRect();
+              const broken = [];
+              if (lines(label) > 1) broken.push(label.textContent + ' label wraps');
+              if (value.bottom > box.bottom || value.right > box.right) broken.push(label.textContent + ' cut off');
+              return broken;
+            }));
+          }));
+        };
+        read(60);
+      `)
+    const broken: string[] = []
+    for (let width = 1700; width >= 480; width -= 10) {
+      await app.command('/window/rect', 'POST', { width, height: 760 })
+      broken.push(...(await brokenAt(width)).map((what) => `${what} at ${width}`))
+    }
+    expect(broken).toEqual([])
     await app.close()
   } finally {
     await app.dispose()
