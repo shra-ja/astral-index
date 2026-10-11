@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Presentational: the app's navigation. Game links keep the current screen; screen
-// links stay within the game. The router does the rest. Below 900px the sidebar
+// links stay within the game. The router does the rest. Below 1100px the sidebar
 // collapses to icons, so every link carries its name as a label and in a tooltip.
 import { Download, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
@@ -209,8 +209,10 @@ ul {
   font-size: 13px;
   font-weight: 500;
 }
-/* Icons only when the app is narrow; each link keeps its label for assistive tech. */
-@container app (max-width: 900px) {
+/* Icons only when the app is narrow; each link keeps its label for assistive tech.
+   The sidebar gives way before the content compacts: at this width the expanded
+   sidebar would leave the summary strip too narrow for one row of four. */
+@container app (max-width: 1100px) {
   .sidebar {
     width: 72px;
     padding-inline: 12px;

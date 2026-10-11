@@ -331,7 +331,8 @@ fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::
         WebviewUrl::default(),
     ))
     .title("Astral Index")
-    .inner_size(1000.0, 760.0)
+    // Wide enough for the full sidebar, which collapses at 1100px.
+    .inner_size(1200.0, 760.0)
     // The design's minimum, which excludes phones (decision 0013).
     .min_inner_size(480.0, 560.0);
     if let Some(folder) = folder {
