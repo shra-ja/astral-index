@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ### Review figures (2026-10-11)
 
-0048's last layout-break task, `fix/review-figures`: no figure cut off.
+0048's last task, `fix/review-figures`: whole review figures; red, then green. 0048 done.
 
 ## Known limitations
 
@@ -60,8 +60,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next is the rest
-of feature 0048, then 0038's checks, including native Windows validation.
+If the probe flake recurs, read its snapshot before rerunning. Next is feature
+0038's checks, including native Windows validation.
 
 ## Keeping this file current
 

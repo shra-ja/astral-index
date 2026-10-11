@@ -1,6 +1,6 @@
 # 0048 — Layout fixes
 
-Status: In progress · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 Decisions: [0013](../../architecture/decisions/0013-visual-design.md)
 
 Make every screen use the window well from the 480×560 minimum to very large
@@ -84,10 +84,14 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   one line stops fitting, measured in code as the tabs are. At zoom 1 the
   two-line stage did not appear, so it came from the development zoom, but the
   measured fit keeps it from returning at any zoom.
-- [ ] Keep Review Import's figures whole. Below 835 "Existing rolls skipped"
+- [x] Keep Review Import's figures whole. Below 835 "Existing rolls skipped"
   wraps to three lines and the fixed 78 px tile cuts off its number: the
   figures switch to two by two by window width (760 px) rather than by content
-  width. Switch by content width, where every label still fits on one line.
+  width. Switch by content width, where every label still fits on one line,
+  measured from a copy of the figures at their narrowest. At zoom 1 the label
+  wrapped to two lines from 770 to 810 px; an end-to-end sweep of the review
+  from 1,700 px to 480 px checks every label stays on one line and every
+  figure whole.
 
 Filling a tall window with more rolls per page, rather than ending the panel at
 its rolls, is [0049](0049-automatic-page-size.md).

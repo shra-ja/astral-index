@@ -191,7 +191,11 @@ widths, and detect overflow where content length varies.
   width and shrink below it. (Amended 2026-10-11:) content screens start at the
   top; single status cards (progress, saved and failure cards, and History's
   empty and failure states) sit in the middle, across and down, or start at the
-  top when taller than the screen.
+  top when taller than the screen. (Amended 2026-10-11, feature 0048:) the
+  review's figures, laid out as the summary strip is, keep to one row while each
+  column fits its label and value on one line, measured in code from a copy at
+  its narrowest, and go two by two otherwise, so no label wraps and no figure is
+  cut off.
 
 ### Accessibility
 

@@ -153,7 +153,7 @@ The first release covers Honkai: Star Rail only
 ([decision 0018](../architecture/decisions/0018-star-rail-first-release.md)).
 
 - [x] [0047 — Astral brand](features/0047-astral-brand.md)
-- [ ] [0048 — Layout fixes](features/0048-layout-fixes.md)
+- [x] [0048 — Layout fixes](features/0048-layout-fixes.md)
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 
