@@ -913,7 +913,7 @@ test('in a very wide window every screen keeps one content width, centred under 
           endAligned: Math.abs(end.right - box.right) <= 1,
         };
       `)
-    const fitted = { width: 1600, centred: true, titleAligned: true }
+    const fitted = { width: 1360, centred: true, titleAligned: true }
     await retrieveFromFile(app)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })

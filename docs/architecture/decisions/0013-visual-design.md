@@ -137,8 +137,9 @@ widths, and detect overflow where content length varies.
 - **Shell:** the sidebar is 232px and collapses to a 72px icon rail at a 900px
   app width. Headers wrap; side padding scales from 32px down to 16px.
   (Amended 2026-10-11, feature 0048:) every screen's content, its header
-  included, shares one maximum width of 1600px, centred, so wide windows keep
-  columns together and headers aligned with what they head.
+  included, shares one maximum width of 1360px, centred, so wide windows keep
+  columns together and headers aligned with what they head. (First 1600px,
+  narrowed the same day: it spread the content too far.)
 - **Tabs** never scroll out of reach: counts drop first, then the tabs become a
   "Banner category" dropdown. Switch when the tabs stop fitting, measured in
   code, rather than at fixed widths per game.
