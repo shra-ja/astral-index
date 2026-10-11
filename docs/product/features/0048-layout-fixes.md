@@ -26,13 +26,12 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   table shrinks to its heading, with no way to scroll to its rows. The table
   keeps its rows and the screen scrolls instead, with the action bar still in
   reach.
-- [ ] Fit History's rolls panel to its rolls. In tall windows the panel fills
+- [x] Fit History's rolls panel to its rolls. In tall windows the panel fills
   the height while a page holds 20 rolls, leaving most of it empty in every
-  layout. The panel ends at its rolls with the pager below it; page sizes stay
-  20, 50 and 100. Only one region scrolls at a time: in a short window the
-  screen scrolls and the panel shows all its rolls, rather than a scrolling
-  panel inside a scrolling screen; with more rolls than a tall window holds,
-  the panel scrolls within the window.
+  layout, and in short windows a scrolling panel sits inside a scrolling
+  screen. The panel ends at its rolls and only the screen scrolls, at every
+  size, with the list's column headings and the pager pinned in view; page
+  sizes stay 20, 50 and 100. Narrow, the pager keeps to two lines.
 - [ ] Give every screen one shared maximum content width, about 1,600 px,
   centred, and amend decision 0013 with it. History and Review Import stop
   spreading their columns across very wide windows; Import's source cards

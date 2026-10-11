@@ -150,7 +150,11 @@ widths, and detect overflow where content length varies.
   fit) and icon tiles (64px) scroll inside the panel, with the list header fixed.
   (Amended 2026-10-07:) the toolbar never shrinks, and the rolls keep at least
   200px; a window too short for that scrolls the whole History screen, never
-  sideways. The layout switch is a group of icon toggles named in tooltips, and
+  sideways. (Amended 2026-10-11, feature 0048:) the panel ends at its rolls and
+  only the screen scrolls, at every size: the rolls never scroll on their own,
+  the list's column headings stick under the top and the pager sticks to the
+  bottom. Narrower than 640px, the pager hides its "Rows per page" label, which
+  still names its select, so it keeps to two lines. The layout switch is a group of icon toggles named in tooltips, and
   the chosen layout lasts while the screen is open, across categories and
   accounts. Icons are one Tab stop: arrow keys move by icon and by row (down
   onto a short last row lands on its last icon), Home and End jump to the ends,

@@ -61,11 +61,6 @@ const bandClass = (roll: StoredRoll) => {
 .roll-list {
   container: rolls / inline-size;
   display: flex;
-  flex-grow: 1;
-  /* Sized by the panel, not its rows, with room for a few; the screen scrolls when
-     even that does not fit. */
-  contain: size;
-  min-height: 200px;
 }
 .table {
   --columns: 56px minmax(120px, 1fr) 52px 64px minmax(84px, 140px) minmax(150px, 190px);
@@ -104,19 +99,18 @@ const bandClass = (roll: StoredRoll) => {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* The column headings stick under the top while the screen scrolls the rows. */
 .head {
-  flex-shrink: 0;
+  position: sticky;
+  top: var(--sticky-top, 0);
+  z-index: 1;
+  background: var(--list);
 }
 .head .row {
   min-height: 36px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
-}
-.body {
-  flex-grow: 1;
-  min-height: 0;
-  overflow-y: auto;
 }
 .body .row {
   min-height: 42px;

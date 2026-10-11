@@ -161,6 +161,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
         </section>
         <RollPager
           v-if="history.matched > 0"
+          class="pager"
           :page
           :pages
           :page-size
@@ -175,13 +176,18 @@ const tabsOf = (counts: StoredHistory['categories']) =>
 
 <style scoped>
 .body {
+  --pad-top: 16px;
+  --pad-bottom: 20px;
+  /* The list's column headings stick to the screen's top edge, above its padding. */
+  --sticky-top: calc(-1 * var(--pad-top));
+
   display: flex;
   flex-direction: column;
   flex-grow: 1;
   gap: 14px;
   min-height: 0;
-  padding: 16px var(--gutter) 20px;
-  /* A window too short for everything scrolls rather than squashing the rolls. */
+  padding: var(--pad-top) var(--gutter) var(--pad-bottom);
+  /* Only the screen scrolls; the rolls panel shows every roll on the page. */
   overflow-y: auto;
   /* The summary strip lays itself out by the content area's width. */
   container: content / inline-size;
@@ -192,12 +198,13 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   padding-block: 32px;
   overflow-y: auto;
 }
+.body > * {
+  flex-shrink: 0;
+}
 .rolls {
   display: flex;
   flex-direction: column;
-  flex-grow: 1;
-  /* Clipped to the corners without scrolling, so the panel never shrinks below its
-     toolbar and the rolls' own minimum. */
+  /* Clipped to the corners without scrolling, which keeps the column headings sticky. */
   overflow: clip;
   border: 1px solid var(--panel-rim);
   border-radius: 12px;
@@ -216,6 +223,15 @@ const tabsOf = (counts: StoredHistory['categories']) =>
 }
 .layout {
   margin-left: auto;
+}
+/* The pager stays at the bottom of the window while the screen scrolls. */
+.pager {
+  position: sticky;
+  bottom: calc(-1 * var(--pad-bottom));
+  z-index: 2;
+  margin: 0 calc(-1 * var(--gutter)) calc(-1 * var(--pad-bottom));
+  padding: 12px var(--gutter) var(--pad-bottom);
+  background: var(--window);
 }
 .none strong {
   display: block;

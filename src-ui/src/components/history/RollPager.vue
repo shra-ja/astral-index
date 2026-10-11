@@ -68,7 +68,7 @@ const items = computed(() => {
       </button>
     </nav>
     <label class="size">
-      Rows per page
+      <span class="size-label">Rows per page</span>
       <span class="control">
         <select
           :value="pageSize"
@@ -84,6 +84,7 @@ const items = computed(() => {
 
 <style scoped>
 .roll-pager {
+  container: pager / inline-size;
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
@@ -158,5 +159,17 @@ nav [aria-current='page'] {
   position: absolute;
   right: 12px;
   pointer-events: none;
+}
+/* Narrow, the label is hidden but still names its select, so the pages and the size
+   share a line. */
+@container pager (max-width: 640px) {
+  .size-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 </style>
