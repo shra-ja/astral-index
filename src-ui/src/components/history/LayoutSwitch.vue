@@ -39,6 +39,8 @@ button {
   justify-content: center;
   width: 40px;
   height: 32px;
+  /* Smaller than the shared 44px button minimum. */
+  min-height: 0;
   padding: 0;
   border-radius: 0;
   background: var(--panel);

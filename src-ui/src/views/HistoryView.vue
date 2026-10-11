@@ -117,18 +117,23 @@ const tabsOf = (counts: StoredHistory['categories']) =>
         <CategoryTabs :tabs="tabsOf(history.categories)" :selected="category" @select="select" />
         <SummaryStrip :total="history.total" :summary="history.summary" />
         <section class="rolls" aria-label="Rolls">
+          <!-- Two groups that stay together: the filters, then search and the layout. -->
           <div class="toolbar">
-            <RarityFilters :shown="rarities" @toggle="toggleRarity" />
-            <RollSearch :query @search="search" />
-            <DateRangeFilter
-              :from="dates.from"
-              :to="dates.to"
-              :today="serverToday(account.timezone)"
-              :offset="utcOffset(account.timezone)"
-              :span="history.summary.first ? spanOf(history.summary) : undefined"
-              @change="setDates"
-            />
-            <LayoutSwitch class="layout" :layout @change="layout = $event" />
+            <div class="group">
+              <RarityFilters :shown="rarities" @toggle="toggleRarity" />
+              <DateRangeFilter
+                :from="dates.from"
+                :to="dates.to"
+                :today="serverToday(account.timezone)"
+                :offset="utcOffset(account.timezone)"
+                :span="history.summary.first ? spanOf(history.summary) : undefined"
+                @change="setDates"
+              />
+            </div>
+            <div class="group find">
+              <RollSearch :query @search="search" />
+              <LayoutSwitch class="layout" :layout @change="layout = $event" />
+            </div>
           </div>
           <template v-if="history.rolls.length > 0">
             <RollGrid
@@ -220,6 +225,18 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   padding: 10px 10px 10px 16px;
   border-bottom: 1px solid var(--panel-rim);
   background: var(--panel);
+}
+/* The filters wrap only when a narrow window and a long date range leave no room;
+   search and the layout share a row and take what the filters leave. */
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+.find {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
 }
 .layout {
   margin-left: auto;

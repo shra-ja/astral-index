@@ -149,6 +149,8 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
   align-items: center;
   gap: 8px;
   height: 32px;
+  /* Smaller than the shared 44px button minimum. */
+  min-height: 0;
   padding: 0 12px;
   border: 1px solid var(--rim);
   border-radius: 9px;
@@ -189,6 +191,8 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
 }
 .quick button {
   height: 30px;
+  /* Smaller than the shared 44px button minimum. */
+  min-height: 0;
   padding: 0 10px;
   border: 1px solid var(--rim);
   border-radius: 999px;
@@ -242,6 +246,8 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
 }
 .actions button {
   height: 32px;
+  /* Smaller than the shared 44px button minimum. */
+  min-height: 0;
   padding: 0 12px;
   border-radius: 8px;
   font: inherit;

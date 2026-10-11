@@ -39,6 +39,8 @@ const rarities: Rarity[] = ['5', '4', '3']
 }
 button {
   height: 32px;
+  /* Smaller than the shared 44px button minimum. */
+  min-height: 0;
   padding: 0 12px;
   border: 1px solid var(--rim);
   border-radius: 9px;
