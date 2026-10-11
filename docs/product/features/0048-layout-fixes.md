@@ -47,16 +47,18 @@ with end-to-end checks at those window sizes and screenshots looked at by eye.
   the sidebar collapsed at 720 rather than 900, confirmed natively. Windows
   display scaling is not a page zoom, so DEVELOPMENT says to check breakpoints
   at zoom 1.
-- [ ] Collapse the sidebar before the content gives way, at an 1,100 px app
+- [x] Collapse the sidebar before the content gives way, at an 1,100 px app
   width: where the expanded content would reach its first compact layout, the
   summary strip's two by two at 760 px, in a window of about 1,045 px. The
   content widens by 160 px when the sidebar collapses, so a content breakpoint
   between about 620 and 780 px reverses: after the collapse at 720 the Type
   column came back, and at zoom 1 the summary strip and the pager's label do the
-  same. An end-to-end sweep narrows the window from about 1,700 px to 480 px
-  and checks that no compact layout returns as it narrows and no text is
-  clipped; later tasks extend it. Decision 0013 records the rule rather than
-  the width, and 0036's Banner column revisits it.
+  same. An end-to-end sweep narrows the window from 1,700 px to 480 px in 10 px
+  steps and checks that the sidebar gives way first and that no compact layout
+  returns as it narrows; later tasks extend it to clipped text. The window
+  opens at 1,200×760, up from 1,000×760, so a first launch shows the full
+  sidebar. Decision 0013 records the rule rather than the width, and 0036's
+  Banner column revisits it.
 - [ ] Keep every list column readable. Below about 840 the Time column stops
   moving and is cut off from about 820, and again once Type has dropped out: the
   Type and Time breakpoints are narrower than the columns' minimum widths, so

@@ -136,6 +136,13 @@ widths, and detect overflow where content length varies.
   does not fit scrolls rather than squashes.
 - **Shell:** the sidebar is 232px and collapses to a 72px icon rail at a 900px
   app width. Headers wrap; side padding scales from 32px down to 16px.
+  (Amended 2026-10-11, feature 0048:) the sidebar gives way before the content
+  does: it collapses where the expanded content would reach its first compact
+  layout, now the summary strip's two by two, at an 1100px app width. The
+  content widens when the sidebar collapses, so no content breakpoint may fall
+  between its widths either side of the collapse, or that layout would return
+  as the window narrows. The window opens at 1200×760, wide enough for the full
+  sidebar.
   (Amended 2026-10-11, feature 0048:) every screen's content, its header
   included, shares one maximum width of 1360px, centred, so wide windows keep
   columns together and headers aligned with what they head. (First 1600px,

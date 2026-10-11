@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ### Sidebar collapse (2026-10-11)
 
-0048's second layout-break task, on `fix/sidebar-collapse`: collapse at 1100px.
+0048's second layout-break task, `fix/sidebar-collapse`: collapse at 1100px; red, then green.
 
 ## Known limitations
 
