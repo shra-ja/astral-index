@@ -38,3 +38,8 @@ Integrated through PR #99.
 
 Integrated through PR #100.
 0048's fifth layout-break task, `fix/history-pager`: still page buttons; red, then green.
+
+## Review figures (2026-10-11)
+
+Integrated through PR #101.
+0048's last task, `fix/review-figures`: whole review figures; red, then green. 0048 done.

@@ -154,11 +154,14 @@ The first release covers Honkai: Star Rail only
 
 - [x] [0047 — Astral brand](features/0047-astral-brand.md)
 - [x] [0048 — Layout fixes](features/0048-layout-fixes.md)
+- [ ] [0050 — About and notices](features/0050-about-and-notices.md)
+- [ ] [0051 — Feature toggles](features/0051-feature-toggles.md)
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 
 Done when the app carries the Astral brand, its screens fit every window size,
-and the first release is verified on each release OS and distributed in its
+an About screen shows its version, licences and third-party notices, release
+builds show only Honkai: Star Rail, and the first release is verified on each release OS and distributed in its
 documented formats.
 
 ### 11 — Backup, restore and file import
