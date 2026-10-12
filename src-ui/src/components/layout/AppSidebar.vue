@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // Presentational: the app's navigation. Game links keep the current screen; screen
-// links stay within the game. The router does the rest. Below 1100px the sidebar
-// collapses to icons, so every link carries its name as a label and in a tooltip.
-import { Download, Lock, TextAlignStart } from '@lucide/vue'
+// links stay within the game. The router does the rest. The About button asks for the
+// About dialog. Below 1100px the sidebar collapses to icons, so every link and button
+// carries its name as a label and in a tooltip.
+import { Download, Info, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
 import AstralTile from '../shared/AstralTile.vue'
@@ -10,6 +11,7 @@ import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
 import { games, monograms, terms, type Game, type Screen } from '../../format'
 
 defineProps<{ game: Game; screen: Screen }>()
+const emit = defineEmits<{ about: [] }>()
 const gameIds = Object.keys(games) as Game[]
 </script>
 
@@ -71,12 +73,26 @@ const gameIds = Object.keys(games) as Game[]
       </ul>
     </div>
 
-    <div class="local">
-      <Lock :size="16" :stroke-width="1.75" />
-      <p class="text">
-        <strong>Stored on this device</strong>
-        <span>No account, no cloud sync</span>
-      </p>
+    <div class="foot">
+      <AppTooltip text="About" placement="right">
+        <button
+          type="button"
+          class="link about"
+          aria-label="About"
+          aria-haspopup="dialog"
+          @click="emit('about')"
+        >
+          <Info :size="18" />
+          <span class="text">About</span>
+        </button>
+      </AppTooltip>
+      <div class="local">
+        <Lock :size="16" :stroke-width="1.75" />
+        <p class="text">
+          <strong>Stored on this device</strong>
+          <span>No account, no cloud sync</span>
+        </p>
+      </div>
     </div>
   </nav>
 </template>
@@ -179,10 +195,25 @@ ul {
   color: #cec6ff;
   background: #2a2846;
 }
+/* The About button and the device note sit together at the foot. */
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+}
+.about {
+  width: 100%;
+  font-size: 14px;
+  font-weight: 500;
+  background: transparent;
+}
+.about svg {
+  color: var(--text-muted);
+}
 .local {
   display: flex;
   gap: 10px;
-  margin-top: auto;
   padding: 12px;
   border-radius: 10px;
   background: var(--sidebar-note);

@@ -1,5 +1,6 @@
-// Typed client for the native extraction commands. Results carry categories only:
-// request contexts, paths and native detail never reach the webview.
+// Typed client for the native commands. Failures carry categories only: request
+// contexts, paths and native detail never reach the webview, apart from the data
+// folder the About dialog shows.
 import { Channel, invoke } from '@tauri-apps/api/core'
 
 /** Matches the native extractor's `MAX_CACHE_BYTES`. */
@@ -31,6 +32,7 @@ const nativeKinds = [
   'stale_preview',
   'no_preview',
   'invalid_request',
+  'open_failed',
 ] as const
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22']
@@ -284,4 +286,31 @@ export async function extractFromFile(file: File): Promise<Failure | undefined> 
     return { kind: 'invalid_file' }
   }
   return run(() => invoke('extract_from_file', new Uint8Array(bytes)))
+}
+
+/** What the About dialog shows: the app's version and where its history is kept. */
+export interface AppInfo {
+  version: string
+  /** The data folder in use, or none if the platform gave the app none. */
+  folder: string | null
+  portable: boolean
+}
+
+/** Read the app's version and data folder. */
+export async function appInfo(): Promise<{ info: AppInfo } | { failure: Failure }> {
+  try {
+    return { info: await invoke<AppInfo>('app_info') }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
+}
+
+/** Show the history file in the system's file manager; the native side picks the folder. */
+export function revealDataFolder(): Promise<Failure | undefined> {
+  return run(() => invoke('reveal_data_folder'))
+}
+
+/** Open the project's issues page in the default browser, which makes the request. */
+export function openIssuesPage(): Promise<Failure | undefined> {
+  return run(() => invoke('open_issues_page'))
 }
