@@ -8,3 +8,5 @@ Genshin Impact support, independently verified.
 
 - [ ] Add the second game's independently verified adapter, acquisition sources,
   response/file fixtures, and request mocks.
+- [ ] Remove the Genshin Impact feature toggle
+  ([0051](0051-feature-toggles.md)), so release builds show Genshin Impact.

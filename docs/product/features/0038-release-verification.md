@@ -7,5 +7,8 @@ Check the app on each release OS before shipping.
 ## Tasks
 
 - [ ] Check accessibility, large histories, native permissions, and bundled resources.
+- [ ] Say on the Import screen, beside the retrieval controls, what retrieval
+  uses and sends: the history link the game cached, sent only to HoYoverse's
+  history service, on the user's request.
 - [ ] Verify local workflows, requested fetching, network failures, upgrades and
   packaging on each release OS.

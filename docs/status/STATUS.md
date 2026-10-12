@@ -57,7 +57,8 @@ history import works end to end; Genshin Impact has its screens but no import ye
 ## Next
 
 If the probe flake recurs, read its snapshot before rerunning. Next is feature
-0038's checks, including native Windows validation.
+0050 (About and notices), then 0051 (feature toggles), then 0038's checks,
+including native Windows validation.
 
 ## Keeping this file current
 
