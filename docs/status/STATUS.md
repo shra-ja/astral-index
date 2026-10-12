@@ -24,7 +24,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
   is read from this device only. Themed tooltips name the collapsed sidebar's
   links and explain unavailable controls. The sidebar shows the Astral brand:
   the emblem tile beside the wordmark, or the tile alone when collapsed; the
-  app's icon is the same tile.
+  app's icon is the same tile; its About button opens the About dialog.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -33,6 +33,10 @@ history import works end to end; Genshin Impact has its screens but no import ye
   binary's synthetic HoYoverse, and checks of the docs, icons and app version.
 
 ## In progress
+
+### About dialog (2026-10-12)
+
+0050's second task, `feat/about-dialog`: the sidebar's About button and the modal dialog; red, then green.
 
 ## Known limitations
 
