@@ -80,3 +80,21 @@ test('names the app with the wordmark beside the decorative emblem tile', () => 
   // The wordmark is the title: no live text repeats it.
   expect(brand.text()).toBe('')
 })
+
+test('an About button above the device note asks for the About dialog', async () => {
+  const wrapper = sidebar('honkai-star-rail', 'history')
+  const about = wrapper.get('button.about')
+  expect(about.attributes('aria-label')).toBe('About')
+  expect(about.attributes('aria-haspopup')).toBe('dialog')
+  expect(about.text()).toBe('About')
+  // Named in a tooltip for the icon rail, like the links.
+  const tooltip = about.element.parentElement!.querySelector('[role="tooltip"]')!
+  expect([tooltip.textContent, tooltip.getAttribute('data-placement')]).toEqual(['About', 'right'])
+  // It sits after the screens and before the note at the foot.
+  const note = wrapper.get('.local').element
+  expect(
+    about.element.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+  await about.trigger('click')
+  expect(wrapper.emitted('about')).toHaveLength(1)
+})

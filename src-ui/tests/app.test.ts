@@ -20,6 +20,10 @@ vi.stubGlobal(
     disconnect() {}
   },
 )
+// jsdom has no modal dialogs: mark the dialog open, as browsers do.
+HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+  this.setAttribute('open', '')
+}
 // Until a test saves history, the History screen finds none.
 const nothingSaved = { account: null, total: 0, categories: [], rolls: [] }
 
@@ -53,10 +57,12 @@ const current = (container: HTMLElement) =>
     link.getAttribute('aria-current'),
   ])
 
-// Every icon on screen is a decorative Lucide icon, apart from the brand's emblem.
+// Every icon on screen is a decorative Lucide icon, apart from the brand's emblems.
 // Returns the Lucide names shown, so each screen's icons can be checked.
 function icons() {
-  const drawn = [...document.querySelectorAll('svg')].filter((svg) => !svg.closest('.brand'))
+  const drawn = [...document.querySelectorAll('svg')].filter(
+    (svg) => !svg.closest('.brand, .open-lockup'),
+  )
   for (const svg of drawn) {
     expect(svg.classList.contains('lucide')).toBe(true)
     expect(svg.getAttribute('aria-hidden')).toBe('true')
@@ -65,6 +71,8 @@ function icons() {
     [...svg.classList].find((name) => name.startsWith('lucide-'))!.slice('lucide-'.length),
   )
 }
+// The icons below the sidebar's four: the current screen's, then any dialog's.
+const screenIcons = () => icons().slice(4)
 
 const panel = () => document.querySelector<HTMLElement>('.retrieval')!
 // Each step of the flow is its own screen inside the panel, rendered only while shown.
@@ -184,7 +192,14 @@ test('opens on Star Rail’s warp history, with the games and screens in a sideb
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Warp History Yet')
   expect(document.querySelector('.retrieval')).toBeNull()
   expect(document.body.textContent).not.toMatch(/pity|guarantee|win rate/i)
-  expect(icons()).toEqual(['text-align-start', 'download', 'lock', 'text-align-start', 'download'])
+  expect(icons()).toEqual([
+    'text-align-start',
+    'download',
+    'info',
+    'lock',
+    'text-align-start',
+    'download',
+  ])
 })
 
 test('switching games keeps the screen, and each game names its own history', async () => {
@@ -347,7 +362,7 @@ test('saved history shows its account, category counts and newest rolls first', 
   expect(new Set(calls)).toEqual(new Set(['history_page', 'last_import', 'saved_accounts']))
   expect(reads).toEqual([{ category: '11', page: 1, pageSize: 20 }])
   // The toolbar's filters come first, then search beside the layouts.
-  expect(icons().slice(3)).toEqual([
+  expect(screenIcons()).toEqual([
     'calendar-days',
     'search',
     'list',
@@ -629,7 +644,7 @@ test('history that cannot be read says so, and Try again reads it again', async 
   )
   const alert = main().querySelector('[role="alert"]')!
   expect(alert.querySelector('h2')?.textContent).toBe('Couldn’t Show Your Warp History')
-  expect(icons().slice(3)).toEqual(['triangle-alert'])
+  expect(screenIcons()).toEqual(['triangle-alert'])
   expect(alert.textContent).toContain('We couldn’t read the history saved on this device.')
   expect(main().querySelector('[role="table"]')).toBeNull()
   fail = false
@@ -661,7 +676,7 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   await openImport()
   const start = screen('start')!
   expect(start.querySelector('h2')?.textContent).toBe('Add Warp History')
-  expect(icons().slice(3)).toEqual(['cloud-download', 'file-text'])
+  expect(screenIcons()).toEqual(['cloud-download', 'file-text'])
   expect(start.textContent).toContain('downloads your roll history from HoYoverse')
   expect(findButton().type).toBe('button')
   expect(
@@ -795,7 +810,7 @@ test('starting retrieval shows progress, then the review, then what was saved', 
   expect(heading()).toBe('Import')
   const saved = screen('saved')!
   expect(saved.querySelector('h2')?.textContent).toBe('412 Rolls Saved')
-  expect(icons().slice(3)).toEqual(['check'])
+  expect(screenIcons()).toEqual(['check'])
   expect(document.activeElement).toBe(saved.querySelector('h2'))
   expect(saved.querySelector('p')?.textContent).toBe('Added to UID 100000001 (synthetic-server).')
   expect(
@@ -997,7 +1012,7 @@ test('a failed retrieval says where it stopped, and Try again starts over', asyn
   findButton().click()
   await settle()
   expect(failedHeading().textContent).toBe('Couldn’t Reach HoYoverse')
-  expect(icons().slice(3)).toEqual(['triangle-alert'])
+  expect(screenIcons()).toEqual(['triangle-alert'])
   expect(screen('failed')!.textContent).toContain(
     'Retrieval stopped at Light Cone Event Warp, page 2. We couldn’t reach HoYoverse. Check your internet connection, then try again.',
   )
@@ -1096,4 +1111,70 @@ test('choosing a cache file extracts from it without an automatic search first',
   fileInput().dispatchEvent(new Event('change'))
   await nextTick()
   expect(shown('start')).toBe(true)
+})
+
+test('the About dialog opens over the current screen with the native details', async () => {
+  const calls = serve({
+    app_info: () => ({ version: '0.1.0', folder: '/local/astral-index', portable: false }),
+    reveal_data_folder: () => reject({ kind: 'open_failed' }),
+    open_issues_page: () => undefined,
+  })
+  const about = sidebar().querySelector<HTMLButtonElement>('button.about')!
+  about.focus()
+  about.click()
+  await settle()
+  const dialog = document.querySelector('dialog')!
+  expect(dialog.getAttribute('aria-label')).toBe('About Astral Index')
+  expect(dialog.hasAttribute('open')).toBe(true)
+  // The screen underneath stays as it was.
+  expect(heading()).toBe('Warp History')
+  expect(dialog.querySelector('.version')?.textContent?.trim()).toBe('Version 0.1.0 · MIT License')
+  expect(dialog.querySelector('.path')?.textContent).toBe('/local/astral-index')
+  expect(screenIcons().slice(2)).toEqual([
+    'x',
+    'folder-open',
+    'external-link',
+    'chevron-right',
+    'chevron-right',
+  ])
+  // A failed opening is reported beside the folder; the next opening clears it.
+  button(dialog, 'Show in Folder').click()
+  await settle()
+  expect(dialog.querySelector('[role=alert]')?.textContent).toBe(
+    'The folder couldn’t be opened. Its path is shown above.',
+  )
+  button(dialog, 'Issues Page').click()
+  await settle()
+  expect(dialog.querySelector('[role=alert]')).toBeNull()
+  // Reading the details and opening are the only commands; nothing is fetched.
+  expect(
+    calls.filter((call) => !['history_page', 'saved_accounts', 'last_import'].includes(call)),
+  ).toEqual(['app_info', 'reveal_data_folder', 'open_issues_page'])
+})
+
+test('closing the About dialog returns to its button, and a failure does not outlive it', async () => {
+  serve({
+    app_info: () => ({ version: '0.1.0', folder: '/local/astral-index', portable: true }),
+    reveal_data_folder: () => reject({ kind: 'open_failed' }),
+  })
+  const about = sidebar().querySelector<HTMLButtonElement>('button.about')!
+  about.focus()
+  about.click()
+  await settle()
+  button(document.querySelector('dialog')!, 'Show in Folder').click()
+  await settle()
+  expect(document.querySelector('[role=alert]')).not.toBeNull()
+  document.querySelector<HTMLButtonElement>('dialog button[aria-label="Close"]')!.click()
+  await settle()
+  expect(document.querySelector('dialog')).toBeNull()
+  expect(document.activeElement).toBe(about)
+  // Esc closes the native dialog, which reports it as closing itself.
+  about.click()
+  await settle()
+  expect(document.querySelector('[role=alert]')).toBeNull()
+  expect(document.querySelector('.mode')?.textContent?.trim()).toBe('Portable mode')
+  document.querySelector('dialog')!.dispatchEvent(new Event('close'))
+  await settle()
+  expect(document.querySelector('dialog')).toBeNull()
+  expect(document.activeElement).toBe(about)
 })

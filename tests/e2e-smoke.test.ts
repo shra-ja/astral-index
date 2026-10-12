@@ -438,6 +438,90 @@ test('the mock binary records what the About dialog opens, and reports a failed 
   })
 }, 60000)
 
+test('the About dialog opens from the keyboard, opens what it offers and closes back to its button', async () => {
+  await withMock('history', {}, async (app) => {
+    const folder = resolve(mockData, 'astral-index-mock')
+    const record = resolve(folder, 'opened.txt')
+    const press = (name: string) =>
+      app.execute(`[...document.querySelectorAll('dialog button')]
+        .find((button) => button.textContent.trim() === ${JSON.stringify(name)}).click()`)
+    // Text as shown, without the spaces Vue keeps around a line break in a template.
+    const shown = async (selector: string) => (await textOf(app, selector))?.trim()
+    const focused = () =>
+      app.execute<string>(
+        `return document.activeElement.getAttribute('aria-label') ?? document.activeElement.textContent.trim()`,
+      )
+    await expect
+      .poll(() => textOf(app, '[role=status]'), { timeout: 10000 })
+      .toContain('No Warp History Yet')
+    await app.execute(`document.querySelector('nav button.about').focus()`)
+    await app.press(ENTER)
+    await expect.poll(() => shown('dialog[open] .version')).toBe('Version 0.1.0 · MIT License')
+    expect(await heading(app)).toBe('Warp History')
+    expect(await shown('dialog .path')).toBe(folder)
+    expect(await shown('dialog .mode')).toBe('App data folder')
+    // The open lockup at H 40, centred in the dialog, with the brand's regular files.
+    const lockup = await app.execute(`
+      const dialog = document.querySelector('dialog').getBoundingClientRect();
+      const [emblem, wordmark] = ['dialog .open-lockup svg', 'dialog .open-lockup img']
+        .map((selector) => document.querySelector(selector));
+      const [e, w] = [emblem, wordmark].map((el) => el.getBoundingClientRect());
+      const round = (n) => Math.round(n * 10) / 10;
+      return {
+        heights: [round(e.height), round(w.height)],
+        gap: round(w.left - e.right),
+        centred: Math.abs((e.left + w.right) / 2 - (dialog.left + dialog.right) / 2) < 1,
+        loaded: wordmark.naturalWidth > 0 && wordmark.src.includes('astral-index-wordmark-'),
+      };
+    `)
+    expect(lockup).toEqual({ heights: [51.4, 40], gap: 16, centred: true, loaded: true })
+    await app.screenshot('e2e-about')
+    // Both openings go to the mock, which records them rather than launching anything.
+    await press('Show in Folder')
+    await expect
+      .poll(() => existsSync(record) && readFileSync(record, 'utf8'))
+      .toBe(`reveal ${resolve(folder, 'history.sqlite')}\n`)
+    await press('Issues Page')
+    await expect
+      .poll(() => readFileSync(record, 'utf8'))
+      .toBe('browse https://github.com/shra-ja/astral-index/issues\n')
+    rmSync(record)
+    mkdirSync(record)
+    await press('Show in Folder')
+    await expect
+      .poll(() => shown('dialog [role=alert]'))
+      .toBe('The folder couldn’t be opened. Its path is shown above.')
+    // The licence view, and Back to the button that opened it.
+    await press('Licence Text')
+    await expect.poll(() => shown('dialog h2')).toBe('Licence')
+    expect(await textOf(app, 'dialog .licence')).toContain('MIT License')
+    expect(await focused()).toBe('Back')
+    await app.press(ENTER)
+    await expect.poll(focused).toBe('Licence Text')
+    // Esc closes the dialog and returns focus to the About button.
+    await app.press(ESCAPE)
+    await expect
+      .poll(() => app.execute('return document.querySelector("dialog") === null'))
+      .toBe(true)
+    expect(await focused()).toBe('About')
+    // In the smallest window the dialog fits, scrolling inside, with nothing cut off.
+    await app.command('/window/rect', 'POST', { width: 480, height: 560 })
+    await app.execute(`document.querySelector('nav button.about').click()`)
+    await expect.poll(() => shown('dialog[open] .version')).toContain('Version')
+    const fit = await app.execute(`
+      const box = document.querySelector('dialog').getBoundingClientRect();
+      const body = document.querySelector('dialog .body');
+      return {
+        inside: box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight,
+        scrolls: body.scrollHeight > body.clientHeight,
+        wide: body.scrollWidth <= body.clientWidth,
+      };
+    `)
+    expect(fit).toEqual({ inside: true, scrolls: true, wide: true })
+    await app.screenshot('e2e-about-small')
+  })
+}, 60000)
+
 test('the mock binary retrieves, reviews and saves synthetic history, which persists', async () => {
   const { app, database, staleCache } = await launchMock('history')
   try {
@@ -668,7 +752,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     )
     // With the keyboard, the date button opens its popover at All dates; choosing
     // 28 Sep onwards keeps only that day's 5★ and 4★ rolls, and Escape closes it.
-    await app.execute('document.querySelector(\'button[aria-haspopup="dialog"]\').focus()')
+    await app.execute('document.querySelector(\'main button[aria-haspopup="dialog"]\').focus()')
     await app.press(ENTER)
     await expect
       .poll(
@@ -710,12 +794,12 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.screenshot('e2e-mock-history-dates')
     await app.press(ESCAPE)
     await expect
-      .poll(() => textOf(app, "button[aria-haspopup='dialog']"), { timeout: 10000 })
+      .poll(() => textOf(app, "main button[aria-haspopup='dialog']"), { timeout: 10000 })
       .toMatch(/^\s*From 28 Sep 2026\s*$/)
     expect(await app.execute('return document.querySelector("[role=dialog]") === null')).toBe(true)
     expect(
       await app.execute(
-        'return document.activeElement === document.querySelector(\'button[aria-haspopup="dialog"]\')',
+        'return document.activeElement === document.querySelector(\'main button[aria-haspopup="dialog"]\')',
       ),
     ).toBe(true)
     await app.press(ENTER)

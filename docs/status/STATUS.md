@@ -24,7 +24,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
   is read from this device only. Themed tooltips name the collapsed sidebar's
   links and explain unavailable controls. The sidebar shows the Astral brand:
   the emblem tile beside the wordmark, or the tile alone when collapsed; the
-  app's icon is the same tile.
+  app's icon is the same tile; its About button opens the About dialog.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -34,9 +34,9 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### About commands (2026-10-12)
+### About dialog (2026-10-12)
 
-0050's first task, `feat/about-commands`: `app_info`, `reveal_data_folder`, `open_issues_page`, the versions gate; red, then green.
+0050's second task, `feat/about-dialog`: the sidebar's About button and the modal dialog; red, then green.
 
 ## Known limitations
 
@@ -147,4 +147,4 @@ research, under a "From" heading.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap](history/2026-10-12-lockup-gap.md): the sidebar
-  lockup's 0.6 H gap.
+  lockup's 0.6 H gap and the About commands.

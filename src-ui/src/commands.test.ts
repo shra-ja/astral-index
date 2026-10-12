@@ -2,6 +2,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks'
 import { afterEach, expect, test } from 'vitest'
 import type { Channel } from '@tauri-apps/api/core'
 import {
+  appInfo,
   cancelAcquisition,
   commitImport,
   discardImport,
@@ -10,7 +11,9 @@ import {
   historyPage,
   lastImport,
   MAX_CACHE_BYTES,
+  openIssuesPage,
   retrieveHistory,
+  revealDataFolder,
   savedAccounts,
 } from './commands'
 
@@ -308,4 +311,33 @@ test('the last import is read from this device, and is null before the first', a
   expect(await lastImport()).toEqual({ last: null })
   mockIPC(() => reject({ kind: 'storage' }))
   expect(await lastImport()).toEqual({ failure: { kind: 'storage' } })
+})
+
+test('the About details are read from the native side', async () => {
+  const info = { version: '0.1.0', folder: '/local/astral-index', portable: false }
+  const calls: string[] = []
+  mockIPC((cmd) => {
+    calls.push(cmd)
+    return info
+  })
+  expect(await appInfo()).toEqual({ info })
+  expect(calls).toEqual(['app_info'])
+  mockIPC(() => reject('app_info not allowed'))
+  expect(await appInfo()).toEqual({ failure: { kind: 'unavailable' } })
+})
+
+test('the data folder and issues page open with no arguments, failing by kind alone', async () => {
+  const calls: [string, unknown][] = []
+  mockIPC((cmd, args) => {
+    calls.push([cmd, args])
+  })
+  expect(await revealDataFolder()).toBeUndefined()
+  expect(await openIssuesPage()).toBeUndefined()
+  expect(calls).toEqual([
+    ['reveal_data_folder', {}],
+    ['open_issues_page', {}],
+  ])
+  mockIPC(() => reject({ kind: 'open_failed' }))
+  expect(await revealDataFolder()).toEqual({ kind: 'open_failed' })
+  expect(await openIssuesPage()).toEqual({ kind: 'open_failed' })
 })

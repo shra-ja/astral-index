@@ -23,14 +23,24 @@ the live-text name, and the application icon becomes the emblem in its tile
   with heavier strokes and larger details, for wordmarks up to 26 px high
   (tiles up to 64 px), and a regular set above; the two are never mixed. The
   sidebar uses the small set, and the app has a dark theme only, so it carries
-  the small emblem and the small dark-background wordmark.
+  the small emblem and the small dark-background wordmark; the About dialog
+  uses the regular emblem and regular dark-background wordmark.
 - **Lockup:** sized from the wordmark's height H, 18 px in the sidebar: a
   2.4 H square tile in `#202735` with a 21% corner radius, the emblem at 110% of
   the tile, centred, in `#faf9f5`, a 0.6 H gap and the two centred vertically,
   with at least 0.7 H clear around it. The gap was 0.7 H until 2026-10-12,
   when the brand tightened it. The wordmark is never recoloured,
-  stretched or re-typed as text, and the emblem never appears without its tile.
+  stretched or re-typed as text, and the emblem appears without its tile only
+  in the open lockup below.
 - **Collapsed sidebar:** the tile alone, at 32 px.
+- **About dialog** (added 2026-10-12): the brand's open lockup, for large
+  sizes and the regular set only. The regular emblem, without its tile and
+  with its viewBox cropped to the artwork (`41.82 70.88 187.28 124.47`), is
+  1.284 H high in `#faf9f5`, 0.4 H from the regular dark-background wordmark,
+  `astral-index-wordmark.svg`, the two centred vertically. H is 40 px, the
+  brand's size for an about screen, shrinking to fit a narrow dialog but never
+  below 26 px, where the regular set ends. `OpenLockup` draws the emblem's
+  paths, and a unit test checks they match the file.
 - **Drawing the emblem:** it is inlined so it takes `currentColor`. Lint forbids
   `v-html`, so `AstralTile` draws the supplied file's paths, without its title
   and description, and a unit test checks they match the file exactly.

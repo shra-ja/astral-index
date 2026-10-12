@@ -37,7 +37,7 @@ Each task is one PR, in this order, test first.
     call each one. Record a decision for the opener design: argument-free
     commands, the plugin's functions without its IPC, and why a user-selected
     link to the issues page is not a hidden network dependency.
-- [ ] Add the About dialog.
+- [x] Add the About dialog.
   - An "About" button, with an icon, at the foot of the sidebar's navigation
     above the device note, labelled and tooltipped like the links when the
     sidebar is collapsed. It opens a modal dialog over the current screen

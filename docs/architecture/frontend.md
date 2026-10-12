@@ -13,14 +13,18 @@ rearranged without rewriting the flows behind them.
   Hash routes give each game a History and an Import screen
   (`/:game/history`, `/:game/import`); the app opens on Star Rail's history. The
   shell creates the retrieval flow and provides it to the screens, so a running
-  retrieval and its review survive switching screens.
+  retrieval and its review survive switching screens. It also shows the About
+  dialog, a native modal `<dialog>` with no route, over whichever screen is open,
+  and returns focus to the sidebar's About button when it closes.
 - **Flows (composables):** `useRetrieval` owns retrieval, review and saving;
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
-  last import. They are the only callers of the native commands, through the
+  last import; `useAbout` reads the About dialog's details and asks the native
+  side to open the data folder or issues page. They are the only callers of the native commands, through the
   typed client in `commands.ts`. They expose read-only state and actions.
 - **Views:** wire flows to components and manage focus between steps.
 - **Components:** presentational only: props in, events out, no native calls.
-  Grouped by where they are used (`layout/`, `history/`, `import/`, `shared/`).
+  Grouped by where they are used (`layout/`, `history/`, `import/`, `about/`,
+  `shared/`).
 - **Text:** `messages.ts` turns failures, progress and save results into what the
   user reads; `format.ts` holds names, dates, times and other display text.
 
