@@ -140,6 +140,17 @@ with `tooling/app-icons.ts` and fails, naming each file, when a committed icon
 differs or is missing; `npm run icons` writes them. A mutation probe proves the
 check fails.
 
+## Third-party notices
+
+Every build generates the third-party notices
+([decision 0025](../architecture/decisions/0025-third-party-notices.md)):
+`npm run build` first runs `npm run notices`, which runs `tests/notices.test.ts`.
+It gathers the crates with cargo-about (offline), the npm packages from a
+production bundle and the typeface's package, writes the gitignored
+`src-ui/src/assets/third-party-notices.json` and `THIRD-PARTY-NOTICES`, and fails,
+failing the build, when a component has no licence text or a licence is outside
+`src-tauri/about.toml`'s accepted list. A mutation probe proves it fails.
+
 ## Version check
 
 The About dialog shows the version the native side reports, which comes from

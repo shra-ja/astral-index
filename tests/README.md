@@ -21,6 +21,8 @@ Tests that belong to neither the frontend nor the backend alone.
 - `app-icons.test.ts` holds named stages: one writes the app icons from the
   brand's emblems (`npm run icons`), the other checks the committed ones match
   (`npm run icons:check`).
+- `notices.test.ts` writes the third-party notices, failing on a missing or
+  unaccepted licence (`npm run notices`, which every build runs).
 - `versions.test.ts` checks that every manifest declares the same app version
   (`npm run versions:check`).
 - `coverage-reports.test.ts` holds the coverage gates, and

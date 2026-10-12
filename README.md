@@ -68,6 +68,7 @@ and the rules every change follows in [CONTRIBUTING](CONTRIBUTING.md).
 
 ## License
 
-Astral Index is released under the [MIT License](LICENSE). Bundled third-party
-files keep their own licences. Astral Index is not affiliated with or endorsed
+Astral Index is released under the [MIT License](LICENSE). The third-party
+components it ships keep their own licences: every build lists them in a
+`THIRD-PARTY-NOTICES` file and in the app's About dialog. Astral Index is not affiliated with or endorsed
 by HoYoverse; game names belong to their owners.
