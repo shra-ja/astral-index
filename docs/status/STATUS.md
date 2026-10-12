@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### About dialog (2026-10-12)
-
-0050's second task, `feat/about-dialog`: the sidebar's About button and the modal dialog; red, then green.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -147,4 +143,4 @@ research, under a "From" heading.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap](history/2026-10-12-lockup-gap.md): the sidebar
-  lockup's 0.6 H gap and the About commands.
+  lockup's 0.6 H gap, the About commands and the About dialog.
