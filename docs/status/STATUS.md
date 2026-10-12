@@ -36,10 +36,6 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Lockup gap (2026-10-12)
-
-`fix/lockup-gap`: the sidebar lockup's gap is 0.6 H (10.8 px), as the brand now sets; red, then green.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -148,3 +144,5 @@ research, under a "From" heading.
   feature 0047's close, the size overlay and the review's small-window fix.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
+- [2026-10-12: lockup gap](history/2026-10-12-lockup-gap.md): the sidebar
+  lockup's 0.6 H gap.
