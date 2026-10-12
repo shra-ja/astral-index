@@ -73,6 +73,24 @@ pub fn create_dir_all(path: &Path) -> io::Result<()> {
         Ok(())
     })
 }
+/// Writes the file, unless a folder occupies its path.
+pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> io::Result<()> {
+    let path = path.as_ref();
+    access(path);
+    FIXTURE.with(|state| {
+        let mut state = state.borrow_mut();
+        if state.directories.contains(&path.to_owned()) {
+            return Err(io::Error::new(
+                io::ErrorKind::IsADirectory,
+                "synthetic folder",
+            ));
+        }
+        state
+            .files
+            .insert(path.to_owned(), contents.as_ref().to_vec());
+        Ok(())
+    })
+}
 pub struct Metadata(bool);
 impl Metadata {
     pub fn is_file(&self) -> bool {
