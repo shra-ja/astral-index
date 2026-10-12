@@ -63,6 +63,14 @@ pub fn clear_webview_profile(folder: &Path) {
     let _ = fs::remove_dir_all(webview_profile(folder));
 }
 
+/// Whether `folder` is the portable `data` folder beside the executable.
+pub fn portable(executable: Option<&Path>, folder: Option<&Path>) -> bool {
+    let beside = executable
+        .and_then(Path::parent)
+        .map(|parent| parent.join(PORTABLE_FOLDER));
+    folder.is_some() && folder == beside.as_deref()
+}
+
 /// Where to keep the database: the `data` folder beside the executable if one
 /// exists (portable mode), otherwise the app's local data folder. A portable
 /// database is used even when the local folder also has one; nothing is merged.
@@ -198,6 +206,19 @@ mod tests {
         // So it is without a known executable, or one with no folder.
         assert_eq!(location(None, local()), local());
         assert_eq!(location(Some(Path::new("")), local()), local());
+    }
+
+    #[test]
+    fn only_the_data_folder_beside_the_executable_is_portable() {
+        let executable = Some(Path::new("/apps/astral-index/astral-index.exe"));
+        let data = Path::new("/apps/astral-index/data");
+        assert!(portable(executable, Some(data)));
+        assert!(!portable(
+            executable,
+            Some(Path::new("/local/astral-index"))
+        ));
+        assert!(!portable(executable, None));
+        assert!(!portable(None, Some(data)));
     }
 
     #[test]

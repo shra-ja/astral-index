@@ -23,6 +23,7 @@ use tauri::{
 };
 use tokio_util::sync::CancellationToken;
 
+pub mod about;
 pub mod database;
 pub use database::Database;
 
@@ -74,6 +75,8 @@ pub enum Failure {
     NoPreview,
     /// A history request named an unknown category, page or page size.
     InvalidRequest,
+    /// The file manager or browser could not be opened.
+    OpenFailed,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -271,52 +274,75 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         discard_import,
         history_page,
         last_import,
-        saved_accounts
+        saved_accounts,
+        about::app_info,
+        about::reveal_data_folder,
+        about::open_issues_page
     ])
 }
 
 /// Register the desktop commands, their in-memory session and the local database,
-/// which stays unopened until first used. Requests go to HoYoverse over HTTPS.
+/// which stays unopened until first used. Requests go to HoYoverse over HTTPS, and
+/// the system's file manager and browser open what the About dialog asks for.
 pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
-    register_with(builder, Network::Https, database::FOLDER_NAME, true, false)
+    let settings = Settings {
+        folder_name: database::FOLDER_NAME,
+        portable: true,
+        fresh_webview: false,
+        opener: about::Opener::System,
+    };
+    register_with(builder, Network::Https, settings)
 }
 
 /// Register the app for the mock debug binary: requests go to a synthetic
 /// HoYoverse, and history stays in its own folder, never in portable mode, so
 /// synthetic history cannot mix with real history. Its webview profile is cleared
 /// at each start, since a development webview can otherwise reuse modules cached
-/// from an older dev server.
+/// from an older dev server. It records what it would open instead of launching it.
 pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Builder<R> {
-    register_with(
-        builder,
-        Network::Mock(scenario),
-        database::MOCK_FOLDER_NAME,
-        false,
-        true,
-    )
+    let settings = Settings {
+        folder_name: database::MOCK_FOLDER_NAME,
+        portable: false,
+        fresh_webview: true,
+        opener: about::Opener::Recording,
+    };
+    register_with(builder, Network::Mock(scenario), settings)
+}
+
+/// How the app and the mock debug binary differ, besides their network.
+struct Settings {
+    folder_name: &'static str,
+    /// Whether a `data` folder beside the executable is used.
+    portable: bool,
+    /// Whether the webview's profile is cleared at each start.
+    fresh_webview: bool,
+    opener: about::Opener,
 }
 
 fn register_with<R: Runtime>(
     builder: Builder<R>,
     network: Network,
-    folder_name: &'static str,
-    portable: bool,
-    fresh_webview: bool,
+    settings: Settings,
 ) -> Builder<R> {
     let builder = builder.manage(Session::default()).manage(network);
     handle_commands(builder).setup(move |app| {
         // Portable mode, or else local, not roaming, app data: history never
         // leaves the machine with a roaming Windows profile.
-        let executable = std::env::current_exe().ok().filter(|_| portable);
+        let executable = std::env::current_exe().ok().filter(|_| settings.portable);
         let local = app.path().local_data_dir().ok();
         let folder = database::location(
             executable.as_deref(),
-            local.map(|local| local.join(folder_name)),
+            local.map(|local| local.join(settings.folder_name)),
         );
-        if let Some(folder) = folder.as_deref().filter(|_| fresh_webview) {
+        if let Some(folder) = folder.as_deref().filter(|_| settings.fresh_webview) {
             database::clear_webview_profile(folder);
         }
         let opened = open_window(app.handle(), folder.as_deref());
+        app.manage(about::About {
+            portable: database::portable(executable.as_deref(), folder.as_deref()),
+            folder: folder.clone(),
+            opener: settings.opener,
+        });
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
     })
@@ -897,6 +923,7 @@ async fn extract_from_file(
 mod tests {
     pub(crate) mod blocking;
     mod events;
+    pub(crate) mod launcher;
     use super::*;
     use crate::acquisition::TransportError;
     use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
@@ -996,6 +1023,24 @@ mod tests {
         .map(|_| ())
         .map_err(|error| error.to_string())
     }
+    /// A successful command's JSON result.
+    fn reply_to(window: &WebviewWindow<MockRuntime>, cmd: &str) -> serde_json::Value {
+        get_ipc_response(
+            window,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::default(),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.into(),
+            },
+        )
+        .unwrap()
+        .deserialize()
+        .unwrap()
+    }
     fn held(session: &Session) -> Option<(RequestContext, RetryBudget)> {
         session.state().acquisition.take()
     }
@@ -1033,9 +1078,26 @@ mod tests {
                 "discard_import",
                 "history_page",
                 "last_import",
-                "saved_accounts"
+                "saved_accounts",
+                "app_info",
+                "reveal_data_folder",
+                "open_issues_page"
             ]
         );
+        // The About commands take no arguments. Opening goes to the test double,
+        // which launches nothing.
+        let info = reply_to(&window, COMMANDS[9]);
+        let folder = window.path().local_data_dir().unwrap().join("astral-index");
+        assert_eq!(
+            info,
+            serde_json::json!({
+                "version": "0.1.0",
+                "folder": folder.to_string_lossy(),
+                "portable": false,
+            })
+        );
+        assert_eq!(invoke(&window, COMMANDS[10], InvokeBody::default()), Ok(()));
+        assert_eq!(invoke(&window, COMMANDS[11], InvokeBody::default()), Ok(()));
         assert_eq!(
             invoke(&window, COMMANDS[8], InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
@@ -1153,6 +1215,11 @@ mod tests {
             app.state::<Database>().path(),
             Some(folder.join(database::FILE_NAME))
         );
+        // The About dialog's details name the same folder; the system opens things.
+        let about = app.state::<about::About>();
+        assert_eq!(about.folder, Some(folder));
+        assert!(!about.portable);
+        assert!(matches!(about.opener, about::Opener::System));
         assert!(app.get_webview_window("main").is_some());
         // The app keeps its webview profile.
         filesystem::inspect(|state| assert!(state.removed.is_empty()));
@@ -1178,6 +1245,11 @@ mod tests {
             *app.state::<Network>(),
             Network::Mock(Scenario::History)
         ));
+        // It records requests to open rather than launching anything.
+        let about = app.state::<about::About>();
+        assert_eq!(about.folder.as_deref(), Some(folder.as_path()));
+        assert!(!about.portable);
+        assert!(matches!(about.opener, about::Opener::Recording));
         assert!(app.get_webview_window("main").is_some());
         // The mock starts each run with a fresh webview profile.
         filesystem::inspect(|state| {

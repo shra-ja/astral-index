@@ -77,7 +77,7 @@ container queries apply at their written widths, as at zoom 1.
 
 | Command | Does |
 | --- | --- |
-| `npm run check` | Every gate: formatting, lint, the docs check, the icon check, build, coverage, probes, report validation, Rust formatting, Clippy and the offline native tests |
+| `npm run check` | Every gate: formatting, lint, the docs check, the icon check, the version check, build, coverage, probes, report validation, Rust formatting, Clippy and the offline native tests |
 | `npm test` | The frontend's tests (in `src-ui/`), then the tooling tests |
 | `npm run coverage` / `coverage:json` | Fresh frontend and tooling coverage with per-file 100% thresholds, with or without HTML |
 | `npm run typecheck` | `vue-tsc --build` over the app, UI-test and Node projects, templates included |
@@ -86,6 +86,7 @@ container queries apply at their written widths, as at zoom 1.
 | `npm run lint` / `lint:check` | Fix what ESLint and markdownlint can, or only check, failing on warnings |
 | `npm run docs:check` | Check that doc links and anchors resolve, every doc is reachable from `AGENTS.md`, and STATUS stays short |
 | `npm run icons` / `icons:check` | Write the app icons in `src-tauri/icons/` from the brand's emblems, or only check that the committed ones match |
+| `npm run versions:check` | Check that `package.json`, `src-ui/package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` declare the same version |
 | `npm run test:backend` | Rust unit, integration and end-to-end tests with coverage reports |
 | `npm run test:offline` | `test:backend` in a network namespace with no external route |
 | `npm run coverage:backend-unit` | Reset backend counters, run Rust unit tests and freeze their report |

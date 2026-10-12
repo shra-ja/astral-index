@@ -263,6 +263,19 @@ test('the icons gate rejects a changed icon and a missing one', () => {
   expectCommandSuccess('npm', ['run', 'icons:check'])
 }, 60000)
 
+// The About dialog shows one version, so the manifests must agree on it.
+test('the versions gate rejects a manifest whose version differs', () => {
+  const manifest = 'src-ui/package.json'
+  const original = readFileSync(manifest, 'utf8')
+  try {
+    writeFileSync(manifest, original.replace('"version": "0.1.0"', '"version": "9.9.9"'))
+    expectCommandFailure('npm', ['run', 'versions:check'], 'src-ui/package.json 9.9.9')
+  } finally {
+    writeFileSync(manifest, original)
+  }
+  expectCommandSuccess('npm', ['run', 'versions:check'])
+}, 30000)
+
 test('the wrapper exception guard rejects added startup behavior', () => {
   const path = 'src-tauri/src/main.rs'
   const original = readFileSync(path, 'utf8')

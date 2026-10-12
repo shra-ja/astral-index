@@ -11,7 +11,8 @@ Tests that belong to neither the frontend nor the backend alone.
   then newer rolls of the same account, a second account with the same roll IDs
   and pages that disagree on the account, checked against the database file;
   and a retrieval with no history, and requests made without a validated link or
-  a review. `app-driver.ts` drives each app
+  a review; and the About commands, whose openings the mock records rather than
+  launches. `app-driver.ts` drives each app
   through tauri-driver and WebDriver; `close-window-helper.py` closes its window
   as a user would.
 - `backend-coverage-stages.test.ts` holds named stages, selected by the npm
@@ -20,6 +21,8 @@ Tests that belong to neither the frontend nor the backend alone.
 - `app-icons.test.ts` holds named stages: one writes the app icons from the
   brand's emblems (`npm run icons`), the other checks the committed ones match
   (`npm run icons:check`).
+- `versions.test.ts` checks that every manifest declares the same app version
+  (`npm run versions:check`).
 - `coverage-reports.test.ts` holds the coverage gates, and
   `mutation-probes.test.ts` the mutation probes proving each gate fails when it
   should. Each probe command is stopped after 10 minutes. One that does not end

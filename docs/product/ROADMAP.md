@@ -160,7 +160,7 @@ The first release covers Honkai: Star Rail only
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 
 Done when the app carries the Astral brand, its screens fit every window size,
-an About screen shows its version, licences and third-party notices, release
+an About dialog shows its version, licences and third-party notices, release
 builds show only Honkai: Star Rail, and the first release is verified on each release OS and distributed in its
 documented formats.
 

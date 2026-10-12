@@ -227,6 +227,14 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     expect(commands[6]).toBe('resolved')
     // Stored history is readable through the capability; bad requests are refused.
     expect(commands[7]).toBe('{"kind":"invalid_request"}')
+    // The About dialog's details: the version and the data folder in use. Opening is
+    // left to the mock binary's test, so this run never launches a file manager.
+    const info = await app.executeAsync<{ version: string; folder: string; portable: boolean }>(
+      `const done = arguments[arguments.length - 1];
+      window.__TAURI_INTERNALS__.invoke('app_info').then(done, (error) => done(String(error)))`,
+    )
+    expect(info).toMatchObject({ version: '0.1.0', portable: false })
+    expect(info.folder).toMatch(/[/\\]astral-index$/)
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
     await app.execute('document.querySelector(".retrieval button").focus()')
@@ -398,6 +406,37 @@ const click = (app: AppSession, container: string, name: string) =>
   app.execute(
     `[...document.querySelectorAll("${container} button")].find(b => b.textContent.trim() === ${JSON.stringify(name)}).click()`,
   )
+
+test('the mock binary records what the About dialog opens, and reports a failed opening', async () => {
+  await withMock('history', {}, async (app) => {
+    const folder = resolve(mockData, 'astral-index-mock')
+    const record = resolve(folder, 'opened.txt')
+    const call = (command: string) =>
+      app.executeAsync<string>(`
+        window.__TAURI_INTERNALS__.invoke('${command}')
+          .then(() => 'resolved', (error) => typeof error === 'string' ? error : JSON.stringify(error))
+          .then(arguments[arguments.length - 1])`)
+    // The History screen's first read creates the database, so it is shown selected.
+    await expect
+      .poll(() => textOf(app, '[role=status]'), { timeout: 10000 })
+      .toContain('No Warp History Yet')
+    const info = await app.executeAsync(`
+      const done = arguments[arguments.length - 1];
+      window.__TAURI_INTERNALS__.invoke('app_info').then(done, (error) => done(String(error)))`)
+    expect(info).toEqual({ version: '0.1.0', folder, portable: false })
+    expect(await call('reveal_data_folder')).toBe('resolved')
+    expect(readFileSync(record, 'utf8')).toBe(`reveal ${resolve(folder, 'history.sqlite')}\n`)
+    expect(await call('open_issues_page')).toBe('resolved')
+    expect(readFileSync(record, 'utf8')).toBe(
+      'browse https://github.com/shra-ja/astral-index/issues\n',
+    )
+    // A folder in the record's place makes opening fail, reported by kind alone.
+    rmSync(record)
+    mkdirSync(record)
+    expect(await call('reveal_data_folder')).toBe('{"kind":"open_failed"}')
+    expect(await call('open_issues_page')).toBe('{"kind":"open_failed"}')
+  })
+}, 60000)
 
 test('the mock binary retrieves, reviews and saves synthetic history, which persists', async () => {
   const { app, database, staleCache } = await launchMock('history')
