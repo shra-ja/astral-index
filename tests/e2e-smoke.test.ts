@@ -98,13 +98,13 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       height: 760,
     })
     // The sidebar shows the brand lockup from the bundled files, sized from the
-    // wordmark's height: an 18 px wordmark, a 2.4× tile, a 0.7× gap, a 110% emblem.
+    // wordmark's height: an 18 px wordmark, a 2.4× tile, a 0.6× gap, a 110% emblem.
     expect(await lockup(app)).toEqual({
       tile: [43.2, 43.2],
       radius: '21%',
       background: 'rgb(32, 39, 53)',
       emblem: [1.1, 'rgb(250, 249, 245)'],
-      gap: 12.6,
+      gap: 10.8,
       wordmark: [18, 130, 'Astral Index', true],
       centred: true,
     })

@@ -93,14 +93,14 @@ const gameIds = Object.keys(games) as Game[]
   border-right: 1px solid var(--divider);
   overflow-y: auto;
 }
-/* The lockup, sized from the wordmark's height H: a 2.4 H tile, then a 0.7 H gap.
+/* The lockup, sized from the wordmark's height H: a 2.4 H tile, then a 0.6 H gap.
    The sidebar's padding keeps at least 0.7 H clear around it. */
 .brand {
   --h: 18px;
   --tile: calc(var(--h) * 2.4);
   display: flex;
   align-items: center;
-  gap: calc(var(--h) * 0.7);
+  gap: calc(var(--h) * 0.6);
   padding: 0 8px;
 }
 .wordmark {
