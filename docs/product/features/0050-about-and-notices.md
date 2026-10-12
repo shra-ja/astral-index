@@ -34,17 +34,32 @@ Each task is one PR, in this order, test first.
     history complete is the user's responsibility
     ([decision 0021](../../architecture/decisions/0021-history-completeness.md)).
   - **Data folder:** the folder holding `history.sqlite`, and whether portable
-    mode is on, as selectable text, with a line saying that copying the file
-    while the app is closed backs up the history. No "open folder" or
-    clipboard control: either would need a further native permission.
-  - **Problem reports:** the repository's issues address as selectable text,
-    not a link, so the screen opens nothing on the network. Reports should
-    give the version and operating system, and never include the warp history
-    link, an account ID or the database.
+    mode is on, with a line saying that copying the file while the app is
+    closed backs up the history. Selecting the folder opens the system file
+    manager with `history.sqlite` selected.
+  - **Problem reports:** the repository's issues page, which opens in the
+    default browser when selected. Reports should give the version and
+    operating system, and never include the warp history link, an account ID
+    or the database.
+  - **Opening:** the official opener plugin is used from the native side only,
+    behind two commands that take no arguments: one reveals the data folder in
+    use (normal or portable), the other opens the fixed issues address. The
+    webview is granted those two commands and no opener plugin permission, so
+    it can open nothing else. The browser, not the app, makes the request, and
+    only on the user's click. If opening fails, as it can under WSL or on a
+    desktop without a file manager or browser, the screen says so; the path
+    and address stay visible as selectable text either way.
+  - Record a decision for the opener design: argument-free commands rather
+    than scoped plugin permissions, and why a user-selected link to the
+    issues page is not a hidden network dependency.
   - One narrowly scoped command returns the version, data folder and portable
-    flag, with its permission listed in the main capability; IPC tests cover
-    its malformed calls. End-to-end checks cover the screen, keyboard
-    operation and the width sweep at the release window sizes.
+    flag. Each command's permission is listed in the main capability, and IPC
+    tests cover malformed calls. Rust unit tests cover the opening commands
+    through a mocked opener, and the mock debug binary records opening
+    requests instead of launching anything, so end-to-end checks cover both
+    clicks, the failure message, the screen, keyboard operation and the width
+    sweep at the release window sizes. Opening the real file manager and
+    browser is checked natively in [0038](0038-release-verification.md).
 - [ ] Generate and check the third-party notices.
   - A generator in `tooling/` builds the notices from what the release build
     ships: Rust crates in the release dependency graph, the npm packages the
