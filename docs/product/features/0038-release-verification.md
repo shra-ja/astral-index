@@ -11,5 +11,5 @@ Check the app on each release OS before shipping.
   uses and sends: the history link the game cached, sent only to HoYoverse's
   history service, on the user's request.
 - [ ] Verify local workflows, requested fetching, network failures, upgrades,
-  packaging, and the About screen's data folder and issues links opening the
+  packaging, and the About dialog's data folder and issues buttons opening the
   system file manager and browser, on each release OS.
