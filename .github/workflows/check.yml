@@ -59,6 +59,7 @@ jobs:
           rustup component add rustfmt clippy llvm-tools-preview
           cargo install cargo-llvm-cov --version 0.9.1 --locked
           cargo install tauri-driver --version 2.0.6 --locked
+          cargo install cargo-about --version 0.9.2 --locked --features cli
           asdf reshim
       - name: Install locked dependencies before network isolation
         run: |

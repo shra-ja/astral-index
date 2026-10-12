@@ -47,6 +47,7 @@ test('cache hits cannot bypass locked installs, fresh coverage gates or the rele
   for (const command of [
     'cargo install cargo-llvm-cov --version 0.9.1 --locked',
     'cargo install tauri-driver --version 2.0.6 --locked',
+    'cargo install cargo-about --version 0.9.2 --locked --features cli',
     'npm ci --ignore-scripts',
     'cargo fetch --manifest-path src-tauri/Cargo.toml --locked',
     'npm run check',
