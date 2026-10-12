@@ -26,8 +26,9 @@ the live-text name, and the application icon becomes the emblem in its tile
   the small emblem and the small dark-background wordmark.
 - **Lockup:** sized from the wordmark's height H, 18 px in the sidebar: a
   2.4 H square tile in `#202735` with a 21% corner radius, the emblem at 110% of
-  the tile, centred, in `#faf9f5`, a 0.7 H gap and the two centred vertically,
-  with at least 0.7 H clear around it. The wordmark is never recoloured,
+  the tile, centred, in `#faf9f5`, a 0.6 H gap and the two centred vertically,
+  with at least 0.7 H clear around it. The gap was 0.7 H until 2026-10-12,
+  when the brand tightened it. The wordmark is never recoloured,
   stretched or re-typed as text, and the emblem never appears without its tile.
 - **Collapsed sidebar:** the tile alone, at 32 px.
 - **Drawing the emblem:** it is inlined so it takes `currentColor`. Lint forbids

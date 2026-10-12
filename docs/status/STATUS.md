@@ -36,6 +36,10 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
+### Lockup gap (2026-10-12)
+
+`fix/lockup-gap`: the sidebar lockup's gap is 0.6 H (10.8 px), as the brand now sets; red, then green.
+
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -48,17 +52,16 @@ history import works end to end; Genshin Impact has its screens but no import ye
   grey in an empty field.
 - Server names other than Asia (`prod_official_asia`) have not been seen in a
   real retrieval.
-- An intermittent frontend test failure, a click's events going unrecorded, was
+- An intermittent frontend test failure, input events going unrecorded, was
   seen in the suite-discovery probe, in a plain run on 2026-10-06 and in the
-  probes' closing coverage run on 2026-10-10 (AccountSwitcher), which saves no
-  snapshot. Failing probes save one to `test-results/probe-failures/`. See
+  probes' closing coverage run, which saves no snapshot: on 2026-10-10
+  (AccountSwitcher) and 2026-10-12 (RollIcons' arrow keys). Failing probes save one to `test-results/probe-failures/`. See
   [probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next is feature
-0050 (About and notices), then 0051 (feature toggles), then 0038's checks,
-including native Windows validation.
+If the probe flake recurs, read its snapshot before rerunning. Next: 0050 (About
+and notices), 0051 (feature toggles), then 0038 with native Windows checks.
 
 ## Keeping this file current
 
@@ -144,5 +147,4 @@ research, under a "From" heading.
   generated app icons, their check, the suite discovery probe's timeout,
   feature 0047's close, the size overlay and the review's small-window fix.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
-  scroll region, content width, sidebar, list columns, toolbar, pager and
-  review figures.
+  scroll region, content width, sidebar, columns, toolbar, pager, figures.
