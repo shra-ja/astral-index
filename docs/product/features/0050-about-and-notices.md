@@ -1,6 +1,6 @@
 # 0050 — About and notices
 
-Status: Planned · Milestone 10, Release readiness
+Status: In progress · Milestone 10, Release readiness
 
 Give the app an About dialog carrying what a distributed copy must or should
 show: its version, its MIT licence, the non-affiliation disclaimer, where its
@@ -15,7 +15,7 @@ the binaries.
 
 Each task is one PR, in this order, test first.
 
-- [ ] Add the About commands, on the native side only.
+- [x] Add the About commands, on the native side only.
   - `app_info` returns the app's version, the data folder in use and whether
     portable mode is on. The version comes from the native side, one source of
     truth, and a check in `npm run check` fails when the versions in

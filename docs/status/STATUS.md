@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-11
+Updated: 2026-10-12
 
 ## Current state
 
@@ -29,12 +29,14 @@ history import works end to end; Genshin Impact has its screens but no import ye
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
-  tests, mutation probes that prove each gate fails, and end-to-end tests that
-  drive the app against a synthetic HoYoverse (the mock debug binary). The docs
-  are checked too: links and anchors resolve, every doc is reachable from
-  `AGENTS.md`, STATUS stays within 150 lines, and markdownlint checks structure.
+  tests, mutation probes for each gate, end-to-end tests against the mock debug
+  binary's synthetic HoYoverse, and checks of the docs, icons and app version.
 
 ## In progress
+
+### About commands (2026-10-12)
+
+0050's first task, `feat/about-commands`: `app_info`, `reveal_data_folder`, `open_issues_page`, the versions gate; red, then green.
 
 ## Known limitations
 

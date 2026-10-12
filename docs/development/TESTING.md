@@ -140,6 +140,15 @@ with `tooling/app-icons.ts` and fails, naming each file, when a committed icon
 differs or is missing; `npm run icons` writes them. A mutation probe proves the
 check fails.
 
+## Version check
+
+The About dialog shows the version the native side reports, which comes from
+`src-tauri/tauri.conf.json`. `npm run versions:check` runs
+`tests/versions.test.ts`, which fails, naming each file and its version, when
+`package.json`, `src-ui/package.json`, `src-tauri/Cargo.toml` and
+`src-tauri/tauri.conf.json` disagree or one declares none. A mutation probe
+proves it fails.
+
 ## Network policy in tests
 
 Automated tests are local and self-contained: scripted transports, the mock

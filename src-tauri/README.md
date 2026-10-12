@@ -12,7 +12,9 @@ for how the parts fit together; run commands from the repository root.
   [CONTRIBUTING](../CONTRIBUTING.md#coverage-is-a-blocking-gate).
 - `src/desktop.rs` holds the commands, the acquisition session and window setup;
   `src/desktop/database.rs` chooses the database location and runs SQLite work
-  off the async workers.
+  off the async workers; `src/desktop/about.rs` holds the About dialog's
+  commands, which open the data folder or the issues page through the opener
+  plugin's functions, or record the request in the mock debug binary.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its
