@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Retrieval disclosure (2026-10-13)
-
-0038's first PR, `feat/retrieval-disclosure`: 0038 split into four PRs; Windows is the only release OS (decision 0027). The retrieval card says it contacts HoYoverse; red, then green.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -142,5 +138,5 @@ research, under a "From" heading.
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
-  cargo-about and the bundle's report, the notices list, the feature toggles and
-  the frontend test clock.
+  cargo-about and the bundle's report, the notices list, the feature toggles,
+  the frontend test clock and the retrieval disclosure.
