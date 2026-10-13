@@ -55,11 +55,13 @@ export function viteConfig(env: NodeJS.ProcessEnv, mode: string, envDir = ROOT):
       sourcemap: debug,
     },
     // Unit tests sit beside their source and integration tests in `tests/`; the
-    // build test opts into Node with a `@vitest-environment` comment. Reports go to
-    // the repository's `coverage/`, beside the backend's, for the root gates.
+    // build test opts into Node with a `@vitest-environment` comment. The setup file
+    // keeps the clock from running backwards, which lost triggered events. Reports go
+    // to the repository's `coverage/`, beside the backend's, for the root gates.
     test: {
       environment: 'jsdom',
       include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
+      setupFiles: ['tests/setup.ts'],
       coverage: {
         provider: 'v8',
         reportsDirectory: '../coverage/frontend',
