@@ -92,7 +92,11 @@ column is cut off, that the toolbar's controls stay 32px tall and in their
 groups, and that the pager keeps its pages centred and on one line while its
 label shows; at two widths it then steps through pages, checking that no page
 button moves. A second sweep checks that the review's figures keep each label on
-one line and each figure whole. Apps close as a user would, and the test waits for that
+one line and each figure whole. Every screen and step passes an axe-core audit
+of WCAG 2.2 A and AA and best-practice rules, a 20,000-roll history saves and
+browses within measured time bounds, and the About dialog's views load nothing
+the CSP blocks ([decision 0028](../architecture/decisions/0028-release-checks.md)).
+Apps close as a user would, and the test waits for that
 process's coverage profile; a killed process never counts as covered.
 Screenshots go to `test-results/`.
 
