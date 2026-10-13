@@ -498,6 +498,33 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     expect(await focused()).toBe('Back')
     await app.press(ENTER)
     await expect.poll(focused).toBe('Licence Text')
+    // The build generated the notices: every component by origin, each text shown only
+    // once its component is opened.
+    await press('Third-Party Notices')
+    await expect
+      .poll(() =>
+        app.execute<string[]>(
+          `return [...document.querySelectorAll('dialog .notices-list h3')].map((h) => h.textContent.replace(/\\s+/g, ' ').trim())`,
+        ),
+      )
+      .toSatisfy(
+        (groups: string[]) =>
+          groups.length === 3 &&
+          /^Rust Crates \(\d{3}\)$/.test(groups[0]) &&
+          /^Frontend Packages \(\d+\)$/.test(groups[1]) &&
+          groups[2] === 'Typeface (1)',
+      )
+    expect(
+      await app.execute(`return document.querySelectorAll('dialog .licence-text').length`),
+    ).toBe(0)
+    await app.execute(`document.querySelector('dialog .notices-list summary').click()`)
+    await expect.poll(() => shown('dialog .notices-list details[open] .licence-text')).toMatch(/\S/)
+    expect(await shown('dialog .notices-list details[open] .source')).toMatch(
+      /^Source: https:\/\/crates\.io\/crates\//,
+    )
+    await app.screenshot('e2e-about-notices')
+    await press('Back')
+    await expect.poll(focused).toBe('Third-Party Notices')
     // Esc closes the dialog and returns focus to the About button.
     await app.press(ESCAPE)
     await expect

@@ -18,8 +18,9 @@ rearranged without rewriting the flows behind them.
   and returns focus to the sidebar's About button when it closes.
 - **Flows (composables):** `useRetrieval` owns retrieval, review and saving;
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
-  last import; `useAbout` reads the About dialog's details and asks the native
-  side to open the data folder or issues page. They are the only callers of the native commands, through the
+  last import; `useAbout` reads the About dialog's details, asks the native
+  side to open the data folder or issues page, and loads the third-party
+  notices once, when first shown. They are the only callers of the native commands, through the
   typed client in `commands.ts`. They expose read-only state and actions.
 - **Views:** wire flows to components and manage focus between steps.
 - **Components:** presentational only: props in, events out, no native calls.

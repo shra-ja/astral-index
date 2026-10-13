@@ -1,16 +1,24 @@
 <script setup lang="ts">
 // Presentational: the About dialog, a modal over the current screen. Its main view
 // can swap to the licence or the third-party notices, each with Back and Close. Close,
-// Esc and the openings are asked for with events; the caller removes the dialog.
+// Esc, the openings and the notices are asked for with events; the caller removes the
+// dialog.
 import { ChevronLeft, X } from '@lucide/vue'
-import { nextTick, onMounted, shallowRef, useTemplateRef } from 'vue'
+import { nextTick, onMounted, shallowRef, useTemplateRef, type DeepReadonly } from 'vue'
 import licence from '../../../../LICENSE?raw'
 import type { AppInfo } from '../../commands'
 import type { Opening } from '../../composables/useAbout'
+import type { Notices } from '../../notices'
 import AboutSummary from './AboutSummary.vue'
+import NoticesList from './NoticesList.vue'
 
-defineProps<{ info: AppInfo | null; failed: Opening | null }>()
-const emit = defineEmits<{ close: []; reveal: []; issues: [] }>()
+defineProps<{
+  info: AppInfo | null
+  failed: Opening | null
+  notices: DeepReadonly<Notices> | null
+  noticesMissing: boolean
+}>()
+const emit = defineEmits<{ close: []; reveal: []; issues: []; notices: [] }>()
 
 type View = 'main' | 'licence' | 'notices'
 const titles = { licence: 'Licence', notices: 'Third-Party Notices' }
@@ -23,6 +31,7 @@ const back = useTemplateRef('back')
 onMounted(() => dialog.value!.showModal())
 
 async function show(next: Exclude<View, 'main'>) {
+  if (next === 'notices') emit('notices')
   view.value = next
   await nextTick()
   back.value!.focus()
@@ -67,9 +76,7 @@ async function returnFrom(current: Exclude<View, 'main'>) {
       </div>
       <div class="body">
         <p v-if="view === 'licence'" class="licence">{{ licence.trim() }}</p>
-        <p v-else class="notices">
-          The list of third-party components and their licences is not in this build yet.
-        </p>
+        <NoticesList v-else :notices :missing="noticesMissing" />
       </div>
     </template>
   </dialog>
@@ -142,8 +149,7 @@ async function returnFrom(current: Exclude<View, 'main'>) {
 .back svg {
   color: var(--text-secondary);
 }
-.licence,
-.notices {
+.licence {
   margin: 0;
   color: var(--text-secondary);
   font-size: 13px;

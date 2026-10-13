@@ -1,6 +1,6 @@
 # 0050 — About and notices
 
-Status: In progress · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 
 Give the app an About dialog carrying what a distributed copy must or should
 show: its version, its MIT licence, the non-affiliation disclaimer, where its
@@ -86,7 +86,7 @@ Each task is one PR, in this order, test first.
     accepted licence list, and update DEVELOPMENT if a tool is added.
   - The generator also writes a plain-text `THIRD-PARTY-NOTICES` file for
     [0039](0039-distribution.md) to ship beside the app.
-- [ ] Show the third-party notices in the About dialog's notices view, the
+- [x] Show the third-party notices in the About dialog's notices view, the
   way Chrome's credits page does: every component by name, version and
   licence, grouped by origin (Rust crates, frontend packages, the typeface)
   with a count per group, each licence text expandable and rendered only once

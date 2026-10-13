@@ -40,6 +40,11 @@ change, without the check being skippable or silently incomplete.
   both are gitignored, so they can never be stale. It fails, and so does the
   build, when a component has no licence text or a licence is outside the list.
   `tauri dev` serves the frontend without building it, so it needs no notices.
+- **Shown in the About dialog.** The frontend loads the JSON through a lookup
+  (`import.meta.glob`) that finds nothing rather than failing when the file is
+  missing, so a development run says the notices come from builds. The notices
+  are a chunk of their own, loaded when the notices view first opens, not part
+  of the startup bundle.
 
 ## Alternatives and consequences
 
