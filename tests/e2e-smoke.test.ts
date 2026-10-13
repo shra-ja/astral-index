@@ -1547,6 +1547,88 @@ test('a retrieval with no history creates no account, and an ended retrieval’s
   expect(Object.keys(storedAccounts())).toEqual(['100000001 prod_official_asia'])
 }, 120000)
 
+// Bounds for a 20,000-roll history, in ms: about three times the slowest of three
+// local runs (2026-10-13), as CI runners are slower, and at least 500 ms, since a
+// WebDriver round trip and the 20 ms poll are a fair part of the quickest steps.
+// Retrieval is paced at 500 ms a request, about 31 of them.
+const largeHistoryBounds = {
+  retrieve: 55000, // measured 18,379–18,414
+  save: 600, // 135–176
+  open: 600, // 121–193
+  page: 500, // 5–48
+  filter: 700, // 168–215
+  grid: 500, // 10–53
+  icons: 500, // 18–56
+}
+
+test('a large history saves and browses within its time bounds', async () => {
+  await withMock('large-history', {}, async (app) => {
+    const timings: Record<string, number> = {}
+    /** Run `action`, then wait for `done` to hold, recording how long both took. */
+    const timed = async (
+      step: keyof typeof largeHistoryBounds,
+      action: () => Promise<unknown>,
+      done: () => Promise<boolean>,
+    ) => {
+      const start = performance.now()
+      await action()
+      await expect.poll(done, { timeout: largeHistoryBounds[step], interval: 20 }).toBe(true)
+      timings[step] = Math.round(performance.now() - start)
+    }
+    const showing = () => textOf(app, '.showing').then((text) => text?.replace(/\s+/g, ' ').trim())
+    await timed(
+      'retrieve',
+      () => retrieveFromFile(app),
+      async () => (await textOf(app, '.review h2')) === 'Ready to save 20,810 new rolls',
+    )
+    await timed(
+      'save',
+      () => click(app, '.review', 'Save 20,810 rolls'),
+      () => app.execute<boolean>('return document.querySelector(".retrieval > .saved") !== null'),
+    )
+    await timed(
+      'open',
+      () =>
+        app.execute(
+          `[...document.querySelectorAll(".saved a")].find(a => a.textContent.trim() === "View warp history").click()`,
+        ),
+      async () => (await showing()) === 'Showing 1–20 of 20,000',
+    )
+    await timed(
+      'page',
+      () => app.execute('document.querySelector(\'[aria-label="Next page"]\').click()'),
+      async () => (await showing()) === 'Showing 21–40 of 20,000',
+    )
+    // Hiding 3★ rolls leaves the 4★ and 5★ ones, a fraction of the 20,000.
+    await timed(
+      'filter',
+      () => app.execute(`document.querySelector('[aria-label="Show rarities"] .rarity-3').click()`),
+      async () =>
+        /^Showing 1–20 of [\d,]+$/.test((await showing()) ?? '') &&
+        !(await showing())?.endsWith('20,000'),
+    )
+    await timed(
+      'grid',
+      () => app.execute('document.querySelector(\'[aria-label="Grid view"]\').click()'),
+      () =>
+        app.execute<boolean>('return document.querySelectorAll(".roll-grid > li").length === 20'),
+    )
+    await timed(
+      'icons',
+      () => app.execute('document.querySelector(\'[aria-label="Icons view"]\').click()'),
+      () =>
+        app.execute<boolean>(
+          'return document.querySelectorAll(".roll-icons [role=img]").length === 20',
+        ),
+    )
+    writeFileSync(
+      'test-results/large-history-timings.json',
+      `${JSON.stringify(timings, null, 2)}\n`,
+    )
+    await app.screenshot('e2e-mock-large-history')
+  })
+}, 600000)
+
 test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
   const { app } = await launchMock('no-history', {
     env: { ASTRAL_INDEX_ZOOM: '1.25', ASTRAL_INDEX_SIZE_OVERLAY: '1' },
