@@ -10,9 +10,13 @@ before shipping.
 
 Four PRs, each test first.
 
-- [ ] **Retrieval disclosure.** Say on the Import screen, beside the retrieval
+- [x] **Retrieval disclosure.** Say on the Import screen, beside the retrieval
   controls, what retrieval uses and sends: the history link the game cached,
   sent only to HoYoverse's history service, on the user's request.
+  - The retrieval card already said it finds the history link in the game's
+    files and runs only on a click; the user chose the smallest change for the
+    rest, so its list now reads "Needs an internet connection to contact
+    HoYoverse; runs only when you click".
 - [ ] **Automated release checks,** in the native end-to-end tests:
   - an accessibility audit of every screen and the About dialog with a bundled
     axe-core, finding no violations;

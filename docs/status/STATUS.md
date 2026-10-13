@@ -36,7 +36,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Retrieval disclosure (2026-10-13)
 
-0038's first PR, `feat/retrieval-disclosure`: 0038 split into four PRs; Windows is the only release OS (decision 0027).
+0038's first PR, `feat/retrieval-disclosure`: 0038 split into four PRs; Windows is the only release OS (decision 0027). The retrieval card says it contacts HoYoverse; red, then green.
 
 ## Known limitations
 
