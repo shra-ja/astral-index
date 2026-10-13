@@ -17,7 +17,7 @@ Four PRs, each test first.
     files and runs only on a click; the user chose the smallest change for the
     rest, so its list now reads "Needs an internet connection to contact
     HoYoverse; runs only when you click".
-- [ ] **Automated release checks,** in the native end-to-end tests:
+- [x] **Automated release checks,** in the native end-to-end tests:
   - an accessibility audit of every screen and the About dialog with a bundled
     axe-core, finding no violations;
   - a large history: the mock serves about 20,000 rolls, and retrieval,
@@ -25,6 +25,14 @@ Four PRs, each test first.
   - bundled resources: the release build's frontend references nothing
     remote and carries its typeface, icons and notices. The native permissions
     are already checked: the capability grants only the listed commands.
+  - Done as [decision 0028](../../architecture/decisions/0028-release-checks.md):
+    the audit enforces best practices as well as WCAG, since a run across the
+    app found none of either; the large-history bounds are about three times
+    the measured times, at least 500 ms. WebKitGTK reports no resource timings
+    for the app's own protocol, so the resources check records anything the CSP
+    blocks while the About dialog's views load, and checks the page refers
+    only to its own files and routes; the typeface and notices were already
+    checked to load offline.
 - [ ] **Windows CI.** A Windows job runs the Rust unit tests and builds the
   release executable as an artifact; tests that assume Unix are fixed.
 - [ ] **Release checklist on Windows.** A checklist in the development docs,

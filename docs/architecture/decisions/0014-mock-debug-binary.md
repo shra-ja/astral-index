@@ -30,7 +30,9 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   Added 2026-10-04 for the milestone 3 verification: `newer-history` (`history`
   plus 25 newer rolls per category), `second-account` (UID `100000002` on
   `prod_official_usa`, UTC−5, with `history`'s roll IDs) and `mixed-accounts`
-  (Light Cone Event Warp from the second account). A roll's fields depend only
+  (Light Cone Event Warp from the second account). Added 2026-10-13 for release
+  verification: `large-history` (`history` with 20,000 Character Event Warp
+  rolls; [decision 0028](0028-release-checks.md)). A roll's fields depend only
   on its ID, so every scenario serves a saved roll identically.
 - **Selection by managed state:** commands take their transport from a managed
   `Network`: `Https` in the real app, `Mock(scenario)` only from the mock binary.

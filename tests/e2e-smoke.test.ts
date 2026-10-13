@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
+import { accessibilityViolations } from './accessibility'
 import { DOWN, ENTER, ESCAPE, RIGHT, TAB, launch, type AppSession } from './app-driver'
 
 let backendEnv: NodeJS.ProcessEnv
@@ -103,6 +104,8 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       .toBe('#/honkai-star-rail/history')
     expect(await heading(app)).toBe('Warp History')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
+    // Every screen and step passes the accessibility audit (decision 0028).
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-history')
     // The window opens wide enough for the full sidebar, which collapses at 1100px.
     expect(await app.execute('return { width: innerWidth, height: innerHeight }')).toEqual({
@@ -135,6 +138,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     await app.execute('document.querySelector("nav a[aria-label=Import]").focus()')
     await app.press(ENTER)
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-import')
     expect(await app.execute('return document.documentElement.scrollWidth <= innerWidth')).toBe(
       true,
@@ -264,6 +268,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
         'return getComputedStyle(document.querySelector("nav .local .text")).display',
       ),
     ).toBe('none')
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-smoke')
     await app.close()
   } finally {
@@ -454,6 +459,9 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
   await withMock('history', {}, async (app) => {
     const folder = resolve(mockData, 'astral-index-mock')
     const record = resolve(folder, 'opened.txt')
+    // Anything the CSP blocks from here on, such as a remote image or script.
+    await app.execute(`window.blocked = [];
+      document.addEventListener('securitypolicyviolation', (event) => window.blocked.push(event.blockedURI))`)
     const press = (name: string) =>
       app.execute(`[...document.querySelectorAll('dialog button')]
         .find((button) => button.textContent.trim() === ${JSON.stringify(name)}).click()`)
@@ -487,6 +495,7 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
       };
     `)
     expect(lockup).toEqual({ heights: [51.4, 40], gap: 16, centred: true, loaded: true })
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-about')
     // Both openings go to the mock, which records them rather than launching anything.
     await press('Show in Folder')
@@ -507,6 +516,7 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     await press('Licence Text')
     await expect.poll(() => shown('dialog h2')).toBe('Licence')
     expect(await textOf(app, 'dialog .licence')).toContain('MIT License')
+    expect(await accessibilityViolations(app)).toEqual([])
     expect(await focused()).toBe('Back')
     await app.press(ENTER)
     await expect.poll(focused).toBe('Licence Text')
@@ -534,7 +544,16 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     expect(await shown('dialog .notices-list details[open] .source')).toMatch(
       /^Source: https:\/\/crates\.io\/crates\//,
     )
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-about-notices')
+    // Everything the dialog's views loaded, notices included, came with the app: the
+    // CSP blocked nothing, and the page refers only to its own files and routes.
+    expect(await app.execute('return window.blocked')).toEqual([])
+    expect(
+      await app.execute<string[]>(
+        `return [...document.querySelectorAll('[src], [href]')].map((element) => element.getAttribute('src') ?? element.getAttribute('href')).filter((url) => !/^(\\/assets\\/|#\\/)/.test(url))`,
+      ),
+    ).toEqual([])
     await press('Back')
     await expect.poll(focused).toBe('Third-Party Notices')
     // Esc closes the dialog and returns focus to the About button.
@@ -588,6 +607,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     ])
     // The progress card sits in the middle of the screen, as other status cards do.
     expect(await centredCard(app, '.progress')).toBe(true)
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-progress')
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
@@ -596,6 +616,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(await textOf(app, '.review .account')).toContain('100000001')
     // The mock's prod_official_asia server reads as the game names it.
     expect(await textOf(app, '.review .account .chip')).toBe('Asia')
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-review')
     // In the smallest window the review keeps every category in reach: no panel
     // clips its rows, the body scrolls to them, and Save stays in the window.
@@ -658,6 +679,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     )
     const last = await history(63)
     expect(last.rolls.map((roll) => roll.number)).toEqual([10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-saved')
     expect(existsSync(database)).toBe(true)
     // The History screen shows what was saved, read from this device.
@@ -830,6 +852,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         { timeout: 10000 },
       )
       .toSatisfy((days: string[]) => days.length > 0 && days.every((day) => day === '28 Sep 2026'))
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history-dates')
     await app.press(ESCAPE)
     await expect
@@ -849,6 +872,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await expect
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history')
     // The rolls panel ends at its last roll, and only the screen scrolls: the rolls never
     // scroll on their own, the column headings stay under the top and the pager stays
@@ -917,6 +941,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(wide.fits).toBe(true)
     // Twenty tiles leave no empty panel below them.
     expect(await scrolling()).toMatchObject({ fitted: true, rollsScroll: false, pagerInView: true })
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history-grid')
     // The Icons layout is one Tab stop: arrows move by icon and by row, and each icon
     // names its roll in a tooltip and to assistive technology.
@@ -957,6 +982,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.press(DOWN)
     expect((await focusedIcon()).index).toBe(1 + perRow)
     expect(await scrolling()).toMatchObject({ fitted: true, rollsScroll: false, pagerInView: true })
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history-icons')
     await app.execute('document.querySelector(\'[aria-label="List view"]\').click()')
     await expect
@@ -1038,6 +1064,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .poll(async () => (await lastImport()).slice(1), { timeout: 5000 })
       .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
     expect((await lastImport())[0]).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}$/)
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-last-import')
     // A quick refresh, the default, stops each category at its first page: every
     // category reaches saved rolls there, so only those pages are skipped.
@@ -1304,6 +1331,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
       'Retrieval stopped at Light Cone Event Warp, page 1.',
     )
     expect(await centredCard(app, '.failed')).toBe(true)
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-failed')
     // The History screen's read opens the database, but no rolls were saved.
     expect(existsSync(database)).toBe(true)
@@ -1470,6 +1498,7 @@ test('a quick refresh saves only newer rolls, and another account with the same 
         ['100000002', 'America', '2,060 rolls'],
         ['100000001', 'Asia', '2,210 rolls'],
       ])
+    expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-account-menu')
     await app.press(DOWN, ENTER)
     await expect
@@ -1528,6 +1557,88 @@ test('a retrieval with no history creates no account, and an ended retrieval’s
   })
   expect(Object.keys(storedAccounts())).toEqual(['100000001 prod_official_asia'])
 }, 120000)
+
+// Bounds for a 20,000-roll history, in ms: about three times the slowest of three
+// local runs (2026-10-13), as CI runners are slower, and at least 500 ms, since a
+// WebDriver round trip and the 20 ms poll are a fair part of the quickest steps.
+// Retrieval is paced at 500 ms a request, about 31 of them.
+const largeHistoryBounds = {
+  retrieve: 55000, // measured 18,379–18,414
+  save: 600, // 135–176
+  open: 600, // 121–193
+  page: 500, // 5–48
+  filter: 700, // 168–215
+  grid: 500, // 10–53
+  icons: 500, // 18–56
+}
+
+test('a large history saves and browses within its time bounds', async () => {
+  await withMock('large-history', {}, async (app) => {
+    const timings: Record<string, number> = {}
+    /** Run `action`, then wait for `done` to hold, recording how long both took. */
+    const timed = async (
+      step: keyof typeof largeHistoryBounds,
+      action: () => Promise<unknown>,
+      done: () => Promise<boolean>,
+    ) => {
+      const start = performance.now()
+      await action()
+      await expect.poll(done, { timeout: largeHistoryBounds[step], interval: 20 }).toBe(true)
+      timings[step] = Math.round(performance.now() - start)
+    }
+    const showing = () => textOf(app, '.showing').then((text) => text?.replace(/\s+/g, ' ').trim())
+    await timed(
+      'retrieve',
+      () => retrieveFromFile(app),
+      async () => (await textOf(app, '.review h2')) === 'Ready to save 20,810 new rolls',
+    )
+    await timed(
+      'save',
+      () => click(app, '.review', 'Save 20,810 rolls'),
+      () => app.execute<boolean>('return document.querySelector(".retrieval > .saved") !== null'),
+    )
+    await timed(
+      'open',
+      () =>
+        app.execute(
+          `[...document.querySelectorAll(".saved a")].find(a => a.textContent.trim() === "View warp history").click()`,
+        ),
+      async () => (await showing()) === 'Showing 1–20 of 20,000',
+    )
+    await timed(
+      'page',
+      () => app.execute('document.querySelector(\'[aria-label="Next page"]\').click()'),
+      async () => (await showing()) === 'Showing 21–40 of 20,000',
+    )
+    // Hiding 3★ rolls leaves the 4★ and 5★ ones, a fraction of the 20,000.
+    await timed(
+      'filter',
+      () => app.execute(`document.querySelector('[aria-label="Show rarities"] .rarity-3').click()`),
+      async () =>
+        /^Showing 1–20 of [\d,]+$/.test((await showing()) ?? '') &&
+        !(await showing())?.endsWith('20,000'),
+    )
+    await timed(
+      'grid',
+      () => app.execute('document.querySelector(\'[aria-label="Grid view"]\').click()'),
+      () =>
+        app.execute<boolean>('return document.querySelectorAll(".roll-grid > li").length === 20'),
+    )
+    await timed(
+      'icons',
+      () => app.execute('document.querySelector(\'[aria-label="Icons view"]\').click()'),
+      () =>
+        app.execute<boolean>(
+          'return document.querySelectorAll(".roll-icons [role=img]").length === 20',
+        ),
+    )
+    writeFileSync(
+      'test-results/large-history-timings.json',
+      `${JSON.stringify(timings, null, 2)}\n`,
+    )
+    await app.screenshot('e2e-mock-large-history')
+  })
+}, 600000)
 
 test('a development zoom scales the webview, so WSL can match the Windows display scale', async () => {
   const { app } = await launchMock('no-history', {

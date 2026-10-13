@@ -54,7 +54,8 @@ details.
 
 `ASTRAL_INDEX_MOCK_SCENARIO` chooses the mock's behaviour: `history` (the
 default), `expired-link`, `network-failure`, `rate-limited`, `no-history`,
-`newer-history`, `second-account` or `mixed-accounts`
+`newer-history`, `second-account`, `mixed-accounts` or `large-history` (20,000
+Character Event Warp rolls)
 ([decision 0014](../architecture/decisions/0014-mock-debug-binary.md)). The mock
 keeps its history in its own `astral-index-mock` data folder.
 

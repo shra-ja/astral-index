@@ -34,9 +34,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Retrieval disclosure (2026-10-13)
+### Release checks (2026-10-13)
 
-0038's first PR, `feat/retrieval-disclosure`: 0038 split into four PRs; Windows is the only release OS (decision 0027). The retrieval card says it contacts HoYoverse; red, then green.
+0038's second PR, `test/release-checks`: axe-core audit (WCAG and best practices) of 16 states, a 20,000-roll history within bounds, nothing loaded from outside (decision 0028); red, then green.
 
 ## Known limitations
 
@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038's automated release checks, Windows CI and Windows checklist.
+Next: 0038's Windows CI, then its Windows checklist.
 
 ## Keeping this file current
 
@@ -142,5 +142,5 @@ research, under a "From" heading.
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
-  cargo-about and the bundle's report, the notices list, the feature toggles and
-  the frontend test clock.
+  cargo-about and the bundle's report, the notices list, the feature toggles,
+  the frontend test clock and the retrieval disclosure.
