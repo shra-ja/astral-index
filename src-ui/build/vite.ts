@@ -2,17 +2,35 @@
 // Vitest never measures `vite.config.ts` itself, which only delegates to this module.
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath } from 'node:url'
+import { loadEnv } from 'vite'
 import type { ViteUserConfig } from 'vitest/config'
 
 /** Tauri's dev URL expects this port; live reload uses the next one. */
 const DEV_PORT = 1420
 
+/** Where Vite reads its environment files, beside this configuration's project. */
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
+
 /**
- * The configuration for the given environment, following Tauri's Vite guide.
- * `TAURI_DEV_HOST` serves the dev server on another device's network; the
- * `TAURI_ENV_*` variables are set by the Tauri CLI during builds.
+ * Stops the build, dev server or tests when a feature toggle in the mode's
+ * environment files is neither `true` nor `false`, rather than letting the app
+ * fall back to a default (decision 0026).
  */
-export function viteConfig(env: NodeJS.ProcessEnv): ViteUserConfig {
+function checkToggles(mode: string, envDir: string) {
+  for (const [name, value] of Object.entries(loadEnv(mode, envDir, 'VITE_FEATURE_'))) {
+    if (value !== 'true' && value !== 'false') {
+      throw new Error(`${name} must be true or false in ${mode} mode, not "${value}"`)
+    }
+  }
+}
+
+/**
+ * The configuration for the given environment and Vite mode, following Tauri's
+ * Vite guide. `TAURI_DEV_HOST` serves the dev server on another device's network;
+ * the `TAURI_ENV_*` variables are set by the Tauri CLI during builds.
+ */
+export function viteConfig(env: NodeJS.ProcessEnv, mode: string, envDir = ROOT): ViteUserConfig {
+  checkToggles(mode, envDir)
   const host = env.TAURI_DEV_HOST
   const debug = Boolean(env.TAURI_ENV_DEBUG)
   return {

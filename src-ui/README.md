@@ -30,6 +30,11 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   native I/O behind typed backend commands rather than adding it here.
 - `src/dev-options.ts` reads the development options a debug build asks for
   with a page script, such as the size overlay; release builds never add one.
+- `src/features.ts` reads the build-time feature toggles from Vite's
+  environment files (`.env.development`, `.env.test`, `.env.production`) and
+  lists the games the build shows, which the sidebar and routes offer
+  ([decision 0026](../docs/architecture/decisions/0026-feature-toggles.md)).
+  `build/vite.ts` stops the build on a toggle that is neither `true` nor `false`.
 - `src/input-modality.ts` tracks whether the latest press came from the
   keyboard, so tooltips show at once on keyboard focus.
 - `src/notices.ts` loads the third-party notices that every build generates,

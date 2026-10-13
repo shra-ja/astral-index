@@ -74,6 +74,25 @@ written width divided by the zoom: at 1.25 the sidebar collapses at 720 CSS
 pixels rather than 900. Windows display scaling is not a page zoom, so its
 container queries apply at their written widths, as at zoom 1.
 
+### Feature toggles
+
+Build-time toggles hide unfinished features from release builds while they stay
+in the code and under test
+([decision 0026](../architecture/decisions/0026-feature-toggles.md)). Each is
+a `VITE_FEATURE_*` variable in the frontend's committed mode files:
+
+| Toggle | `.env.development`, `.env.test` | `.env.production` | Removed by |
+| --- | --- | --- | --- |
+| `VITE_FEATURE_GENSHIN_IMPACT`: Genshin Impact's link and screens | `true` | `false` | [0031](../product/features/0031-second-game-adapter.md) |
+
+`npm run tauri -- dev` and `npm run tauri:mock` are development builds, so they
+show every toggled feature. Release builds and the mock debug binary that the
+end-to-end tests build use the production build of `src-ui/dist`, so they show
+what a release shows. A variable set in the environment overrides the files for
+one build, for example `VITE_FEATURE_GENSHIN_IMPACT=true npm run build`; git
+ignores local override files such as `.env.production.local`. A value other
+than `true` or `false` stops the build, the dev server and the tests.
+
 ## Checks
 
 | Command | Does |

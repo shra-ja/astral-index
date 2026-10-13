@@ -155,7 +155,7 @@ The first release covers Honkai: Star Rail only
 - [x] [0047 — Astral brand](features/0047-astral-brand.md)
 - [x] [0048 — Layout fixes](features/0048-layout-fixes.md)
 - [x] [0050 — About and notices](features/0050-about-and-notices.md)
-- [ ] [0051 — Feature toggles](features/0051-feature-toggles.md)
+- [x] [0051 — Feature toggles](features/0051-feature-toggles.md)
 - [ ] [0038 — Release verification](features/0038-release-verification.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 

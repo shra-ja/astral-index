@@ -8,11 +8,11 @@ import { RouterLink } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
 import AstralTile from '../shared/AstralTile.vue'
 import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
-import { games, monograms, terms, type Game, type Screen } from '../../format'
+import { games as names, monograms, terms, type Game, type Screen } from '../../format'
 
-defineProps<{ game: Game; screen: Screen }>()
+// `games` lists the games this build shows, in order.
+defineProps<{ game: Game; screen: Screen; games: readonly Game[] }>()
 const emit = defineEmits<{ about: [] }>()
-const gameIds = Object.keys(games) as Game[]
 </script>
 
 <template>
@@ -25,16 +25,16 @@ const gameIds = Object.keys(games) as Game[]
     <div class="group">
       <h2 id="sidebar-games" class="text">Game</h2>
       <ul aria-labelledby="sidebar-games">
-        <li v-for="id in gameIds" :key="id">
-          <AppTooltip :text="games[id]" placement="right">
+        <li v-for="id in games" :key="id">
+          <AppTooltip :text="names[id]" placement="right">
             <RouterLink
               class="link"
               :to="{ name: screen, params: { game: id } }"
-              :aria-label="games[id]"
+              :aria-label="names[id]"
               :aria-current="id === game ? 'true' : undefined"
             >
               <span class="monogram" :class="id" aria-hidden="true">{{ monograms[id] }}</span>
-              <span class="text">{{ games[id] }}</span>
+              <span class="text">{{ names[id] }}</span>
             </RouterLink>
           </AppTooltip>
         </li>

@@ -90,6 +90,18 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     await expect
       .poll(() => textOf(app, '[role=status]'), { timeout: 10000 })
       .toContain('No Warp History Yet')
+    // A release build hides Genshin Impact (decision 0026): the sidebar offers Star Rail
+    // alone, nothing names Genshin Impact, and its addresses return to Star Rail's history.
+    expect(
+      await app.execute(`return [...document.querySelectorAll('nav [aria-labelledby=sidebar-games] a')]
+        .map((link) => link.getAttribute('aria-label'))`),
+    ).toEqual(['Honkai: Star Rail'])
+    expect(await app.execute('return document.body.textContent.includes("Genshin")')).toBe(false)
+    await app.execute(`location.hash = '#/genshin-impact/import'`)
+    await expect
+      .poll(() => app.execute('return location.hash'), { timeout: 5000 })
+      .toBe('#/honkai-star-rail/history')
+    expect(await heading(app)).toBe('Warp History')
     await app.executeAsync('document.fonts.ready.then(() => arguments[arguments.length - 1]())')
     await app.screenshot('e2e-history')
     // The window opens wide enough for the full sidebar, which collapses at 1100px.
