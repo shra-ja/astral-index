@@ -34,6 +34,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Retrieval disclosure (2026-10-13)
+
+0038's first PR, `feat/retrieval-disclosure`: 0038 split into four PRs; Windows is the only release OS (decision 0027).
+
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -49,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038 with native Windows checks.
+Next: 0038's automated release checks, Windows CI and Windows checklist.
 
 ## Keeping this file current
 
