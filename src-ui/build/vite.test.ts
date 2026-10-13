@@ -55,10 +55,11 @@ test('builds target each platform webview, with source maps only for debug build
   })
 })
 
-test('frontend tests run in jsdom, with 100% per-file coverage reported to the repository', () => {
+test('frontend tests run in jsdom on a clock that never runs backwards, with 100% per-file coverage reported to the repository', () => {
   expect(viteConfig({}, 'production').test).toEqual({
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
+    setupFiles: ['tests/setup.ts'],
     coverage: {
       provider: 'v8',
       reportsDirectory: '../coverage/frontend',

@@ -34,9 +34,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Feature toggles (2026-10-13)
+### Frontend test clock (2026-10-13)
 
-0051, `feat/feature-toggles`: `VITE_FEATURE_GENSHIN_IMPACT` hides Genshin Impact from release builds (decision 0026); red, then green, natively too. 0051 done.
+`fix/jsdom-event-flake`: the dropped-event flake was the wall clock stepping back (WSL, every 30 s in failing boots); `src-ui/tests/setup.ts` keeps `Date.now` monotonic; red, then green.
 
 ## Known limitations
 
@@ -50,15 +50,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   grey in an empty field.
 - Server names other than Asia (`prod_official_asia`) have not been seen in a
   real retrieval.
-- An intermittent frontend test failure, input events going unrecorded, has hit
-  the suite-discovery probe, a plain run (2026-10-06) and the probes' closing
-  coverage run, which saves no snapshot (AccountSwitcher 2026-10-10, RollIcons
-  2026-10-12). Failing probes save one to `test-results/probe-failures/`; see
-  [probe failure snapshots](history/2026-10-04-probe-failure-snapshots.md).
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next: 0038 with native Windows checks.
+Next: 0038 with native Windows checks.
 
 ## Keeping this file current
 
@@ -147,4 +142,4 @@ research, under a "From" heading.
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
-  cargo-about and the bundle's report, and the notices list.
+  cargo-about and the bundle's report, the notices list and the feature toggles.

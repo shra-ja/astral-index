@@ -12,3 +12,8 @@ Integrated through PR #106.
 
 Integrated through PR #107.
 0050's last task, `feat/notices-list`: the grouped notices view; red, then green. 0050 done.
+
+### Feature toggles (2026-10-13)
+
+Integrated through PR #108.
+0051, `feat/feature-toggles`: `VITE_FEATURE_GENSHIN_IMPACT` hides Genshin Impact from release builds (decision 0026); red, then green, natively too. 0051 done.
