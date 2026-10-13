@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Feature toggles (2026-10-13)
-
-0051, `feat/feature-toggles`: `VITE_FEATURE_GENSHIN_IMPACT` hides Genshin Impact from release builds (decision 0026); red, then green, natively too. 0051 done.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -147,4 +143,4 @@ research, under a "From" heading.
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
-  cargo-about and the bundle's report, and the notices list.
+  cargo-about and the bundle's report, the notices list and the feature toggles.
