@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Frontend test clock (2026-10-13)
-
-`fix/jsdom-event-flake`: the dropped-event flake was the wall clock stepping back (WSL, every 30 s in failing boots); `src-ui/tests/setup.ts` keeps `Date.now` monotonic; red, then green.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -142,4 +138,5 @@ research, under a "From" heading.
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
-  cargo-about and the bundle's report, the notices list and the feature toggles.
+  cargo-about and the bundle's report, the notices list, the feature toggles and
+  the frontend test clock.

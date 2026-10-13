@@ -17,3 +17,8 @@ Integrated through PR #107.
 
 Integrated through PR #108.
 0051, `feat/feature-toggles`: `VITE_FEATURE_GENSHIN_IMPACT` hides Genshin Impact from release builds (decision 0026); red, then green, natively too. 0051 done.
+
+### Frontend test clock (2026-10-13)
+
+Integrated through PR #109.
+`fix/jsdom-event-flake`: the dropped-event flake was the wall clock stepping back (WSL, every 30 s in failing boots); `src-ui/tests/setup.ts` keeps `Date.now` monotonic; red, then green.
