@@ -26,6 +26,9 @@ pub enum Scenario {
     SecondAccount,
     /// `History`, but Light Cone Event Warp belongs to another account.
     MixedAccounts,
+    /// `History`, with 20,000 rolls in Character Event Warp, for checking that a
+    /// large history stays quick to save and browse.
+    LargeHistory,
 }
 
 /// The variable named no known scenario.
@@ -44,6 +47,7 @@ impl Scenario {
             "newer-history" => Ok(Self::NewerHistory),
             "second-account" => Ok(Self::SecondAccount),
             "mixed-accounts" => Ok(Self::MixedAccounts),
+            "large-history" => Ok(Self::LargeHistory),
             _ => Err(UnknownScenario),
         }
     }
@@ -58,6 +62,8 @@ const ROLLS: [(&str, u64); 6] = [
     ("21", 38),
     ("22", 10),
 ];
+/// How many rolls Character Event Warp holds in the `LargeHistory` scenario.
+const LARGE: u64 = 20_000;
 /// The collaboration endpoint's page cap, as HoYoverse's.
 const COLLABORATION_PAGE: u64 = 20;
 /// How many newer rolls each category gains in the `NewerHistory` scenario.
@@ -125,9 +131,10 @@ impl Transport for MockTransport {
                 } else {
                     size
                 };
+                let large = self.scenario == Scenario::LargeHistory;
                 let rolls = category.map_or(Vec::new(), |category| {
                     let end_id = parameter(query, "end_id").unwrap_or("0");
-                    rolls(category, end_id, size, newer, account)
+                    rolls(category, end_id, size, newer, large, account)
                 });
                 Ok(page(&rolls, account))
             }
@@ -145,16 +152,23 @@ fn parameter<'a>(query: &'a str, name: &str) -> Option<&'a str> {
 /// A category's rolls after the cursor, up to `size`, newest first. Each category
 /// counts IDs down from its own base, and ten rolls share each time, like a ten-pull.
 /// `newer` rolls come before the base, with IDs and times above it; a roll's fields
-/// depend only on its ID, so every scenario serves a roll the same way.
+/// depend only on its ID, so every scenario serves a roll the same way. A `large`
+/// history holds `LARGE` rolls in Character Event Warp.
 fn rolls(
     category: &str,
     end_id: &str,
     size: u64,
     newer: u64,
+    large: bool,
     account: &Account,
 ) -> Vec<serde_json::Value> {
-    let Some((_, count)) = ROLLS.iter().find(|(code, _)| *code == category) else {
+    let Some(&(_, count)) = ROLLS.iter().find(|(code, _)| *code == category) else {
         return Vec::new();
+    };
+    let count = if large && category == "11" {
+        LARGE
+    } else {
+        count
     };
     let code: u64 = category.parse().unwrap_or(0);
     let base = 1_800_000_000_000_000_000 + code * 10_000_000;
@@ -292,6 +306,7 @@ mod tests {
             (Some("newer-history"), Scenario::NewerHistory),
             (Some("second-account"), Scenario::SecondAccount),
             (Some("mixed-accounts"), Scenario::MixedAccounts),
+            (Some("large-history"), Scenario::LargeHistory),
         ] {
             assert_eq!(Scenario::named(name), Ok(scenario));
         }
@@ -371,6 +386,32 @@ mod tests {
                 assert!(page.list.len() <= 20);
             }
         }
+    }
+
+    #[test]
+    fn large_history_holds_twenty_thousand_character_event_rolls() {
+        let history = fetch(Scenario::LargeHistory).unwrap();
+        let mut counts: HashMap<String, usize> = HashMap::new();
+        let mut ids = std::collections::HashSet::new();
+        for body in history.responses() {
+            for roll in parse_response(body).unwrap().list {
+                *counts.entry(roll.gacha_type).or_default() += 1;
+                assert!(ids.insert(roll.id), "roll IDs are unique");
+            }
+        }
+        let expected = [
+            ("1", 300),
+            ("2", 50),
+            ("11", 20_000),
+            ("12", 412),
+            ("21", 38),
+            ("22", 10),
+        ];
+        for (code, count) in expected {
+            assert_eq!(counts.get(code), Some(&count), "category {code}");
+        }
+        // Character Event Warp takes 20 full pages of 1,000, then an empty one.
+        assert_eq!(history.responses().len(), 2 + 2 + 21 + 2 + 3 + 2);
     }
 
     #[test]
