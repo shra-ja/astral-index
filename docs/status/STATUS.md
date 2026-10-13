@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
-### Notices list (2026-10-13)
-
-0050's last task, `feat/notices-list`: the grouped notices view; red, then green. 0050 done.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -147,4 +143,5 @@ research, under a "From" heading.
 - [2026-10-11: History panel fit](history/2026-10-11-history-panel-fit.md): one
   scroll region, content width, sidebar, columns, toolbar, pager, figures.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
-- [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md).
+- [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
+  cargo-about and the bundle's report, and the notices list.
