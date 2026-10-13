@@ -1,11 +1,11 @@
 # Project status
 
-Updated: 2026-10-12
+Updated: 2026-10-13
 
 ## Current state
 
 Astral Index is a Tauri 2 desktop app with a Vue webview. Honkai: Star Rail
-history import works end to end; Genshin Impact has its screens but no import yet.
+history import works end to end; Genshin Impact, with no import yet, shows only in development builds (decision 0026).
 
 - **Retrieval, on request only:** the app finds the warp history link by
   searching the game's cache on Windows or from WSL, or in a cache file the user
@@ -34,6 +34,10 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## In progress
 
+### Feature toggles (2026-10-13)
+
+0051, `feat/feature-toggles`: `VITE_FEATURE_GENSHIN_IMPACT` hides Genshin Impact from release builds (decision 0026); red, then green, natively too. 0051 done.
+
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -54,8 +58,7 @@ history import works end to end; Genshin Impact has its screens but no import ye
 
 ## Next
 
-If the probe flake recurs, read its snapshot before rerunning. Next: 0051
-(feature toggles), then 0038 with native Windows checks.
+If the probe flake recurs, read its snapshot before rerunning. Next: 0038 with native Windows checks.
 
 ## Keeping this file current
 

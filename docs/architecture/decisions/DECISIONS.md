@@ -58,3 +58,4 @@ HoYoverse fetching.
 - [0023 — Astral brand](0023-astral-brand.md)
 - [0024 — About commands and opening](0024-about-opening.md)
 - [0025 — Third-party notices](0025-third-party-notices.md)
+- [0026 — Build-time feature toggles](0026-feature-toggles.md)

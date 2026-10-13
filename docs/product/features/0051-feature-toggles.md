@@ -1,6 +1,6 @@
 # 0051 — Feature toggles
 
-Status: Planned · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 
 Hide unfinished features from release builds while they stay in the code and
 under test. The first release covers Honkai: Star Rail only
@@ -14,7 +14,7 @@ from them.
 
 One PR, test first.
 
-- [ ] Add build-time feature toggles and turn off Genshin Impact in release
+- [x] Add build-time feature toggles and turn off Genshin Impact in release
   builds.
   - Toggles are set at build time through Vite's environment files, following
     Vite's conventions: on in `.env.development`, off in `.env.production`.
@@ -33,6 +33,11 @@ One PR, test first.
   - Record a decision: toggles exist only for unfinished work, each one names
     the feature that removes it, and none gates the native side, which has no
     Genshin Impact code. Document the toggles in DEVELOPMENT.
+  - Done as `VITE_FEATURE_GENSHIN_IMPACT`, read by `src-ui/src/features.ts`
+    and checked by the Vite configuration
+    ([decision 0026](../../architecture/decisions/0026-feature-toggles.md)).
+    Vitest runs in its own mode, so `.env.test` turns the toggle on, as in
+    development, and release-state tests turn it off.
 
 [0031](0031-second-game-adapter.md) removes the Genshin Impact toggle once
 Genshin Impact works end to end.
