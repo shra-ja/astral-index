@@ -3,8 +3,12 @@ import { expect, test } from 'vitest'
 import router from '../../router'
 import AppSidebar from './AppSidebar.vue'
 
-const sidebar = (game: 'genshin-impact' | 'honkai-star-rail', screen: 'history' | 'import') =>
-  mount(AppSidebar, { props: { game, screen }, global: { plugins: [router] } })
+type Game = 'genshin-impact' | 'honkai-star-rail'
+const sidebar = (
+  game: Game,
+  screen: 'history' | 'import',
+  games: Game[] = ['genshin-impact', 'honkai-star-rail'],
+) => mount(AppSidebar, { props: { game, screen, games }, global: { plugins: [router] } })
 const links = (wrapper: ReturnType<typeof sidebar>, group: string) =>
   wrapper
     .get(`[aria-labelledby="${group}"]`)
@@ -40,6 +44,15 @@ test('switching games keeps the current screen, and each game names its history'
     ['Wish History', '#/genshin-impact/history', undefined],
     ['Import', '#/genshin-impact/import', 'page'],
   ])
+})
+
+test('lists only the games the build shows', () => {
+  const wrapper = sidebar('honkai-star-rail', 'import', ['honkai-star-rail'])
+  expect(wrapper.get('#sidebar-games').text()).toBe('Game')
+  expect(links(wrapper, 'sidebar-games')).toEqual([
+    ['Honkai: Star Rail', '#/honkai-star-rail/import', 'true'],
+  ])
+  expect(wrapper.text()).not.toContain('Genshin')
 })
 
 test('labels stay in each link, beside the game monograms, for the expanded sidebar', () => {

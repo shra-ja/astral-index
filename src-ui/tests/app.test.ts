@@ -37,7 +37,10 @@ beforeEach(async () => {
   await import('../src/main')
   await settle()
 })
-afterEach(clearMocks)
+afterEach(() => {
+  clearMocks()
+  vi.unstubAllEnvs()
+})
 
 const sidebar = () => document.querySelector<HTMLElement>('nav[aria-label="Main"]')!
 // A link's accessible name: its label when it has one, else its text.
@@ -670,6 +673,25 @@ test('an unknown address returns to Star Rail’s history', async () => {
   await router.push('/somewhere/else')
   await settle()
   expect(location.hash).toBe('#/honkai-star-rail/history')
+})
+
+test('a release build offers Star Rail alone, and Genshin Impact’s addresses return to it', async () => {
+  // Mount the app as a release builds it, with Genshin Impact turned off.
+  vi.stubEnv('VITE_FEATURE_GENSHIN_IMPACT', 'false')
+  document.body.innerHTML = '<div id="app"></div>'
+  vi.resetModules()
+  const { default: router } = await import('../src/router')
+  await import('../src/main')
+  await settle()
+  expect(
+    [...sidebar().querySelectorAll('[aria-labelledby="sidebar-games"] a')].map(nameOf),
+  ).toEqual(['Honkai: Star Rail'])
+  for (const screen of ['history', 'import']) {
+    await router.push(`/genshin-impact/${screen}`)
+    await settle()
+    expect(location.hash).toBe('#/honkai-star-rail/history')
+    expect(document.body.textContent).not.toContain('Genshin')
+  }
 })
 
 test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file import is coming soon', async () => {

@@ -15,6 +15,10 @@ playwright-report/
 .env
 .env.*
 !.env.example
+# The frontend's build-time feature toggles (decision 0026); local overrides stay ignored.
+!src-ui/.env.development
+!src-ui/.env.production
+!src-ui/.env.test
 *.log
 *.db
 *.db-*

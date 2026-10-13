@@ -1,9 +1,11 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import HistoryView from '../views/HistoryView.vue'
 import ImportView from '../views/ImportView.vue'
+import { games } from '../features'
 
-// Each game has its own History and Import screens.
-const game = ':game(genshin-impact|honkai-star-rail)'
+// Each game this build shows has its own History and Import screens; a hidden game's
+// address is unknown (decision 0026).
+const game = `:game(${games.join('|')})`
 
 // Hash history needs no server fallback under Tauri's custom protocol, and no one
 // sees the URL (decision 0011). The app opens on Star Rail's history, the game with

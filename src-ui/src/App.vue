@@ -12,6 +12,7 @@ import { retrievalKey } from './composables/retrieval'
 import { useRetrieval } from './composables/useRetrieval'
 import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
+import { games } from './features'
 import type { Game, Screen } from './format'
 
 provide(retrievalKey, useRetrieval())
@@ -41,7 +42,7 @@ function closeAbout() {
 <template>
   <div class="app">
     <!-- Shown once the router has resolved the first screen. -->
-    <AppSidebar v-if="route.name" :game :screen @about="openAbout" />
+    <AppSidebar v-if="route.name" :game :screen :games @about="openAbout" />
     <RouterView />
     <AboutDialog
       v-if="aboutOpen"
