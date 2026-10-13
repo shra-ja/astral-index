@@ -69,8 +69,8 @@ User-requested HoYoverse history acquisition is in scope; see
 
 ## Open decisions
 
-- Native validation on Windows, the initial game-installation OS, and installer
-  packaging. Development and CI run on Ubuntu and WSL.
+- Installer packaging. The first release ships for Windows only
+  ([decision 0027](../architecture/decisions/0027-windows-first-release.md)).
 - Exact supported history-file formats and other local sources, verified with
   documentation and synthetic or redacted samples before claiming compatibility.
 - How users identify accounts and resolve ambiguous imports, and account

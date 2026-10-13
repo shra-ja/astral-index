@@ -47,7 +47,7 @@ defineExpose({
           <li>
             Open your {{ term.toLowerCase() }} history in the game first, so the link is fresh
           </li>
-          <li>Needs an internet connection; runs only when you click</li>
+          <li>Needs an internet connection to contact HoYoverse; runs only when you click</li>
           <li>Long histories can take a few minutes</li>
         </ul>
         <fieldset class="mode" aria-describedby="mode-hint">

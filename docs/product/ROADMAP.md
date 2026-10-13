@@ -161,7 +161,8 @@ The first release covers Honkai: Star Rail only
 
 Done when the app carries the Astral brand, its screens fit every window size,
 an About dialog shows its version, licences and third-party notices, release
-builds show only Honkai: Star Rail, and the first release is verified on each release OS and distributed in its
+builds show only Honkai: Star Rail, and the first release is verified on Windows, its only OS
+([decision 0027](../architecture/decisions/0027-windows-first-release.md)), and distributed in its
 documented formats.
 
 ### 11 — Backup, restore and file import

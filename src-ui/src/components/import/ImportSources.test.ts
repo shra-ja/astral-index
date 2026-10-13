@@ -23,6 +23,14 @@ test('offers retrieval from HoYoverse, by search or a chosen cache file', async 
   expect(wrapper.text()).toContain(
     'Finds the warp history link in the game’s local files, then downloads your roll history from HoYoverse.',
   )
+  // What retrieval uses and sends, and when: the cached link, to HoYoverse, on a click.
+  expect(
+    wrapper.findAll('[aria-labelledby="source-retrieve"] li').map((item) => item.text()),
+  ).toEqual([
+    'Open your warp history in the game first, so the link is fresh',
+    'Needs an internet connection to contact HoYoverse; runs only when you click',
+    'Long histories can take a few minutes',
+  ])
   expect(wrapper.text()).toContain('choose its data_2 cache file yourself')
   await retrieve(wrapper).trigger('click')
   expect(wrapper.emitted('search')).toHaveLength(1)
