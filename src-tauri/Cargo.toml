@@ -3,6 +3,8 @@ name = "astral-index"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+# An app, not a library: never published, so the third-party notices leave it out.
+publish = false
 # The real app; the mock debug binary is built only with `--features mock` (decision 0014).
 default-run = "astral-index"
 

@@ -1,0 +1,26 @@
+# cargo-about's settings for the third-party notices (decision 0025): the licences the
+# app accepts, for its npm packages and font too, the release targets, and only the crates that ship in the binary. It
+# runs with `--frozen`, so it never asks the network: licence texts come from each
+# crate's sources and the SPDX texts it carries.
+accepted = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "CC0-1.0",
+    "Unlicense",
+    "Unicode-3.0",
+    "MPL-2.0",
+    # The bundled typeface; no crate uses it.
+    "OFL-1.1",
+]
+targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+# The app's own crate is MIT, and its licence is shown separately.
+private = { ignore = true }

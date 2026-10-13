@@ -12,3 +12,8 @@ Integrated through PR #103.
 
 Integrated through PR #104.
 0050's first task, `feat/about-commands`: `app_info`, `reveal_data_folder`, `open_issues_page`, the versions gate; red, then green.
+
+## About dialog (2026-10-12)
+
+Integrated through PR #105.
+0050's second task, `feat/about-dialog`: the sidebar's About button and the modal dialog; red, then green.

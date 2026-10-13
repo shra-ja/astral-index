@@ -276,6 +276,19 @@ test('the versions gate rejects a manifest whose version differs', () => {
   expectCommandSuccess('npm', ['run', 'versions:check'])
 }, 30000)
 
+// Every shipped component's licence must be accepted, or the build fails (decision 0025).
+test('generating the notices rejects a licence outside the accepted list', () => {
+  const settings = 'src-tauri/about.toml'
+  const accepted = readFileSync(settings, 'utf8')
+  try {
+    writeFileSync(settings, accepted.replace('    "MIT",\n', ''))
+    expectCommandFailure('npm', ['run', 'notices'], 'failed to satisfy license requirements')
+  } finally {
+    writeFileSync(settings, accepted)
+  }
+  expectCommandSuccess('npm', ['run', 'notices'])
+}, 120000)
+
 test('the wrapper exception guard rejects added startup behavior', () => {
   const path = 'src-tauri/src/main.rs'
   const original = readFileSync(path, 'utf8')
