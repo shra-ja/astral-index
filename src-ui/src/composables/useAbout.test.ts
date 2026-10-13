@@ -38,3 +38,23 @@ test('a failed opening is remembered until the next attempt or a reset', async (
   expect(revealDataFolder).toHaveBeenCalledTimes(1)
   expect(openIssuesPage).toHaveBeenCalledTimes(2)
 })
+
+test('the notices load once, when first shown, or are known to be missing', async () => {
+  const notices = { texts: [], components: [] }
+  const load = vi.fn().mockResolvedValue(notices)
+  const about = useAbout(load)
+  expect(about.notices.value).toBeNull()
+  await about.showNotices()
+  await about.showNotices()
+  expect(about.notices.value).toEqual(notices)
+  expect(about.noticesMissing.value).toBe(false)
+  expect(load).toHaveBeenCalledOnce()
+  // A build that generated none, as in development, says so and stops asking.
+  const none = vi.fn().mockResolvedValue(null)
+  const development = useAbout(none)
+  await development.showNotices()
+  await development.showNotices()
+  expect(development.notices.value).toBeNull()
+  expect(development.noticesMissing.value).toBe(true)
+  expect(none).toHaveBeenCalledOnce()
+})

@@ -47,9 +47,12 @@ function closeAbout() {
       v-if="aboutOpen"
       :info="about.info.value"
       :failed="about.failed.value"
+      :notices="about.notices.value"
+      :notices-missing="about.noticesMissing.value"
       @close="closeAbout"
       @reveal="about.revealFolder"
       @issues="about.openIssues"
+      @notices="about.showNotices"
     />
     <SizeOverlay v-if="size" v-bind="size" />
   </div>

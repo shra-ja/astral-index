@@ -14,8 +14,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   `layout/` for the shell and screen frame (`AppSidebar`, `ScreenHeader`,
   and `SizeOverlay`, the development window size overlay),
   `history/` for the History screen, `import/` for the Import screen, `about/`
-  for the About dialog (`AboutDialog`, the modal and its views, and
-  `AboutSummary`, its main view), and `shared/` for pieces any screen may use
+  for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
+  its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
   (`AppTooltip`, `CachePicker`, `AstralTile`, the brand emblem in its tile, and
   `OpenLockup`, the emblem beside the wordmark without its tile).
 - `src/composables/` holds flow logic and is the only caller of the native
@@ -32,6 +32,9 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   with a page script, such as the size overlay; release builds never add one.
 - `src/input-modality.ts` tracks whether the latest press came from the
   keyboard, so tooltips show at once on keyboard focus.
+- `src/notices.ts` loads the third-party notices that every build generates,
+  in their own chunk, only when the About dialog shows them, and finds none in
+  a development run that never built them.
 - `src/messages.ts` says what the app tells the user about failures, progress
   and saving; `src/format.ts` holds other shared display text such as warp, game
   and tab names, dates and times.

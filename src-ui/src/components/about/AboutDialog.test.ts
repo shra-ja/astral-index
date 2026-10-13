@@ -18,7 +18,23 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-const open = () => mount(AboutDialog, { props: { info, failed: null }, attachTo: document.body })
+const notices = {
+  texts: ['MIT License…'],
+  components: [
+    {
+      name: 'serde',
+      version: '1.0.0',
+      kind: 'crate' as const,
+      source: 'https://crates.io/crates/serde/1.0.0',
+      licences: [{ id: 'MIT', text: 0 }],
+    },
+  ],
+}
+const open = () =>
+  mount(AboutDialog, {
+    props: { info, failed: null, notices, noticesMissing: false },
+    attachTo: document.body,
+  })
 type Dialog = ReturnType<typeof open>
 const button = (wrapper: Dialog, name: string) =>
   wrapper.findAll('button').find((each) => (each.attributes('aria-label') ?? each.text()) === name)!
@@ -61,13 +77,12 @@ test('the licence view shows the app’s MIT licence, and Back returns to the bu
   expect(document.activeElement).toBe(button(wrapper, 'Licence Text').element)
 })
 
-test('the notices view says the list is still to come, and closes like the main view', async () => {
+test('the notices view asks for the notices and lists them, and closes like the main view', async () => {
   const wrapper = open()
   await button(wrapper, 'Third-Party Notices').trigger('click')
+  expect(wrapper.emitted('notices')).toHaveLength(1)
   expect(wrapper.get('h2').text()).toBe('Third-Party Notices')
-  expect(wrapper.get('.notices').text()).toBe(
-    'The list of third-party components and their licences is not in this build yet.',
-  )
+  expect(wrapper.get('.notices-list h3').text()).toBe('Rust Crates (1)')
   await button(wrapper, 'Back').trigger('click')
   await nextTick()
   expect(document.activeElement).toBe(button(wrapper, 'Third-Party Notices').element)
