@@ -113,7 +113,7 @@ single enforcement point for that allowlist and guard.
 
 The config files are the other exceptions ([decision 0011](docs/architecture/decisions/0011-vue-frontend.md)).
 Vitest always excludes config files from coverage, with no setting to override
-it, so `src-ui/vite.config.ts` only passes `process.env` to `viteConfig` in
+it, so `src-ui/vite.config.ts` only passes `process.env` and Vite's mode to `viteConfig` in
 `src-ui/build/vite.ts`, and the root `vitest.config.ts` only calls `vitestConfig`
 in `tooling/vitest-config.ts`. The ESLint configs follow the same pattern
 ([decision 0012](docs/architecture/decisions/0012-linting-and-formatting.md)):

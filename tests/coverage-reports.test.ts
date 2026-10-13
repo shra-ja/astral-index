@@ -119,7 +119,7 @@ test('startup/build exceptions remain minimal third-party delegates', () => {
     .toBe(`import { defineConfig } from 'vitest/config'
 import { viteConfig } from './build/vite.ts'
 
-export default defineConfig(() => viteConfig(process.env))`)
+export default defineConfig(({ mode }) => viteConfig(process.env, mode))`)
   expect(readFileSync('vitest.config.ts', 'utf8').trim())
     .toBe(`import { defineConfig } from 'vitest/config'
 import { vitestConfig } from './tooling/vitest-config.ts'
