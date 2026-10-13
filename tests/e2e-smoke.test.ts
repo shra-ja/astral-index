@@ -459,6 +459,9 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
   await withMock('history', {}, async (app) => {
     const folder = resolve(mockData, 'astral-index-mock')
     const record = resolve(folder, 'opened.txt')
+    // Anything the CSP blocks from here on, such as a remote image or script.
+    await app.execute(`window.blocked = [];
+      document.addEventListener('securitypolicyviolation', (event) => window.blocked.push(event.blockedURI))`)
     const press = (name: string) =>
       app.execute(`[...document.querySelectorAll('dialog button')]
         .find((button) => button.textContent.trim() === ${JSON.stringify(name)}).click()`)
@@ -543,6 +546,14 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     )
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-about-notices')
+    // Everything the dialog's views loaded, notices included, came with the app: the
+    // CSP blocked nothing, and the page refers only to its own files and routes.
+    expect(await app.execute('return window.blocked')).toEqual([])
+    expect(
+      await app.execute<string[]>(
+        `return [...document.querySelectorAll('[src], [href]')].map((element) => element.getAttribute('src') ?? element.getAttribute('href')).filter((url) => !/^(\\/assets\\/|#\\/)/.test(url))`,
+      ),
+    ).toEqual([])
     await press('Back')
     await expect.poll(focused).toBe('Third-Party Notices')
     // Esc closes the dialog and returns focus to the About button.
