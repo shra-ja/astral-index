@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release checks (2026-10-13)
-
-0038's second PR, `test/release-checks`: axe-core audit (WCAG and best practices) of 16 states, a 20,000-roll history within bounds, nothing loaded from outside (decision 0028); red, then green.
-
 ## Known limitations
 
 - The current build has not been validated natively on Windows; development and
@@ -143,4 +139,4 @@ research, under a "From" heading.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
   cargo-about and the bundle's report, the notices list, the feature toggles,
-  the frontend test clock and the retrieval disclosure.
+  the frontend test clock, the retrieval disclosure and the release checks.

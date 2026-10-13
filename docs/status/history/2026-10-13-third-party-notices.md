@@ -27,3 +27,8 @@ Integrated through PR #109.
 
 Integrated through PR #110.
 0038's first PR, `feat/retrieval-disclosure`: 0038 split into four PRs; Windows is the only release OS (decision 0027). The retrieval card says it contacts HoYoverse; red, then green.
+
+### Release checks (2026-10-13)
+
+Integrated through PR #111.
+0038's second PR, `test/release-checks`: axe-core audit (WCAG and best practices) of 16 states, a 20,000-roll history within bounds, nothing loaded from outside (decision 0028); red, then green.
