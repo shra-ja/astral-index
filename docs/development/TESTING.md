@@ -48,6 +48,17 @@ report.
   images, Markdown, lockfiles, declarative JSON, YAML and TOML). There are no
   coverage-ignore annotations.
 
+## Frontend test clock
+
+`src-ui/tests/setup.ts` runs before every frontend test file and keeps
+`Date.now` from running backwards. Vue Test Utils' `trigger` stamps each event
+with `Date.now() + 1`, and Vue drops an event stamped no later than the moment
+its handler was attached. A wall clock that steps back between mounting and a
+`trigger`, as WSL's did every 30 seconds on some boots, therefore lost clicks
+and key presses at random.
+`src-ui/tests/monotonic-clock.test.ts` steps the clock back after mounting and
+checks that a click still lands.
+
 ## Backend stages
 
 Backend coverage comes from unit tests alone, recorded before anything else runs,

@@ -50,7 +50,9 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   delegates.
 
 Unit tests sit beside the code they test as `*.test.ts`. Integration tests, which
-mount the app with native commands mocked, live in `tests/`. Native end-to-end
+mount the app with native commands mocked, live in `tests/`, beside `setup.ts`,
+which keeps the tests' clock from running backwards (see
+[TESTING](../docs/development/TESTING.md#frontend-test-clock)). Native end-to-end
 tests live in the repository-root `tests/`. `npm test` and `npm run coverage` run
 the frontend's own tests and coverage here, or with the tooling's from the
 repository root, where `npm run typecheck` checks everything.
