@@ -31,6 +31,12 @@ jobs:
           save-npm-cache: true
       - name: Format, lint, docs, icons, versions, cargo fmt and clippy
         run: npm run check:static
+      - name: Summarise the job
+        if: always()
+        env:
+          CHECK_JOB: static
+          CHECK_STATUS: ${{ job.status }}
+        run: npm run ci:summary
 
   gates:
     name: Tests and 100% coverage
@@ -48,6 +54,12 @@ jobs:
           native-tests: true
       - name: Build, coverage, offline native tests and coverage gates
         run: npm run check:gates
+      - name: Summarise the job
+        if: always()
+        env:
+          CHECK_JOB: gates
+          CHECK_STATUS: ${{ job.status }}
+        run: npm run ci:summary
       - name: Save coverage reports and native screenshots
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -77,6 +89,12 @@ jobs:
           native-tests: true
       - name: Prove each gate fails when it should
         run: npm run check:probes
+      - name: Summarise the job
+        if: always()
+        env:
+          CHECK_JOB: probes
+          CHECK_STATUS: ${{ job.status }}
+        run: npm run ci:summary
       - name: Save probe failure snapshots
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

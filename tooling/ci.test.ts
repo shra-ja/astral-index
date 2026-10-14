@@ -190,3 +190,16 @@ test('only this repository’s Windows builds are kept, for 30 days, named as un
   expect(upload).toContain('retention-days: 30')
   expect(upload).toContain('if-no-files-found: error')
 })
+
+test('each Linux job writes its own summary, however its check ended', () => {
+  expect(scripts['ci:summary']).toBe(
+    "vitest run --project gates tests/job-summary.test.ts -t '^write the job summary$'",
+  )
+  for (const name of ['static', 'gates', 'probes']) {
+    const summary = step(job(name), 'run: npm run ci:summary')
+    expect(summary, name).toBeDefined()
+    expect(summary).toContain('if: always()')
+    expect(summary).toContain(`CHECK_JOB: ${name}`)
+    expect(summary).toContain('CHECK_STATUS: ${{ job.status }}')
+  }
+})

@@ -42,6 +42,7 @@
     "check:static": "npm run format:check && npm run lint:check && npm run docs:check && npm run icons:check && npm run versions:check && npm run build --workspace src-ui && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings",
     "check:probes": "npm run build && npm run test:probes",
     "check:gates": "npm run build && npm run coverage && npm run test:offline && npm run coverage:verify",
+    "ci:summary": "vitest run --project gates tests/job-summary.test.ts -t '^write the job summary$'",
     "tauri": "tauri",
     "tauri:mock": "tauri dev --features mock -- --bin astral-index-mock"
   },
