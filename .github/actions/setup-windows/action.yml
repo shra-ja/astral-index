@@ -1,0 +1,53 @@
+name: Set up the Windows jobs
+description: >-
+  Installs Node and the Rust nightly named in .tool-versions and the locked
+  dependencies, restoring the caches main saved. Needs Git Bash as the shell.
+inputs:
+  rust-cache:
+    description: The Rust cache to share; jobs that build the same way share one.
+    required: true
+  save-npm-cache:
+    description: Whether this job saves the npm cache on main; one job is enough.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: .tool-versions
+    - name: Find npm's download cache
+      id: npm
+      shell: bash
+      run: echo "cache=$(npm config get cache)/_cacache" >> "$GITHUB_OUTPUT"
+    - name: Restore npm downloads
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.npm.outputs.cache }}
+        key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}
+    - name: Install the pinned Rust toolchain
+      shell: bash
+      run: |
+        toolchain=$(awk '$1 == "rust" { print $2 }' .tool-versions)
+        rustup toolchain install "$toolchain" --profile minimal --component clippy
+        rustup default "$toolchain"
+    - name: Restore Rust dependencies and installed tools
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        workspaces: src-tauri -> target
+        shared-key: ${{ inputs.rust-cache }}
+        key: ${{ hashFiles('.tool-versions', '.github/actions/setup-windows/action.yml') }}
+        cache-bin: true
+        cache-workspace-crates: false
+        # Pull requests restore main's caches; only main saves.
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+    - name: Install locked dependencies
+      shell: bash
+      run: |
+        npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
+        cargo fetch --manifest-path src-tauri/Cargo.toml --locked
+    - name: Save npm downloads
+      if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.npm.outputs.cache }}
+        key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}

@@ -29,10 +29,15 @@ Tests that belong to neither the frontend nor the backend alone.
   (`npm run versions:check`).
 - `coverage-reports.test.ts` holds the coverage gates, and
   `mutation-probes.test.ts` the mutation probes proving each gate fails when it
-  should. Each probe command is stopped after 10 minutes. One that does not end
+  should. The probes write everything to `test-results/probe-run/`, starting
+  from a baseline of their own, and check that they left `coverage/` and the
+  rest of `test-results/` as they found them. Each probe command is stopped
+  after 10 minutes. One that does not end
   as expected, or runs out of time, leaves a snapshot in
   `test-results/probe-failures/`: its full output, the machine's processes, load
   and memory, and Vitest's results caches.
+- `job-summary.test.ts` writes a CI job's summary (`npm run ci:summary`), from
+  `tooling/job-summary.ts`.
 
 The check commands run these explicitly. Frontend tests live in `../src-ui/`,
 backend tests in `../src-tauri/`, and the tooling's unit tests beside it in

@@ -6,13 +6,19 @@ how the gates enforce them. Commands are listed in [DEVELOPMENT](DEVELOPMENT.md)
 
 ## The check
 
-`npm run check` is the authoritative gate, locally and in CI, and stops at the
-first failed stage: formatting and lint (Markdown included), the docs check, the
-frontend build, fresh coverage
-reports, the mutation probes with a final full test and coverage run, report
-validation, Rust formatting and Clippy. The final run includes the backend
-integration tests and the native end-to-end tests in a network namespace with
-no external route (`test:offline`).
+`npm run check` is the authoritative gate and stops at the first failed stage.
+It runs three parts in turn, which CI runs as separate jobs under the same
+names:
+
+1. `check:static`: formatting and lint (Markdown included), the docs, icon and
+   version checks, the frontend bundle, Rust formatting and Clippy, which
+   compiles the unit tests and so needs the bundle.
+2. `check:gates`: the build, fresh frontend and tooling coverage, the backend
+   unit, integration and native end-to-end tests in a network namespace with no
+   external route (`test:offline`), and report validation.
+3. `check:probes`: the build, then the mutation probes.
+
+The gates come before the probes because a change is far likelier to fail them.
 
 ## Coverage by source
 
@@ -112,10 +118,19 @@ running online.
 unexecuted TypeScript file and branch, an uncovered Rust branch, an uncompiled Rust
 file, stale, missing and incomplete reports, integration coverage standing in for
 unit coverage, a permissive CSP, and logic added to a delegate. Each probe changes
-source briefly and restores it in `finally`; a suite-level hook then regenerates
-every report once, even after a failure. The native coverage and CSP probes run
-only the end-to-end shell test (`test:e2e-probe`), which launches the real app
-and holds the CSP assertion; the full suite runs once in that refresh. Each
+source briefly and restores it in `finally`. Every command the probes run writes
+its reports, screenshots and other results to `test-results/probe-run/` instead
+of `coverage/` and `test-results/`: the probe file sets `ASTRAL_INDEX_PROBE_RUN=1`,
+which `tooling/outputs.ts` and the frontend's Vite configuration follow. The
+probes make a fresh baseline there first, and a last test checks that
+`coverage/` is exactly as the gates left it, so the probes run alone at any time
+and leave nothing to clean up. Restoring a source file gives it a new
+modification time, so after the probes, `coverage:verify` alone reports the
+gates' reports as stale until `check:gates` runs again; restoring the old time
+would let Cargo reuse binaries built from the mutated source. The native
+coverage and CSP probes run only the end-to-end shell test (`test:e2e-probe`),
+which launches the real app and holds the CSP assertion; the full suite runs in
+the gates. Each
 probe command runs for at most 10
 minutes under coreutils `timeout`, which stops its whole process group, so a
 stalled native run fails well within CI's 30-minute job (`tooling/probe-run.ts`).
@@ -127,8 +142,8 @@ and never stage changes while it runs. After an interrupted run, inspect
 `src-ui/src/coverage-probe.ts`, `src-tauri/src/coverage_probe.rs`,
 `src-tauri/src/main.rs`, `src-tauri/src/lib.rs`, `src-tauri/tauri.conf.json`,
 `src-tauri/tests/*_probe.rs` and report backup files before resuming.
-`test:probes` needs the bundled frontend, so run `npm run build` first when
-running it alone.
+`test:probes` needs the bundled frontend: `npm run check:probes` builds it
+first.
 
 ## Docs checks
 
@@ -186,31 +201,66 @@ request is in scope ([decision 0002](../architecture/decisions/0002-user-request
 
 ## CI
 
-`.github/workflows/check.yml` installs the pinned toolchains and tools, runs
-`npm run check`, then builds the release binary, uploading reports and
-screenshots even on failure. **Tests and 100% coverage** is the required check
-on protected `main`.
+`.github/workflows/check.yml` runs five jobs in parallel on every pull request
+and push to `main`, then publishes the Windows build. The five should be
+required checks on protected `main`; the publish job should not, since pull
+requests from forks skip it. A newer push cancels a pull request's run in
+progress, but every run on `main` finishes, since only `main` saves caches:
+
+| Job | Runs on | Does |
+| --- | --- | --- |
+| **Format, lint, docs and Rust lints** | `ubuntu-24.04` | `npm run check:static` |
+| **Tests and 100% coverage** | `ubuntu-24.04` | `npm run check:gates`, uploading reports and screenshots even on failure |
+| **Mutation probes** | `ubuntu-24.04` | `npm run check:probes`, uploading any failure snapshot |
+| **Windows unit tests** | `windows-2025` | The frontend bundle, the Rust unit tests, then Clippy for Windows |
+| **Windows release build** | `windows-2025` | The release executable, kept for a day as `windows-build-unverified-<commit>` |
+| **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build |
+
+The Linux jobs share their setup through `.github/actions/setup-linux`, and the
+Windows jobs through `.github/actions/setup-windows`; the tool versions live
+there. The static checks run once, on Linux, except Clippy, which only lints the
+code compiled for its target: the Windows unit-test job runs it again, so the
+Windows-only code is linted too. Windows runs because the first release ships
+for Windows only
+([decision 0027](../architecture/decisions/0027-windows-first-release.md)): it
+measures no coverage, and the offline sandbox and native end-to-end tests stay
+Linux-only. The release build runs in parallel with the checks, so an
+executable exists only once every check has passed: the build waits as
+`windows-build-unverified-<commit>` for a day, and the publish job republishes
+it as `astral-index-dev-build-unsigned-<commit>` for 7 days once all five jobs
+pass. A failed run's build is never published and expires, so re-running only
+the failed jobs can still publish it; the unverified build can be downloaded
+under that name until then. Only this repository's builds are kept, not those
+of fork pull requests. The published build is a development build, unsigned and
+not a release. Linux, not a release OS, builds no release.
+`tooling/ci.test.ts` checks the jobs, the setup actions and the scripts they run.
+
+Each Linux job ends by writing one summary for its run, even after a failure
+(`npm run ci:summary`, from `tooling/job-summary.ts`): its name and result, what
+it ran and, for the gates, each coverage report's totals. Vitest's own job
+summaries are off in both Vitest configurations, since every Vitest run would
+add an untitled one, the probes' deliberately failing runs included; its
+failure annotations stay.
 
 CI caches npm downloads, Cargo dependencies and their builds, and installed Cargo
 tools; reports are always generated afresh, and every probe and gate runs on
-every invocation. Two details matter:
+every invocation. Some details matter:
 
+- Only `main` saves caches; pull requests restore `main`'s. GitHub keeps up to
+  10 GB of caches per repository and a pull request's caches serve no other
+  branch, so saving them would evict `main`'s. The gates and probes jobs build
+  the same instrumented binaries and share one Rust cache.
+- `cargo-llvm-cov` and `cargo-about` install as prebuilt, checksummed releases
+  through `taiki-e/install-action`; `tauri-driver`, which has none, compiles once
+  and is cached. Locally, DEVELOPMENT installs all three with `cargo install`.
 - asdf keeps Cargo's home inside the toolchain, so CI exports it as `CARGO_HOME`
   before the cache step; otherwise tools are rebuilt every run.
 - The pinned nightly uses Cargo's new build-dir layout, which rust-cache before
   v2.9.2 prunes badly; keep v2.9.2 or later.
+- Every action is pinned to a commit, and updated by hand to releases at least
+  two weeks old.
 
 Compare cold and warm hosted runs before claiming a speedup.
-
-A second job, **Windows unit tests and release build**, runs on `windows-2025`
-beside it, since the first release ships for Windows only
-([decision 0027](../architecture/decisions/0027-windows-first-release.md)). It
-installs Node and the Rust nightly named in `.tool-versions`, runs the Rust unit
-tests and builds the release executable. It measures no coverage, and the
-offline sandbox and native end-to-end tests stay Linux-only. It keeps the
-executable of this repository's own builds, not those of fork pull requests,
-for 30 days as `astral-index-dev-build-unsigned-<commit>`: a development build,
-unsigned and not a release. `tooling/ci.test.ts` checks both jobs' steps.
 
 Code that differs on Windows is chosen with `#[cfg(windows)]`, and its tests
 state each platform's expectation the same way: the app's origin

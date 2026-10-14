@@ -60,11 +60,22 @@ export function viteConfig(env: NodeJS.ProcessEnv, mode: string, envDir = ROOT):
     // to the repository's `coverage/`, beside the backend's, for the root gates.
     test: {
       environment: 'jsdom',
+      // In GitHub Actions, annotate failures but write no job summary: CI writes one
+      // per job, which the probes' expected failures cannot reach.
+      reporters:
+        env.GITHUB_ACTIONS === 'true'
+          ? ['default', ['github-actions', { jobSummary: { enabled: false } }]]
+          : ['default'],
       include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
       setupFiles: ['tests/setup.ts'],
       coverage: {
         provider: 'v8',
-        reportsDirectory: '../coverage/frontend',
+        // During the mutation probes, reports go to the probe run's own folder, as
+        // tooling/outputs.ts places them.
+        reportsDirectory:
+          env.ASTRAL_INDEX_PROBE_RUN === '1'
+            ? '../test-results/probe-run/coverage/frontend'
+            : '../coverage/frontend',
         include: ['src/**/*.{ts,vue}', 'build/**/*.ts'],
         exclude: ['**/*.test.ts', 'tests/**', '**/*.d.ts'],
         reporter: ['text', 'json', 'json-summary'],

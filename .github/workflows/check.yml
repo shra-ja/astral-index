@@ -4,74 +4,67 @@ on:
   pull_request:
   push:
     branches: [main]
-  merge_group:
 
 permissions:
   contents: read
 
+# A newer push supersedes a pull request's run; every run on main finishes, since
+# only main saves the caches.
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The Linux jobs each run one part of `npm run check`; Windows, the first release's
+# only OS (decision 0027), runs the Rust unit tests and builds the release.
 jobs:
-  quality:
+  static:
+    name: Format, lint, docs and Rust lints
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ASDF_RUST_PROFILE: minimal
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-linux
+        with:
+          rust-cache: static
+          save-npm-cache: true
+      - name: Format, lint, docs, icons, versions, cargo fmt and clippy
+        run: npm run check:static
+      - name: Summarise the job
+        if: always()
+        env:
+          CHECK_JOB: static
+          CHECK_STATUS: ${{ job.status }}
+        run: npm run ci:summary
+
+  gates:
     name: Tests and 100% coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       ASDF_RUST_PROFILE: minimal
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install Linux native dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3
-      - name: Allow network namespaces for the CI test sandbox
-        run: |
-          sudo install -m 0755 /usr/bin/bwrap /usr/local/bin/bwrap
-          sudo apparmor_parser -r .github/apparmor-bwrap
-          bwrap --unshare-net --dev-bind / / --proc /proc true
-      - uses: asdf-vm/actions/install@a7acd3c0f80eb138922a2da9514d1df22864eaca # v4
+      - uses: ./.github/actions/setup-linux
         with:
-          asdf_version: 0.20.0
-      - name: Cache npm downloads
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: ~/.npm/_cacache
-          key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}
-      - name: Point Cargo's home at the asdf toolchain
-        # asdf keeps installed tools and registry sources here, not in ~/.cargo.
-        run: echo "CARGO_HOME=$(asdf where rust)" >> "$GITHUB_ENV"
-      - name: Cache Rust dependencies and installed tools
-        # v2.9.2 supports Cargo's new build-dir layout used by the pinned nightly.
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: src-tauri -> target
-          cache-bin: true
-          cache-workspace-crates: false
-          # The action also keys on rustc, Cargo manifests/lockfiles and build flags.
-          # Include the workflow so changes to pinned tool versions invalidate it.
-          key: ubuntu-24.04-${{ hashFiles('.tool-versions', '.github/workflows/check.yml') }}
-      - name: Install pinned coverage and native test tools
-        run: |
-          rustup component add rustfmt clippy llvm-tools-preview
-          cargo install cargo-llvm-cov --version 0.9.1 --locked
-          cargo install tauri-driver --version 2.0.6 --locked
-          cargo install cargo-about --version 0.9.2 --locked --features cli
-          asdf reshim
-      - name: Install locked dependencies before network isolation
-        run: |
-          npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
-          cargo fetch --manifest-path src-tauri/Cargo.toml --locked
-      - name: Tests, offline native smoke test, coverage gates and lint
-        run: npm run check
-      - name: Build native desktop binary
-        run: npm run tauri -- build --no-bundle
-      - name: Save coverage reports and native screenshot
+          rust-cache: instrumented
+          native-tests: true
+      - name: Build, coverage, offline native tests and coverage gates
+        run: npm run check:gates
+      - name: Summarise the job
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        env:
+          CHECK_JOB: gates
+          CHECK_STATUS: ${{ job.status }}
+        run: npm run ci:summary
+      - name: Save coverage reports and native screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-and-native-smoke
           path: |
@@ -82,12 +75,41 @@ jobs:
             test-results/
           if-no-files-found: error
 
-  windows:
-    # The first release ships for Windows only (decision 0027): its Rust unit tests
-    # run there, and the release executable is built from the commit under test.
-    name: Windows unit tests and release build
+  probes:
+    name: Mutation probes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ASDF_RUST_PROFILE: minimal
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-linux
+        with:
+          rust-cache: instrumented
+          native-tests: true
+      - name: Prove each gate fails when it should
+        run: npm run check:probes
+      - name: Summarise the job
+        if: always()
+        env:
+          CHECK_JOB: probes
+          CHECK_STATUS: ${{ job.status }}
+        run: npm run ci:summary
+      # A probe that stalls until the job's time limit counts as cancelled.
+      - name: Save probe failure snapshots
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: probe-failures
+          path: test-results/probe-failures/
+          if-no-files-found: ignore
+
+  windows-tests:
+    name: Windows unit tests
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       # npm runs scripts through cmd.exe on Windows, which splits the quoted
       # arguments the package scripts use; Git Bash reads them as on Linux.
@@ -96,43 +118,71 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-windows
         with:
-          node-version-file: .tool-versions
-          cache: npm
-      - name: Install the pinned Rust toolchain
-        run: |
-          toolchain=$(awk '$1 == "rust" { print $2 }' .tool-versions)
-          rustup toolchain install "$toolchain" --profile minimal
-          rustup default "$toolchain"
-      - name: Cache Rust dependencies and installed tools
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: src-tauri -> target
-          cache-bin: true
-          cache-workspace-crates: false
-          key: windows-2025-${{ hashFiles('.tool-versions', '.github/workflows/check.yml') }}
-      - name: Install the notices generator
-        run: cargo install cargo-about --version 0.9.2 --locked --features cli
-      - name: Install locked dependencies
-        run: |
-          npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
-          cargo fetch --manifest-path src-tauri/Cargo.toml --locked
-      # The unit tests embed the built frontend, which the release build makes.
-      - name: Build the release executable
-        run: npm run tauri -- build --no-bundle
+          rust-cache: windows-tests
+      # The unit tests embed the built frontend.
+      - name: Build the frontend
+        run: npm run build --workspace src-ui
       - name: Rust unit tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
-      # Builds of pull requests from forks hold someone else's code, so only this
-      # repository's own builds are kept, named so none passes for a release.
-      - name: Save the unsigned development build
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      # The Linux static checks never compile the Windows-only code.
+      - name: Rust lints for Windows
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
+
+  windows-release:
+    name: Windows release build
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-windows
+        with:
+          rust-cache: windows-release
+          save-npm-cache: true
+      - name: Install the prebuilt notices generator
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: cargo-about@0.9.2
+      - name: Build the release executable
+        run: npm run tauri -- build --no-bundle
+      # Builds of pull requests from forks hold someone else's code, so only this
+      # repository's own builds are kept. Each waits under an unverified name, and
+      # expires in a day unless every check passes.
+      - name: Keep the build until every check passes
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}
           path: src-tauri/target/release/astral-index.exe
-          retention-days: 30
+          retention-days: 1
           if-no-files-found: error
+
+  # A failed run's build is never published, but stays until it expires, so
+  # re-running only the failed jobs can still publish it.
+  publish:
+    name: Publish the Windows build
+    needs: [static, gates, probes, windows-tests, windows-release]
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Publish the build that passed every check
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped') }}
+        uses: actions/upload-artifact/merge@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # Named so it can't pass for a release: a development build, unsigned.
+          name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}
+          pattern: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}
+          retention-days: 7
+          delete-merged: true

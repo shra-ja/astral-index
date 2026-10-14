@@ -36,8 +36,9 @@ Four PRs, each test first.
 - [x] **Windows CI.** A Windows job runs the Rust unit tests and builds the
   release executable as an artifact; tests that assume Unix are fixed.
   - Done on `windows-2025`, on every pull request like the Linux job, keeping
-    this repository's builds, not fork pull requests', for 30 days as
-    `astral-index-dev-build-unsigned-<commit>`. Running the unit tests on
+    this repository's builds, not fork pull requests', as
+    `astral-index-dev-build-unsigned-<commit>`; since the CI pipeline change,
+    only builds that pass every check, for 7 days. Running the unit tests on
     Windows first found that Windows refused to start them without the
     Common Controls manifest, which the linker now embeds in every Windows
     binary, and 20 tests that assumed Linux paths, origin, folder names,

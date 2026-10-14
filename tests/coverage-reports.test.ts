@@ -6,6 +6,7 @@ import {
   type FileCoverage,
   type LlvmCoverageExport,
 } from '../tooling/coverage'
+import { outputs } from '../tooling/outputs'
 
 // Vitest never measures config files, so each only delegates to a unit-tested module
 // (`src-ui/build/vite.ts`, `src-ui/build/eslint.ts`, `tooling/vitest-config.ts`,
@@ -20,14 +21,17 @@ const configDelegates = [
 // Unit tests sit beside their source as `*.test.ts`; the rest live in test folders.
 const testFiles = ['**/*.test.ts', 'src-ui/tests/**', 'tests/**']
 
+// Reports are read where this run's checks write them: the repository's, or the probes'.
+const { coverage } = outputs()
+
 // The frontend and the repository tooling each have their own Vitest run and report.
 const typeScriptReports = [
   [
     'frontend coverage',
-    'coverage/frontend/coverage-summary.json',
+    `${coverage}/frontend/coverage-summary.json`,
     ['src-ui/src/**/*.{ts,vue}', 'src-ui/build/**/*.ts'],
   ],
-  ['tooling coverage', 'coverage/tooling/coverage-summary.json', ['tooling/**/*.ts']],
+  ['tooling coverage', `${coverage}/tooling/coverage-summary.json`, ['tooling/**/*.ts']],
 ] as const
 
 function sources(globs: readonly string[]): string[] {
@@ -82,8 +86,8 @@ test.each(typeScriptReports)('%s', (_name, report, globs) => {
 })
 
 test.each([
-  ['backend unit coverage', 'coverage/backend-unit/coverage.json', false],
-  ['backend wrapper coverage', 'coverage/backend/coverage.json', true],
+  ['backend unit coverage', `${coverage}/backend-unit/coverage.json`, false],
+  ['backend wrapper coverage', `${coverage}/backend/coverage.json`, true],
 ] as const)('%s', (_name, reportPath, boundary) => {
   const rust = globSync(['src-tauri/src/**/*.rs', 'src-tauri/build.rs'], {
     exclude: ['src-tauri/src/**/tests/**'],

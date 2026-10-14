@@ -1,19 +1,43 @@
 import {
   existsSync,
   readFileSync,
+  readdirSync,
+  rmSync,
   writeFileSync,
   unlinkSync,
   renameSync,
   statSync,
   utimesSync,
 } from 'node:fs'
-import { afterAll, expect, test } from 'vitest'
-import { refreshProbeCoverage } from '../tooling/backend-coverage'
+import { join } from 'node:path'
+import { beforeAll, expect, test } from 'vitest'
 import { runBounded, saveFailureSnapshot } from '../tooling/probe-run'
 import type { LlvmCoverageExport } from '../tooling/coverage'
+import { outputs, PROBE_RUN, probeOutputs } from '../tooling/outputs'
 
-// Per-probe finally blocks restore files; even failed assertions reach this full refresh.
-afterAll(refreshProbeCoverage, 600000)
+// Per-probe finally blocks restore files. The probes break gates on purpose, so every
+// command they run writes its reports and results to the probe run's own folder
+// (tooling/outputs.ts): the gates' reports stay as the gates left them.
+process.env[PROBE_RUN] = '1'
+const { coverage } = outputs()
+
+/**
+ * Each file under `folder`, with its size and modification time, leaving out the
+ * probes' own folders and logs, which whoever runs the check may be writing.
+ */
+function contents(folder: string) {
+  if (!existsSync(folder)) return {}
+  return Object.fromEntries(
+    readdirSync(folder, { recursive: true, encoding: 'utf8' })
+      .filter((file) => !/^(probe-run|probe-failures)(\/|$)/.test(file) && !file.endsWith('.log'))
+      .flatMap((file) => {
+        const entry = statSync(join(folder, file))
+        return entry.isFile() ? [[file, { size: entry.size, mtimeMs: entry.mtimeMs }]] : []
+      }),
+  )
+}
+// What the gates left: their reports, screenshots and other results.
+const gateOutputs = { coverage: contents('coverage'), results: contents('test-results') }
 
 // Scoped probes carry this target; running the full integration suite fails them.
 const unrelatedIntegration =
@@ -45,6 +69,25 @@ function expectCommandSuccess(command: string, args: string[]): void {
   expect(run.status).toBe(0)
 }
 
+// The probes tamper with a fresh baseline of their own.
+beforeAll(() => {
+  // Clear the probe run's folder by name, never wherever results go.
+  rmSync(probeOutputs.results, { recursive: true, force: true })
+  expectCommandSuccess('npm', ['run', 'coverage:json'])
+  expectCommandSuccess('npm', ['run', 'coverage:backend-unit:json'])
+}, 1200000)
+
+// Runs first: the probes' commands wrote their baseline to the probe run's folder.
+test('the probes work on a baseline of their own', () => {
+  for (const report of [
+    'frontend/coverage-summary.json',
+    'tooling/coverage-summary.json',
+    'backend-unit/coverage.json',
+  ]) {
+    expect(existsSync(`${probeOutputs.coverage}/${report}`), report).toBe(true)
+  }
+})
+
 // Run one report check and require it to fail for the expected reason.
 function expectReportFailure(name: string, message: string): void {
   expectCommandFailure(
@@ -55,7 +98,7 @@ function expectReportFailure(name: string, message: string): void {
 }
 
 test('the unit gate rejects stale evidence', () => {
-  const path = 'coverage/backend-unit/coverage.json'
+  const path = `${coverage}/backend-unit/coverage.json`
   const original = statSync(path)
   try {
     utimesSync(path, original.atime, new Date(0))
@@ -94,7 +137,7 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
     )
     expectCommandSuccess('npm', ['run', 'test:e2e-probe'])
     const report = JSON.parse(
-      readFileSync('coverage/backend/coverage.json', 'utf8'),
+      readFileSync(`${coverage}/backend/coverage.json`, 'utf8'),
     ) as LlvmCoverageExport
     const summary = report.data[0].files.find((file) =>
       file.filename.endsWith('/src/main.rs'),
@@ -114,7 +157,7 @@ test('Rust instrumentation detects an uncovered branch and inventory rejects an 
 }, 180000)
 
 test('the report gate fails closed when a required report is missing or incomplete', () => {
-  const path = 'coverage/frontend/coverage-summary.json'
+  const path = `${coverage}/frontend/coverage-summary.json`
   const backup = `${path}.probe-backup`
   expect(existsSync(backup)).toBe(false)
   const original = readFileSync(path, 'utf8')
@@ -195,8 +238,8 @@ test('backend coverage requires unit execution even when integration tests cover
     )
     expectCommandSuccess('npm', ['run', 'test:backend-probe'])
     const read = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as LlvmCoverageExport
-    const unit = read('coverage/backend-unit/coverage.json')
-    const combined = read('coverage/backend/coverage.json')
+    const unit = read(`${coverage}/backend-unit/coverage.json`)
+    const combined = read(`${coverage}/backend/coverage.json`)
     const metric = (report: LlvmCoverageExport) =>
       report.data[0].files.find((file) => file.filename.endsWith('/src/lib.rs'))!.summary.functions
     expect(metric(unit).covered).toBeLessThan(metric(unit).count)
@@ -210,7 +253,7 @@ test('backend coverage requires unit execution even when integration tests cover
 }, 180000)
 
 test('the unit-only report is mandatory and cannot be replaced by boundary coverage', () => {
-  const path = 'coverage/backend-unit/coverage.json'
+  const path = `${coverage}/backend-unit/coverage.json`
   const backup = `${path}.probe-backup`
   const original = readFileSync(path, 'utf8')
   expect(existsSync(backup)).toBe(false)
@@ -305,3 +348,8 @@ test('the wrapper exception guard rejects added startup behavior', () => {
     writeFileSync(path, original)
   }
 }, 120000)
+
+// Runs last: no probe may have touched what the gates wrote.
+test('the probes leave the gates’ reports and results untouched', () => {
+  expect({ coverage: contents('coverage'), results: contents('test-results') }).toEqual(gateOutputs)
+})
