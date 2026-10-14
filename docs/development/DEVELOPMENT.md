@@ -98,7 +98,10 @@ than `true` or `false` stops the build, the dev server and the tests.
 
 | Command | Does |
 | --- | --- |
-| `npm run check` | Every gate: formatting, lint, the docs check, the icon check, the version check, build (which generates and checks the third-party notices), coverage, probes, report validation, Rust formatting, Clippy and the offline native tests |
+| `npm run check` | Every gate: `check:static`, then `check:probes`, then `check:gates` |
+| `npm run check:static` | Formatting, lint, the docs, icon and version checks, the frontend bundle, Rust formatting and Clippy |
+| `npm run check:probes` | The build (which generates and checks the third-party notices), then the mutation probes |
+| `npm run check:gates` | The build, coverage, the offline native tests and report validation |
 | `npm test` | The frontend's tests (in `src-ui/`), then the tooling tests |
 | `npm run coverage` / `coverage:json` | Fresh frontend and tooling coverage with per-file 100% thresholds, with or without HTML |
 | `npm run typecheck` | `vue-tsc --build` over the app, UI-test and Node projects, templates included |
@@ -115,7 +118,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run test:backend-integration` | The instrumented Cargo integration tests, without the desktop |
 | `npm run test:e2e-smoke` | Build and drive the desktop app end to end |
 | `npm run coverage:backend-report` | Render the backend report from the current counters |
-| `npm run test:probes` | The mutation probes and the final full coverage run (run `npm run build` first) |
+| `npm run test:probes` | The mutation probes alone (run `npm run build` first, and `check:gates` before trusting a report) |
 | `npm run coverage:verify` | Validate every report against the source inventories |
 
 Run the check serially and do not edit or stage files while it runs: the probes

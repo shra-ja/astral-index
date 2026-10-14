@@ -34,6 +34,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### CI pipeline (2026-10-14)
+
+`ci/pipeline`: `check` split into static, probes and gates (no probe refresh), run as parallel CI jobs with Windows tests and release apart; only main saves caches; prebuilt tools; Node 24 actions.
+
 ## Known limitations
 
 - The Rust unit tests run on Windows in CI, but the app itself has not been
