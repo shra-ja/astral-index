@@ -218,6 +218,13 @@ builds, not those of fork pull requests, for 30 days as
 not a release. Linux, not a release OS, builds no release.
 `tooling/ci.test.ts` checks the jobs, the setup actions and the scripts they run.
 
+Each Linux job ends by writing one summary for its run, even after a failure
+(`npm run ci:summary`, from `tooling/job-summary.ts`): its name and result, what
+it ran and, for the gates, each coverage report's totals. Vitest's own job
+summaries are off in both Vitest configurations, since every Vitest run would
+add an untitled one, the probes' deliberately failing runs included; its
+failure annotations stay.
+
 CI caches npm downloads, Cargo dependencies and their builds, and installed Cargo
 tools; reports are always generated afresh, and every probe and gate runs on
 every invocation. Some details matter:

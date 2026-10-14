@@ -120,6 +120,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run coverage:backend-report` | Render the backend report from the current counters |
 | `npm run test:probes` | The mutation probes alone (run `npm run build` first, and `check:gates` before trusting a report) |
 | `npm run coverage:verify` | Validate every report against the source inventories |
+| `npm run ci:summary` | Write a CI job's summary (CI sets `CHECK_JOB`, `CHECK_STATUS` and `GITHUB_STEP_SUMMARY`) |
 
 Run the check serially and do not edit or stage files while it runs: the probes
 change source briefly ([recovery](TESTING.md#mutation-probes)). On a machine with
