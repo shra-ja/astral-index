@@ -202,7 +202,8 @@ request is in scope ([decision 0002](../architecture/decisions/0002-user-request
 ## CI
 
 `.github/workflows/check.yml` runs five jobs in parallel on every pull request
-and push to `main`. Every one should be a required check on protected `main`:
+and push to `main`, then publishes the Windows build. The five should be
+required checks on protected `main`:
 
 | Job | Runs on | Does |
 | --- | --- | --- |
@@ -210,7 +211,8 @@ and push to `main`. Every one should be a required check on protected `main`:
 | **Tests and 100% coverage** | `ubuntu-24.04` | `npm run check:gates`, uploading reports and screenshots even on failure |
 | **Mutation probes** | `ubuntu-24.04` | `npm run check:probes`, uploading any failure snapshot |
 | **Windows unit tests** | `windows-2025` | The frontend bundle, then the Rust unit tests |
-| **Windows release build** | `windows-2025` | The release executable, kept as an artifact |
+| **Windows release build** | `windows-2025` | The release executable, kept for a day as `windows-build-unverified-<commit>` |
+| **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build, or deletes it |
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
 Windows jobs through `.github/actions/setup-windows`; the tool versions live
@@ -218,9 +220,14 @@ there. Static checks don't depend on the OS, so they run once, on Linux. Windows
 runs because the first release ships for Windows only
 ([decision 0027](../architecture/decisions/0027-windows-first-release.md)): it
 measures no coverage, and the offline sandbox and native end-to-end tests stay
-Linux-only. The release job keeps the executable of this repository's own
-builds, not those of fork pull requests, for 30 days as
-`astral-index-dev-build-unsigned-<commit>`: a development build, unsigned and
+Linux-only. The release build runs in parallel with the checks, so an
+executable exists only once every check has passed: the build waits as
+`windows-build-unverified-<commit>`, and the publish job, the only one allowed
+to delete artifacts, republishes it as `astral-index-dev-build-unsigned-<commit>`
+for 30 days when all five jobs pass, or deletes it when any fails or the run is
+cancelled. While a run is in progress, the unverified build can briefly be
+downloaded under that name. Only this repository's builds are kept, not those
+of fork pull requests. The published build is a development build, unsigned and
 not a release. Linux, not a release OS, builds no release.
 `tooling/ci.test.ts` checks the jobs, the setup actions and the scripts they run.
 

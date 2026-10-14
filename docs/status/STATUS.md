@@ -36,7 +36,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### CI pipeline (2026-10-14)
 
-`ci/pipeline`: `check` split into static, gates and probes (isolated in `test-results/probe-run/`, no refresh), run as parallel CI jobs with Windows tests and release apart; only main saves caches; prebuilt tools; Node 24 actions; one labelled summary per job instead of Vitest's.
+`ci/pipeline`: `check` split into static, gates and probes (isolated in `test-results/probe-run/`, no refresh), run as parallel CI jobs with Windows tests and release apart; the Windows build is published only after every check passes; only main saves caches; prebuilt tools; Node 24 actions; one labelled summary per job instead of Vitest's.
 
 ## Known limitations
 

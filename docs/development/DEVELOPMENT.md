@@ -153,9 +153,9 @@ Git ignores all of these:
 
 ## Windows executable for manual checks
 
-CI's Windows job keeps a release executable of each of this repository's builds
-for 30 days: download `astral-index-dev-build-unsigned-<commit>` from the run's
-summary page, or with `gh run download`. It is a development build, unsigned and
+CI keeps a release executable of each of this repository's builds that passes
+every check, for 30 days: download `astral-index-dev-build-unsigned-<commit>`
+from the run's summary page, or with `gh run download`. It is a development build, unsigned and
 not a release.
 
 To try the app in a native Windows process without a Windows toolchain,
