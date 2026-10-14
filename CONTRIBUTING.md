@@ -104,8 +104,8 @@ binary reads its scenario and passes the builder through unit-tested mock
 registration (see [decision 0014](docs/architecture/decisions/0014-mock-debug-binary.md));
 `build.rs` declares the shared command list
 (see [decision 0006](docs/architecture/decisions/0006-desktop-extraction-commands.md))
-and, for Windows targets alone, links Tauri's resource into test binaries too,
-without branching (see [decision 0027](docs/architecture/decisions/0027-windows-first-release.md)).
+and, for Windows targets alone, has the linker embed `windows-app-manifest.xml`
+in every binary, tests included, without branching (see [decision 0027](docs/architecture/decisions/0027-windows-first-release.md)).
 They retain their own 100% native boundary gate. This is an explicit, user-approved exception, not a general
 exception for I/O, databases, new commands or platform code. The report gate pins
 both wrappers' current bodies: adding logic fails a guard and requires review of

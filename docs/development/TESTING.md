@@ -215,9 +215,11 @@ unsigned and not a release. `tooling/ci.test.ts` checks both jobs' steps.
 Code that differs on Windows is chosen with `#[cfg(windows)]`, and its tests
 state each platform's expectation the same way: the app's origin
 (`http://tauri.localhost` there), its data folder's name, WebView2's own profile
-folder and the 32px window icon read from the executable's resource. Build
-expected paths with `Path::join` rather than `/`. Test binaries link Tauri's
-Windows resource too, which `build.rs` adds for MSVC targets; without its
-manifest, Windows refuses to start them (`0xC0000139`). The registration tests
+folder. Build expected paths with `Path::join` rather than `/`. Windows refuses
+to start a binary without the Common Controls manifest (`0xC0000139`), and
+Tauri's resource, which holds it, links into the app's binaries alone, so
+`build.rs` has the linker embed `windows-app-manifest.xml` in every Windows
+binary, tests included, instead. The window icon also comes from that resource
+on Windows, so its test runs elsewhere and the release checklist checks it. The registration tests
 resolve the machine's real local data folder, so a Windows run leaves empty
 `Astral-Index` and `Astral-Index-Mock` folders there.

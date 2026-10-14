@@ -1059,22 +1059,17 @@ mod tests {
 
     /// The window icon Tauri compiles in is the Astral tile (decision 0023): the
     /// 512 px icon, the emblem's colour at its centre and the tile's at its edge.
-    /// The window icon's size: Windows reads the executable's icon resource at its
-    /// own icon size; elsewhere Tauri embeds the 512px PNG.
-    #[cfg(windows)]
-    const WINDOW_ICON: u32 = 32;
+    /// Windows reads it from the executable's icon resource instead, which only the
+    /// app's binaries link, so the Windows release checklist checks it there.
     #[cfg(not(windows))]
-    const WINDOW_ICON: u32 = 512;
     #[test]
     fn the_window_icon_is_the_astral_tile() {
         let context: tauri::Context<MockRuntime> = tauri::generate_context!();
         let icon = context.default_window_icon().expect("a window icon");
-        assert_eq!((icon.width(), icon.height()), (WINDOW_ICON, WINDOW_ICON));
-        let size = WINDOW_ICON as usize;
-        let pixel = |x: usize, y: usize| &icon.rgba()[(y * size + x) * 4..][..4];
-        // The emblem in the middle, the tile beside it and a transparent corner.
-        assert_eq!(pixel(size / 2, size / 2), [0xfa, 0xf9, 0xf5, 255]);
-        assert_eq!(pixel(size * 40 / 512, size / 2), [0x20, 0x27, 0x35, 255]);
+        assert_eq!((icon.width(), icon.height()), (512, 512));
+        let pixel = |x: usize, y: usize| &icon.rgba()[(y * 512 + x) * 4..][..4];
+        assert_eq!(pixel(256, 256), [0xfa, 0xf9, 0xf5, 255]);
+        assert_eq!(pixel(40, 256), [0x20, 0x27, 0x35, 255]);
         assert_eq!(pixel(0, 0), [0, 0, 0, 0]);
     }
 

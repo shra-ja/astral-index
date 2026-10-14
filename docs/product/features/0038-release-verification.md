@@ -38,13 +38,13 @@ Four PRs, each test first.
   - Done on `windows-2025`, on every pull request like the Linux job, keeping
     this repository's builds, not fork pull requests', for 30 days as
     `astral-index-dev-build-unsigned-<commit>`. Running the unit tests on
-    Windows first found that Windows refused to start them without Tauri's
-    resource and manifest, which `build.rs` now links into test binaries, and
-    20 tests that assumed Linux paths, origin, folder names, webview folder and
-    icon size; the app itself needed no change.
+    Windows first found that Windows refused to start them without the
+    Common Controls manifest, which the linker now embeds in every Windows
+    binary, and 20 tests that assumed Linux paths, origin, folder names,
+    webview folder and icon; the app itself needed no change.
 - [ ] **Release checklist on Windows.** A checklist in the development docs,
   run on the CI-built executable: local workflows, requested fetching, network
   failures, an upgrade over the previous build with saved history, portable
-  mode, keyboard use, and the About dialog's data folder and issues buttons
-  opening Explorer and the browser. The results are recorded, and installer
+  mode, keyboard use, the window and taskbar icon, and the About dialog's data
+  folder and issues buttons opening Explorer and the browser. The results are recorded, and installer
   packaging is left to [0039](0039-distribution.md).

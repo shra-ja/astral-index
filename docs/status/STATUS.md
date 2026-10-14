@@ -36,7 +36,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Windows CI (2026-10-14)
 
-0038's third PR, `ci/windows`: a `windows-2025` job runs the Rust unit tests and keeps unsigned release builds; Windows test binaries link Tauri's resource, and 20 Linux-only test assumptions are fixed; red, then green, on Windows through WSL.
+0038's third PR, `ci/windows`: a `windows-2025` job runs the Rust unit tests and keeps unsigned release builds; the linker embeds the Windows manifest in test binaries too, and 20 Linux-only test assumptions are fixed; red, then green.
 
 ## Known limitations
 
