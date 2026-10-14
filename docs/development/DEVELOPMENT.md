@@ -149,6 +149,11 @@ Git ignores all of these:
 
 ## Windows executable for manual checks
 
+CI's Windows job keeps a release executable of each of this repository's builds
+for 30 days: download `astral-index-dev-build-unsigned-<commit>` from the run's
+summary page, or with `gh run download`. It is a development build, unsigned and
+not a release.
+
 To try the app in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
 experimental; it is not a release process, and installers and signing are

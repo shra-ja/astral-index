@@ -34,14 +34,14 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release checks (2026-10-13)
+### Windows CI (2026-10-14)
 
-0038's second PR, `test/release-checks`: axe-core audit (WCAG and best practices) of 16 states, a 20,000-roll history within bounds, nothing loaded from outside (decision 0028); red, then green.
+0038's third PR, `ci/windows`: a `windows-2025` job runs the Rust unit tests and keeps unsigned release builds; the linker embeds the Windows manifest in test binaries too, and 20 Linux-only test assumptions are fixed; red, then green.
 
 ## Known limitations
 
-- The current build has not been validated natively on Windows; development and
-  CI run on Linux and WSL. Live retrieval was last tried on Windows with PR #37.
+- The Rust unit tests run on Windows in CI, but the app itself has not been
+  checked on Windows since PR #37, which last tried live retrieval there.
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
   banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
   colours use observed rather than published soft pity (decision 0020).
@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038's Windows CI, then its Windows checklist.
+Next: 0038's Windows checklist, run on the CI-built executable.
 
 ## Keeping this file current
 
@@ -143,4 +143,4 @@ research, under a "From" heading.
 - [2026-10-12: lockup gap and About](history/2026-10-12-lockup-gap.md).
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
   cargo-about and the bundle's report, the notices list, the feature toggles,
-  the frontend test clock and the retrieval disclosure.
+  the frontend test clock, the retrieval disclosure and the release checks.

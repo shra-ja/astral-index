@@ -213,7 +213,7 @@ mod tests {
         assert_eq!(
             opened(),
             [
-                "reveal /local/astral-index/history.sqlite",
+                format!("reveal {}", folder().join(FILE_NAME).display()).as_str(),
                 "open /local/astral-index",
                 "browse https://github.com/shra-ja/astral-index/issues",
             ]

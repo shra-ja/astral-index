@@ -179,9 +179,24 @@ mod tests {
 
     #[test]
     fn the_webview_profile_sits_in_its_own_folder_beside_the_history() {
-        assert_eq!(FOLDER_NAME, "astral-index");
-        assert_eq!(MOCK_FOLDER_NAME, "astral-index-mock");
+        #[cfg(target_os = "linux")]
+        assert_eq!(
+            (FOLDER_NAME, MOCK_FOLDER_NAME),
+            ("astral-index", "astral-index-mock")
+        );
+        #[cfg(not(target_os = "linux"))]
+        assert_eq!(
+            (FOLDER_NAME, MOCK_FOLDER_NAME),
+            ("Astral-Index", "Astral-Index-Mock")
+        );
         let folder = Path::new("/local/astral-index");
+        // WebView2 makes its own folder inside the one it is given; WebKit does not.
+        #[cfg(windows)]
+        assert_eq!(
+            (webview_folder(folder), webview_profile(folder)),
+            (folder.to_path_buf(), folder.join("EBWebView"))
+        );
+        #[cfg(not(windows))]
         assert_eq!(webview_folder(folder), folder.join("webview"));
     }
 

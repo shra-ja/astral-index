@@ -1003,6 +1003,12 @@ mod tests {
     }
     // IPC commands run on Tauri's worker threads, which cannot see the thread-local
     // doubles; IPC tests therefore cover only failures before any request.
+    /// Where the webview loads the app: Tauri serves it from another origin on
+    /// Windows, and the capability allows only the app's own.
+    #[cfg(windows)]
+    const APP_URL: &str = "http://tauri.localhost";
+    #[cfg(not(windows))]
+    const APP_URL: &str = "tauri://localhost";
     fn invoke(
         window: &WebviewWindow<MockRuntime>,
         cmd: &str,
@@ -1014,7 +1020,7 @@ mod tests {
                 cmd: cmd.into(),
                 callback: CallbackFn(0),
                 error: CallbackFn(1),
-                url: "tauri://localhost".parse().unwrap(),
+                url: APP_URL.parse().unwrap(),
                 body,
                 headers: Default::default(),
                 invoke_key: INVOKE_KEY.into(),
@@ -1031,7 +1037,7 @@ mod tests {
                 cmd: cmd.into(),
                 callback: CallbackFn(0),
                 error: CallbackFn(1),
-                url: "tauri://localhost".parse().unwrap(),
+                url: APP_URL.parse().unwrap(),
                 body: InvokeBody::default(),
                 headers: Default::default(),
                 invoke_key: INVOKE_KEY.into(),
@@ -1053,6 +1059,9 @@ mod tests {
 
     /// The window icon Tauri compiles in is the Astral tile (decision 0023): the
     /// 512 px icon, the emblem's colour at its centre and the tile's at its edge.
+    /// Windows reads it from the executable's icon resource instead, which only the
+    /// app's binaries link, so the Windows release checklist checks it there.
+    #[cfg(not(windows))]
     #[test]
     fn the_window_icon_is_the_astral_tile() {
         let context: tauri::Context<MockRuntime> = tauri::generate_context!();
@@ -1087,7 +1096,11 @@ mod tests {
         // The About commands take no arguments. Opening goes to the test double,
         // which launches nothing.
         let info = reply_to(&window, COMMANDS[9]);
-        let folder = window.path().local_data_dir().unwrap().join("astral-index");
+        let folder = window
+            .path()
+            .local_data_dir()
+            .unwrap()
+            .join(database::FOLDER_NAME);
         assert_eq!(
             info,
             serde_json::json!({
@@ -1210,7 +1223,11 @@ mod tests {
         // runtime, only this deprecated call runs them. It is called once here.
         #[allow(deprecated)]
         app.run_iteration(events::ignore);
-        let folder = app.path().local_data_dir().unwrap().join("astral-index");
+        let folder = app
+            .path()
+            .local_data_dir()
+            .unwrap()
+            .join(database::FOLDER_NAME);
         assert_eq!(
             app.state::<Database>().path(),
             Some(folder.join(database::FILE_NAME))
@@ -1461,7 +1478,11 @@ mod tests {
     fn opening() -> Vec<sql::Step> {
         let mut steps = vec![step(
             "OPEN",
-            vec![text("/data/history.sqlite")],
+            vec![text(
+                &Path::new("/data")
+                    .join(database::FILE_NAME)
+                    .to_string_lossy(),
+            )],
             Reply::Done,
         )];
         steps.extend(setup(true));
