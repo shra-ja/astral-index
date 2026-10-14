@@ -87,6 +87,10 @@ test('a Windows job runs the Rust unit tests and keeps this repository’s relea
     expect(step, command).toBeDefined()
     expect(step).not.toMatch(/^\s+if:/m)
   }
+  // The unit tests embed the built frontend, which the release build makes first.
+  expect(job.indexOf('npm run tauri -- build --no-bundle')).toBeLessThan(
+    job.indexOf('cargo test --manifest-path src-tauri/Cargo.toml --lib --locked'),
+  )
   // Only this repository's builds are kept, for 30 days, named as unsigned builds.
   const upload = jobSteps.find((step) => step.includes('uses: actions/upload-artifact@'))
   expect(upload).toContain(

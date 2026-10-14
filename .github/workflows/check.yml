@@ -121,10 +121,11 @@ jobs:
         run: |
           npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
           cargo fetch --manifest-path src-tauri/Cargo.toml --locked
-      - name: Rust unit tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
+      # The unit tests embed the built frontend, which the release build makes.
       - name: Build the release executable
         run: npm run tauri -- build --no-bundle
+      - name: Rust unit tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
       # Builds of pull requests from forks hold someone else's code, so only this
       # repository's own builds are kept, named so none passes for a release.
       - name: Save the unsigned development build
