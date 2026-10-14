@@ -59,3 +59,43 @@ test('cache hits cannot bypass locked installs, fresh coverage gates or the rele
   }
   expect(workflow).not.toContain('cache-hit')
 })
+
+test('a Windows job runs the Rust unit tests and keeps this repository’s release builds', () => {
+  // The first release ships for Windows only (decision 0027).
+  const start = workflow.indexOf('\n  windows:\n')
+  expect(start).toBeGreaterThan(0)
+  const job = workflow.slice(start)
+  const jobSteps = job.split(/^ {6}- /m).slice(1)
+  expect(job).toContain('runs-on: windows-2025')
+  // npm would otherwise run the package scripts through cmd.exe.
+  expect(job).toContain('npm_config_script_shell: C:\\Program Files\\Git\\bin\\bash.exe')
+  // The versions come from .tool-versions, as asdf reads them on Linux.
+  expect(job).toContain('node-version-file: .tool-versions')
+  expect(job).toContain(`awk '$1 == "rust" { print $2 }' .tool-versions`)
+  const rust = jobSteps.find((step) => step.includes('uses: Swatinem/rust-cache@'))
+  expect(rust).toContain(
+    "key: windows-2025-${{ hashFiles('.tool-versions', '.github/workflows/check.yml') }}",
+  )
+  for (const command of [
+    'cargo install cargo-about --version 0.9.2 --locked --features cli',
+    'npm ci --ignore-scripts',
+    'cargo fetch --manifest-path src-tauri/Cargo.toml --locked',
+    'cargo test --manifest-path src-tauri/Cargo.toml --lib --locked',
+    'npm run tauri -- build --no-bundle',
+  ]) {
+    const step = jobSteps.find((candidate) => candidate.includes(command))
+    expect(step, command).toBeDefined()
+    expect(step).not.toMatch(/^\s+if:/m)
+  }
+  // Only this repository's builds are kept, for 30 days, named as unsigned builds.
+  const upload = jobSteps.find((step) => step.includes('uses: actions/upload-artifact@'))
+  expect(upload).toContain(
+    "if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+  )
+  expect(upload).toContain(
+    'name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}',
+  )
+  expect(upload).toContain('path: src-tauri/target/release/astral-index.exe')
+  expect(upload).toContain('retention-days: 30')
+  expect(upload).toContain('if-no-files-found: error')
+})

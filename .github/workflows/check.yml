@@ -81,3 +81,57 @@ jobs:
             coverage/backend-unit/
             test-results/
           if-no-files-found: error
+
+  windows:
+    # The first release ships for Windows only (decision 0027): its Rust unit tests
+    # run there, and the release executable is built from the commit under test.
+    name: Windows unit tests and release build
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      # npm runs scripts through cmd.exe on Windows, which splits the quoted
+      # arguments the package scripts use; Git Bash reads them as on Linux.
+      npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+      - name: Install the pinned Rust toolchain
+        run: |
+          toolchain=$(awk '$1 == "rust" { print $2 }' .tool-versions)
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup default "$toolchain"
+      - name: Cache Rust dependencies and installed tools
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri -> target
+          cache-bin: true
+          cache-workspace-crates: false
+          key: windows-2025-${{ hashFiles('.tool-versions', '.github/workflows/check.yml') }}
+      - name: Install the notices generator
+        run: cargo install cargo-about --version 0.9.2 --locked --features cli
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
+          cargo fetch --manifest-path src-tauri/Cargo.toml --locked
+      - name: Rust unit tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
+      - name: Build the release executable
+        run: npm run tauri -- build --no-bundle
+      # Builds of pull requests from forks hold someone else's code, so only this
+      # repository's own builds are kept, named so none passes for a release.
+      - name: Save the unsigned development build
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}
+          path: src-tauri/target/release/astral-index.exe
+          retention-days: 30
+          if-no-files-found: error
