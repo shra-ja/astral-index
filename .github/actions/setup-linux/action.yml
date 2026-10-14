@@ -1,0 +1,79 @@
+name: Set up the Linux checks
+description: >-
+  Installs the native libraries, the pinned toolchains from .tool-versions and the
+  locked dependencies, restoring the caches main saved. Tool versions live here, so
+  changing them invalidates the Rust cache.
+inputs:
+  rust-cache:
+    description: The Rust cache to share; jobs that build the same way share one.
+    required: true
+  native-tests:
+    description: Whether the job runs the instrumented and native tests, which need their tools and network sandbox.
+    default: 'false'
+  save-npm-cache:
+    description: Whether this job saves the npm cache on main; one job is enough.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Install Linux native dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3
+    - name: Allow network namespaces for the CI test sandbox
+      if: inputs.native-tests == 'true'
+      shell: bash
+      run: |
+        sudo install -m 0755 /usr/bin/bwrap /usr/local/bin/bwrap
+        sudo apparmor_parser -r .github/apparmor-bwrap
+        bwrap --unshare-net --dev-bind / / --proc /proc true
+    - uses: asdf-vm/actions/install@b7bcd026f18772e44fe1026d729e1611cc435d47 # v4.0.1
+      with:
+        asdf_version: 0.20.0
+    - name: Restore npm downloads
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.npm/_cacache
+        key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}
+    - name: Point Cargo's home at the asdf toolchain
+      # asdf keeps installed tools and registry sources here, not in ~/.cargo.
+      shell: bash
+      run: echo "CARGO_HOME=$(asdf where rust)" >> "$GITHUB_ENV"
+    - name: Restore Rust dependencies and installed tools
+      # v2.9.2 supports Cargo's new build-dir layout used by the pinned nightly.
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        workspaces: src-tauri -> target
+        shared-key: ${{ inputs.rust-cache }}
+        key: ${{ hashFiles('.tool-versions', '.github/actions/setup-linux/action.yml') }}
+        cache-bin: true
+        cache-workspace-crates: false
+        # Pull requests restore main's caches; only main saves, so the repository's
+        # cache storage holds what every branch can use.
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+    - name: Install Rust components
+      shell: bash
+      run: rustup component add rustfmt clippy llvm-tools-preview
+    - name: Install prebuilt coverage and notices tools
+      if: inputs.native-tests == 'true'
+      uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+      with:
+        tool: cargo-llvm-cov@0.9.1,cargo-about@0.9.2
+    - name: Install the native test driver
+      if: inputs.native-tests == 'true'
+      shell: bash
+      run: |
+        cargo install tauri-driver --version 2.0.6 --locked
+        asdf reshim
+    - name: Install locked dependencies before network isolation
+      shell: bash
+      run: |
+        npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
+        cargo fetch --manifest-path src-tauri/Cargo.toml --locked
+    - name: Save npm downloads
+      if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.npm/_cacache
+        key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}
