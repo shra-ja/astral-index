@@ -157,7 +157,8 @@ these gates exist and pass.
 Run `npm run check` before handoff. It creates fresh V8/LLVM reports, validates
 per-file metrics against a source inventory, and probes gate failures. See
 [testing details](docs/development/TESTING.md) and [setup](docs/development/DEVELOPMENT.md). CI runs its three parts as
-separate jobs, beside the Windows jobs; make every job a required check.
+separate jobs, beside the Windows jobs; make those five jobs required checks,
+but not the job that publishes the Windows build, which forks skip.
 
 ## Trunk-based development
 

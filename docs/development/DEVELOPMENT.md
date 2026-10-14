@@ -148,14 +148,17 @@ Git ignores all of these:
 - `coverage/frontend/`, `coverage/tooling/`, `coverage/backend-unit/` and
   `coverage/backend/`: coverage reports.
 - `test-results/`: end-to-end screenshots (`e2e-*.png`), check logs and probe
-  failure snapshots.
+  failure snapshots; `test-results/probe-run/` holds the mutation probes' own
+  coverage reports, screenshots and synthetic data.
 - `src-tauri/target/`: builds.
 
 ## Windows executable for manual checks
 
 CI keeps a release executable of each of this repository's builds that passes
 every check, for 7 days: download `astral-index-dev-build-unsigned-<commit>`
-from the run's summary page, or with `gh run download`. It is a development build, unsigned and
+from the run's summary page, or with `gh run download`. A pull request's run
+builds GitHub's merge of the pull request into `main`, so its build can include
+changes merged into `main` after the named commit. It is a development build, unsigned and
 not a release.
 
 To try the app in a native Windows process without a Windows toolchain,
