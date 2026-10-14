@@ -144,16 +144,12 @@ test('failed unit execution cannot leave a previous unit report in place', () =>
 
 test('during the mutation probes, unit evidence goes to the probe run’s folder', () => {
   vi.stubEnv('ASTRAL_INDEX_PROBE_RUN', '1')
-  try {
-    backendUnitCoverage(false)
-    expect(rmSync).toHaveBeenCalledWith('test-results/probe-run/coverage/backend-unit', {
-      recursive: true,
-      force: true,
-    })
-    expect(mkdirSync).toHaveBeenCalledWith('test-results/probe-run/coverage/backend-unit', {
-      recursive: true,
-    })
-  } finally {
-    vi.unstubAllEnvs()
-  }
+  backendUnitCoverage(false)
+  expect(rmSync).toHaveBeenCalledWith('test-results/probe-run/coverage/backend-unit', {
+    recursive: true,
+    force: true,
+  })
+  expect(mkdirSync).toHaveBeenCalledWith('test-results/probe-run/coverage/backend-unit', {
+    recursive: true,
+  })
 })

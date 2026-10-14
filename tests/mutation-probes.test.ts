@@ -21,17 +21,23 @@ import { outputs, PROBE_RUN, probeOutputs } from '../tooling/outputs'
 process.env[PROBE_RUN] = '1'
 const { coverage } = outputs()
 
-/** Each file under `folder`, with its size and modification time. */
+/**
+ * Each file under `folder`, with its size and modification time, leaving out the
+ * probes' own folders and logs, which whoever runs the check may be writing.
+ */
 function contents(folder: string) {
   if (!existsSync(folder)) return {}
   return Object.fromEntries(
-    readdirSync(folder, { recursive: true, encoding: 'utf8' }).map((file) => {
-      const { size, mtimeMs } = statSync(join(folder, file))
-      return [file, { size, mtimeMs }]
-    }),
+    readdirSync(folder, { recursive: true, encoding: 'utf8' })
+      .filter((file) => !/^(probe-run|probe-failures)(\/|$)/.test(file) && !file.endsWith('.log'))
+      .flatMap((file) => {
+        const entry = statSync(join(folder, file))
+        return entry.isFile() ? [[file, { size: entry.size, mtimeMs: entry.mtimeMs }]] : []
+      }),
   )
 }
-const gateReports = contents('coverage')
+// What the gates left: their reports, screenshots and other results.
+const gateOutputs = { coverage: contents('coverage'), results: contents('test-results') }
 
 // Scoped probes carry this target; running the full integration suite fails them.
 const unrelatedIntegration =
@@ -70,6 +76,17 @@ beforeAll(() => {
   expectCommandSuccess('npm', ['run', 'coverage:json'])
   expectCommandSuccess('npm', ['run', 'coverage:backend-unit:json'])
 }, 1200000)
+
+// Runs first: the probes' commands wrote their baseline to the probe run's folder.
+test('the probes work on a baseline of their own', () => {
+  for (const report of [
+    'frontend/coverage-summary.json',
+    'tooling/coverage-summary.json',
+    'backend-unit/coverage.json',
+  ]) {
+    expect(existsSync(`${probeOutputs.coverage}/${report}`), report).toBe(true)
+  }
+})
 
 // Run one report check and require it to fail for the expected reason.
 function expectReportFailure(name: string, message: string): void {
@@ -333,6 +350,6 @@ test('the wrapper exception guard rejects added startup behavior', () => {
 }, 120000)
 
 // Runs last: no probe may have touched what the gates wrote.
-test('the probes leave the gates’ reports untouched', () => {
-  expect(contents('coverage')).toEqual(gateReports)
+test('the probes leave the gates’ reports and results untouched', () => {
+  expect({ coverage: contents('coverage'), results: contents('test-results') }).toEqual(gateOutputs)
 })
