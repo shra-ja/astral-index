@@ -34,10 +34,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Windows CI (2026-10-14)
-
-0038's third PR, `ci/windows`: a `windows-2025` job runs the Rust unit tests and keeps unsigned release builds; the linker embeds the Windows manifest in test binaries too, and 20 Linux-only test assumptions are fixed; red, then green.
-
 ## Known limitations
 
 - The Rust unit tests run on Windows in CI, but the app itself has not been
@@ -144,3 +140,4 @@ research, under a "From" heading.
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
   cargo-about and the bundle's report, the notices list, the feature toggles,
   the frontend test clock, the retrieval disclosure and the release checks.
+- [2026-10-14: Windows CI](history/2026-10-14-windows-ci.md).
