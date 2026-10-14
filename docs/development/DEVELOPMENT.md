@@ -178,9 +178,3 @@ Windows 11 includes. Linker warnings about missing `libcmt` debug information ar
 harmless. Release builds use the Windows GUI subsystem, so no console opens;
 debug builds keep it for logs. The executable embeds `src-tauri/icons/icon.ico`,
 which `npm run icons` generates.
-
-The Rust unit tests run on Windows the same way, before a push: build them with
-`cargo xwin test --lib --locked --no-run --target x86_64-pc-windows-msvc` in
-`src-tauri`, then run the `.exe` it names from a Windows folder, such as one
-under `/mnt/c/Users/Public`, since WSL starts Windows executables as native
-processes.
