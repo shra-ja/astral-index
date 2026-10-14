@@ -32,6 +32,10 @@ there natively with PR #37.
 - **macOS as well:** no macOS game client to find a cache from, and no Mac to
   verify on.
 - Linux or macOS can become release OSes later, each with its own verification.
+- Test binaries need Tauri's Windows resource, with its Common Controls
+  manifest, or Windows refuses to start them; `build.rs` links it into them for
+  MSVC targets, a change to its pinned delegate body that the user approved
+  (2026-10-14).
 - The Windows job does not measure coverage, and the offline isolation and
   native end-to-end tests stay Linux-only, so Windows-only code is tested there
   but not counted by the coverage gates.

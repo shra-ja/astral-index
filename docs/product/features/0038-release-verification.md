@@ -33,8 +33,15 @@ Four PRs, each test first.
     blocks while the About dialog's views load, and checks the page refers
     only to its own files and routes; the typeface and notices were already
     checked to load offline.
-- [ ] **Windows CI.** A Windows job runs the Rust unit tests and builds the
+- [x] **Windows CI.** A Windows job runs the Rust unit tests and builds the
   release executable as an artifact; tests that assume Unix are fixed.
+  - Done on `windows-2025`, on every pull request like the Linux job, keeping
+    this repository's builds, not fork pull requests', for 30 days as
+    `astral-index-dev-build-unsigned-<commit>`. Running the unit tests on
+    Windows first found that Windows refused to start them without Tauri's
+    resource and manifest, which `build.rs` now links into test binaries, and
+    20 tests that assumed Linux paths, origin, folder names, webview folder and
+    icon size; the app itself needed no change.
 - [ ] **Release checklist on Windows.** A checklist in the development docs,
   run on the CI-built executable: local workflows, requested fetching, network
   failures, an upgrade over the previous build with saved history, portable

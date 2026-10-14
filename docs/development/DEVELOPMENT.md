@@ -149,6 +149,11 @@ Git ignores all of these:
 
 ## Windows executable for manual checks
 
+CI's Windows job keeps a release executable of each of this repository's builds
+for 30 days: download `astral-index-dev-build-unsigned-<commit>` from the run's
+summary page, or with `gh run download`. It is a development build, unsigned and
+not a release.
+
 To try the app in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as
 experimental; it is not a release process, and installers and signing are
@@ -173,3 +178,9 @@ Windows 11 includes. Linker warnings about missing `libcmt` debug information ar
 harmless. Release builds use the Windows GUI subsystem, so no console opens;
 debug builds keep it for logs. The executable embeds `src-tauri/icons/icon.ico`,
 which `npm run icons` generates.
+
+The Rust unit tests run on Windows the same way, before a push: build them with
+`cargo xwin test --lib --locked --no-run --target x86_64-pc-windows-msvc` in
+`src-tauri`, then run the `.exe` it names from a Windows folder, such as one
+under `/mnt/c/Users/Public`, since WSL starts Windows executables as native
+processes.

@@ -201,3 +201,23 @@ every invocation. Two details matter:
   v2.9.2 prunes badly; keep v2.9.2 or later.
 
 Compare cold and warm hosted runs before claiming a speedup.
+
+A second job, **Windows unit tests and release build**, runs on `windows-2025`
+beside it, since the first release ships for Windows only
+([decision 0027](../architecture/decisions/0027-windows-first-release.md)). It
+installs Node and the Rust nightly named in `.tool-versions`, runs the Rust unit
+tests and builds the release executable. It measures no coverage, and the
+offline sandbox and native end-to-end tests stay Linux-only. It keeps the
+executable of this repository's own builds, not those of fork pull requests,
+for 30 days as `astral-index-dev-build-unsigned-<commit>`: a development build,
+unsigned and not a release. `tooling/ci.test.ts` checks both jobs' steps.
+
+Code that differs on Windows is chosen with `#[cfg(windows)]`, and its tests
+state each platform's expectation the same way: the app's origin
+(`http://tauri.localhost` there), its data folder's name, WebView2's own profile
+folder and the 32px window icon read from the executable's resource. Build
+expected paths with `Path::join` rather than `/`. Test binaries link Tauri's
+Windows resource too, which `build.rs` adds for MSVC targets; without its
+manifest, Windows refuses to start them (`0xC0000139`). The registration tests
+resolve the machine's real local data folder, so a Windows run leaves empty
+`Astral-Index` and `Astral-Index-Mock` folders there.
