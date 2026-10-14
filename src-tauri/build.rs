@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 fn main() {
     let commands = tauri_build::AppManifest::new().commands(include!("src/desktop/commands.in"));
     // On Windows the linker embeds the manifest below instead of Tauri's resource,
@@ -10,10 +12,17 @@ fn main() {
     )
     .expect("failed to build Astral Index");
     println!("cargo:rerun-if-changed=windows-app-manifest.xml");
-    let msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|env| env == "msvc");
+    // Link lines by target environment: only MSVC's linker takes them.
     let manifest = concat!(env!("CARGO_MANIFEST_DIR"), "/windows-app-manifest.xml");
-    let embed = format!(
-        "cargo:rustc-link-arg=/MANIFEST:EMBED\ncargo:rustc-link-arg=/MANIFESTINPUT:{manifest}\n"
+    let link_lines = HashMap::from([(
+        "msvc",
+        format!(
+            "cargo:rustc-link-arg=/MANIFEST:EMBED\ncargo:rustc-link-arg=/MANIFESTINPUT:{manifest}\n"
+        ),
+    )]);
+    let target = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+    print!(
+        "{}",
+        link_lines.get(target.as_str()).map_or("", String::as_str)
     );
-    print!("{}", msvc.then_some(embed).unwrap_or_default());
 }
