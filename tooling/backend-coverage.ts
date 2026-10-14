@@ -68,18 +68,3 @@ export function backendUnitCoverage(html: boolean): void {
   backendCargo(['test', '--lib', '--locked', '--offline'])
   backendReport('coverage/backend-unit', html)
 }
-
-/** Regenerate authoritative evidence after all mutations have been restored. */
-export function refreshProbeCoverage(): void {
-  for (const directory of [
-    'coverage/frontend',
-    'coverage/tooling',
-    'coverage/backend-unit',
-    'coverage/backend',
-  ]) {
-    rmSync(directory, { recursive: true, force: true })
-  }
-  for (const command of ['coverage', 'test:offline', 'coverage:verify']) {
-    execFileSync('npm', ['run', command], { stdio: 'inherit' })
-  }
-}

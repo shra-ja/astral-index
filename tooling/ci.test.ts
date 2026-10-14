@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 
 const workflow = readFileSync('.github/workflows/check.yml', 'utf8')
+const scripts = (
+  JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> }
+).scripts
 const steps = workflow.split(/^ {6}- /m).slice(1)
 
 test('CI caches reusable dependencies with toolchain and lockfile invalidation', () => {
@@ -102,4 +105,24 @@ test('a Windows job runs the Rust unit tests and keeps this repository’s relea
   expect(upload).toContain('path: src-tauri/target/release/astral-index.exe')
   expect(upload).toContain('retention-days: 30')
   expect(upload).toContain('if-no-files-found: error')
+})
+
+test('the full check runs the static checks, then the probes, then the gates, which write the final reports', () => {
+  expect(scripts.check).toBe('npm run check:static && npm run check:probes && npm run check:gates')
+  expect(scripts['check:static']).toBe(
+    [
+      'npm run format:check',
+      'npm run lint:check',
+      'npm run docs:check',
+      'npm run icons:check',
+      'npm run versions:check',
+      'cargo fmt --manifest-path src-tauri/Cargo.toml --check',
+      'cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
+    ].join(' && '),
+  )
+  // The probes need the bundled frontend; the gates rebuild every report afresh.
+  expect(scripts['check:probes']).toBe('npm run build && npm run test:probes')
+  expect(scripts['check:gates']).toBe(
+    'npm run build && npm run coverage && npm run test:offline && npm run coverage:verify',
+  )
 })

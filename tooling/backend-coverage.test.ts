@@ -7,7 +7,6 @@ import {
   backendEnvironment,
   backendReport,
   backendUnitCoverage,
-  refreshProbeCoverage,
   resetBackendCoverage,
 } from './backend-coverage'
 
@@ -136,29 +135,4 @@ test('failed unit execution cannot leave a previous unit report in place', () =>
   expect(vi.mocked(rmSync).mock.invocationCallOrder[0]).toBeLessThan(
     vi.mocked(execFileSync).mock.invocationCallOrder[testCall],
   )
-})
-
-test('final regeneration runs coverage and the full offline suite before all report gates', () => {
-  refreshProbeCoverage()
-  expect(vi.mocked(execFileSync).mock.calls).toEqual([
-    ['npm', ['run', 'coverage'], { stdio: 'inherit' }],
-    ['npm', ['run', 'test:offline'], { stdio: 'inherit' }],
-    ['npm', ['run', 'coverage:verify'], { stdio: 'inherit' }],
-  ])
-  expect(vi.mocked(rmSync).mock.calls.map(([path]) => path)).toEqual([
-    'coverage/frontend',
-    'coverage/tooling',
-    'coverage/backend-unit',
-    'coverage/backend',
-  ])
-})
-
-test.each([0, 1, 2])('final regeneration fails closed at stage %s', (stage) => {
-  for (let i = 0; i < stage; i++) vi.mocked(execFileSync).mockReturnValueOnce('')
-  vi.mocked(execFileSync).mockImplementationOnce(() => {
-    throw new Error('validation failed')
-  })
-  expect(refreshProbeCoverage).toThrow('validation failed')
-  expect(execFileSync).toHaveBeenCalledTimes(stage + 1)
-  expect(rmSync).toHaveBeenCalledTimes(4)
 })

@@ -7,13 +7,12 @@ import {
   statSync,
   utimesSync,
 } from 'node:fs'
-import { afterAll, expect, test } from 'vitest'
-import { refreshProbeCoverage } from '../tooling/backend-coverage'
+import { expect, test } from 'vitest'
 import { runBounded, saveFailureSnapshot } from '../tooling/probe-run'
 import type { LlvmCoverageExport } from '../tooling/coverage'
 
-// Per-probe finally blocks restore files; even failed assertions reach this full refresh.
-afterAll(refreshProbeCoverage, 600000)
+// Per-probe finally blocks restore files. The reports probes leave behind describe
+// probe code: `npm run check` runs the gates afterwards, which rebuild them all.
 
 // Scoped probes carry this target; running the full integration suite fails them.
 const unrelatedIntegration =
