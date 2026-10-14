@@ -5,6 +5,7 @@ import {
   backendUnitCoverage,
   resetBackendCoverage,
 } from '../tooling/backend-coverage'
+import { outputs } from '../tooling/outputs'
 
 // The full command freezes unit evidence before any integration or desktop execution.
 test('unit coverage', () => {
@@ -16,14 +17,14 @@ test('integration tests', () => {
 }, 600000)
 
 test('backend coverage report', () => {
-  backendReport('coverage/backend', true)
+  backendReport(`${outputs().coverage}/backend`, true)
 }, 600000)
 
 // Only the synthetic integration target may fill this deliberately missing unit path.
 test('backend probe coverage', () => {
   backendUnitCoverage(false)
   backendCargo(['test', '--test', 'unit_coverage_probe', '--locked', '--offline'])
-  backendReport('coverage/backend', false)
+  backendReport(`${outputs().coverage}/backend`, false)
 }, 600000)
 
 test('reset backend probe', () => {
@@ -31,7 +32,7 @@ test('reset backend probe', () => {
 }, 600000)
 
 test('backend JSON report', () => {
-  backendReport('coverage/backend', false)
+  backendReport(`${outputs().coverage}/backend`, false)
 }, 600000)
 
 test('unit JSON coverage', () => {

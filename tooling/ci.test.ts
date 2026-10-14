@@ -23,8 +23,9 @@ test('checks run on pull requests and pushes to main, with no merge queue', () =
   expect(workflow).not.toContain('merge_group')
 })
 
-test('the full check runs the static checks, then the probes, then the gates, which write the final reports', () => {
-  expect(scripts.check).toBe('npm run check:static && npm run check:probes && npm run check:gates')
+test('the full check runs the static checks, then the gates, then the isolated probes', () => {
+  // Unit tests and coverage fail fastest; the probes write to their own folder.
+  expect(scripts.check).toBe('npm run check:static && npm run check:gates && npm run check:probes')
   expect(scripts['check:static']).toBe(
     [
       'npm run format:check',
@@ -38,8 +39,9 @@ test('the full check runs the static checks, then the probes, then the gates, wh
       'cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
     ].join(' && '),
   )
-  // The probes need the bundled frontend; the gates rebuild every report afresh.
+  // The probes need the bundled frontend, and make their own baseline reports.
   expect(scripts['check:probes']).toBe('npm run build && npm run test:probes')
+  expect(scripts['test:probes']).toBe('vitest run tests/mutation-probes.test.ts')
   expect(scripts['check:gates']).toBe(
     'npm run build && npm run coverage && npm run test:offline && npm run coverage:verify',
   )

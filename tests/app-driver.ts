@@ -5,6 +5,7 @@ import { once } from 'node:events'
 import { globSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect } from 'vitest'
+import { outputs } from '../tooling/outputs'
 
 const driverUrl = 'http://127.0.0.1:4444'
 
@@ -32,7 +33,7 @@ export interface AppSession {
   hover(selector: string): Promise<void>
   /** Choose a file in a file input, as the native file dialog would. */
   chooseFile(selector: string, path: string): Promise<void>
-  /** Save a screenshot of the window under `test-results/`. */
+  /** Save a screenshot of the window with the run's results (`test-results/`). */
   screenshot(name: string): Promise<void>
   /** Close the window as a user would, and wait for its coverage data. */
   close(): Promise<void>
@@ -136,7 +137,7 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
       await command(`/element/${Object.values(element)[0]}/value`, 'POST', { text: path })
     },
     screenshot: async (name: string) => {
-      mkdirSync('test-results', { recursive: true })
+      mkdirSync(outputs().results, { recursive: true })
       // Wait for the next paint, or the capture can show the screen before the last change.
       await command('/execute/async', 'POST', {
         script:
@@ -144,7 +145,7 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
         args: [],
       })
       const image = await command<string>('/screenshot')
-      writeFileSync(`test-results/${name}.png`, Buffer.from(image, 'base64'))
+      writeFileSync(`${outputs().results}/${name}.png`, Buffer.from(image, 'base64'))
     },
     close: async () => {
       const window = execFileSync('xdotool', ['search', '--name', '^Astral Index$'], {

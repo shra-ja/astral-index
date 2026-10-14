@@ -7,12 +7,14 @@ import { afterAll, beforeAll, expect, test } from 'vitest'
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
 import { accessibilityViolations } from './accessibility'
 import { DOWN, ENTER, ESCAPE, RIGHT, TAB, launch, type AppSession } from './app-driver'
+import { outputs } from '../tooling/outputs'
 
 let backendEnv: NodeJS.ProcessEnv
 // A synthetic cache file holding one warp history request, with a key distinctive
 // enough to search the app's files for.
 const authKey = 'synthetic-e2e-auth-key'
-const cachePath = resolve('test-results/synthetic-data_2')
+const { results } = outputs()
+const cachePath = resolve(results, 'synthetic-data_2')
 beforeAll(() => {
   // Extraction now validates with HoYoverse: refuse to run where the synthetic key
   // could reach the live endpoint. The network namespace must have only loopback.
@@ -25,7 +27,7 @@ beforeAll(() => {
   backendEnv = backendEnvironment()
   // The mock feature also builds the mock debug binary (decision 0014).
   backendCargo(['build', '--locked', '--offline', '--features', 'mock'])
-  mkdirSync('test-results', { recursive: true })
+  mkdirSync(results, { recursive: true })
   writeFileSync(
     cachePath,
     `1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=${authKey}&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0`,
@@ -279,7 +281,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
 // The mock debug binary answers from a synthetic HoYoverse (decision 0014), so the whole
 // flow runs with no network. Its history goes to its own folder in a data home that
 // starts fresh, unless `keep` relaunches it on the data saved so far, as a restart.
-const mockData = resolve('test-results/mock-data')
+const mockData = resolve(results, 'mock-data')
 async function launchMock(
   scenario: string,
   { env = {}, keep = false }: { env?: NodeJS.ProcessEnv; keep?: boolean } = {},
@@ -1632,10 +1634,7 @@ test('a large history saves and browses within its time bounds', async () => {
           'return document.querySelectorAll(".roll-icons [role=img]").length === 20',
         ),
     )
-    writeFileSync(
-      'test-results/large-history-timings.json',
-      `${JSON.stringify(timings, null, 2)}\n`,
-    )
+    writeFileSync(`${results}/large-history-timings.json`, `${JSON.stringify(timings, null, 2)}\n`)
     await app.screenshot('e2e-mock-large-history')
   })
 }, 600000)
