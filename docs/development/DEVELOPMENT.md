@@ -98,7 +98,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 
 | Command | Does |
 | --- | --- |
-| `npm run check` | Every gate: `check:static`, then `check:probes`, then `check:gates` |
+| `npm run check` | Every gate: `check:static`, then `check:gates`, then `check:probes` |
 | `npm run check:static` | Formatting, lint, the docs, icon and version checks, the frontend bundle, Rust formatting and Clippy |
 | `npm run check:probes` | The build (which generates and checks the third-party notices), then the mutation probes |
 | `npm run check:gates` | The build, coverage, the offline native tests and report validation |
@@ -118,7 +118,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run test:backend-integration` | The instrumented Cargo integration tests, without the desktop |
 | `npm run test:e2e-smoke` | Build and drive the desktop app end to end |
 | `npm run coverage:backend-report` | Render the backend report from the current counters |
-| `npm run test:probes` | The mutation probes alone (run `npm run build` first, and `check:gates` before trusting a report) |
+| `npm run test:probes` | The mutation probes alone, writing to `test-results/probe-run/` (run `npm run build` first) |
 | `npm run coverage:verify` | Validate every report against the source inventories |
 | `npm run ci:summary` | Write a CI job's summary (CI sets `CHECK_JOB`, `CHECK_STATUS` and `GITHUB_STEP_SUMMARY`) |
 

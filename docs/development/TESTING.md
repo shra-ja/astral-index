@@ -13,13 +13,12 @@ names:
 1. `check:static`: formatting and lint (Markdown included), the docs, icon and
    version checks, the frontend bundle, Rust formatting and Clippy, which
    compiles the unit tests and so needs the bundle.
-2. `check:probes`: the build, then the mutation probes.
-3. `check:gates`: the build, fresh frontend and tooling coverage, the backend
+2. `check:gates`: the build, fresh frontend and tooling coverage, the backend
    unit, integration and native end-to-end tests in a network namespace with no
    external route (`test:offline`), and report validation.
+3. `check:probes`: the build, then the mutation probes.
 
-The gates run last, so the reports they leave describe the restored source
-rather than the probes' mutations.
+The gates come before the probes because a change is far likelier to fail them.
 
 ## Coverage by source
 
@@ -119,12 +118,19 @@ running online.
 unexecuted TypeScript file and branch, an uncovered Rust branch, an uncompiled Rust
 file, stale, missing and incomplete reports, integration coverage standing in for
 unit coverage, a permissive CSP, and logic added to a delegate. Each probe changes
-source briefly and restores it in `finally`. The reports the probes leave behind
-describe their mutations, so `npm run check` runs the gates after them, and a
-run of `test:probes` alone should be followed by `npm run check:gates` before
-trusting any report. The native coverage and CSP probes run only the end-to-end
-shell test (`test:e2e-probe`), which launches the real app and holds the CSP
-assertion; the full suite runs in the gates. Each
+source briefly and restores it in `finally`. Every command the probes run writes
+its reports, screenshots and other results to `test-results/probe-run/` instead
+of `coverage/` and `test-results/`: the probe file sets `ASTRAL_INDEX_PROBE_RUN=1`,
+which `tooling/outputs.ts` and the frontend's Vite configuration follow. The
+probes make a fresh baseline there first, and a last test checks that
+`coverage/` is exactly as the gates left it, so the probes run alone at any time
+and leave nothing to clean up. Restoring a source file gives it a new
+modification time, so after the probes, `coverage:verify` alone reports the
+gates' reports as stale until `check:gates` runs again; restoring the old time
+would let Cargo reuse binaries built from the mutated source. The native
+coverage and CSP probes run only the end-to-end shell test (`test:e2e-probe`),
+which launches the real app and holds the CSP assertion; the full suite runs in
+the gates. Each
 probe command runs for at most 10
 minutes under coreutils `timeout`, which stops its whole process group, so a
 stalled native run fails well within CI's 30-minute job (`tooling/probe-run.ts`).
