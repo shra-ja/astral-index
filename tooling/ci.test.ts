@@ -21,6 +21,11 @@ const step = (text: string, needle: string) => stepsOf(text).find((each) => each
 test('checks run on pull requests and pushes to main, with no merge queue', () => {
   expect(workflow).toMatch(/^on:\n {2}pull_request:\n {2}push:\n {4}branches: \[main\]\n/m)
   expect(workflow).not.toContain('merge_group')
+  // A newer push supersedes a pull request's run, but every run on main finishes,
+  // since only main saves the caches.
+  expect(workflow).toContain(
+    "concurrency:\n  group: checks-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+  )
 })
 
 test('the full check runs the static checks, then the gates, then the isolated probes', () => {
@@ -66,7 +71,8 @@ test('CI runs each part of the full check as its own Linux job, so none is skipp
   expect(reports).toContain('if-no-files-found: error')
   // A failed probe keeps its snapshot.
   const snapshots = step(job('probes'), 'uses: actions/upload-artifact@')
-  expect(snapshots).toContain('if: failure()')
+  // A probe that stalls until the job's time limit counts as cancelled.
+  expect(snapshots).toContain('if: failure() || cancelled()')
   expect(snapshots).toContain('path: test-results/probe-failures/')
 })
 
@@ -104,6 +110,16 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
     'save-npm-cache: true',
   )
+  const windowsSave = step(windowsSetup, 'uses: actions/cache/save@')
+  expect(windowsSave).toContain(
+    "if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'",
+  )
+  expect(step(job('windows-release'), 'uses: ./.github/actions/setup-windows')).toContain(
+    'save-npm-cache: true',
+  )
+  expect(step(job('windows-tests'), 'uses: ./.github/actions/setup-windows')).not.toContain(
+    'save-npm-cache',
+  )
   // A cache hit never skips an install or a check.
   for (const text of [workflow, linuxSetup, windowsSetup]) expect(text).not.toContain('cache-hit')
 })
@@ -122,6 +138,16 @@ test('the Rust cache follows the asdf toolchain, where Cargo installs tools and 
 })
 
 test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
+  // The static checks need the libraries Rust links against, not the native test tools.
+  const libraries = step(linuxSetup, 'name: Install the native libraries')
+  expect(libraries).toContain('libwebkit2gtk-4.1-dev')
+  expect(libraries).not.toMatch(/^\s+if:/m)
+  expect(libraries).not.toContain('xvfb')
+  const testTools = step(linuxSetup, 'name: Install the native test tools')
+  expect(testTools).toContain("if: inputs.native-tests == 'true'")
+  for (const tool of ['xvfb', 'webkit2gtk-driver', 'xdotool', 'dbus-x11', 'bubblewrap']) {
+    expect(testTools).toContain(tool)
+  }
   const prebuilt = step(linuxSetup, 'uses: taiki-e/install-action@')
   expect(prebuilt).toContain('tool: cargo-llvm-cov@0.9.1,cargo-about@0.9.2')
   expect(prebuilt).toContain("if: inputs.native-tests == 'true'")
@@ -173,6 +199,14 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
   expect(build).toBeLessThan(
     tests.indexOf('run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked'),
   )
+  // Clippy lints the Windows-only code too, which the Linux static checks never compile.
+  const clippy = tests.indexOf(
+    'run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
+  )
+  expect(clippy).toBeGreaterThan(build)
+  expect(windowsSetup).toContain(
+    'rustup toolchain install "$toolchain" --profile minimal --component clippy',
+  )
   expect(step(job('windows-release'), 'run: npm run tauri -- build --no-bundle')).not.toMatch(
     /^\s+if:/m,
   )
@@ -195,12 +229,11 @@ test('a Windows build is published only once every check has passed', () => {
   const publish = job('publish')
   expect(publish).toContain('needs: [static, gates, probes, windows-tests, windows-release]')
   expect(publish).toContain(`if: always() && (${fromThisRepository})`)
-  // Only this job may delete artifacts; the workflow grants read access alone.
-  expect(publish).toContain('permissions:\n      actions: write')
-  expect(workflow.match(/actions: write/g)).toHaveLength(1)
+  // No job may delete artifacts: a failed run's build simply expires.
+  expect(workflow).not.toContain('actions: write')
   const passed =
     "!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped')"
-  // After every check passes, it is republished under its lasting name for 7 days.
+  // Once every check passes, it is republished under its lasting name for 7 days.
   const merge = step(publish, 'uses: actions/upload-artifact/merge@')
   expect(merge).toContain(`if: \${{ ${passed} }}`)
   expect(merge).toContain(
@@ -211,11 +244,9 @@ test('a Windows build is published only once every check has passed', () => {
   )
   expect(merge).toContain('retention-days: 7')
   expect(merge).toContain('delete-merged: true')
-  // Otherwise the unverified build is deleted.
-  const discard = step(publish, 'name: Delete the unverified build')
-  expect(discard).toContain(`if: \${{ !(${passed}) }}`)
-  expect(discard).toContain('select(.name | startswith("windows-build-unverified-"))')
-  expect(discard).toContain('gh api -X DELETE')
+  // A failed run's build is never published and expires in a day, so re-running only
+  // the failed jobs can still publish it.
+  expect(publish).not.toContain('gh api -X DELETE')
 })
 
 test('each Linux job writes its own summary, however its check ended', () => {

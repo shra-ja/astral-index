@@ -28,7 +28,7 @@ runs:
       shell: bash
       run: |
         toolchain=$(awk '$1 == "rust" { print $2 }' .tool-versions)
-        rustup toolchain install "$toolchain" --profile minimal
+        rustup toolchain install "$toolchain" --profile minimal --component clippy
         rustup default "$toolchain"
     - name: Restore Rust dependencies and installed tools
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2

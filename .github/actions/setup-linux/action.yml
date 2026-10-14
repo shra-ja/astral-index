@@ -16,11 +16,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Linux native dependencies
+    - name: Install the native libraries
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3
+        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+    - name: Install the native test tools
+      if: inputs.native-tests == 'true'
+      shell: bash
+      run: sudo apt-get install -y xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3
     - name: Allow network namespaces for the CI test sandbox
       if: inputs.native-tests == 'true'
       shell: bash
