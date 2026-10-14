@@ -60,6 +60,12 @@ export function viteConfig(env: NodeJS.ProcessEnv, mode: string, envDir = ROOT):
     // to the repository's `coverage/`, beside the backend's, for the root gates.
     test: {
       environment: 'jsdom',
+      // In GitHub Actions, annotate failures but write no job summary: CI writes one
+      // per job, which the probes' expected failures cannot reach.
+      reporters:
+        env.GITHUB_ACTIONS === 'true'
+          ? ['default', ['github-actions', { jobSummary: { enabled: false } }]]
+          : ['default'],
       include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
       setupFiles: ['tests/setup.ts'],
       coverage: {

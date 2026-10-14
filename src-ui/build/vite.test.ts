@@ -58,6 +58,7 @@ test('builds target each platform webview, with source maps only for debug build
 test('frontend tests run in jsdom on a clock that never runs backwards, with 100% per-file coverage reported to the repository', () => {
   expect(viteConfig({}, 'production').test).toEqual({
     environment: 'jsdom',
+    reporters: ['default'],
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'build/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
     coverage: {
@@ -100,4 +101,13 @@ test('a toggle other than true or false fails the build', () => {
   } finally {
     rmSync(envDir, { recursive: true })
   }
+})
+
+test('in GitHub Actions, failures are annotated but no job summary is written', () => {
+  // Every Vitest run would add an untitled summary, the probes' expected failures too;
+  // CI writes one summary per job instead.
+  expect(viteConfig({ GITHUB_ACTIONS: 'true' }, 'production').test?.reporters).toEqual([
+    'default',
+    ['github-actions', { jobSummary: { enabled: false } }],
+  ])
 })

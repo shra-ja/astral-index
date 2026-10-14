@@ -18,3 +18,22 @@ test('tooling coverage is 100% per file, excluding tests', () => {
     thresholds: { perFile: true, 100: true },
   })
 })
+
+test('outside GitHub Actions, tests report to the terminal alone', () => {
+  expect(vitestConfig({}).test?.reporters).toEqual(['default'])
+  // The delegate passes the process environment.
+  expect(vitestConfig().test?.reporters).toEqual(
+    process.env.GITHUB_ACTIONS === 'true'
+      ? ['default', ['github-actions', { jobSummary: { enabled: false } }]]
+      : ['default'],
+  )
+})
+
+test('in GitHub Actions, failures are annotated but no job summary is written', () => {
+  // Every Vitest run would add an untitled summary, the probes' expected failures too;
+  // CI writes one summary per job instead.
+  expect(vitestConfig({ GITHUB_ACTIONS: 'true' }).test?.reporters).toEqual([
+    'default',
+    ['github-actions', { jobSummary: { enabled: false } }],
+  ])
+})
