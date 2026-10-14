@@ -200,7 +200,7 @@ test('a Windows build is published only once every check has passed', () => {
   expect(workflow.match(/actions: write/g)).toHaveLength(1)
   const passed =
     "!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped')"
-  // After every check passes, it is republished under its lasting name for 30 days.
+  // After every check passes, it is republished under its lasting name for 7 days.
   const merge = step(publish, 'uses: actions/upload-artifact/merge@')
   expect(merge).toContain(`if: \${{ ${passed} }}`)
   expect(merge).toContain(
@@ -209,7 +209,7 @@ test('a Windows build is published only once every check has passed', () => {
   expect(merge).toContain(
     'pattern: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
   )
-  expect(merge).toContain('retention-days: 30')
+  expect(merge).toContain('retention-days: 7')
   expect(merge).toContain('delete-merged: true')
   // Otherwise the unverified build is deleted.
   const discard = step(publish, 'name: Delete the unverified build')

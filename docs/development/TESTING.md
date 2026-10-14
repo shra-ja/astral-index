@@ -224,7 +224,7 @@ Linux-only. The release build runs in parallel with the checks, so an
 executable exists only once every check has passed: the build waits as
 `windows-build-unverified-<commit>`, and the publish job, the only one allowed
 to delete artifacts, republishes it as `astral-index-dev-build-unsigned-<commit>`
-for 30 days when all five jobs pass, or deletes it when any fails or the run is
+for 7 days when all five jobs pass, or deletes it when any fails or the run is
 cancelled. While a run is in progress, the unverified build can briefly be
 downloaded under that name. Only this repository's builds are kept, not those
 of fork pull requests. The published build is a development build, unsigned and
