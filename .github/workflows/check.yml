@@ -151,12 +151,41 @@ jobs:
       - name: Build the release executable
         run: npm run tauri -- build --no-bundle
       # Builds of pull requests from forks hold someone else's code, so only this
-      # repository's own builds are kept, named so none passes for a release.
-      - name: Save the unsigned development build
+      # repository's own builds are kept. Each waits under an unverified name until
+      # every check has passed.
+      - name: Keep the build until every check passes
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}
+          name: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}
           path: src-tauri/target/release/astral-index.exe
-          retention-days: 30
+          retention-days: 1
           if-no-files-found: error
+
+  publish:
+    name: Publish the Windows build
+    needs: [static, gates, probes, windows-tests, windows-release]
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Deleting the unverified build needs write access to the run's artifacts.
+    permissions:
+      actions: write
+    steps:
+      - name: Publish the build that passed every check
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped') }}
+        uses: actions/upload-artifact/merge@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # Named so it can't pass for a release: a development build, unsigned.
+          name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}
+          pattern: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}
+          retention-days: 30
+          delete-merged: true
+      - name: Delete the unverified build of a run that did not pass
+        if: ${{ !(!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped')) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name | startswith("windows-build-unverified-")) | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"; done

@@ -180,17 +180,42 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
   expect(workflow.split('npm run tauri -- build --no-bundle')).toHaveLength(2)
 })
 
-test('only this repository’s Windows builds are kept, for 30 days, named as unsigned builds', () => {
-  const upload = step(job('windows-release'), 'uses: actions/upload-artifact@')
-  expect(upload).toContain(
-    "if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+test('a Windows build is published only once every check has passed', () => {
+  const fromThisRepository =
+    "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
+  // Built in parallel with the checks, the executable waits under an unverified name.
+  const build = step(job('windows-release'), 'uses: actions/upload-artifact@')
+  expect(build).toContain(`if: ${fromThisRepository}`)
+  expect(build).toContain(
+    'name: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
   )
-  expect(upload).toContain(
+  expect(build).toContain('path: src-tauri/target/release/astral-index.exe')
+  expect(build).toContain('retention-days: 1')
+  expect(build).toContain('if-no-files-found: error')
+  const publish = job('publish')
+  expect(publish).toContain('needs: [static, gates, probes, windows-tests, windows-release]')
+  expect(publish).toContain(`if: always() && (${fromThisRepository})`)
+  // Only this job may delete artifacts; the workflow grants read access alone.
+  expect(publish).toContain('permissions:\n      actions: write')
+  expect(workflow.match(/actions: write/g)).toHaveLength(1)
+  const passed =
+    "!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped')"
+  // After every check passes, it is republished under its lasting name for 30 days.
+  const merge = step(publish, 'uses: actions/upload-artifact/merge@')
+  expect(merge).toContain(`if: \${{ ${passed} }}`)
+  expect(merge).toContain(
     'name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}',
   )
-  expect(upload).toContain('path: src-tauri/target/release/astral-index.exe')
-  expect(upload).toContain('retention-days: 30')
-  expect(upload).toContain('if-no-files-found: error')
+  expect(merge).toContain(
+    'pattern: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
+  )
+  expect(merge).toContain('retention-days: 30')
+  expect(merge).toContain('delete-merged: true')
+  // Otherwise the unverified build is deleted.
+  const discard = step(publish, 'name: Delete the unverified build')
+  expect(discard).toContain(`if: \${{ !(${passed}) }}`)
+  expect(discard).toContain('select(.name | startswith("windows-build-unverified-"))')
+  expect(discard).toContain('gh api -X DELETE')
 })
 
 test('each Linux job writes its own summary, however its check ended', () => {
