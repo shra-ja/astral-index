@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -19,10 +19,15 @@ vi.mock('node:fs', () => {
   return { ...api, default: api }
 })
 beforeEach(() => {
+  // The gates' report paths, even when the mutation probes run these tests.
+  vi.stubEnv('ASTRAL_INDEX_PROBE_RUN', '')
   vi.resetAllMocks()
   vi.mocked(execFileSync).mockReturnValue(
     "export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS='existing'\nexport LLVM_PROFILE_FILE='profiles/%p.profraw'\n",
   )
+})
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 test('backend stages retain the process environment and enable branch instrumentation', () => {
@@ -135,4 +140,20 @@ test('failed unit execution cannot leave a previous unit report in place', () =>
   expect(vi.mocked(rmSync).mock.invocationCallOrder[0]).toBeLessThan(
     vi.mocked(execFileSync).mock.invocationCallOrder[testCall],
   )
+})
+
+test('during the mutation probes, unit evidence goes to the probe run’s folder', () => {
+  vi.stubEnv('ASTRAL_INDEX_PROBE_RUN', '1')
+  try {
+    backendUnitCoverage(false)
+    expect(rmSync).toHaveBeenCalledWith('test-results/probe-run/coverage/backend-unit', {
+      recursive: true,
+      force: true,
+    })
+    expect(mkdirSync).toHaveBeenCalledWith('test-results/probe-run/coverage/backend-unit', {
+      recursive: true,
+    })
+  } finally {
+    vi.unstubAllEnvs()
+  }
 })

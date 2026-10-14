@@ -111,3 +111,10 @@ test('in GitHub Actions, failures are annotated but no job summary is written', 
     ['github-actions', { jobSummary: { enabled: false } }],
   ])
 })
+
+test('during the mutation probes, frontend coverage goes to the probe run’s folder', () => {
+  // As tooling/outputs.ts places it, which this separate project cannot import.
+  expect(
+    viteConfig({ ASTRAL_INDEX_PROBE_RUN: '1' }, 'production').test?.coverage?.reportsDirectory,
+  ).toBe('../test-results/probe-run/coverage/frontend')
+})

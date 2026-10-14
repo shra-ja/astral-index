@@ -1,5 +1,13 @@
-import { expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { isCheckJob, jobSummary } from './job-summary'
+
+// The gates' report paths, even when the mutation probes run these tests.
+beforeEach(() => {
+  vi.stubEnv('ASTRAL_INDEX_PROBE_RUN', '')
+})
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 const istanbul = (covered: number, total: number) =>
   JSON.stringify({

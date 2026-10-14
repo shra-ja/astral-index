@@ -70,7 +70,12 @@ export function viteConfig(env: NodeJS.ProcessEnv, mode: string, envDir = ROOT):
       setupFiles: ['tests/setup.ts'],
       coverage: {
         provider: 'v8',
-        reportsDirectory: '../coverage/frontend',
+        // During the mutation probes, reports go to the probe run's own folder, as
+        // tooling/outputs.ts places them.
+        reportsDirectory:
+          env.ASTRAL_INDEX_PROBE_RUN === '1'
+            ? '../test-results/probe-run/coverage/frontend'
+            : '../coverage/frontend',
         include: ['src/**/*.{ts,vue}', 'build/**/*.ts'],
         exclude: ['**/*.test.ts', 'tests/**', '**/*.d.ts'],
         reporter: ['text', 'json', 'json-summary'],

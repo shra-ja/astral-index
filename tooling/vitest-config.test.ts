@@ -2,14 +2,14 @@ import { expect, test } from 'vitest'
 import { vitestConfig } from './vitest-config'
 
 test('repository tooling and gate tests run in Node; the frontend runs its own tests', () => {
-  expect(vitestConfig().test?.projects).toEqual([
+  expect(vitestConfig({}).test?.projects).toEqual([
     { test: { name: 'tooling', environment: 'node', include: ['tooling/**/*.test.ts'] } },
     { test: { name: 'gates', environment: 'node', include: ['tests/**/*.test.ts'] } },
   ])
 })
 
 test('tooling coverage is 100% per file, excluding tests', () => {
-  expect(vitestConfig().test?.coverage).toEqual({
+  expect(vitestConfig({}).test?.coverage).toEqual({
     provider: 'v8',
     reportsDirectory: 'coverage/tooling',
     include: ['tooling/**/*.ts'],
@@ -36,4 +36,10 @@ test('in GitHub Actions, failures are annotated but no job summary is written', 
     'default',
     ['github-actions', { jobSummary: { enabled: false } }],
   ])
+})
+
+test('during the mutation probes, tooling coverage goes to the probe run’s folder', () => {
+  expect(vitestConfig({ ASTRAL_INDEX_PROBE_RUN: '1' }).test?.coverage?.reportsDirectory).toBe(
+    'test-results/probe-run/coverage/tooling',
+  )
 })

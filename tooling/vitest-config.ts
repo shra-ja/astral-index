@@ -1,6 +1,7 @@
 // The repository's test configuration, kept here so it is unit-tested: Vitest never
 // measures `vitest.config.ts` itself, which only delegates to this module.
 import type { ViteUserConfig } from 'vitest/config'
+import { outputs } from './outputs'
 
 /**
  * Repository tooling, whose unit tests sit beside it in `tooling/`, and the
@@ -23,7 +24,7 @@ export function vitestConfig(env: NodeJS.ProcessEnv = process.env): ViteUserConf
       ],
       coverage: {
         provider: 'v8',
-        reportsDirectory: 'coverage/tooling',
+        reportsDirectory: `${outputs(env).coverage}/tooling`,
         include: ['tooling/**/*.ts'],
         exclude: ['**/*.test.ts', '**/*.d.ts'],
         reporter: ['text', 'json', 'json-summary'],

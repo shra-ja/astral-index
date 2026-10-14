@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { outputs } from './outputs'
 
 /** Each process reconstructs the same instrumentation environment without running tests. */
 export function backendEnvironment(): NodeJS.ProcessEnv {
@@ -63,8 +64,9 @@ export function backendReport(directory: string, html: boolean): void {
 
 /** Freeze unit evidence before integration execution. */
 export function backendUnitCoverage(html: boolean): void {
-  rmSync('coverage/backend-unit', { recursive: true, force: true })
+  const directory = `${outputs().coverage}/backend-unit`
+  rmSync(directory, { recursive: true, force: true })
   resetBackendCoverage()
   backendCargo(['test', '--lib', '--locked', '--offline'])
-  backendReport('coverage/backend-unit', html)
+  backendReport(directory, html)
 }

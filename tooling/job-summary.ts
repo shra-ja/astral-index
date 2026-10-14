@@ -2,6 +2,7 @@
 // for the gates, each coverage report's totals. Vitest writes none of its own, so
 // the probes' deliberate failures never reach it.
 import type { LlvmCoverageExport } from './coverage'
+import { outputs } from './outputs'
 
 const jobs = {
   static: {
@@ -32,10 +33,10 @@ const outcomes: Record<string, string> = { success: 'passed', failure: 'failed' 
 
 /** The reports the gates write, as Istanbul summaries or LLVM exports. */
 const reports = [
-  ['Frontend', 'coverage/frontend/coverage-summary.json'],
-  ['Tooling', 'coverage/tooling/coverage-summary.json'],
-  ['Rust, unit tests', 'coverage/backend-unit/coverage.json'],
-  ['Rust, all tests', 'coverage/backend/coverage.json'],
+  ['Frontend', 'frontend/coverage-summary.json'],
+  ['Tooling', 'tooling/coverage-summary.json'],
+  ['Rust, unit tests', 'backend-unit/coverage.json'],
+  ['Rust, all tests', 'backend/coverage.json'],
 ] as const
 
 type Count = { covered: number; total: number }
@@ -68,7 +69,7 @@ function totals(json: string): Count[] {
 
 function coverageTable(read: (path: string) => string | undefined) {
   const rows = reports.map(([name, path]) => {
-    const json = read(path)
+    const json = read(`${outputs().coverage}/${path}`)
     const cells = json === undefined ? ['Not produced', '', '', ''] : totals(json).map(percent)
     // Empty cells close up to a single space, as Markdown tables write them.
     return `| ${[name, ...cells].join(' | ')} |`.replaceAll('  ', ' ')
