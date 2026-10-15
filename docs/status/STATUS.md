@@ -31,17 +31,16 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons and app version.
+  On Windows, CI runs the Rust unit tests and smoke-tests the release
+  executable: its window and icon, its data folders, portable mode and a clean
+  exit (decision 0029).
 
 ## In progress
 
-### Windows smoke test (2026-10-15)
-
-`test/windows-e2e`: 0038's manual checklist replaced by a Windows smoke test of the release executable and a one-off live sign-off ([decision 0029](../architecture/decisions/0029-automated-release-verification.md)); a WebDriver suite on Windows was dropped, as WebView2 ignores the debugging flag from the environment. Red, then green on CI: a console subsystem and a renamed portable folder each failed it; local check passes (static 15 s, gates 237 s, probes 160 s).
-
 ## Known limitations
 
-- The Rust unit tests run on Windows in CI, but the app itself has not been
-  checked on Windows since PR #37, which last tried live retrieval there.
+- The UI is tested end to end only on Linux, under WebKitGTK; Windows CI checks
+  the native side alone. Live retrieval was last tried on Windows with PR #37.
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
   banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
   colours use observed rather than published soft pity (decision 0020).
@@ -146,3 +145,5 @@ research, under a "From" heading.
   the frontend test clock, the retrieval disclosure and the release checks.
 - [2026-10-14: Windows CI](history/2026-10-14-windows-ci.md): the Windows job
   and the CI pipeline's parallel jobs.
+- [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
+  decision 0029 and the release executable's smoke test.
