@@ -264,7 +264,8 @@ steps in [DEVELOPMENT](DEVELOPMENT.md#releasing)). It refuses unless it runs
 from `main` and the latest run of each of the five checks above passed on that
 commit, works out the version and notes with `npm run release:prepare`, builds
 the executable on Windows as a release and smoke-tests it, and creates a draft
-release with it attached. Only that last job can write to the repository, and
+release with it attached, unless a release or draft for that tag already
+exists. Only that last job can write to the repository, and
 its inputs reach scripts only through environment variables;
 `tooling/ci.test.ts` checks all of this, including that its list of checks
 matches the check workflow's jobs.

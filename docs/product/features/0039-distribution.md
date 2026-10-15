@@ -22,12 +22,11 @@ One PR each, test first.
     jobs, carry neither, so the tests see a local build; only the Windows
     release job names its build.
 - [x] **Release workflow.** Started by hand or `gh workflow run`: a tested
-  script works out the next version from the Conventional Commits since the
-  last tag, unless one is given; the workflow refuses unless `main` passed
-  every check, builds the release executable, tags it and creates a draft
-  release with the executable and generated notes (breaking changes, features
-  and fixes from the merged pull requests' titles, the requirements and the
-  full changelog link) below an optional summary.
+  script works out the next version from the merged pull requests' titles
+  since the last tag, unless one is given; the workflow refuses unless `main`
+  passed every check, builds and smoke-tests the release executable, and
+  creates a draft release with it and the notes: generated from the titles, or
+  given by hand, in the same template. Publishing the draft creates the tag.
   - The notes' template was settled with the user from three rounds of drafts:
     the title is the tag, the body opens with "Astral Index" and the tag linked
     to the comparison, then Breaking changes, Features and Fixes (other types
@@ -38,6 +37,17 @@ One PR each, test first.
   - The checks step was tried read-only against `main`: all five passed, and
     an unknown name came back as missing. A preview against real history, with
     a temporary local tag, matched the agreed draft.
+  - A read-only reviewer agent found no blockers. Fixed from its review: the
+    guide claimed a `BREAKING CHANGE` footer counts (only a `!` in the title
+    reaches the merge commit); a second run for the same version would have
+    made a second draft, so the drafting job now refuses one; a tag such as
+    `v1.0.0-rc1` would have been read as the last release, so `git describe`
+    skips tags that are not plain versions and the tooling refuses any that
+    get through; the checks gate now counts only GitHub Actions' runs; the
+    guide's preview now updates `main` and its tags first; and the CI test pins
+    the checkouts' credentials, the artifacts' paths and the gate's exit. Rebase
+    merges, which carry no pull request number, would have been left out, so
+    the user turned off rebase merging; squash merges stay allowed.
 - [ ] **Release docs.** The README's download section: Windows 10 or 11 x64
   with WebView2, checking the download against the digest GitHub shows, the
   SmartScreen and antivirus warnings an unsigned executable meets, running it

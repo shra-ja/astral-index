@@ -74,6 +74,10 @@ spends no money.
 - **Signing:** Azure Artifact Signing serves individual developers only in the
   United States and Canada, and a certificate authority's certificate costs
   money every year.
+- The notes and the version come from merge commits, which carry each pull
+  request's title, and from squash merges, which end with its number. Rebase
+  merges carry neither, so the repository no longer allows them (2026-10-15,
+  with the user's approval).
 - The version is not in the source: the tags and the Releases page say what
   was released. CI must fetch tags to know the last version. Local builds
   carry no version.

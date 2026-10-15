@@ -202,10 +202,15 @@ are outward-facing.
 
 1. **Check `main`.** The workflow refuses unless every check passed on `main`'s
    latest commit.
-2. **Preview.** `npm run release:prepare` prints the next version and the notes
-   the workflow would write, from the pull requests merged since the last tag.
-   The version follows semantic versioning: a breaking change (`!` or
-   `BREAKING CHANGE`) is major, a feature minor, anything else a patch.
+2. **Preview.** Bring `main` and its tags up to date
+   (`git switch main && git pull --tags`), then `npm run release:prepare`
+   prints the next version and the notes the workflow would write, from the
+   pull requests merged since the last tag, and writes the notes to
+   `test-results/release/notes.md`. The version follows semantic versioning,
+   from each pull request's title: a breaking change (`!` after the type, as in
+   `feat!:`) is major, a feature minor, anything else a patch. For the first
+   release, which needs notes, give them as it will:
+   `RELEASE_NOTES="$(cat notes.md)" npm run release:prepare`.
 3. **Optionally, write the notes.** To describe the release for users, write
    Markdown that replaces the generated sections: one or two sentences
    summarising the release, then `### Breaking changes`, `### Features` and
@@ -218,6 +223,10 @@ are outward-facing.
    the version and `-f notes="$(cat notes.md)"` to give the notes, or the "Run
    workflow" button on the Actions page.
 5. **Review the draft.** The release appears as a draft titled with its tag,
-   with `Astral-Index-v1.2.0.exe` attached. Edit its notes there, or with
-   `gh release edit v1.2.0 --notes-file notes.md`.
+   with `Astral-Index-v1.2.0.exe` attached. Generated entries are pull request
+   titles as written, so check them for anything that should not be published,
+   such as an `@mention`. Edit the notes there, or with
+   `gh release edit v1.2.0 --notes-file notes.md`. Starting the workflow again
+   for the same version is refused while its draft exists: publish or delete
+   the draft first.
 6. **Publish** the draft, which creates the tag.
