@@ -1,8 +1,8 @@
 # 0052 — Windows polish
 
-Status: Planned · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 
-Fix three problems the user saw in the first-release sign-off on Windows
+Fix problems the user saw in the first-release sign-off on Windows
 ([0038](0038-release-verification.md)), where WebView2 shows classic scrollbars
 and the user reads the About dialog at full size.
 
@@ -10,14 +10,31 @@ and the user reads the About dialog at full size.
 
 One PR, test first.
 
-- [ ] **Dismiss About from outside.** A press on the backdrop outside the About
+- [x] **Dismiss About from outside.** A press on the backdrop outside the About
   dialog closes it, as Close and Esc do, returning focus to the About button.
   Presses inside the dialog, its licence and notices views included, keep it
   open.
-- [ ] **Reflow the licence text.** The About dialog's licence view joins the
+  - A press counts only when it starts and ends outside, so a drag from inside,
+    such as selecting text, keeps the dialog open. Natively, the backdrop's
+    presses reach the dialog element itself, outside its box.
+  - The dialog now closes natively for Close and a backdrop press, as for Esc:
+    while it is modal, the About button is inert, so the app's own focus call
+    did nothing and Close left focus on the page body, a bug the end-to-end
+    test now catches.
+- [x] **Reflow the licence text.** The About dialog's licence view joins the
   lines within each paragraph of `LICENSE`, so the text wraps to the dialog's
   width; the file and its words stay unchanged. The third-party notices stay
   exactly as generated.
-- [ ] **Stable scrollbar gutter on History.** The History screen's scroll region
+- [x] **Stable scrollbar gutter on History.** The History screen's scroll region
   keeps room for its scrollbar whether or not the current tab or layout needs
   one, so the content no longer shifts sideways when switching between them.
+  - WebKitGTK's scrollbars overlay the content and take no room, even with
+    `GTK_OVERLAY_SCROLLING=0`, so Linux cannot show the shift; the end-to-end
+    test checks that the screen computes `scrollbar-gutter: stable` instead.
+- [x] **Scrollbars in the app's colours.** Every scrolling area shows a thin
+  scrollbar: a `--text-faint` thumb, at least 3:1 against every background, on
+  a transparent track, rather than Chromium's default dark scrollbar at full
+  width.
+  - Added after the user asked whether the scrollbar matched the app; they
+    chose the thin bar, which also narrows the room the stable gutter keeps.
+    WebKitGTK computes the style but keeps its overlay scrollbars.
