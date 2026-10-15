@@ -1,6 +1,8 @@
 [package]
 name = "astral-index"
-version = "0.1.0"
+# A placeholder the Tauri CLI requires: builds receive the version from the release
+# tags (decision 0030).
+version = "0.0.0"
 edition = "2024"
 license = "MIT"
 # An app, not a library: never published, so the third-party notices leave it out.

@@ -1,6 +1,10 @@
-// The app's version is written in four manifests, and the native side reports one
-// of them to the About dialog, so they must agree. Pure functions over file
-// contents; the gate in `tests/versions.test.ts` reads the files.
+// No manifest declares the app's version: builds receive it from the release tags
+// (decision 0030), so a version written into a manifest would only go stale. The
+// Tauri CLI requires a Cargo version, so `0.0.0` stands in as a placeholder. Pure
+// functions over file contents; the gate in `tests/versions.test.ts` reads the files.
+
+/** The only version a manifest may declare. */
+const PLACEHOLDER = '0.0.0'
 
 /** The version in a Cargo manifest's `[package]` section, the lines up to the next section. */
 function packageVersion(toml: string): string | undefined {
@@ -20,14 +24,14 @@ export function declaredVersion(path: string, text: string): string | undefined 
   return typeof version === 'string' ? version : undefined
 }
 
-/** Problems with the versions `files` declare: a missing one, or any disagreement. */
+/** Problems with the versions `files` declare: any but the placeholder. */
 export function versionProblems(files: ReadonlyMap<string, string>): string[] {
-  const declared = [...files].map(([path, text]) => [path, declaredVersion(path, text)] as const)
-  const missing = declared
-    .filter(([, version]) => version === undefined)
-    .map(([path]) => `${path} declares no version`)
-  const found = declared.filter(([, version]) => version !== undefined)
-  const differ = new Set(found.map(([, version]) => version)).size > 1
-  const listed = found.map(([path, version]) => `${path} ${version}`).join(', ')
-  return differ ? [...missing, `versions differ: ${listed}`] : missing
+  return [...files].flatMap(([path, text]) => {
+    const version = declaredVersion(path, text)
+    return version === undefined || version === PLACEHOLDER
+      ? []
+      : [
+          `${path} declares version ${version}, not the ${PLACEHOLDER} placeholder; release tags carry the version (decision 0030)`,
+        ]
+  })
 }

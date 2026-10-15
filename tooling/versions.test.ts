@@ -30,22 +30,23 @@ test('a manifest without a package version declares none', () => {
   ).toBeUndefined()
 })
 
-test('agreeing versions pass', () => {
+test('manifests without a version, or with the 0.0.0 placeholder, pass: release tags carry it', () => {
   const files = new Map([
-    ['package.json', '{ "version": "0.1.0" }'],
-    ['src-tauri/Cargo.toml', cargo('0.1.0')],
+    ['package.json', '{ "name": "astral-index" }'],
+    // The Tauri CLI requires a Cargo version, so a placeholder stands in.
+    ['src-tauri/Cargo.toml', cargo('0.0.0')],
   ])
   expect(versionProblems(files)).toEqual([])
 })
 
-test('a missing or differing version is a problem naming the files', () => {
+test('a declared version is a problem naming the file and its version', () => {
   const files = new Map([
     ['package.json', '{ "version": "0.1.0" }'],
     ['src-ui/package.json', '{ "name": "ui" }'],
     ['src-tauri/Cargo.toml', cargo('0.2.0')],
   ])
   expect(versionProblems(files)).toEqual([
-    'src-ui/package.json declares no version',
-    'versions differ: package.json 0.1.0, src-tauri/Cargo.toml 0.2.0',
+    'package.json declares version 0.1.0, not the 0.0.0 placeholder; release tags carry the version (decision 0030)',
+    'src-tauri/Cargo.toml declares version 0.2.0, not the 0.0.0 placeholder; release tags carry the version (decision 0030)',
   ])
 })
