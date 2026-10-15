@@ -58,6 +58,15 @@ const tooltipFor = (app: AppSession, selector: string) =>
     };
   `)
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms))
+/** The scrollbar style of the element matching `selector`, as computed. */
+const scrollbarOf = (app: AppSession, selector: string) =>
+  app.execute<{ width: string; color: string }>(`
+    const style = getComputedStyle(document.querySelector(${JSON.stringify(selector)}));
+    return { width: style.scrollbarWidth, color: style.scrollbarColor };
+  `)
+// Every scrolling area's thin scrollbar: a --text-faint thumb, at least 3:1 against
+// every background, on a transparent track.
+const appScrollbar = { width: 'thin', color: 'rgb(95, 103, 115) rgba(0, 0, 0, 0)' }
 // The sidebar's brand lockup as drawn: sizes in CSS px, colours, and whether the
 // bundled wordmark loaded and still names the app.
 const lockup = (app: AppSession) =>
@@ -578,6 +587,7 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
       };
     `)
     expect(fit).toEqual({ inside: true, scrolls: true, wide: true })
+    expect(await scrollbarOf(app, 'dialog .body')).toEqual(appScrollbar)
     await app.screenshot('e2e-about-small')
     // A real press inside the dialog keeps it open; one on the backdrop, outside it,
     // closes it and returns focus to the About button, as Esc does.
@@ -960,6 +970,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         `return getComputedStyle(document.querySelector('main > .body')).scrollbarGutter`,
       ),
     ).toBe('stable')
+    expect(await scrollbarOf(app, 'main > .body')).toEqual(appScrollbar)
     await scrollScreen(300)
     await expect
       .poll(scrolling, { timeout: 5000 })

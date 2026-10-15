@@ -40,9 +40,16 @@
   background: var(--window);
   font-synthesis: none;
   color-scheme: dark;
+  /* Scrollbars in the app's colours, inherited by every scrolling area: a thumb at
+     least 3:1 against every background, on a transparent track. WebView2 draws them on
+     Windows; WebKitGTK keeps its overlay scrollbars. */
+  scrollbar-color: var(--text-faint) transparent;
 }
 * {
   box-sizing: border-box;
+  /* Not inherited, so set on every element: a thin bar, which also narrows the room a
+     stable scrollbar gutter keeps. */
+  scrollbar-width: thin;
 }
 /* Styles that set display must not reveal what the hidden attribute hides. */
 [hidden] {
