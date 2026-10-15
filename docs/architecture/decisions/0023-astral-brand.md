@@ -30,11 +30,21 @@ the live-text name, and the application icon becomes the emblem in its tile
   the tile, centred, in `#faf9f5`, a 0.6 H gap and the two centred vertically,
   with at least 0.7 H clear around it. The gap was 0.7 H until 2026-10-12,
   when the brand tightened it. The wordmark is never recoloured,
-  stretched or re-typed as text, and the emblem appears without its tile only
-  in the open lockup below.
-- **Collapsed sidebar:** the tile alone, at 32 px.
+  stretched or re-typed as text. Since 2026-10-15 the sidebar uses the open
+  lockup instead, below; the tile remains the application icon's.
+- **Collapsed sidebar:** the tile alone, at 32 px, until 2026-10-15; now the
+  emblem alone, below.
+- **Sidebar without the tile** (added 2026-10-15): the brand made the tile
+  optional at every size, and allows the emblem alone, so the sidebar shows the
+  open lockup at H 18 with the small set: the small emblem with its viewBox
+  cropped to the artwork (`40.76 66.68 189.39 129.72`), 1.338 H high in
+  `#faf9f5`, 0.4 H from the small wordmark, the two centred vertically.
+  Collapsed, the emblem stands alone at the same size, about 35 px wide, so it
+  keeps its size as the sidebar narrows; the small emblem serves artwork up to
+  52 px wide. The user found the tile did not stand out enough, and chose this
+  after a preview of both.
 - **About dialog** (added 2026-10-12): the brand's open lockup, for large
-  sizes and the regular set only. The regular emblem, without its tile and
+  sizes and the regular set. The regular emblem, without its tile and
   with its viewBox cropped to the artwork (`41.82 70.88 187.28 124.47`), is
   1.284 H high in `#faf9f5`, 0.4 H from the regular dark-background wordmark,
   `astral-index-wordmark.svg`, the two centred vertically. H is 40 px, the
@@ -42,8 +52,9 @@ the live-text name, and the application icon becomes the emblem in its tile
   below 26 px, where the regular set ends. `OpenLockup` draws the emblem's
   paths, and a unit test checks they match the file.
 - **Drawing the emblem:** it is inlined so it takes `currentColor`. Lint forbids
-  `v-html`, so `AstralTile` draws the supplied file's paths, without its title
-  and description, and a unit test checks they match the file exactly.
+  `v-html`, so `AstralEmblem` (`AstralTile` until 2026-10-15) draws the supplied
+  small file's paths, without its title and description, and a unit test checks
+  they match the file exactly.
 - **Drawing the wordmark:** an `<img>` of the supplied file, the usual way to
   show a logo whose colours are fixed: the file stays as supplied, the browser
   caches it, and its gradient's `id` stays out of the page.
@@ -54,11 +65,17 @@ the live-text name, and the application icon becomes the emblem in its tile
   icon command renders one source at a time, so `tooling/app-icons.ts` builds
   both tiles from the brand files, renders them, assembles the `.ico` and writes
   the PNGs the `.deb` installs and the Linux window uses. `npm run icons:check`
-  fails when the committed icons stop matching the brand files.
+  fails when the committed icons stop matching the brand files. The icon keeps
+  its tile after the sidebar dropped it (2026-10-15): an `.ico` holds one image
+  per size, and a standalone executable has no theme-specific icons, so the bare
+  emblem would vanish in one of Windows' themes, `#faf9f5` on light taskbars
+  and `#202735` on dark ones. A round tile was previewed and declined: the
+  brand fixes the corner radius at 21%, and a circle covers less of the
+  canvas.
 - **Accessibility:** the wordmark is an image with the alt text "Astral Index"
-  and the tile is decorative. In the collapsed sidebar the wordmark is hidden
+  and the emblem is decorative. In the collapsed sidebar the wordmark is hidden
   visually but kept for assistive technology, so the app has one name in every
-  layout rather than a second label on the tile.
+  layout rather than a second label on the emblem.
 
 ## Alternatives and consequences
 
@@ -71,4 +88,5 @@ the live-text name, and the application icon becomes the emblem in its tile
   regular wordmark's light strokes, but the small set's heavier strokes make
   that redundant, and it would need copied paths kept in step with the file.
 - A new emblem or wordmark replaces the files in `assets/brand/`; the
-  `AstralTile` test then fails until its paths are copied again.
+  `AstralEmblem` and `OpenLockup` tests then fail until their paths are copied
+  again.

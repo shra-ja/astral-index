@@ -38,3 +38,12 @@ One PR, test first.
   - Added after the user asked whether the scrollbar matched the app; they
     chose the thin bar, which also narrows the room the stable gutter keeps.
     WebKitGTK computes the style but keeps its overlay scrollbars.
+- [x] **The bare emblem in the sidebar.** The brand made the tile optional at
+  every size, so the sidebar shows the open lockup at H 18 and, collapsed, the
+  emblem alone at the same size, about 35 px wide
+  ([decision 0023](../../architecture/decisions/0023-astral-brand.md)). The
+  application icon keeps its tile.
+  - The user found the tile did not stand out enough. A preview showed the bare
+    emblem vanishing on light Windows themes as an application icon, which can
+    hold one colour only, and a round tile looking smaller, so both were
+    declined for the icon.

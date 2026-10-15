@@ -23,8 +23,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   switches between them. The Import screen shows the last import. Saved history
   is read from this device only. Themed tooltips name the collapsed sidebar's
   links and explain unavailable controls. The sidebar shows the Astral brand:
-  the emblem tile beside the wordmark, or the tile alone when collapsed; the
-  app's icon is the same tile. About shows the app's details and its notices.
+  the emblem beside the wordmark, or the emblem alone when collapsed; the
+  app's icon is the emblem in its tile. About shows the app's details and its notices.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -35,6 +35,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   executable (decision 0029).
 
 ## In progress
+
+### Sidebar emblem (2026-10-15)
+
+`feat/sidebar-emblem`, [0052](../product/features/0052-windows-polish.md): the sidebar shows the brand's open lockup and, collapsed, the emblem alone, without the tile; the app icon keeps its tile. Unit and native tests red, then green; local check passes (static 15 s, gates 242 s, probes 160 s).
 
 ## Known limitations
 
