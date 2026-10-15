@@ -27,3 +27,8 @@ Integrated through PR #117.
 
 Integrated through PR #118.
 `build/tag-version`, [0039](../../product/features/0039-distribution.md): releases are versioned from git tags, built and drafted by one workflow, and ship as the executable alone, unsigned for now ([decision 0030](../../architecture/decisions/0030-tag-versioned-releases.md)); this PR removes the manifests' versions (Cargo keeps a `0.0.0` placeholder the Tauri CLI requires) and shows each build's identity in About. Version check, Rust, frontend, end-to-end and CI tests red, then green; a release built with `TAURI_CONFIG` reported its version and commit; local check passes (static 15 s, gates 240 s, probes 169 s).
+
+## Release workflow (2026-10-15)
+
+Integrated through PR #119.
+`ci/release-workflow`, [0039](../../product/features/0039-distribution.md): a hand-started workflow works out the version and notes from the merged pull requests, refuses unless `main` passed every check, builds and smoke-tests the release executable and drafts the release; the notes' template was settled from drafts. Tooling and CI tests red, then green; local check passes (static 14 s, gates 234 s, probes 166 s).

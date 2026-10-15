@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release workflow (2026-10-15)
+### Launch background (2026-10-15)
 
-`ci/release-workflow`, [0039](../product/features/0039-distribution.md): a hand-started workflow works out the version and notes from the merged pull requests, refuses unless `main` passed every check, builds and smoke-tests the release executable and drafts the release; the notes' template was settled from drafts. Tooling and CI tests red, then green; local check passes (static 14 s, gates 234 s, probes 166 s).
+`fix/launch-background`, [0052](../product/features/0052-windows-polish.md): the window and webview start in the sidebar's `#0b0d11` rather than white. No test can observe it (Tauri's mock runtime discards the colour; WebKitGTK paints the page's canvas over it), so a unit test checks it stays `main.css`'s `--sidebar` (red on drift, then green); the user chose it over the window colour after trying both on Windows. Local check passes (static 15 s, gates 234 s, probes 160 s).
 
 ## Known limitations
 
@@ -57,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: the white flash on launch (0052), 0039's shared Windows build and release docs, then 1.0.0.
+Next: 0039's shared Windows build, then the release docs, then 1.0.0.
 
 ## Keeping this file current
 
@@ -154,4 +154,4 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags.
+  the version from tags and the release workflow.

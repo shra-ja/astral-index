@@ -47,3 +47,12 @@ One PR, test first.
     emblem vanishing on light Windows themes as an application icon, which can
     hold one colour only, and a round tile looking smaller, so both were
     declined for the icon.
+- [x] **No white flash on launch.** The window and its webview start in the
+  sidebar's colour, `#0b0d11`, the app's darkest, so the moment before the
+  first screen paints is dark rather than WebView2's default white.
+  - No automated test can see that background: Tauri's mock runtime discards
+    it, and WebKitGTK paints the page's own canvas over it (an end-to-end check
+    read white with and without the fix). A unit test fails instead if the
+    colour drifts from `main.css`'s `--sidebar`. The user checked builds in the
+    window colour, `#101318`, and the sidebar's on Windows, and chose the
+    darker sidebar colour.
