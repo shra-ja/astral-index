@@ -1,6 +1,6 @@
 # 0052 — Windows polish
 
-Status: Done · Milestone 10, Release readiness
+Status: In progress · Milestone 10, Release readiness
 
 Fix problems the user saw in the first-release sign-off on Windows
 ([0038](0038-release-verification.md)), where WebView2 shows classic scrollbars
@@ -47,3 +47,6 @@ One PR, test first.
     emblem vanishing on light Windows themes as an application icon, which can
     hold one colour only, and a round tile looking smaller, so both were
     declined for the icon.
+- [ ] **No white flash on launch.** The window and its webview start in the
+  sidebar's colour, `#0b0d11`, the app's darkest, so the moment before the
+  first screen paints is dark rather than WebView2's default white.
