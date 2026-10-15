@@ -23,8 +23,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   switches between them. The Import screen shows the last import. Saved history
   is read from this device only. Themed tooltips name the collapsed sidebar's
   links and explain unavailable controls. The sidebar shows the Astral brand:
-  the emblem tile beside the wordmark, or the tile alone when collapsed; the
-  app's icon is the same tile. About shows the app's details and its notices.
+  the emblem beside the wordmark, or the emblem alone when collapsed; the
+  app's icon is the emblem in its tile. About shows the app's details and its notices.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls.
@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Windows polish (2026-10-15)
+### Sidebar emblem (2026-10-15)
 
-`fix/windows-polish`, [0052](../product/features/0052-windows-polish.md): About closes from its backdrop and Close returns focus to the About button (it fell to the page body), the licence reflows into paragraphs, and History keeps a stable scrollbar gutter; every scrollbar is thin, in the app's colours. Unit and native tests red, then green; the gutter and scrollbars are checked by style, as WebKitGTK's scrollbars take no room; local check passes (static 14 s, gates 235 s, probes 159 s).
+`feat/sidebar-emblem`, [0052](../product/features/0052-windows-polish.md): the sidebar shows the brand's open lockup and, collapsed, the emblem alone, without the tile; the app icon keeps its tile. Unit and native tests red, then green; local check passes (static 15 s, gates 242 s, probes 160 s).
 
 ## Known limitations
 
@@ -153,4 +153,4 @@ research, under a "From" heading.
   and the CI pipeline's parallel jobs.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
-  sign-off and the STATUS budget.
+  sign-off, the STATUS budget and 0052's Windows polish.
