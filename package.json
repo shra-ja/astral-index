@@ -43,6 +43,7 @@
     "check:probes": "npm run build && npm run test:probes",
     "check:gates": "npm run build && npm run coverage && npm run test:offline && npm run coverage:verify",
     "ci:summary": "vitest run --project gates tests/job-summary.test.ts -t '^write the job summary$'",
+    "release:prepare": "vitest run --project gates tests/release.test.ts -t '^write the release$'",
     "tauri": "tauri",
     "tauri:mock": "tauri dev --features mock -- --bin astral-index-mock"
   },
