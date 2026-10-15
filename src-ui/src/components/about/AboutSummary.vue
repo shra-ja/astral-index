@@ -10,6 +10,15 @@ import OpenLockup from '../shared/OpenLockup.vue'
 
 defineProps<{ info: AppInfo | null; failed: Opening | null }>()
 const emit = defineEmits<{ reveal: []; issues: []; licence: []; notices: [] }>()
+
+// Which build this is, so a problem report can name it exactly (decision 0030). A
+// local build's version means nothing, so it is left out.
+function built({ version, build }: AppInfo) {
+  if (build.kind === 'local') return 'Local build'
+  return build.kind === 'dev'
+    ? `Version ${version} · dev build ${build.commit}`
+    : `Version ${version}`
+}
 </script>
 
 <template>
@@ -17,7 +26,7 @@ const emit = defineEmits<{ reveal: []; issues: []; licence: []; notices: [] }>()
     <div class="identity">
       <OpenLockup />
       <p class="version">
-        <template v-if="info">Version {{ info.version }} · </template>MIT License
+        <template v-if="info">{{ built(info) }} · </template>MIT License
       </p>
     </div>
 

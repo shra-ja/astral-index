@@ -254,7 +254,8 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       `const done = arguments[arguments.length - 1];
       window.__TAURI_INTERNALS__.invoke('app_info').then(done, (error) => done(String(error)))`,
     )
-    expect(info).toMatchObject({ version: '0.1.0', portable: false })
+    // Test builds carry no version or build identity (decision 0030).
+    expect(info).toMatchObject({ version: '0.0.0', build: { kind: 'local' }, portable: false })
     expect(info.folder).toMatch(/[/\\]astral-index$/)
     // Keyboard-operated automatic search fails safely here, then the real file input
     // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
@@ -445,7 +446,7 @@ test('the mock binary records what the About dialog opens, and reports a failed 
     const info = await app.executeAsync(`
       const done = arguments[arguments.length - 1];
       window.__TAURI_INTERNALS__.invoke('app_info').then(done, (error) => done(String(error)))`)
-    expect(info).toEqual({ version: '0.1.0', folder, portable: false })
+    expect(info).toEqual({ version: '0.0.0', build: { kind: 'local' }, folder, portable: false })
     expect(await call('reveal_data_folder')).toBe('resolved')
     expect(readFileSync(record, 'utf8')).toBe(`reveal ${resolve(folder, 'history.sqlite')}\n`)
     expect(await call('open_issues_page')).toBe('resolved')
@@ -481,7 +482,7 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
       .toContain('No Warp History Yet')
     await app.execute(`document.querySelector('nav button.about').focus()`)
     await app.press(ENTER)
-    await expect.poll(() => shown('dialog[open] .version')).toBe('Version 0.1.0 · MIT License')
+    await expect.poll(() => shown('dialog[open] .version')).toBe('Local build · MIT License')
     expect(await heading(app)).toBe('Warp History')
     expect(await shown('dialog .path')).toBe(folder)
     expect(await shown('dialog .mode')).toBe('App data folder')
@@ -570,7 +571,7 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     // In the smallest window the dialog fits, scrolling inside, with nothing cut off.
     await app.command('/window/rect', 'POST', { width: 480, height: 560 })
     await app.execute(`document.querySelector('nav button.about').click()`)
-    await expect.poll(() => shown('dialog[open] .version')).toContain('Version')
+    await expect.poll(() => shown('dialog[open] .version')).toContain('MIT License')
     const fit = await app.execute(`
       const box = document.querySelector('dialog').getBoundingClientRect();
       const body = document.querySelector('dialog .body');
@@ -614,7 +615,7 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     expect(await focused()).toBe('About')
     // Close, clicked, returns focus there too.
     await app.execute(`document.querySelector('nav button.about').click()`)
-    await expect.poll(() => shown('dialog[open] .version')).toContain('Version')
+    await expect.poll(() => shown('dialog[open] .version')).toContain('MIT License')
     const close = await app.execute<{ x: number; y: number }>(`
       const box = document.querySelector('dialog button.close').getBoundingClientRect();
       return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
