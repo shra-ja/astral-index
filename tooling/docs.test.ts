@@ -75,7 +75,7 @@ function input(overrides: Partial<DocsInput> = {}): DocsInput {
     tracked: new Set([...files.keys(), 'LICENSE']),
     entry: 'AGENTS.md',
     unreachable: ['README.md'],
-    status: { path: 'docs/STATUS.md', maxLines: 5 },
+    status: { path: 'docs/STATUS.md', maxLines: 5, uncounted: '## History' },
     ...overrides,
   }
 }
@@ -118,7 +118,27 @@ test('an allowlist entry ending in a slash exempts a whole folder, such as agent
 })
 
 test('STATUS over its line budget is reported', () => {
-  expect(checkDocs(input({ status: { path: 'docs/STATUS.md', maxLines: 2 } }))).toEqual([
-    'docs/STATUS.md has 3 lines, over its budget of 2; archive integrated sections',
+  expect(
+    checkDocs(input({ status: { path: 'docs/STATUS.md', maxLines: 2, uncounted: '## History' } })),
+  ).toEqual(['docs/STATUS.md has 3 lines, over its budget of 2; archive integrated sections'])
+})
+
+test('STATUS lines from its uncounted heading on are outside the budget', () => {
+  // The history index gains a line with every archive, as it should.
+  const files = new Map(input().files)
+  files.set('docs/STATUS.md', '# Status\n\nNow.\n\n## History\n\n- One\n- Two\n- Three\n')
+  const status = (maxLines: number) => ({
+    path: 'docs/STATUS.md',
+    maxLines,
+    uncounted: '## History',
+  })
+  expect(checkDocs(input({ files, status: status(4) }))).toEqual([])
+  expect(checkDocs(input({ files, status: status(3) }))).toEqual([
+    'docs/STATUS.md has 4 lines, over its budget of 3; archive integrated sections',
+  ])
+  // Only the heading itself starts the uncounted part, not a mention of it.
+  files.set('docs/STATUS.md', '# Status\n\nSee the ## History heading.\n\n## Historyless\n')
+  expect(checkDocs(input({ files, status: status(4) }))).toEqual([
+    'docs/STATUS.md has 5 lines, over its budget of 4; archive integrated sections',
   ])
 })

@@ -16,8 +16,11 @@ export interface DocsInput {
    * prefixes ending in `/`.
    */
   unreachable: readonly string[]
-  /** STATUS and its line budget. */
-  status: { path: string; maxLines: number }
+  /**
+   * STATUS and its line budget, which counts the lines before the `uncounted`
+   * heading: the history index, which grows with every archive, is left out.
+   */
+  status: { path: string; maxLines: number; uncounted: string }
 }
 
 const LINK = /!?\[[^\]]*\]\(([^)\s]+)\)/g
@@ -117,7 +120,9 @@ export function checkDocs(input: DocsInput): string[] {
     }
   }
 
-  const lines = files.get(status.path)!.trimEnd().split('\n').length
+  const all = files.get(status.path)!.trimEnd().split('\n')
+  const uncounted = all.indexOf(status.uncounted)
+  const lines = uncounted < 0 ? all.length : uncounted
   if (lines > status.maxLines) {
     problems.push(
       `${status.path} has ${lines} lines, over its budget of ${status.maxLines}; archive integrated sections`,

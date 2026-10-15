@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### First-release sign-off (2026-10-15)
 
-`docs/release-sign-off`: the user retrieved real history on Windows with the CI build of `702d678` (SHA-256 checked): new rolls saved, History browsed, a full retrieval all skipped as saved, About working; 0038 done. A browser flagged the unsigned download (signing is 0039's); three UI problems went to [0052](../product/features/0052-windows-polish.md).
+`docs/release-sign-off`: the user retrieved real history on Windows with the CI build of `702d678` (SHA-256 checked): new rolls saved, History browsed, a full retrieval all skipped as saved, About working; 0038 done. A browser flagged the unsigned download (signing is 0039's); three UI problems went to [0052](../product/features/0052-windows-polish.md). The STATUS budget now counts only the 100 lines above History (unit test red, then green); local check passes (static 15 s, gates 239 s, probes 160 s).
 
 ## Known limitations
 
@@ -62,8 +62,9 @@ Next: 0052, Windows polish: About's light dismiss, the licence text's reflow and
 ## Keeping this file current
 
 STATUS describes the project as it is now: what works, work in progress, known
-limitations and the next concrete task. Keep it under about 150 lines; the
-history keeps the detail.
+limitations and the next concrete task. Keep everything above the History
+index under 100 lines, which `npm run docs:check` enforces; the history keeps
+the detail.
 
 - **While working:** add a dated section under "In progress", such as
   `### Incremental retrieval (2026-10-03)`, with the outcome, the evidence
@@ -94,8 +95,9 @@ research, under a "From" heading.
 - [2026-09-23: SQLite services and overlap measurements](history/2026-09-23-sqlite-services-and-overlap.md):
   storage tests, failure injection and the overlapping-import workload.
 - [2026-09-25: shell and storage foundations](history/2026-09-25-shell-and-storage-foundations.md):
-  the earlier status log: the offline shell, gates, CI, the HSR API contract,
-  response parsing and SQLite import services.
+  the earlier status log, archived on that date: the offline shell, test and
+  coverage gates, CI, the HSR API contract, response parsing and SQLite import
+  services.
 - [2026-09-25: review remediation](history/2026-09-25-review-remediation.md):
   parser and storage fixes from the milestone 2 review.
 - [2026-09-26: cache and log discovery](history/2026-09-26-cache-and-log-discovery.md):
@@ -107,8 +109,9 @@ research, under a "From" heading.
   auth-key validation, pagination, retries, cancellation, progress, account
   resolution, the review DTO, the session and the local database.
 - [2026-09-29: import flow and Vue](history/2026-09-29-import-flow-and-vue.md):
-  portable mode, retrieve, commit and discard, pacing, the collaboration
-  endpoint, the toolchain refresh and the move to Vue.
+  portable mode, retrieve, commit and discard commands and controls, the data
+  folder name, pacing, the collaboration endpoint, the toolchain refresh and the
+  move to Vue.
 - [2026-09-30: Vue app structure](history/2026-09-30-vue-app-structure.md).
 - [2026-10-01: linting and design](history/2026-10-01-linting-and-design.md):
   ESLint and Prettier, and the visual design review.
@@ -128,11 +131,13 @@ research, under a "From" heading.
   the project cleanup milestone, the rename from Roll Tracker, the reordering
   of milestones 9 to 12 and milestone 9's tasks.
 - [2026-10-06: account switching](history/2026-10-06-account-switching.md):
-  the account switcher, summary strip, filters, faster mutation probes and the
-  Pity column.
+  the History screen's account switcher, summary strip, and rarity, item name
+  and date-range filters, the bounded, faster mutation probes, and the Pity
+  column.
 - [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
-  the downloader and catalogue folder, history completeness, the styled
-  tooltip, and the grid and icons layouts.
+  the standalone downloader and catalogue folder for banner metadata and art,
+  history completeness as the user's responsibility, the styled tooltip, and the
+  grid and icons layouts.
 - [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
   lockup and decision 0023.
 - [2026-10-10: application icon](history/2026-10-10-application-icon.md): the
