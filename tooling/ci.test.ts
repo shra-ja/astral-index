@@ -39,12 +39,20 @@ test('the full check runs the static checks, then the gates, then the isolated p
       'npm run lint:check',
       'npm run docs:check',
       'npm run icons:check',
+      'npm run readme:logo:check',
       'npm run versions:check',
       // Clippy compiles the unit tests, which embed the bundled frontend.
       'npm run build --workspace src-ui',
       'cargo fmt --manifest-path src-tauri/Cargo.toml --check',
       'cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
     ].join(' && '),
+  )
+  // The README's logo is built from the brand files, as the app icons are.
+  expect(scripts['readme:logo']).toBe(
+    "vitest run --project gates tests/readme-logo.test.ts -t '^write the README logo$'",
+  )
+  expect(scripts['readme:logo:check']).toBe(
+    "vitest run --project gates tests/readme-logo.test.ts -t '^the README logo matches the brand$'",
   )
   // The probes need the bundled frontend, and make their own baseline reports.
   expect(scripts['check:probes']).toBe('npm run build && npm run test:probes')
