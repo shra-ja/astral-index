@@ -92,6 +92,10 @@ jobs:
     timeout-minutes: 30
     env:
       npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
+      # About shows the version alone for a release build; the smoke test checks
+      # the executable carries this version.
+      TAURI_CONFIG: '{"version":"${{ needs.prepare.outputs.version }}"}'
+      ASTRAL_INDEX_BUILD: release
     defaults:
       run:
         shell: bash
@@ -99,23 +103,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Restores the caches main's checks saved, and saves none of its own.
       - uses: ./.github/actions/setup-windows
         with:
           rust-cache: windows-release
+          save-rust-cache: 'false'
       - name: Install the prebuilt notices generator
         uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-about@0.9.2
-      # About shows the version alone for a release build.
       - name: Build the release executable
-        env:
-          TAURI_CONFIG: '{"version":"${{ needs.prepare.outputs.version }}"}'
-          ASTRAL_INDEX_BUILD: release
         run: npm run tauri -- build --no-bundle
       - name: Smoke-test the release executable
         run: npm run test:windows-smoke
       - name: Name the download
-        run: cp src-tauri/target/release/astral-index.exe "Astral-Index-${{ needs.prepare.outputs.tag }}.exe"
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-executable

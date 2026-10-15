@@ -6,6 +6,9 @@ inputs:
   rust-cache:
     description: The Rust cache to share; jobs that build the same way share one.
     required: true
+  save-rust-cache:
+    description: Whether this job saves its Rust cache on main; a release, started by hand, saves none.
+    default: 'true'
   save-npm-cache:
     description: Whether this job saves the npm cache on main; one job is enough.
     default: 'false'
@@ -39,7 +42,7 @@ runs:
         cache-bin: true
         cache-workspace-crates: false
         # Pull requests restore main's caches; only main saves.
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+        save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}
     - name: Install locked dependencies
       shell: bash
       run: |

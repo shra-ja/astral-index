@@ -94,7 +94,7 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
     expect(rust).toContain('workspaces: src-tauri -> target')
     expect(rust).toContain('cache-bin: true')
     expect(rust).toContain('cache-workspace-crates: false')
-    expect(rust).toContain("save-if: ${{ github.ref == 'refs/heads/main' }}")
+    expect(rust).toMatch(/save-if: \$\{\{ .*github\.ref == 'refs\/heads\/main' \}\}/)
   }
   // Tool versions live in the setup actions; changing them must invalidate the cache.
   expect(step(linuxSetup, 'uses: Swatinem/rust-cache@')).toContain(
@@ -376,4 +376,24 @@ test('a release refuses a version already drafted or released, and passes its fi
   const required = step(job('prepare', release), 'name: Require every check to have passed')!
   expect(required).toContain('select(.app.slug == "github-actions")')
   expect(required).toMatch(/if \[ "\$result" != success \]; then[\s\S]*?exit 1/)
+})
+
+test('a release smoke-tests the version it built, and leaves CI’s caches to CI', () => {
+  const build = job('build', release)
+  // The smoke test reads the version from TAURI_CONFIG, so the whole job sees it.
+  const jobEnv = build.slice(0, build.indexOf('\n    steps:\n'))
+  expect(jobEnv).toContain('TAURI_CONFIG: \'{"version":"${{ needs.prepare.outputs.version }}"}\'')
+  expect(jobEnv).toContain('ASTRAL_INDEX_BUILD: release')
+  // A release, started by hand, restores the caches main saved but saves none.
+  expect(windowsSetup).toMatch(/save-rust-cache:\n[\s\S]*?default: 'true'/)
+  expect(windowsSetup).toContain(
+    "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
+  )
+  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain("save-rust-cache: 'false'")
+  // The tag reaches the copy step through the environment.
+  const name = step(build, 'name: Name the download')!
+  expect(name).toContain('TAG: ${{ needs.prepare.outputs.tag }}')
+  expect(name).toContain(
+    'run: cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"',
+  )
 })

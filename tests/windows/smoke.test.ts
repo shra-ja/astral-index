@@ -141,6 +141,17 @@ test('the release executable is a windowed app, with no console', () => {
   expect(image.readUInt16LE(header + 24 + 68)).toBe(2)
 })
 
+test('the release executable carries the version it was built with', () => {
+  // Builds receive their version through TAURI_CONFIG (decision 0030), which both
+  // workflows also give the smoke test, so a malformed or lost version cannot ship.
+  const { version } = JSON.parse(process.env.TAURI_CONFIG ?? '{}') as { version?: string }
+  expect(version, 'TAURI_CONFIG names the version').toMatch(/^\d+\.\d+\.\d+$/)
+  const file = powershell(
+    `$v = (Get-Item '${release}').VersionInfo; "$($v.FileMajorPart).$($v.FileMinorPart).$($v.FileBuildPart)"`,
+  )
+  expect(file).toBe(version)
+})
+
 test('installed, it keeps its history and webview profile in the local data folder, shows its icon and closes cleanly', async () => {
   remove(portable)
   remove(local)
