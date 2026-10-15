@@ -349,3 +349,31 @@ test('a release builds on Windows as a release, smoke-tested, and only drafts it
   expect(create).toContain('--target "$GITHUB_SHA"')
   expect(create).toContain('--notes-file')
 })
+
+test('a release refuses a version already drafted or released, and passes its files on intact', () => {
+  for (const name of ['prepare', 'build']) {
+    expect(step(job(name, release), 'uses: actions/checkout@'), name).toContain(
+      'persist-credentials: false',
+    )
+  }
+  // A draft creates no tag, so the drafting job, which can see drafts, checks first.
+  const draft = job('release', release)
+  const existing = step(draft, 'name: Refuse a version already drafted or released')!
+  expect(existing).toContain('gh release list')
+  expect(existing).toContain('select(.tagName == env.TAG)')
+  expect(existing).toContain('exit 1')
+  expect(draft.indexOf('name: Refuse a version already drafted or released')).toBeLessThan(
+    draft.indexOf('gh release create'),
+  )
+  // The notes and the executable arrive where the release is created from.
+  expect(step(job('prepare', release), 'name: release-notes')).toContain(
+    'path: test-results/release/notes.md',
+  )
+  expect(step(draft, 'uses: actions/download-artifact@')).toContain('merge-multiple: true')
+  expect(step(draft, 'gh release create')).toContain('--notes-file notes.md')
+  expect(step(draft, 'gh release create')).toContain('"Astral-Index-$TAG.exe"')
+  // The checks gate fails on anything but a passing run from GitHub Actions itself.
+  const required = step(job('prepare', release), 'name: Require every check to have passed')!
+  expect(required).toContain('select(.app.slug == "github-actions")')
+  expect(required).toMatch(/if \[ "\$result" != success \]; then[\s\S]*?exit 1/)
+})
