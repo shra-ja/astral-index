@@ -8,10 +8,10 @@ inputs:
     required: true
   save-rust-cache:
     description: Whether this job saves its Rust cache on main; a release, started by hand, saves none.
-    default: 'true'
+    default: false
   save-npm-cache:
     description: Whether this job saves the npm cache on main; one job is enough.
-    default: 'false'
+    default: false
 runs:
   using: composite
   steps:

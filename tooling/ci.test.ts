@@ -6,6 +6,7 @@ const workflow = read('.github/workflows/check.yml')
 const release = read('.github/workflows/release.yml')
 const linuxSetup = read('.github/actions/setup-linux/action.yml')
 const windowsSetup = read('.github/actions/setup-windows/action.yml')
+const buildWindows = read('.github/actions/build-windows/action.yml')
 const scripts = (JSON.parse(read('package.json')) as { scripts: Record<string, string> }).scripts
 
 /** A job's block in a workflow, from its key to the next job's. */
@@ -118,8 +119,8 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   expect(step(job('windows-release'), 'uses: ./.github/actions/setup-windows')).toContain(
     'save-npm-cache: true',
   )
-  expect(step(job('windows-tests'), 'uses: ./.github/actions/setup-windows')).not.toContain(
-    'save-npm-cache',
+  expect(step(job('windows-tests'), 'uses: ./.github/actions/setup-windows')).toContain(
+    'save-npm-cache: false',
   )
   // A cache hit never skips an install or a check.
   for (const text of [workflow, linuxSetup, windowsSetup]) expect(text).not.toContain('cache-hit')
@@ -154,9 +155,7 @@ test('tools install at pinned versions, prebuilt where checksummed releases exis
   expect(prebuilt).toContain("if: inputs.native-tests == 'true'")
   const driver = step(linuxSetup, 'cargo install tauri-driver --version 2.0.6 --locked')
   expect(driver).toContain("if: inputs.native-tests == 'true'")
-  expect(step(job('windows-release'), 'uses: taiki-e/install-action@')).toContain(
-    'tool: cargo-about@0.9.2',
-  )
+  expect(step(buildWindows, 'uses: taiki-e/install-action@')).toContain('tool: cargo-about@0.9.2')
   for (const setup of [linuxSetup, windowsSetup]) {
     for (const command of [
       'npm ci --ignore-scripts',
@@ -170,7 +169,7 @@ test('tools install at pinned versions, prebuilt where checksummed releases exis
 })
 
 test('every action outside the repository is pinned to a commit, named by its version', () => {
-  for (const text of [workflow, release, linuxSetup, windowsSetup]) {
+  for (const text of [workflow, release, linuxSetup, windowsSetup, buildWindows]) {
     for (const [, target] of text.matchAll(/uses: (\S+)/g)) {
       if (target.startsWith('./')) continue
       expect(text, target).toMatch(
@@ -208,22 +207,65 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
   expect(windowsSetup).toContain(
     'rustup toolchain install "$toolchain" --profile minimal --component clippy',
   )
-  expect(step(job('windows-release'), 'run: npm run tauri -- build --no-bundle')).not.toMatch(
-    /^\s+if:/m,
-  )
-  // Linux is not a release OS, so only Windows builds a release.
-  expect(workflow.split('npm run tauri -- build --no-bundle')).toHaveLength(2)
+  // Linux is not a release OS, so only Windows builds a release, in one place.
+  expect(step(buildWindows, 'run: npm run tauri -- build --no-bundle')).not.toMatch(/^\s+if:/m)
+  expect(buildWindows.split('npm run tauri -- build')).toHaveLength(2)
+  expect(workflow + release).not.toContain('npm run tauri -- build')
 })
 
 test('Windows smoke-tests the release executable before keeping it', () => {
   // The UI is tested end to end on Linux; Windows checks the native side (decision 0029).
-  const release = job('windows-release')
-  const build = release.indexOf('run: npm run tauri -- build --no-bundle')
-  const smoke = release.indexOf('run: npm run test:windows-smoke')
-  expect(smoke).toBeGreaterThan(build)
-  expect(smoke).toBeLessThan(release.indexOf('uses: actions/upload-artifact@'))
-  expect(step(release, 'run: npm run test:windows-smoke')).not.toMatch(/^\s+if:/m)
+  const build = buildWindows.indexOf('run: npm run tauri -- build --no-bundle')
+  expect(buildWindows.indexOf('run: npm run test:windows-smoke')).toBeGreaterThan(build)
+  expect(step(buildWindows, 'run: npm run test:windows-smoke')).not.toMatch(/^\s+if:/m)
   expect(scripts['test:windows-smoke']).toBe('vitest run --project windows')
+  // Both builds go through it before anything keeps the executable.
+  const ci = job('windows-release')
+  expect(ci.indexOf('uses: ./.github/actions/build-windows')).toBeLessThan(
+    ci.indexOf('uses: actions/upload-artifact@'),
+  )
+  const drafted = job('build', release)
+  expect(drafted.indexOf('uses: ./.github/actions/build-windows')).toBeLessThan(
+    drafted.indexOf('name: Name the download'),
+  )
+})
+
+test('one action builds and smoke-tests the Windows executable, named by its inputs', () => {
+  // The version and build identity reach the build and the smoke test alike.
+  expect(buildWindows).toMatch(/inputs:\n {2}version:\n[\s\S]*?required: true/)
+  expect(buildWindows).toMatch(/ {2}build:\n[\s\S]*?required: true/)
+  for (const command of [
+    'run: npm run tauri -- build --no-bundle',
+    'run: npm run test:windows-smoke',
+  ]) {
+    const each = step(buildWindows, command)!
+    expect(each, command).toContain('TAURI_CONFIG: \'{"version":"${{ inputs.version }}"}\'')
+    expect(each, command).toContain('ASTRAL_INDEX_BUILD: ${{ inputs.build }}')
+    expect(each, command).toContain('shell: bash')
+  }
+  // Only the action names a build: tests build without one, as local builds do.
+  for (const name of ['TAURI_CONFIG', 'ASTRAL_INDEX_BUILD']) {
+    expect(workflow + release, name).not.toContain(name)
+  }
+  // What stays in the two jobs matches, but for the cache CI alone saves and the
+  // history CI alone needs, to find the last tag.
+  const kept = (text: string) => ({
+    runner: /runs-on: (.+)/.exec(text)?.[1],
+    timeout: /timeout-minutes: (\d+)/.exec(text)?.[1],
+    shell: /npm_config_script_shell: (.+)/.exec(text)?.[1],
+    defaults: /defaults:\n {6}run:\n {8}shell: (\w+)/.exec(text)?.[1],
+    credentials: /persist-credentials: (\w+)/.exec(text)?.[1],
+    cache: /rust-cache: ([\w-]+)/.exec(text)?.[1],
+  })
+  expect(kept(job('build', release))).toEqual(kept(job('windows-release')))
+  expect(kept(job('windows-release'))).toEqual({
+    runner: 'windows-2025',
+    timeout: '30',
+    shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
+    defaults: 'bash',
+    credentials: 'false',
+    cache: 'windows-release',
+  })
 })
 
 test('the Windows build carries the last release’s version and its commit', () => {
@@ -232,17 +274,17 @@ test('the Windows build carries the last release’s version and its commit', ()
   expect(step(release, 'uses: actions/checkout@')).toContain('fetch-depth: 0')
   const identity = step(release, 'name: Name the build')!
   expect(identity).toBeDefined()
+  expect(identity).toContain('id: name')
   expect(identity).toContain("git describe --tags --abbrev=0 --match 'v[0-9]*'")
   expect(identity).toContain('|| echo v0.0.0')
-  expect(identity).toContain('TAURI_CONFIG=')
-  expect(identity).toContain('ASTRAL_INDEX_BUILD=$COMMIT')
+  expect(identity).toContain('>> "$GITHUB_OUTPUT"')
+  const build = step(release, 'uses: ./.github/actions/build-windows')!
+  expect(build).toContain('version: ${{ steps.name.outputs.version }}')
   // The commit the artifact is named after.
-  expect(identity).toContain('COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}')
+  expect(build).toContain('build: ${{ github.event.pull_request.head.sha || github.sha }}')
   expect(release.indexOf('name: Name the build')).toBeLessThan(
-    release.indexOf('run: npm run tauri -- build --no-bundle'),
+    release.indexOf('uses: ./.github/actions/build-windows'),
   )
-  // Only this job names its build: tests build without one, as local builds do.
-  expect(workflow.split('ASTRAL_INDEX_BUILD')).toHaveLength(2)
 })
 
 test('a Windows build is published only once every check has passed', () => {
@@ -332,11 +374,9 @@ test('a release’s version and notes come from the commits or the inputs, which
 test('a release builds on Windows as a release, smoke-tested, and only drafts it', () => {
   const build = job('build', release)
   expect(build).toContain('runs-on: windows-2025')
-  expect(build).toContain('TAURI_CONFIG: \'{"version":"${{ needs.prepare.outputs.version }}"}\'')
-  expect(build).toContain('ASTRAL_INDEX_BUILD: release')
-  const built = build.indexOf('run: npm run tauri -- build --no-bundle')
-  expect(built).toBeGreaterThan(0)
-  expect(build.indexOf('run: npm run test:windows-smoke')).toBeGreaterThan(built)
+  const built = step(build, 'uses: ./.github/actions/build-windows')!
+  expect(built).toContain('version: ${{ needs.prepare.outputs.version }}')
+  expect(built).toContain('build: release')
   expect(build).toContain('Astral-Index-${{ needs.prepare.outputs.tag }}.exe')
   // Only the job that creates the draft may write to the repository.
   expect(release).toMatch(/^permissions:\n {2}contents: read\n/m)
@@ -380,20 +420,52 @@ test('a release refuses a version already drafted or released, and passes its fi
 
 test('a release smoke-tests the version it built, and leaves CI’s caches to CI', () => {
   const build = job('build', release)
-  // The smoke test reads the version from TAURI_CONFIG, so the whole job sees it.
-  const jobEnv = build.slice(0, build.indexOf('\n    steps:\n'))
-  expect(jobEnv).toContain('TAURI_CONFIG: \'{"version":"${{ needs.prepare.outputs.version }}"}\'')
-  expect(jobEnv).toContain('ASTRAL_INDEX_BUILD: release')
   // A release, started by hand, restores the caches main saved but saves none.
-  expect(windowsSetup).toMatch(/save-rust-cache:\n[\s\S]*?default: 'true'/)
-  expect(windowsSetup).toContain(
-    "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
-  )
-  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain("save-rust-cache: 'false'")
+  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain('save-rust-cache: false')
   // The tag reaches the copy step through the environment.
   const name = step(build, 'name: Name the download')!
   expect(name).toContain('TAG: ${{ needs.prepare.outputs.tag }}')
   expect(name).toContain(
     'run: cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"',
   )
+})
+
+test('a job saves a cache only when it says so, and every job says', () => {
+  // Every boolean input defaults to false, so saving is opt-in.
+  for (const [name, setup] of [
+    ['setup-linux', linuxSetup],
+    ['setup-windows', windowsSetup],
+  ] as const) {
+    for (const input of ['save-rust-cache', 'save-npm-cache']) {
+      expect(setup, `${name} ${input}`).toMatch(
+        new RegExp(`${input}:\\n[^\\n]*\\n {4}default: false\\n`),
+      )
+    }
+    expect(setup, name).toContain(
+      "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
+    )
+    expect(setup, name).not.toMatch(/default: '/)
+  }
+  expect(linuxSetup).toMatch(/native-tests:\n[^\n]*\n {4}default: false\n/)
+  // Each job that sets up states both choices, as plain booleans.
+  const uses = [
+    ...(workflow + release).matchAll(
+      /uses: \.\/\.github\/actions\/setup-\w+\n {8}with:\n((?: {10}.+\n)+)/g,
+    ),
+  ]
+  expect(uses).toHaveLength(6)
+  const saving = uses.map(([, inputs]) => ({
+    rust: /save-rust-cache: (true|false)\n/.exec(inputs)?.[1],
+    npm: /save-npm-cache: (true|false)\n/.exec(inputs)?.[1],
+  }))
+  expect(saving).toEqual([
+    { rust: 'true', npm: 'true' },
+    { rust: 'true', npm: 'false' },
+    { rust: 'true', npm: 'false' },
+    { rust: 'true', npm: 'false' },
+    { rust: 'true', npm: 'true' },
+    { rust: 'false', npm: 'false' },
+  ])
+  // Booleans are never quoted in the workflows.
+  expect(workflow + release).not.toMatch(/: '(true|false)'$/m)
 })

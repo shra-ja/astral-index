@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Launch background (2026-10-15)
+### Shared Windows build (2026-10-15)
 
-`fix/launch-background`, [0052](../product/features/0052-windows-polish.md): the window and webview start in the sidebar's `#0b0d11` rather than white. No test can observe it (Tauri's mock runtime discards the colour; WebKitGTK paints the page's canvas over it), so a unit test checks it stays `main.css`'s `--sidebar` (red on drift, then green); the user chose it over the window colour after trying both on Windows. Local check passes (static 15 s, gates 234 s, probes 160 s).
+`ci/shared-windows-build`, [0039](../product/features/0039-distribution.md): one composite action, `.github/actions/build-windows`, builds and smoke-tests the Windows executable for both CI and the release workflow, from a version and build identity; the CI test checks only it builds or names a build, and that the two jobs' remaining settings match. CI tests red, then green.
 
 ## Known limitations
 
@@ -57,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's shared Windows build, then the release docs, then 1.0.0.
+Next: 0039's release docs, then the first release, 1.0.0.
 
 ## Keeping this file current
 
@@ -154,4 +154,4 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags and the release workflow.
+  the version from tags, the release workflow and the launch background.

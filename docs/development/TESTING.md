@@ -118,7 +118,8 @@ running online.
 on Windows, the first release's only OS, without WebDriver: WebView2 takes its
 debugging flag only from the app, so the end-to-end tests stay on Linux
 ([decision 0029](../architecture/decisions/0029-automated-release-verification.md)).
-Both Windows release builds run it, CI's and the release workflow's, on the
+Both Windows release builds run it, CI's and the release workflow's, through
+the shared `.github/actions/build-windows`, on the
 executable they just built, copied to a folder of its own. It checks that the
 executable's file version is the one `TAURI_CONFIG` gave the build
 ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)),
@@ -243,7 +244,12 @@ progress, but every run on `main` finishes, since only `main` saves caches:
 | **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build |
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
-Windows jobs through `.github/actions/setup-windows`; the tool versions live
+Windows jobs through `.github/actions/setup-windows`. CI's Windows release
+build and the release workflow both build and smoke-test the executable through
+`.github/actions/build-windows`, which takes the version and build identity as
+inputs, so the two builds cannot drift apart; `tooling/ci.test.ts` checks that
+the rest of the two jobs (runner, timeout, shell, checkout credentials and
+cache) still match. The tool versions live
 there. The static checks run once, on Linux, except Clippy, which only lints the
 code compiled for its target: the Windows unit-test job runs it again, so the
 Windows-only code is linted too. Windows runs because the first release ships
@@ -284,7 +290,9 @@ CI caches npm downloads, Cargo dependencies and their builds, and installed Carg
 tools; reports are always generated afresh, and every probe and gate runs on
 every invocation. Some details matter:
 
-- Only `main` saves caches, and a release run saves none; pull requests restore `main`'s. GitHub keeps up to
+- Only `main` saves caches, and a release run saves none; pull requests restore `main`'s.
+  Saving is opt-in: both setup actions default `save-rust-cache` and
+  `save-npm-cache` to `false`, and every job states both. GitHub keeps up to
   10 GB of caches per repository and a pull request's caches serve no other
   branch, so saving them would evict `main`'s. The gates and probes jobs build
   the same instrumented binaries and share one Rust cache.

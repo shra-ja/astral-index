@@ -1,0 +1,33 @@
+name: Build and smoke-test the Windows release executable
+description: >-
+  Builds src-tauri/target/release/astral-index.exe with the given version and
+  build identity, then smoke-tests it (decision 0030). Shared by CI's Windows
+  release build and the release workflow, so the two cannot drift apart. Needs
+  the setup-windows action first, and Git Bash as npm's script shell.
+inputs:
+  version:
+    description: The version the build carries, such as 1.2.0.
+    required: true
+  build:
+    description: The build identity About shows, `release` or a commit.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install the prebuilt notices generator
+      uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+      with:
+        tool: cargo-about@0.9.2
+    - name: Build the release executable
+      shell: bash
+      env:
+        TAURI_CONFIG: '{"version":"${{ inputs.version }}"}'
+        ASTRAL_INDEX_BUILD: ${{ inputs.build }}
+      run: npm run tauri -- build --no-bundle
+    # The smoke test checks the executable carries the version it was given.
+    - name: Smoke-test the release executable
+      shell: bash
+      env:
+        TAURI_CONFIG: '{"version":"${{ inputs.version }}"}'
+        ASTRAL_INDEX_BUILD: ${{ inputs.build }}
+      run: npm run test:windows-smoke
