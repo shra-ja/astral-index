@@ -117,7 +117,9 @@ test('the real coverage command rejects an unexecuted file and branch', () => {
   } finally {
     unlinkSync(probe)
   }
-}, 30000)
+  // The whole frontend and tooling coverage run, which grows with the suites and has
+  // taken up to 30 s on CI's runners.
+}, 120000)
 
 test('Rust instrumentation detects an uncovered branch and inventory rejects an uncompiled source', () => {
   const main = 'src-tauri/src/main.rs'
