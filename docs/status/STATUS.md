@@ -34,6 +34,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Windows smoke test (2026-10-15)
+
+`test/windows-e2e`: 0038's manual checklist replaced by a Windows smoke test of the release executable and a one-off live sign-off ([decision 0029](../architecture/decisions/0029-automated-release-verification.md)); a WebDriver suite on Windows was dropped, as WebView2 ignores the debugging flag from the environment. Red, then green on CI: a console subsystem and a renamed portable folder each failed it; local check passes (static 15 s, gates 237 s, probes 160 s).
+
 ## Known limitations
 
 - The Rust unit tests run on Windows in CI, but the app itself has not been
@@ -49,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038's Windows checklist, run on the CI-built executable.
+Next: 0038's first-release sign-off: one live retrieval on Windows with the CI build.
 
 ## Keeping this file current
 

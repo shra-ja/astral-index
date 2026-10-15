@@ -38,7 +38,8 @@ there natively with PR #37.
   `build.rs` has the linker embed `windows-app-manifest.xml` in every Windows
   binary instead, a change to its pinned delegate body that the user approved
   (2026-10-14). The window icon stays in Tauri's resource, so its unit test
-  runs on Linux and the release checklist checks it on Windows.
+  runs on Linux and the Windows smoke test checks it
+  (decision 0029).
 - The Windows job does not measure coverage, and the offline isolation and
   native end-to-end tests stay Linux-only, so Windows-only code is tested there
   but not counted by the coverage gates.
