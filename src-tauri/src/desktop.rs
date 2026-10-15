@@ -20,6 +20,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
     AppHandle, Builder, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder,
     ipc::{Channel, InvokeBody, Request},
+    window::Color,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -348,6 +349,11 @@ fn register_with<R: Runtime>(
     })
 }
 
+/// The sidebar's colour, `--sidebar` in `main.css`, the page's darkest: the window
+/// and webview start in it, so the moment before the first screen paints is dark,
+/// not white.
+const WINDOW_COLOUR: Color = Color(0x0b, 0x0d, 0x11, 0xff);
+
 /// Open the main window, keeping the webview's profile in the app's folder, so
 /// portable mode leaves nothing of the app's behind on the machine.
 fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::Result<()> {
@@ -357,6 +363,7 @@ fn open_window<R: Runtime>(app: &AppHandle<R>, folder: Option<&Path>) -> tauri::
         WebviewUrl::default(),
     ))
     .title("Astral Index")
+    .background_color(WINDOW_COLOUR)
     // Wide enough for the full sidebar, which collapses at 1100px.
     .inner_size(1200.0, 760.0)
     // The design's minimum, which excludes phones (decision 0013).
@@ -1057,10 +1064,28 @@ mod tests {
         InvokeBody::Raw(bytes)
     }
 
+    #[test]
+    fn the_window_starts_in_the_sidebars_colour() {
+        // The window and webview start in this colour before the first screen paints,
+        // so it must stay the page's own `--sidebar`, its darkest, or a palette change
+        // brings back a flash of the old colour.
+        let css = include_str!("../../src-ui/src/assets/main.css");
+        let token = css
+            .split("--sidebar: #")
+            .nth(1)
+            .expect("main.css sets --sidebar");
+        let hex = &token[..6];
+        let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).unwrap();
+        assert_eq!(
+            WINDOW_COLOUR,
+            Color(channel(0), channel(2), channel(4), 0xff)
+        );
+    }
+
     /// The window icon Tauri compiles in is the Astral tile (decision 0023): the
     /// 512 px icon, the emblem's colour at its centre and the tile's at its edge.
     /// Windows reads it from the executable's icon resource instead, which only the
-    /// app's binaries link, so the Windows release checklist checks it there.
+    /// app's binaries link, so the Windows smoke test checks it there.
     #[cfg(not(windows))]
     #[test]
     fn the_window_icon_is_the_astral_tile() {
