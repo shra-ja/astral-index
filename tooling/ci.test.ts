@@ -225,6 +225,25 @@ test('Windows smoke-tests the release executable before keeping it', () => {
   expect(scripts['test:windows-smoke']).toBe('vitest run --project windows')
 })
 
+test('the Windows build carries the last release’s version and its commit', () => {
+  // No manifest declares a version: builds receive it from the tags (decision 0030).
+  const release = job('windows-release')
+  expect(step(release, 'uses: actions/checkout@')).toContain('fetch-depth: 0')
+  const identity = step(release, 'name: Name the build')!
+  expect(identity).toBeDefined()
+  expect(identity).toContain("git describe --tags --abbrev=0 --match 'v[0-9]*'")
+  expect(identity).toContain('|| echo v0.0.0')
+  expect(identity).toContain('TAURI_CONFIG=')
+  expect(identity).toContain('ASTRAL_INDEX_BUILD=$COMMIT')
+  // The commit the artifact is named after.
+  expect(identity).toContain('COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}')
+  expect(release.indexOf('name: Name the build')).toBeLessThan(
+    release.indexOf('run: npm run tauri -- build --no-bundle'),
+  )
+  // Only this job names its build: tests build without one, as local builds do.
+  expect(workflow.split('ASTRAL_INDEX_BUILD')).toHaveLength(2)
+})
+
 test('a Windows build is published only once every check has passed', () => {
   const fromThisRepository =
     "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
