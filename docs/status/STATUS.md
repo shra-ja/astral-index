@@ -36,10 +36,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release workflow (2026-10-15)
-
-`ci/release-workflow`, [0039](../product/features/0039-distribution.md): a hand-started workflow works out the version and notes from the merged pull requests, refuses unless `main` passed every check, builds and smoke-tests the release executable and drafts the release; the notes' template was settled from drafts. Tooling and CI tests red, then green; local check passes (static 14 s, gates 234 s, probes 166 s).
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -154,4 +150,4 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags.
+  the version from tags and the release workflow.
