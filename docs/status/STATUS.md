@@ -36,10 +36,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Shared Windows build (2026-10-15)
-
-`ci/shared-windows-build`, [0039](../product/features/0039-distribution.md): one composite action, `.github/actions/build-windows`, builds and smoke-tests the Windows executable for both CI and the release workflow, from a version and build identity; the CI test checks only it builds or names a build, and that the two jobs' remaining settings match. CI tests red, then green.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -154,4 +150,5 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags, the release workflow and the launch background.
+  the version from tags, the release workflow, the launch background and the
+  shared Windows build.
