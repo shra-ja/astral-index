@@ -57,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's release docs, then the first release, 1.0.0.
+Next: the white flash on launch (0052), 0039's shared Windows build and release docs, then 1.0.0.
 
 ## Keeping this file current
 

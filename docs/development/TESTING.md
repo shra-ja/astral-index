@@ -118,8 +118,11 @@ running online.
 on Windows, the first release's only OS, without WebDriver: WebView2 takes its
 debugging flag only from the app, so the end-to-end tests stay on Linux
 ([decision 0029](../architecture/decisions/0029-automated-release-verification.md)).
-The release job runs it on the executable it just built, copied to a folder of
-its own. It checks the PE header for the Windows GUI subsystem, draws the
+Both Windows release builds run it, CI's and the release workflow's, on the
+executable they just built, copied to a folder of its own. It checks that the
+executable's file version is the one `TAURI_CONFIG` gave the build
+([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)),
+checks the PE header for the Windows GUI subsystem, draws the
 executable's icon and the window's icon through Win32 and compares them at
 32 px with `icon.ico`'s PNG image, allowing 2 per channel for rounding. Tauri
 loads the window's one icon at the system's large icon size, and tao sets it in
@@ -281,7 +284,7 @@ CI caches npm downloads, Cargo dependencies and their builds, and installed Carg
 tools; reports are always generated afresh, and every probe and gate runs on
 every invocation. Some details matter:
 
-- Only `main` saves caches; pull requests restore `main`'s. GitHub keeps up to
+- Only `main` saves caches, and a release run saves none; pull requests restore `main`'s. GitHub keeps up to
   10 GB of caches per repository and a pull request's caches serve no other
   branch, so saving them would evict `main`'s. The gates and probes jobs build
   the same instrumented binaries and share one Rust cache.
