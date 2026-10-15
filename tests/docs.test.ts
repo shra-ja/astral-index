@@ -26,7 +26,8 @@ test('docs links resolve, every doc is reachable from AGENTS.md, and STATUS stay
       // The README is for people using the app, and agent tools discover skills
       // from their skill folders; neither needs a link from AGENTS.md.
       unreachable: ['README.md', '.agents/skills/'],
-      status: { path: 'docs/status/STATUS.md', maxLines: 150 },
+      // The history index grows with every archive, so only the rest is budgeted.
+      status: { path: 'docs/status/STATUS.md', maxLines: 100, uncounted: '## History' },
     }),
   ).toEqual([])
 })

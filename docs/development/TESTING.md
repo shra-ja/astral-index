@@ -175,7 +175,8 @@ checked like code ([decision 0016](../architecture/decisions/0016-markdown-check
   comments: relative links and `#anchor`s must resolve, every Markdown file must
   be reachable by links from `AGENTS.md` (the README and agent skills are
   allowlisted), and STATUS
-  must stay within 150 lines. A mutation probe proves it fails.
+  must stay within 100 lines above its History index, which grows with every
+  archive and is not counted. A mutation probe proves it fails.
 - markdownlint, in `lint` and `lint:check`, checks structure: heading levels,
   unique headings, code block languages, dash lists and compact tables. Prose
   keeps its hand wrapping; nothing reflows it. Archived status history, decision

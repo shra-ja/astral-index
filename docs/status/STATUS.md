@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-14
+Updated: 2026-10-15
 
 ## Current state
 
@@ -31,17 +31,21 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons and app version.
+  On Windows, CI also runs the Rust unit tests and smoke-tests the release
+  executable (decision 0029).
 
 ## In progress
 
-### Windows smoke test (2026-10-15)
+### First-release sign-off (2026-10-15)
 
-`test/windows-e2e`: 0038's manual checklist replaced by a Windows smoke test of the release executable and a one-off live sign-off ([decision 0029](../architecture/decisions/0029-automated-release-verification.md)); a WebDriver suite on Windows was dropped, as WebView2 ignores the debugging flag from the environment. Red, then green on CI: a console subsystem and a renamed portable folder each failed it; local check passes (static 15 s, gates 237 s, probes 160 s).
+`docs/release-sign-off`: the user retrieved real history on Windows with the CI build of `702d678` (SHA-256 checked): new rolls saved, History browsed, a full retrieval all skipped as saved, About working; 0038 done. A browser flagged the unsigned download (signing is 0039's); three UI problems went to [0052](../product/features/0052-windows-polish.md). The STATUS budget now counts only the 100 lines above History (unit test red, then green); local check passes (static 15 s, gates 239 s, probes 160 s).
 
 ## Known limitations
 
-- The Rust unit tests run on Windows in CI, but the app itself has not been
-  checked on Windows since PR #37, which last tried live retrieval there.
+- The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
+  native side. Live retrieval last worked on Windows on 2026-10-15.
+- Browsers may flag the unsigned executable until it is signed
+  ([0039](../product/features/0039-distribution.md)).
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
   banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
   colours use observed rather than published soft pity (decision 0020).
@@ -53,13 +57,14 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038's first-release sign-off: one live retrieval on Windows with the CI build.
+Next: 0052, Windows polish: About's light dismiss, the licence text's reflow and History's scrollbar gutter.
 
 ## Keeping this file current
 
 STATUS describes the project as it is now: what works, work in progress, known
-limitations and the next concrete task. Keep it under about 150 lines; the
-history keeps the detail.
+limitations and the next concrete task. Keep everything above the History
+index under 100 lines, which `npm run docs:check` enforces; the history keeps
+the detail.
 
 - **While working:** add a dated section under "In progress", such as
   `### Incremental retrieval (2026-10-03)`, with the outcome, the evidence
@@ -146,3 +151,5 @@ research, under a "From" heading.
   the frontend test clock, the retrieval disclosure and the release checks.
 - [2026-10-14: Windows CI](history/2026-10-14-windows-ci.md): the Windows job
   and the CI pipeline's parallel jobs.
+- [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
+  decision 0029 and the release executable's smoke test.
