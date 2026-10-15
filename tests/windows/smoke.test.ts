@@ -156,8 +156,9 @@ test('installed, it keeps its history and webview profile in the local data fold
   remove(portable)
   remove(local)
   const pid = await start()
-  // The History screen reads saved history on opening, which creates the database.
-  await expect.poll(() => existsSync(join(local, 'history.sqlite')), { timeout: 15000 }).toBe(true)
+  // The History screen reads saved history on opening, which creates the database;
+  // a runner's first WebView2 start has taken 16 s.
+  await expect.poll(() => existsSync(join(local, 'history.sqlite')), { timeout: 30000 }).toBe(true)
   expect(existsSync(join(local, 'EBWebView'))).toBe(true)
   expect(existsSync(portable)).toBe(false)
   // Explorer and the title bar show the committed icon.
@@ -171,7 +172,7 @@ test('with a data folder beside it, it keeps everything there and leaves the loc
   mkdirSync(portable, { recursive: true })
   const pid = await start()
   await expect
-    .poll(() => existsSync(join(portable, 'history.sqlite')), { timeout: 15000 })
+    .poll(() => existsSync(join(portable, 'history.sqlite')), { timeout: 30000 })
     .toBe(true)
   expect(existsSync(join(portable, 'EBWebView'))).toBe(true)
   await close(pid)
