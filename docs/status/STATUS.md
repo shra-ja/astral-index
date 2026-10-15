@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's release docs, then the first release, 1.0.0.
+Next: 0054, README presentation (logo, screenshots, then the README), then 0039's first release, 1.0.0.
 
 ## Keeping this file current
 

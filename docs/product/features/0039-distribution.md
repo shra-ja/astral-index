@@ -62,7 +62,7 @@ One PR each, test first.
     history to find the last tag and saves caches. CI's build-naming step now
     gives the action the version as an output rather than setting job-wide
     variables, so only the action names a build.
-- [ ] **Release docs.** The README's download section: Windows 10 or 11 x64
+- [ ] **Release docs** (done by [0054](0054-readme-presentation.md)'s README). The README's download section: Windows 10 or 11 x64
   with WebView2, checking the download against the digest GitHub shows, the
   SmartScreen and antivirus warnings an unsigned executable meets, running it
   from any folder, portable mode, and recovery help (backing up and restoring
