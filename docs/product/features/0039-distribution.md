@@ -1,17 +1,36 @@
 # 0039 — Distribution
 
-Status: Planned · Milestone 10, Release readiness
+Status: In progress · Milestone 10, Release readiness
 
-Ship the app with documented formats and recovery help.
+Release the app as a standalone Windows executable, versioned from git tags,
+with generated notes and documented requirements and recovery help
+([decision 0030](../../architecture/decisions/0030-tag-versioned-releases.md)).
 
 ## Tasks
 
-- [ ] Choose distribution, document supported formats, and provide recovery help.
-  The code is MIT-licensed; ship the `THIRD-PARTY-NOTICES` file that every
-  build generates ([0050](0050-about-and-notices.md)) beside the app.
-  Sign the executable: a browser warned that the unsigned CI build held a virus
-  in the first-release sign-off ([0038](0038-release-verification.md)), as
-  heuristics and missing reputation flag new unsigned executables.
-- [ ] Keep a synthetic database of the released schema as a test fixture, which
-  each later migration's tests open to show saved history survives an upgrade
+One PR each, test first.
+
+- [ ] **Version from tags.** No manifest declares a version; CI builds receive
+  it through `TAURI_CONFIG`: the last tag for CI builds, the release's own for
+  release builds. The About dialog says which: "Version 1.2.0", "Version 1.2.0 ·
+  dev build a1b2c3d" or "local build". `npm run versions:check` fails if a
+  manifest declares a version again.
+- [ ] **Release workflow.** Started by hand or `gh workflow run`: a tested
+  script works out the next version from the Conventional Commits since the
+  last tag, unless one is given; the workflow refuses unless `main` passed
+  every check, builds the release executable, tags it and creates a draft
+  release with the executable and generated notes (breaking changes, features
+  and fixes from the merged pull requests' titles, the requirements and the
+  full changelog link) below an optional summary. A tag ruleset protects
+  `v*` tags (a repository setting, with the user's approval).
+- [ ] **Release docs.** The README's download section: Windows 10 or 11 x64
+  with WebView2, checking the download against the digest GitHub shows, the
+  SmartScreen and antivirus warnings an unsigned executable meets, running it
+  from any folder, portable mode, and recovery help (backing up and restoring
+  `history.sqlite`, a database that will not open, resetting the webview
+  profile, removing the app). DEVELOPMENT gets a Releasing guide that the user
+  or an agent can follow.
+- [ ] **First release and migration fixture.** Release 1.0.0, then keep a
+  synthetic database of its schema as a test fixture that each later
+  migration's tests open, to show saved history survives an upgrade
   ([decision 0029](../../architecture/decisions/0029-automated-release-verification.md)).

@@ -62,3 +62,4 @@ HoYoverse fetching.
 - [0027 — Windows as the first release's only OS](0027-windows-first-release.md)
 - [0028 — Accessibility audit and large-history bounds](0028-release-checks.md)
 - [0029 — Automated release verification](0029-automated-release-verification.md)
+- [0030 — Tag-versioned releases](0030-tag-versioned-releases.md)
