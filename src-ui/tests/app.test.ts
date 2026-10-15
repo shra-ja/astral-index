@@ -20,9 +20,14 @@ vi.stubGlobal(
     disconnect() {}
   },
 )
-// jsdom has no modal dialogs: mark the dialog open, as browsers do.
+// jsdom has no modal dialogs: mark the dialog open, and close it with a close event,
+// as browsers do.
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
   this.setAttribute('open', '')
+}
+HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+  this.removeAttribute('open')
+  this.dispatchEvent(new Event('close'))
 }
 // Until a test saves history, the History screen finds none.
 const nothingSaved = { account: null, total: 0, categories: [], rolls: [] }

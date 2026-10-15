@@ -579,6 +579,47 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
     `)
     expect(fit).toEqual({ inside: true, scrolls: true, wide: true })
     await app.screenshot('e2e-about-small')
+    // A real press inside the dialog keeps it open; one on the backdrop, outside it,
+    // closes it and returns focus to the About button, as Esc does.
+    const pressAt = (x: number, y: number) =>
+      app.command('/actions', 'POST', {
+        actions: [
+          {
+            type: 'pointer',
+            id: 'mouse',
+            parameters: { pointerType: 'mouse' },
+            actions: [
+              { type: 'pointerMove', duration: 0, origin: 'viewport', x, y },
+              { type: 'pointerDown', button: 0 },
+              { type: 'pointerUp', button: 0 },
+            ],
+          },
+        ],
+      })
+    const middle = await app.execute<{ x: number; y: number }>(`
+      const box = document.querySelector('dialog .version').getBoundingClientRect();
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+    `)
+    await pressAt(middle.x, middle.y)
+    await pause(300)
+    expect(await app.execute('return document.querySelector("dialog[open]") !== null')).toBe(true)
+    await pressAt(2, 2)
+    await expect
+      .poll(() => app.execute('return document.querySelector("dialog") === null'))
+      .toBe(true)
+    expect(await focused()).toBe('About')
+    // Close, clicked, returns focus there too.
+    await app.execute(`document.querySelector('nav button.about').click()`)
+    await expect.poll(() => shown('dialog[open] .version')).toContain('Version')
+    const close = await app.execute<{ x: number; y: number }>(`
+      const box = document.querySelector('dialog button.close').getBoundingClientRect();
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+    `)
+    await pressAt(close.x, close.y)
+    await expect
+      .poll(() => app.execute('return document.querySelector("dialog") === null'))
+      .toBe(true)
+    expect(await focused()).toBe('About')
   })
 }, 60000)
 

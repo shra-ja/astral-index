@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Presentational: the About dialog, a modal over the current screen. Its main view
 // can swap to the licence or the third-party notices, each with Back and Close. Close,
-// Esc, the openings and the notices are asked for with events; the caller removes the
-// dialog.
+// Esc, a press on the backdrop, the openings and the notices are asked for with events;
+// the caller removes the dialog.
 import { ChevronLeft, X } from '@lucide/vue'
 import { nextTick, onMounted, shallowRef, useTemplateRef, type DeepReadonly } from 'vue'
 import licence from '../../../../LICENSE?raw'
@@ -24,11 +24,43 @@ type View = 'main' | 'licence' | 'notices'
 const titles = { licence: 'Licence', notices: 'Third-Party Notices' }
 // The footer button that opened each view, so Back returns to it.
 const openers = { licence: 'Licence Text', notices: 'Third-Party Notices' }
+// LICENSE's paragraphs, each joined onto one line so it wraps to the dialog; the file
+// keeps its own line breaks, and the words are unchanged.
+const paragraphs = licence
+  .trim()
+  .split(/\n\s*\n/)
+  .map((paragraph) => paragraph.split(/\s*\n\s*/).join(' '))
 const view = shallowRef<View>('main')
 const dialog = useTemplateRef('dialog')
 const back = useTemplateRef('back')
 
 onMounted(() => dialog.value!.showModal())
+
+// The backdrop's presses reach the dialog element itself, outside its box.
+function outside(event: MouseEvent) {
+  const box = dialog.value!.getBoundingClientRect()
+  const { clientX: x, clientY: y } = event
+  return (
+    event.target === dialog.value &&
+    (x < box.left || x > box.right || y < box.top || y > box.bottom)
+  )
+}
+// Close, Esc and a press on the backdrop all close the dialog natively, which ends its
+// modality and returns focus to its opener before the dialog asks to close; while it
+// is modal, everything outside it is inert and cannot take focus.
+function close() {
+  dialog.value!.close()
+}
+// A press that starts and ends on the backdrop closes it; a drag from inside the
+// dialog, such as selecting text, does not.
+let pressedOutside = false
+function onPointerdown(event: MouseEvent) {
+  pressedOutside = outside(event)
+}
+function onClick(event: MouseEvent) {
+  if (pressedOutside && outside(event)) close()
+  pressedOutside = false
+}
 
 async function show(next: Exclude<View, 'main'>) {
   if (next === 'notices') emit('notices')
@@ -47,9 +79,16 @@ async function returnFrom(current: Exclude<View, 'main'>) {
 </script>
 
 <template>
-  <dialog ref="dialog" class="about" aria-label="About Astral Index" @close="emit('close')">
+  <dialog
+    ref="dialog"
+    class="about"
+    aria-label="About Astral Index"
+    @close="emit('close')"
+    @pointerdown="onPointerdown"
+    @click="onClick"
+  >
     <template v-if="view === 'main'">
-      <button type="button" class="close corner" aria-label="Close" @click="emit('close')">
+      <button type="button" class="close corner" aria-label="Close" @click="close">
         <X :size="18" aria-hidden="true" />
       </button>
       <div class="body">
@@ -70,12 +109,14 @@ async function returnFrom(current: Exclude<View, 'main'>) {
           Back
         </button>
         <h2>{{ titles[view] }}</h2>
-        <button type="button" class="close" aria-label="Close" @click="emit('close')">
+        <button type="button" class="close" aria-label="Close" @click="close">
           <X :size="18" aria-hidden="true" />
         </button>
       </div>
       <div class="body">
-        <p v-if="view === 'licence'" class="licence">{{ licence.trim() }}</p>
+        <div v-if="view === 'licence'" class="licence">
+          <p v-for="paragraph in paragraphs" :key="paragraph">{{ paragraph }}</p>
+        </div>
         <NoticesList v-else :notices :missing="noticesMissing" />
       </div>
     </template>
@@ -150,10 +191,14 @@ async function returnFrom(current: Exclude<View, 'main'>) {
   color: var(--text-secondary);
 }
 .licence {
-  margin: 0;
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.6;
-  white-space: pre-line;
+}
+.licence p {
+  margin: 0 0 12px;
+}
+.licence p:last-child {
+  margin-bottom: 0;
 }
 </style>
