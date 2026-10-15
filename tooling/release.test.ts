@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest'
-import { changes, mergedPullRequests, nextVersion, releaseNotes, releaseVersion } from './release'
+import {
+  changes,
+  lastRelease,
+  mergedPullRequests,
+  nextVersion,
+  releaseNotes,
+  releaseVersion,
+} from './release'
 
 // `git log --first-parent --format=%s%x1f%b%x1e`: each commit's subject and body,
 // separated by a unit separator and ended by a record separator.
@@ -41,6 +48,17 @@ test('pull request titles become changes by their Conventional Commit type', () 
     // A title that is not a Conventional Commit counts as neither feature nor fix.
     { kind: 'other', breaking: false, summary: 'Update the readme', number: 121 },
   ])
+})
+
+test('the last release is the version its tag names, and only a plain version', () => {
+  expect(lastRelease('v1.2.3')).toBe('1.2.3')
+  expect(lastRelease(undefined)).toBeUndefined()
+  // A tag that git's pattern lets through, but no release could have.
+  for (const tag of ['v1.0.0-rc1', 'v1x', 'v1.2']) {
+    expect(() => lastRelease(tag), tag).toThrow(
+      `The last tag, ${tag}, is not a release like v1.2.0`,
+    )
+  }
 })
 
 test('the next version follows semantic versioning from the changes', () => {

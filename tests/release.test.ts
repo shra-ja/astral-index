@@ -8,6 +8,7 @@ import { expect, test } from 'vitest'
 import { outputs } from '../tooling/outputs'
 import {
   changes,
+  lastRelease,
   mergedPullRequests,
   nextVersion,
   releaseNotes,
@@ -19,7 +20,8 @@ const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8' 
 /** The last release's tag, or none before the first release. */
 function lastTag(): string | undefined {
   try {
-    return git('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*')
+    // Release tags only: not, say, v1.0.0-rc1, which lastRelease would refuse.
+    return git('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--exclude', 'v*[!0-9.]*')
   } catch {
     return undefined
   }
@@ -31,7 +33,7 @@ test('write the release', () => {
   const merged = changes(
     mergedPullRequests(git('log', '--first-parent', '--format=%s%x1f%b%x1e', range)),
   )
-  const last = previous?.slice(1)
+  const last = lastRelease(previous)
   const version = releaseVersion(last, process.env.RELEASE_VERSION, nextVersion(last, merged))
   const tag = `v${version}`
   // A version is released once: its tag must not exist yet.

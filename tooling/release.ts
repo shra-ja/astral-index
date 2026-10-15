@@ -64,6 +64,14 @@ export function nextVersion(previous: string | undefined, changes: Change[]): st
   return `${major}.${minor}.${patch + 1}`
 }
 
+/** The version the last release's tag names, refusing a tag that names none. */
+export function lastRelease(tag: string | undefined): string | undefined {
+  if (tag === undefined) return undefined
+  const version = tag.slice(1)
+  if (!VERSION.test(version)) throw new Error(`The last tag, ${tag}, is not a release like v1.2.0`)
+  return version
+}
+
 /** The version to release: the one given, if any, checked, or else the next. */
 export function releaseVersion(
   previous: string | undefined,
