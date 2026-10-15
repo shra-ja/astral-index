@@ -36,10 +36,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Version from tags (2026-10-15)
-
-`build/tag-version`, [0039](../product/features/0039-distribution.md): releases are versioned from git tags, built and drafted by one workflow, and ship as the executable alone, unsigned for now ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)); this PR removes the manifests' versions (Cargo keeps a `0.0.0` placeholder the Tauri CLI requires) and shows each build's identity in About. Version check, Rust, frontend, end-to-end and CI tests red, then green; a release built with `TAURI_CONFIG` reported its version and commit; local check passes (static 15 s, gates 240 s, probes 169 s).
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -153,4 +149,5 @@ research, under a "From" heading.
   and the CI pipeline's parallel jobs.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
-  sign-off, the STATUS budget, 0052's Windows polish and the sidebar emblem.
+  sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
+  the version from tags.
