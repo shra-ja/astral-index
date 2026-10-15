@@ -156,7 +156,8 @@ The first release covers Honkai: Star Rail only
 - [x] [0048 — Layout fixes](features/0048-layout-fixes.md)
 - [x] [0050 — About and notices](features/0050-about-and-notices.md)
 - [x] [0051 — Feature toggles](features/0051-feature-toggles.md)
-- [ ] [0038 — Release verification](features/0038-release-verification.md)
+- [x] [0038 — Release verification](features/0038-release-verification.md)
+- [ ] [0052 — Windows polish](features/0052-windows-polish.md)
 - [ ] [0039 — Distribution](features/0039-distribution.md)
 
 Done when the app carries the Astral brand, its screens fit every window size,

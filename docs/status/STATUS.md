@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-14
+Updated: 2026-10-15
 
 ## Current state
 
@@ -31,16 +31,21 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons and app version.
-  On Windows, CI runs the Rust unit tests and smoke-tests the release
-  executable: its window and icon, its data folders, portable mode and a clean
-  exit (decision 0029).
+  On Windows, CI also runs the Rust unit tests and smoke-tests the release
+  executable (decision 0029).
 
 ## In progress
 
+### First-release sign-off (2026-10-15)
+
+`docs/release-sign-off`: the user retrieved real history on Windows with the CI build of `702d678` (SHA-256 checked): new rolls saved, History browsed, a full retrieval all skipped as saved, About working; 0038 done. A browser flagged the unsigned download (signing is 0039's); three UI problems went to [0052](../product/features/0052-windows-polish.md).
+
 ## Known limitations
 
-- The UI is tested end to end only on Linux, under WebKitGTK; Windows CI checks
-  the native side alone. Live retrieval was last tried on Windows with PR #37.
+- The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
+  native side. Live retrieval last worked on Windows on 2026-10-15.
+- Browsers may flag the unsigned executable until it is signed
+  ([0039](../product/features/0039-distribution.md)).
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
   banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
   colours use observed rather than published soft pity (decision 0020).
@@ -52,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038's first-release sign-off: one live retrieval on Windows with the CI build.
+Next: 0052, Windows polish: About's light dismiss, the licence text's reflow and History's scrollbar gutter.
 
 ## Keeping this file current
 
@@ -89,9 +94,8 @@ research, under a "From" heading.
 - [2026-09-23: SQLite services and overlap measurements](history/2026-09-23-sqlite-services-and-overlap.md):
   storage tests, failure injection and the overlapping-import workload.
 - [2026-09-25: shell and storage foundations](history/2026-09-25-shell-and-storage-foundations.md):
-  the earlier status log, archived on that date: the offline shell, test and
-  coverage gates, CI, the HSR API contract, response parsing and SQLite import
-  services.
+  the earlier status log: the offline shell, gates, CI, the HSR API contract,
+  response parsing and SQLite import services.
 - [2026-09-25: review remediation](history/2026-09-25-review-remediation.md):
   parser and storage fixes from the milestone 2 review.
 - [2026-09-26: cache and log discovery](history/2026-09-26-cache-and-log-discovery.md):
@@ -103,9 +107,8 @@ research, under a "From" heading.
   auth-key validation, pagination, retries, cancellation, progress, account
   resolution, the review DTO, the session and the local database.
 - [2026-09-29: import flow and Vue](history/2026-09-29-import-flow-and-vue.md):
-  portable mode, retrieve, commit and discard commands and controls, the data
-  folder name, pacing, the collaboration endpoint, the toolchain refresh and the
-  move to Vue.
+  portable mode, retrieve, commit and discard, pacing, the collaboration
+  endpoint, the toolchain refresh and the move to Vue.
 - [2026-09-30: Vue app structure](history/2026-09-30-vue-app-structure.md).
 - [2026-10-01: linting and design](history/2026-10-01-linting-and-design.md):
   ESLint and Prettier, and the visual design review.
@@ -125,13 +128,11 @@ research, under a "From" heading.
   the project cleanup milestone, the rename from Roll Tracker, the reordering
   of milestones 9 to 12 and milestone 9's tasks.
 - [2026-10-06: account switching](history/2026-10-06-account-switching.md):
-  the History screen's account switcher, summary strip, and rarity, item name
-  and date-range filters, the bounded, faster mutation probes, and the Pity
-  column.
+  the account switcher, summary strip, filters, faster mutation probes and the
+  Pity column.
 - [2026-10-07: banner catalogue plan](history/2026-10-07-banner-catalogue-plan.md):
-  the standalone downloader and catalogue folder for banner metadata and art,
-  history completeness as the user's responsibility, the styled tooltip, and the
-  grid and icons layouts.
+  the downloader and catalogue folder, history completeness, the styled
+  tooltip, and the grid and icons layouts.
 - [2026-10-09: Astral brand](history/2026-10-09-astral-brand.md): the sidebar
   lockup and decision 0023.
 - [2026-10-10: application icon](history/2026-10-10-application-icon.md): the

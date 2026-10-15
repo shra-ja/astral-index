@@ -1,6 +1,6 @@
 # 0038 — Release verification
 
-Status: Planned · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 
 Check the app on Windows, the first release's only OS
 ([decision 0027](../../architecture/decisions/0027-windows-first-release.md)),
@@ -55,8 +55,16 @@ Each code task is one PR, test first.
     chose the smoke test over a switch in debug builds. It runs in the release
     job, which is already a required check. The window's icon is read from its
     small slot, where tao sets Tauri's one icon; the large slot stays empty.
-- [ ] **First-release sign-off.** The user retrieves a real history once with
+- [x] **First-release sign-off.** The user retrieves a real history once with
   the CI-built executable on Windows, from the installed game's cache: new
   rolls only, then the full history, saved. The result is recorded in STATUS
   without account details. Later releases rely on the automated checks alone
   ([decision 0029](../../architecture/decisions/0029-automated-release-verification.md)).
+  - Signed off by the user on 2026-10-15 with the CI build of `702d678`, its
+    SHA-256 checked against the artifact's digest: retrieval of new rolls and
+    saving, browsing the History screen, a full retrieval whose rolls were all
+    skipped as already saved, and the About dialog all worked. The browser
+    warned that the unsigned download held a virus, as heuristics and missing
+    reputation flag new unsigned executables; signing is
+    [0039](0039-distribution.md)'s. Three UI problems the user saw went to
+    [0052](0052-windows-polish.md).
