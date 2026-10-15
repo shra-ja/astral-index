@@ -36,6 +36,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Launch background (2026-10-15)
+
+`fix/launch-background`, [0052](../product/features/0052-windows-polish.md): the window and webview start in the sidebar's `#0b0d11` rather than white. No test can observe it (Tauri's mock runtime discards the colour; WebKitGTK paints the page's canvas over it), so a unit test checks it stays `main.css`'s `--sidebar` (red on drift, then green); the user chose it over the window colour after trying both on Windows. Local check passes (static 15 s, gates 234 s, probes 160 s).
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -53,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: the white flash on launch (0052), 0039's shared Windows build and release docs, then 1.0.0.
+Next: 0039's shared Windows build, then the release docs, then 1.0.0.
 
 ## Keeping this file current
 
