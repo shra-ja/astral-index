@@ -69,16 +69,19 @@ User-requested HoYoverse history acquisition is in scope; see
 
 ## Open decisions
 
-- Installer packaging. The first release ships for Windows only
-  ([decision 0027](../architecture/decisions/0027-windows-first-release.md)).
 - Exact supported history-file formats and other local sources, verified with
   documentation and synthetic or redacted samples before claiming compatibility.
 - How users identify accounts and resolve ambiguous imports, and account
   reconciliation in general.
-- Distribution. The code is MIT-licensed; banner metadata and art come from a
-  separate downloader
-  ([decision 0022](../architecture/decisions/0022-banner-catalogue-downloader.md)).
 
 These are open decisions, not implied user preferences. Implementation may choose
 reversible technical defaults and record the reasoning. Settled choices are
 [decision records](../architecture/decisions/DECISIONS.md).
+
+Distribution is settled: the first release ships for Windows only
+([decision 0027](../architecture/decisions/0027-windows-first-release.md)), as a
+standalone executable without an installer, versioned from git tags
+([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)). The
+code is MIT-licensed; banner metadata and art will come from a separate
+downloader
+([decision 0022](../architecture/decisions/0022-banner-catalogue-downloader.md)).

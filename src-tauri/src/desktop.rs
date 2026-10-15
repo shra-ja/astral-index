@@ -1104,7 +1104,10 @@ mod tests {
         assert_eq!(
             info,
             serde_json::json!({
+                // Tauri's mock context's own version; and no build identity, as
+                // tests are built without one.
                 "version": "0.1.0",
+                "build": { "kind": "local" },
                 "folder": folder.to_string_lossy(),
                 "portable": false,
             })

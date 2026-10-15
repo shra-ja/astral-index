@@ -306,13 +306,23 @@ test('the icons gate rejects a changed icon and a missing one', () => {
   expectCommandSuccess('npm', ['run', 'icons:check'])
 }, 60000)
 
-// The About dialog shows one version, so the manifests must agree on it.
-test('the versions gate rejects a manifest whose version differs', () => {
+// Release tags carry the version (decision 0030), so no manifest may declare one.
+test('the versions gate rejects a manifest that declares a version', () => {
   const manifest = 'src-ui/package.json'
   const original = readFileSync(manifest, 'utf8')
   try {
-    writeFileSync(manifest, original.replace('"version": "0.1.0"', '"version": "9.9.9"'))
-    expectCommandFailure('npm', ['run', 'versions:check'], 'src-ui/package.json 9.9.9')
+    writeFileSync(
+      manifest,
+      original.replace(
+        '"name": "astral-index-ui",',
+        '"name": "astral-index-ui",\n  "version": "9.9.9",',
+      ),
+    )
+    expectCommandFailure(
+      'npm',
+      ['run', 'versions:check'],
+      'src-ui/package.json declares version 9.9.9, not the 0.0.0 placeholder',
+    )
   } finally {
     writeFileSync(manifest, original)
   }

@@ -147,6 +147,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The tags, to find the last release's version.
+          fetch-depth: 0
       - uses: ./.github/actions/setup-windows
         with:
           rust-cache: windows-release
@@ -155,6 +157,16 @@ jobs:
         uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-about@0.9.2
+      # No manifest declares a version: the build carries the last release's, or 0.0.0
+      # before the first, and the commit it is named after, which About shows
+      # (decision 0030).
+      - name: Name the build
+        env:
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo v0.0.0)
+          echo "TAURI_CONFIG={\"version\":\"${tag#v}\"}" >> "$GITHUB_ENV"
+          echo "ASTRAL_INDEX_BUILD=$COMMIT" >> "$GITHUB_ENV"
       - name: Build the release executable
         run: npm run tauri -- build --no-bundle
       # The UI is tested end to end on Linux; this checks the native side on Windows:

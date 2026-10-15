@@ -314,7 +314,12 @@ test('the last import is read from this device, and is null before the first', a
 })
 
 test('the About details are read from the native side', async () => {
-  const info = { version: '0.1.0', folder: '/local/astral-index', portable: false }
+  const info = {
+    version: '1.2.0',
+    build: { kind: 'release' as const },
+    folder: '/local/astral-index',
+    portable: false,
+  }
   const calls: string[] = []
   mockIPC((cmd) => {
     calls.push(cmd)

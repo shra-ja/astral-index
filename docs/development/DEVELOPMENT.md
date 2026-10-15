@@ -111,7 +111,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run docs:check` | Check that doc links and anchors resolve, every doc is reachable from `AGENTS.md`, and STATUS stays short |
 | `npm run icons` / `icons:check` | Write the app icons in `src-tauri/icons/` from the brand's emblems, or only check that the committed ones match |
 | `npm run notices` | Write the gitignored third-party notices with cargo-about and the bundle's licence report, failing on a missing or unaccepted licence; `npm run build` runs it first |
-| `npm run versions:check` | Check that `package.json`, `src-ui/package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` declare the same version |
+| `npm run versions:check` | Check that no manifest declares a version, beyond Cargo's `0.0.0` placeholder: builds receive it from the release tags |
 | `npm run test:backend` | Rust unit, integration and end-to-end tests with coverage reports |
 | `npm run test:offline` | `test:backend` in a network namespace with no external route |
 | `npm run coverage:backend-unit` | Reset backend counters, run Rust unit tests and freeze their report |
@@ -160,7 +160,11 @@ every check, for 7 days: download `astral-index-dev-build-unsigned-<commit>`
 from the run's summary page, or with `gh run download`. A pull request's run
 builds GitHub's merge of the pull request into `main`, so its build can include
 changes merged into `main` after the named commit. It is a development build, unsigned and
-not a release.
+not a release: its About dialog says "dev build" with that commit, after the last
+release's version. Builds made anywhere else say "Local build"; to try one with a
+version, set `TAURI_CONFIG='{"version":"1.2.0"}'` and, for the build identity,
+`ASTRAL_INDEX_BUILD` to `release` or a commit
+([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)).
 
 To try the app in a native Windows process without a Windows toolchain,
 cross-compile from Linux or WSL with `cargo-xwin`. Tauri treats this as

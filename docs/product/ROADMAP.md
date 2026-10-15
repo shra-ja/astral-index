@@ -197,6 +197,7 @@ Low-priority follow-ups, outside any milestone until scheduled.
 - [ ] [0043 — Braces audit follow-up](features/0043-braces-audit.md)
 - [ ] [0046 — History gap detection](features/0046-history-gap-detection.md)
 - [ ] [0049 — Automatic page size](features/0049-automatic-page-size.md)
+- [ ] [0053 — Code signing](features/0053-code-signing.md)
 
 ## Earlier milestone numbers
 

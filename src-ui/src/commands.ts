@@ -289,8 +289,13 @@ export async function extractFromFile(file: File): Promise<Failure | undefined> 
 }
 
 /** What the About dialog shows: the app's version and where its history is kept. */
+/** Which build this is (decision 0030): a release, a CI build of a commit, or a local build. */
+export type Build = { kind: 'release' } | { kind: 'dev'; commit: string } | { kind: 'local' }
+
 export interface AppInfo {
+  /** The release version, or the last release's for a CI build; meaningless locally. */
   version: string
+  build: Build
   /** The data folder in use, or none if the platform gave the app none. */
   folder: string | null
   portable: boolean

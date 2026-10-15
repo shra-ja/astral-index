@@ -1142,7 +1142,12 @@ test('choosing a cache file extracts from it without an automatic search first',
 
 test('the About dialog opens over the current screen with the native details', async () => {
   const calls = serve({
-    app_info: () => ({ version: '0.1.0', folder: '/local/astral-index', portable: false }),
+    app_info: () => ({
+      version: '1.2.0',
+      build: { kind: 'dev', commit: 'a1b2c3d' },
+      folder: '/local/astral-index',
+      portable: false,
+    }),
     reveal_data_folder: () => reject({ kind: 'open_failed' }),
     open_issues_page: () => undefined,
   })
@@ -1155,7 +1160,9 @@ test('the About dialog opens over the current screen with the native details', a
   expect(dialog.hasAttribute('open')).toBe(true)
   // The screen underneath stays as it was.
   expect(heading()).toBe('Warp History')
-  expect(dialog.querySelector('.version')?.textContent?.trim()).toBe('Version 0.1.0 · MIT License')
+  expect(dialog.querySelector('.version')?.textContent?.trim()).toBe(
+    'Version 1.2.0 · dev build a1b2c3d · MIT License',
+  )
   expect(dialog.querySelector('.path')?.textContent).toBe('/local/astral-index')
   expect(screenIcons().slice(2)).toEqual([
     'x',
@@ -1181,7 +1188,12 @@ test('the About dialog opens over the current screen with the native details', a
 
 test('closing the About dialog returns to its button, and a failure does not outlive it', async () => {
   serve({
-    app_info: () => ({ version: '0.1.0', folder: '/local/astral-index', portable: true }),
+    app_info: () => ({
+      version: '1.2.0',
+      build: { kind: 'dev', commit: 'a1b2c3d' },
+      folder: '/local/astral-index',
+      portable: true,
+    }),
     reveal_data_folder: () => reject({ kind: 'open_failed' }),
   })
   const about = sidebar().querySelector<HTMLButtonElement>('button.about')!

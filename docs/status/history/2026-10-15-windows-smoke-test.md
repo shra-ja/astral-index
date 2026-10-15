@@ -17,3 +17,8 @@ Integrated through PR #115.
 
 Integrated through PR #116.
 `fix/windows-polish`, [0052](../../product/features/0052-windows-polish.md): About closes from its backdrop and Close returns focus to the About button (it fell to the page body), the licence reflows into paragraphs, and History keeps a stable scrollbar gutter; every scrollbar is thin, in the app's colours. Unit and native tests red, then green; the gutter and scrollbars are checked by style, as WebKitGTK's scrollbars take no room; local check passes (static 14 s, gates 235 s, probes 159 s).
+
+## Sidebar emblem (2026-10-15)
+
+Integrated through PR #117.
+`feat/sidebar-emblem`, [0052](../../product/features/0052-windows-polish.md): the sidebar shows the brand's open lockup and, collapsed, the emblem alone, without the tile; the app icon keeps its tile. Unit and native tests red, then green; local check passes (static 15 s, gates 242 s, probes 160 s).

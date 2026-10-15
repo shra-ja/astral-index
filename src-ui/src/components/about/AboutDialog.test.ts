@@ -4,7 +4,12 @@ import { nextTick } from 'vue'
 import licence from '../../../../LICENSE?raw'
 import AboutDialog from './AboutDialog.vue'
 
-const info = { version: '0.1.0', folder: '/local/astral-index', portable: false }
+const info = {
+  version: '1.2.0',
+  build: { kind: 'release' as const },
+  folder: '/local/astral-index',
+  portable: false,
+}
 
 // jsdom has no modal dialogs: record the call and mark the dialog open, as browsers do,
 // and close it as they do, with a close event.

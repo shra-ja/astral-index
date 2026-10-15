@@ -25,7 +25,7 @@ is not registered.
 | `history_page` | One page of saved history, every category's count and the category's summary, for the `account` named (UID and server) or else the account imported last, showing the `filter` asked for: `rarities` (`5`, `4`, `3`), a `search` of item names (at most 100 characters, ignoring case), and `from` and `to` server days (`YYYY-MM-DD`); each part left out shows everything | No |
 | `last_import` | The newest import's summary | No |
 | `saved_accounts` | The game's saved accounts with their roll totals, the account imported last first | No |
-| `app_info` | The app's version, the data folder in use and whether portable mode is on | No |
+| `app_info` | The app's version, which build it is (a release, a CI build of a commit, or local), the data folder in use and whether portable mode is on | No |
 | `reveal_data_folder` | Show `history.sqlite` selected in the system file manager, or open the data folder before the file exists | No |
 | `open_issues_page` | Open the repository's issues page in the default browser | No |
 

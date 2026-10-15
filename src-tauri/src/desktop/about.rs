@@ -41,13 +41,47 @@ pub struct About {
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct AppInfo {
     version: String,
+    build: Build,
     folder: Option<String>,
     portable: bool,
 }
 
-fn info(version: String, about: &About) -> AppInfo {
+/// Which build this is, so a report can name it exactly
+/// ([decision 0030](../../../docs/architecture/decisions/0030-tag-versioned-releases.md)).
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum Build {
+    /// A release, built by the release workflow.
+    Release,
+    /// A CI build of a commit, shortened as git shows it.
+    Dev { commit: String },
+    /// Built anywhere else; its version means nothing.
+    Local,
+}
+
+/// The build from `ASTRAL_INDEX_BUILD` at compile time: `release`, or a commit's
+/// lowercase hex ID from CI. Anything else is a local build.
+fn build(value: Option<&str>) -> Build {
+    match value {
+        Some("release") => Build::Release,
+        Some(commit)
+            if commit.len() >= 7
+                && commit
+                    .bytes()
+                    .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f')) =>
+        {
+            Build::Dev {
+                commit: commit[..7].to_owned(),
+            }
+        }
+        _ => Build::Local,
+    }
+}
+
+fn info(version: String, build: Build, about: &About) -> AppInfo {
     AppInfo {
         version,
+        build,
         folder: about
             .folder
             .as_ref()
@@ -108,7 +142,11 @@ fn open(opener: &Opener, folder: Option<&Path>, target: Target) -> Result<(), Fa
 
 #[tauri::command]
 pub fn app_info<R: Runtime>(app: AppHandle<R>, about: State<'_, About>) -> AppInfo {
-    info(app.package_info().version.to_string(), &about)
+    info(
+        app.package_info().version.to_string(),
+        build(option_env!("ASTRAL_INDEX_BUILD")),
+        &about,
+    )
 }
 
 /// Show the data folder, or fail without a folder to show.
@@ -149,20 +187,61 @@ mod tests {
     }
 
     #[test]
-    fn app_info_gives_the_version_folder_and_mode() {
-        let shown = info("0.1.0".into(), &about(Some(folder()), true));
+    fn app_info_gives_the_version_build_folder_and_mode() {
+        let shown = info("1.2.0".into(), Build::Release, &about(Some(folder()), true));
         assert_eq!(
             serde_json::to_value(shown).unwrap(),
             serde_json::json!({
-                "version": "0.1.0",
+                "version": "1.2.0",
+                "build": { "kind": "release" },
                 "folder": "/local/astral-index",
                 "portable": true,
             })
         );
         // Without a folder from the platform, there is none to show.
-        let shown = info("0.1.0".into(), &about(None, false));
+        let shown = info("1.2.0".into(), Build::Local, &about(None, false));
         assert_eq!(shown.folder, None);
         assert!(!shown.portable);
+    }
+
+    #[test]
+    fn the_build_is_a_release_a_ci_commit_or_local() {
+        // CI sets ASTRAL_INDEX_BUILD at compile time (decision 0030).
+        assert_eq!(build(Some("release")), Build::Release);
+        let commit = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
+        assert_eq!(
+            build(Some(commit)),
+            Build::Dev {
+                commit: "a1b2c3d".into()
+            }
+        );
+        assert_eq!(
+            build(Some("a1b2c3d")),
+            Build::Dev {
+                commit: "a1b2c3d".into()
+            }
+        );
+        // Anything else, or nothing, is a local build: never a commit it can't be.
+        for value in [
+            None,
+            Some(""),
+            Some("a1b2c3"),
+            Some("not-a-commit"),
+            Some("A1B2C3D"),
+        ] {
+            assert_eq!(build(value), Build::Local, "{value:?}");
+        }
+        assert_eq!(
+            serde_json::to_value(Build::Dev {
+                commit: "a1b2c3d".into()
+            })
+            .unwrap(),
+            serde_json::json!({ "kind": "dev", "commit": "a1b2c3d" })
+        );
+        assert_eq!(
+            serde_json::to_value(Build::Local).unwrap(),
+            serde_json::json!({ "kind": "local" })
+        );
     }
 
     #[test]

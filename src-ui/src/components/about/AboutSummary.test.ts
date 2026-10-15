@@ -1,8 +1,14 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
+import type { AppInfo } from '../../commands'
 import AboutSummary from './AboutSummary.vue'
 
-const info = { version: '0.1.0', folder: '/local/astral-index', portable: false }
+const info: AppInfo = {
+  version: '1.2.0',
+  build: { kind: 'release' },
+  folder: '/local/astral-index',
+  portable: false,
+}
 const button = (wrapper: ReturnType<typeof mount>, name: string) =>
   wrapper.findAll('button').find((each) => each.text() === name)!
 const text = (wrapper: ReturnType<typeof mount>) => wrapper.text().replace(/\s+/g, ' ')
@@ -10,13 +16,26 @@ const text = (wrapper: ReturnType<typeof mount>) => wrapper.text().replace(/\s+/
 test('names the app, its version and licence, and what it is not', () => {
   const wrapper = mount(AboutSummary, { props: { info, failed: null } })
   expect(wrapper.get('[role=img]').attributes('aria-label')).toBe('Astral Index')
-  expect(wrapper.get('.version').text()).toBe('Version 0.1.0 · MIT License')
+  expect(wrapper.get('.version').text()).toBe('Version 1.2.0 · MIT License')
   expect(text(wrapper)).toContain(
     'Astral Index is not affiliated with or endorsed by HoYoverse; game names and trademarks belong to their owners. History is retrieved only when requested, and only from HoYoverse’s history service, with no telemetry. Statistics are calculated from saved rolls; keeping the history complete is up to the user.',
   )
   // Before the details are read, the version is left out rather than guessed.
   const unread = mount(AboutSummary, { props: { info: null, failed: null } })
   expect(unread.get('.version').text()).toBe('MIT License')
+})
+
+test('says which build it is: a release, a CI build of a commit, or a local build', () => {
+  const shown = (build: AppInfo['build']) =>
+    mount(AboutSummary, { props: { info: { ...info, build }, failed: null } })
+      .get('.version')
+      .text()
+  expect(shown({ kind: 'release' })).toBe('Version 1.2.0 · MIT License')
+  expect(shown({ kind: 'dev', commit: 'a1b2c3d' })).toBe(
+    'Version 1.2.0 · dev build a1b2c3d · MIT License',
+  )
+  // A local build's version means nothing, so it is left out.
+  expect(shown({ kind: 'local' })).toBe('Local build · MIT License')
 })
 
 test('shows where the history is kept and how to back it up', () => {

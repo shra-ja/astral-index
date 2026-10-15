@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Sidebar emblem (2026-10-15)
+### Version from tags (2026-10-15)
 
-`feat/sidebar-emblem`, [0052](../product/features/0052-windows-polish.md): the sidebar shows the brand's open lockup and, collapsed, the emblem alone, without the tile; the app icon keeps its tile. Unit and native tests red, then green; local check passes (static 15 s, gates 242 s, probes 160 s).
+`build/tag-version`, [0039](../product/features/0039-distribution.md): releases are versioned from git tags, built and drafted by one workflow, and ship as the executable alone, unsigned for now ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)); this PR removes the manifests' versions (Cargo keeps a `0.0.0` placeholder the Tauri CLI requires) and shows each build's identity in About. Version check, Rust, frontend, end-to-end and CI tests red, then green; a release built with `TAURI_CONFIG` reported its version and commit; local check passes (static 15 s, gates 240 s, probes 169 s).
 
 ## Known limitations
 
@@ -57,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0052, Windows polish: About's light dismiss, the licence text's reflow and History's scrollbar gutter.
+Next: 0039's release workflow, after the version from tags.
 
 ## Keeping this file current
 
@@ -153,4 +153,4 @@ research, under a "From" heading.
   and the CI pipeline's parallel jobs.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
-  sign-off, the STATUS budget and 0052's Windows polish.
+  sign-off, the STATUS budget, 0052's Windows polish and the sidebar emblem.
