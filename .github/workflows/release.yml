@@ -103,7 +103,8 @@ jobs:
       - uses: ./.github/actions/setup-windows
         with:
           rust-cache: windows-release
-          save-rust-cache: 'false'
+          save-rust-cache: false
+          save-npm-cache: false
       # The same build and smoke test as CI's; About shows the version alone for a
       # release build.
       - uses: ./.github/actions/build-windows

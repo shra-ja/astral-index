@@ -9,10 +9,13 @@ inputs:
     required: true
   native-tests:
     description: Whether the job runs the instrumented and native tests, which need their tools and network sandbox.
-    default: 'false'
+    default: false
+  save-rust-cache:
+    description: Whether this job saves its Rust cache on main.
+    default: false
   save-npm-cache:
     description: Whether this job saves the npm cache on main; one job is enough.
-    default: 'false'
+    default: false
 runs:
   using: composite
   steps:
@@ -55,7 +58,7 @@ runs:
         cache-workspace-crates: false
         # Pull requests restore main's caches; only main saves, so the repository's
         # cache storage holds what every branch can use.
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+        save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}
     - name: Install Rust components
       shell: bash
       run: rustup component add rustfmt clippy llvm-tools-preview

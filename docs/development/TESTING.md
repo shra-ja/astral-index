@@ -290,7 +290,9 @@ CI caches npm downloads, Cargo dependencies and their builds, and installed Carg
 tools; reports are always generated afresh, and every probe and gate runs on
 every invocation. Some details matter:
 
-- Only `main` saves caches, and a release run saves none; pull requests restore `main`'s. GitHub keeps up to
+- Only `main` saves caches, and a release run saves none; pull requests restore `main`'s.
+  Saving is opt-in: both setup actions default `save-rust-cache` and
+  `save-npm-cache` to `false`, and every job states both. GitHub keeps up to
   10 GB of caches per repository and a pull request's caches serve no other
   branch, so saving them would evict `main`'s. The gates and probes jobs build
   the same instrumented binaries and share one Rust cache.

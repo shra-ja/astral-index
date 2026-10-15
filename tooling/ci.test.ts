@@ -119,8 +119,8 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   expect(step(job('windows-release'), 'uses: ./.github/actions/setup-windows')).toContain(
     'save-npm-cache: true',
   )
-  expect(step(job('windows-tests'), 'uses: ./.github/actions/setup-windows')).not.toContain(
-    'save-npm-cache',
+  expect(step(job('windows-tests'), 'uses: ./.github/actions/setup-windows')).toContain(
+    'save-npm-cache: false',
   )
   // A cache hit never skips an install or a check.
   for (const text of [workflow, linuxSetup, windowsSetup]) expect(text).not.toContain('cache-hit')
@@ -421,15 +421,51 @@ test('a release refuses a version already drafted or released, and passes its fi
 test('a release smoke-tests the version it built, and leaves CI’s caches to CI', () => {
   const build = job('build', release)
   // A release, started by hand, restores the caches main saved but saves none.
-  expect(windowsSetup).toMatch(/save-rust-cache:\n[\s\S]*?default: 'true'/)
-  expect(windowsSetup).toContain(
-    "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
-  )
-  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain("save-rust-cache: 'false'")
+  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain('save-rust-cache: false')
   // The tag reaches the copy step through the environment.
   const name = step(build, 'name: Name the download')!
   expect(name).toContain('TAG: ${{ needs.prepare.outputs.tag }}')
   expect(name).toContain(
     'run: cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"',
   )
+})
+
+test('a job saves a cache only when it says so, and every job says', () => {
+  // Every boolean input defaults to false, so saving is opt-in.
+  for (const [name, setup] of [
+    ['setup-linux', linuxSetup],
+    ['setup-windows', windowsSetup],
+  ] as const) {
+    for (const input of ['save-rust-cache', 'save-npm-cache']) {
+      expect(setup, `${name} ${input}`).toMatch(
+        new RegExp(`${input}:\\n[^\\n]*\\n {4}default: false\\n`),
+      )
+    }
+    expect(setup, name).toContain(
+      "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
+    )
+    expect(setup, name).not.toMatch(/default: '/)
+  }
+  expect(linuxSetup).toMatch(/native-tests:\n[^\n]*\n {4}default: false\n/)
+  // Each job that sets up states both choices, as plain booleans.
+  const uses = [
+    ...(workflow + release).matchAll(
+      /uses: \.\/\.github\/actions\/setup-\w+\n {8}with:\n((?: {10}.+\n)+)/g,
+    ),
+  ]
+  expect(uses).toHaveLength(6)
+  const saving = uses.map(([, inputs]) => ({
+    rust: /save-rust-cache: (true|false)\n/.exec(inputs)?.[1],
+    npm: /save-npm-cache: (true|false)\n/.exec(inputs)?.[1],
+  }))
+  expect(saving).toEqual([
+    { rust: 'true', npm: 'true' },
+    { rust: 'true', npm: 'false' },
+    { rust: 'true', npm: 'false' },
+    { rust: 'true', npm: 'false' },
+    { rust: 'true', npm: 'true' },
+    { rust: 'false', npm: 'false' },
+  ])
+  // Booleans are never quoted in the workflows.
+  expect(workflow + release).not.toMatch(/: '(true|false)'$/m)
 })
