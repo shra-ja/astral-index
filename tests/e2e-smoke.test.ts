@@ -58,6 +58,15 @@ const tooltipFor = (app: AppSession, selector: string) =>
     };
   `)
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms))
+/** The scrollbar style of the element matching `selector`, as computed. */
+const scrollbarOf = (app: AppSession, selector: string) =>
+  app.execute<{ width: string; color: string }>(`
+    const style = getComputedStyle(document.querySelector(${JSON.stringify(selector)}));
+    return { width: style.scrollbarWidth, color: style.scrollbarColor };
+  `)
+// Every scrolling area's thin scrollbar: a --text-faint thumb, at least 3:1 against
+// every background, on a transparent track.
+const appScrollbar = { width: 'thin', color: 'rgb(95, 103, 115) rgba(0, 0, 0, 0)' }
 // The sidebar's brand lockup as drawn: sizes in CSS px, colours, and whether the
 // bundled wordmark loaded and still names the app.
 const lockup = (app: AppSession) =>
@@ -578,7 +587,49 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
       };
     `)
     expect(fit).toEqual({ inside: true, scrolls: true, wide: true })
+    expect(await scrollbarOf(app, 'dialog .body')).toEqual(appScrollbar)
     await app.screenshot('e2e-about-small')
+    // A real press inside the dialog keeps it open; one on the backdrop, outside it,
+    // closes it and returns focus to the About button, as Esc does.
+    const pressAt = (x: number, y: number) =>
+      app.command('/actions', 'POST', {
+        actions: [
+          {
+            type: 'pointer',
+            id: 'mouse',
+            parameters: { pointerType: 'mouse' },
+            actions: [
+              { type: 'pointerMove', duration: 0, origin: 'viewport', x, y },
+              { type: 'pointerDown', button: 0 },
+              { type: 'pointerUp', button: 0 },
+            ],
+          },
+        ],
+      })
+    const middle = await app.execute<{ x: number; y: number }>(`
+      const box = document.querySelector('dialog .version').getBoundingClientRect();
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+    `)
+    await pressAt(middle.x, middle.y)
+    await pause(300)
+    expect(await app.execute('return document.querySelector("dialog[open]") !== null')).toBe(true)
+    await pressAt(2, 2)
+    await expect
+      .poll(() => app.execute('return document.querySelector("dialog") === null'))
+      .toBe(true)
+    expect(await focused()).toBe('About')
+    // Close, clicked, returns focus there too.
+    await app.execute(`document.querySelector('nav button.about').click()`)
+    await expect.poll(() => shown('dialog[open] .version')).toContain('Version')
+    const close = await app.execute<{ x: number; y: number }>(`
+      const box = document.querySelector('dialog button.close').getBoundingClientRect();
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+    `)
+    await pressAt(close.x, close.y)
+    await expect
+      .poll(() => app.execute('return document.querySelector("dialog") === null'))
+      .toBe(true)
+    expect(await focused()).toBe('About')
   })
 }, 60000)
 
@@ -910,6 +961,16 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       screenScrolls: true,
       pagerInView: true,
     })
+    // The screen keeps room for its scrollbar whether or not it scrolls, so content
+    // never shifts sideways between tabs and layouts that do and don't scroll. WebView2
+    // draws classic scrollbars, which take room; WebKitGTK's overlay ones take none
+    // here, so the style that reserves it is checked instead.
+    expect(
+      await app.execute(
+        `return getComputedStyle(document.querySelector('main > .body')).scrollbarGutter`,
+      ),
+    ).toBe('stable')
+    expect(await scrollbarOf(app, 'main > .body')).toEqual(appScrollbar)
     await scrollScreen(300)
     await expect
       .poll(scrolling, { timeout: 5000 })

@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### First-release sign-off (2026-10-15)
+### Windows polish (2026-10-15)
 
-`docs/release-sign-off`: the user retrieved real history on Windows with the CI build of `702d678` (SHA-256 checked): new rolls saved, History browsed, a full retrieval all skipped as saved, About working; 0038 done. A browser flagged the unsigned download (signing is 0039's); three UI problems went to [0052](../product/features/0052-windows-polish.md). The STATUS budget now counts only the 100 lines above History (unit test red, then green); local check passes (static 15 s, gates 239 s, probes 160 s).
+`fix/windows-polish`, [0052](../product/features/0052-windows-polish.md): About closes from its backdrop and Close returns focus to the About button (it fell to the page body), the licence reflows into paragraphs, and History keeps a stable scrollbar gutter; every scrollbar is thin, in the app's colours. Unit and native tests red, then green; the gutter and scrollbars are checked by style, as WebKitGTK's scrollbars take no room; local check passes (static 14 s, gates 235 s, probes 159 s).
 
 ## Known limitations
 
@@ -152,4 +152,5 @@ research, under a "From" heading.
 - [2026-10-14: Windows CI](history/2026-10-14-windows-ci.md): the Windows job
   and the CI pipeline's parallel jobs.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
-  decision 0029 and the release executable's smoke test.
+  decision 0029, the release executable's smoke test, the first-release
+  sign-off and the STATUS budget.
