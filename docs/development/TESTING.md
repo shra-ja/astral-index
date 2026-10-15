@@ -204,12 +204,14 @@ failing the build, when a component has no licence text or a licence is outside
 
 ## Version check
 
-The About dialog shows the version the native side reports, which comes from
-`src-tauri/tauri.conf.json`. `npm run versions:check` runs
-`tests/versions.test.ts`, which fails, naming each file and its version, when
-`package.json`, `src-ui/package.json`, `src-tauri/Cargo.toml` and
-`src-tauri/tauri.conf.json` disagree or one declares none. A mutation probe
-proves it fails.
+Builds receive the app's version from the release tags through `TAURI_CONFIG`
+([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)), so
+no manifest declares one. `npm run versions:check` runs
+`tests/versions.test.ts`, which fails, naming the file and its version, when
+`package.json`, `package-lock.json`, `src-ui/package.json`,
+`src-tauri/Cargo.toml` or `src-tauri/tauri.conf.json` declares any version but
+the `0.0.0` placeholder that the Tauri CLI requires in `Cargo.toml`. A mutation
+probe proves it fails.
 
 ## Network policy in tests
 

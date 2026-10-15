@@ -15,11 +15,12 @@ spends no money.
 
 ## Decision
 
-- **Semantic versioning, from git tags alone.** No manifest declares a version;
-  the release tags (`v1.0.0`, `v1.1.0`…) are the only record. Builds receive
-  the version through Tauri's `TAURI_CONFIG` at compile time, which sets the
-  About dialog's version and the executable's Windows file properties. The
-  first release is 1.0.0.
+- **Semantic versioning, from git tags alone.** No manifest declares a version,
+  except a fixed `0.0.0` placeholder in `src-tauri/Cargo.toml`, which the Tauri
+  CLI requires; the release tags (`v1.0.0`, `v1.1.0`…) are the only record.
+  Builds receive the version through Tauri's `TAURI_CONFIG` at compile time,
+  which sets the About dialog's version and the executable's Windows file
+  properties. The first release is 1.0.0.
 - **Builds say what they are.** About shows "Version 1.2.0" for a release
   build, "Version 1.2.0 · dev build a1b2c3d" for a CI build (the last tag and
   the commit), and "local build" for anything built elsewhere.

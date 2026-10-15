@@ -38,7 +38,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Version from tags (2026-10-15)
 
-`build/tag-version`, [0039](../product/features/0039-distribution.md): releases are versioned from git tags, built and drafted by one workflow, and ship as the executable alone, unsigned for now ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)); this PR removes the manifests' versions and shows each build's identity in About.
+`build/tag-version`, [0039](../product/features/0039-distribution.md): releases are versioned from git tags, built and drafted by one workflow, and ship as the executable alone, unsigned for now ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)); this PR removes the manifests' versions (Cargo keeps a `0.0.0` placeholder the Tauri CLI requires) and shows each build's identity in About. Version check, Rust, frontend, end-to-end and CI tests red, then green; a release built with `TAURI_CONFIG` reported its version and commit; local check passes (static 15 s, gates 240 s, probes 169 s).
 
 ## Known limitations
 

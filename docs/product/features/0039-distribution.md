@@ -10,11 +10,17 @@ with generated notes and documented requirements and recovery help
 
 One PR each, test first.
 
-- [ ] **Version from tags.** No manifest declares a version; CI builds receive
+- [x] **Version from tags.** No manifest declares a version; CI builds receive
   it through `TAURI_CONFIG`: the last tag for CI builds, the release's own for
   release builds. The About dialog says which: "Version 1.2.0", "Version 1.2.0 ·
-  dev build a1b2c3d" or "local build". `npm run versions:check` fails if a
+  dev build a1b2c3d" or "Local build". `npm run versions:check` fails if a
   manifest declares a version again.
+  - The Tauri CLI refuses to build without a Cargo version, so
+    `src-tauri/Cargo.toml` keeps a fixed `0.0.0` placeholder, the only version
+    the check allows. A release build made with `TAURI_CONFIG` and a commit
+    reported both through `app_info`. Test builds, locally and in the Linux
+    jobs, carry neither, so the tests see a local build; only the Windows
+    release job names its build.
 - [ ] **Release workflow.** Started by hand or `gh workflow run`: a tested
   script works out the next version from the Conventional Commits since the
   last tag, unless one is given; the workflow refuses unless `main` passed
