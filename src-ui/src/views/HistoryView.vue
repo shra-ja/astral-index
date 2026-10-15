@@ -194,6 +194,9 @@ const tabsOf = (counts: StoredHistory['categories']) =>
   padding: var(--pad-top) var(--content-pad) var(--pad-bottom);
   /* Only the screen scrolls; the rolls panel shows every roll on the page. */
   overflow-y: auto;
+  /* Room for a classic scrollbar, as WebView2 draws on Windows, whether or not this
+     tab and layout scroll, so the content never shifts sideways between them. */
+  scrollbar-gutter: stable;
   /* The summary strip lays itself out by the content area's width. */
   container: content / inline-size;
 }

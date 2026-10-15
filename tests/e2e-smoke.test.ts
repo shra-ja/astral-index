@@ -910,6 +910,15 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       screenScrolls: true,
       pagerInView: true,
     })
+    // The screen keeps room for its scrollbar whether or not it scrolls, so content
+    // never shifts sideways between tabs and layouts that do and don't scroll. WebView2
+    // draws classic scrollbars, which take room; WebKitGTK's overlay ones take none
+    // here, so the style that reserves it is checked instead.
+    expect(
+      await app.execute(
+        `return getComputedStyle(document.querySelector('main > .body')).scrollbarGutter`,
+      ),
+    ).toBe('stable')
     await scrollScreen(300)
     await expect
       .poll(scrolling, { timeout: 5000 })
