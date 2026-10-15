@@ -112,6 +112,26 @@ narrow AppArmor profile for a CI-only copy of `bwrap` instead of lifting the
 restriction. The preflight must pass: the test never skips or falls back to
 running online.
 
+## Windows smoke test
+
+`tests/windows/smoke.test.ts` checks the native side of the release executable
+on Windows, the first release's only OS, without WebDriver: WebView2 takes its
+debugging flag only from the app, so the end-to-end tests stay on Linux
+([decision 0029](../architecture/decisions/0029-automated-release-verification.md)).
+The release job runs it on the executable it just built, copied to a folder of
+its own. It checks the PE header for the Windows GUI subsystem, draws the
+executable's icon and the window's icon through Win32 and compares them at
+32 px with `icon.ico`'s PNG image, allowing 2 per channel for rounding. Tauri
+loads the window's one icon at the system's large icon size, and tao sets it in
+the window's small slot, which the title bar draws; the large slot stays empty,
+so the taskbar and Alt+Tab fall back to another icon, unchecked. It then waits for the history and the
+webview profile to appear in `%LOCALAPPDATA%\Astral-Index`, then, with a `data`
+folder beside the copy, there instead while the local folder stays absent, and
+starts once more on the saved database. Each run closes the window through
+`CloseMainWindow`, as its close button does, and requires exit code 0. It
+replaces the machine's local data folder, so it refuses to run outside CI, and
+Vitest runs it as its own `windows` project, never in the gates.
+
 ## Mutation probes
 
 `tests/mutation-probes.test.ts` proves each gate fails when it should: an
@@ -213,7 +233,7 @@ progress, but every run on `main` finishes, since only `main` saves caches:
 | **Tests and 100% coverage** | `ubuntu-24.04` | `npm run check:gates`, uploading reports and screenshots even on failure |
 | **Mutation probes** | `ubuntu-24.04` | `npm run check:probes`, uploading any failure snapshot |
 | **Windows unit tests** | `windows-2025` | The frontend bundle, the Rust unit tests, then Clippy for Windows |
-| **Windows release build** | `windows-2025` | The release executable, kept for a day as `windows-build-unverified-<commit>` |
+| **Windows release build** | `windows-2025` | The release executable, smoke-tested, then kept for a day as `windows-build-unverified-<commit>` |
 | **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build |
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
@@ -270,6 +290,6 @@ to start a binary without the Common Controls manifest (`0xC0000139`), and
 Tauri's resource, which holds it, links into the app's binaries alone, so
 `build.rs` has the linker embed `windows-app-manifest.xml` in every Windows
 binary, tests included, instead. The window icon also comes from that resource
-on Windows, so its test runs elsewhere and the release checklist checks it. The registration tests
+on Windows, so its unit test runs elsewhere and the Windows smoke test checks it. The registration tests
 resolve the machine's real local data folder, so a Windows run leaves empty
 `Astral-Index` and `Astral-Index-Mock` folders there.

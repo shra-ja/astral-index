@@ -8,7 +8,7 @@ before shipping.
 
 ## Tasks
 
-Four PRs, each test first.
+Each code task is one PR, test first.
 
 - [x] **Retrieval disclosure.** Say on the Import screen, beside the retrieval
   controls, what retrieval uses and sends: the history link the game cached,
@@ -43,9 +43,20 @@ Four PRs, each test first.
     Common Controls manifest, which the linker now embeds in every Windows
     binary, and 20 tests that assumed Linux paths, origin, folder names,
     webview folder and icon; the app itself needed no change.
-- [ ] **Release checklist on Windows.** A checklist in the development docs,
-  run on the CI-built executable: local workflows, requested fetching, network
-  failures, an upgrade over the previous build with saved history, portable
-  mode, keyboard use, the window and taskbar icon, and the About dialog's data
-  folder and issues buttons opening Explorer and the browser. The results are recorded, and installer
-  packaging is left to [0039](0039-distribution.md).
+- [x] **Windows smoke test.** The release job runs the executable it builds and
+  checks the native side: a windowed app with no console, the committed icon
+  in Explorer and on the window, the history and webview profile in the local
+  data folder or, in portable mode, in `data` beside it, a second start on saved
+  history, and a clean exit from the close button. The UI stays tested end to
+  end on Linux
+  ([decision 0029](../../architecture/decisions/0029-automated-release-verification.md)).
+  - The end-to-end suite was tried on Windows first, but WebView2 takes its
+    debugging flag only from the app, so no WebDriver could attach; the user
+    chose the smoke test over a switch in debug builds. It runs in the release
+    job, which is already a required check. The window's icon is read from its
+    small slot, where tao sets Tauri's one icon; the large slot stays empty.
+- [ ] **First-release sign-off.** The user retrieves a real history once with
+  the CI-built executable on Windows, from the installed game's cache: new
+  rolls only, then the full history, saved. The result is recorded in STATUS
+  without account details. Later releases rely on the automated checks alone
+  ([decision 0029](../../architecture/decisions/0029-automated-release-verification.md)).

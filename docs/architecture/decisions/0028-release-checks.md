@@ -45,7 +45,8 @@ defects of each kind were reported.
 - **Fixed, user-facing time targets:** say how the app should feel, but were
   not grounded in measurements; the measured bounds catch regressions instead.
 - axe-core checks what can be detected automatically. Screen reader use, focus
-  order and readability still need the manual release checks.
+  order and readability still need the manual release checks; decision 0029
+  replaced those with automated Windows checks and accepts the rest as a risk.
 - A slower CI runner may come close to the tightest bounds; raise a bound only
   with new measurements recorded beside it.
 

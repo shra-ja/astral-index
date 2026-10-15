@@ -34,9 +34,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### CI pipeline (2026-10-14)
+### Windows smoke test (2026-10-15)
 
-`ci/pipeline`: `check` split into static, gates and probes (isolated in `test-results/probe-run/`, no refresh), run as parallel CI jobs with Windows tests and release apart; the Windows build is published only after every check passes; only main saves caches; prebuilt tools; Node 24 actions; one labelled summary per job instead of Vitest's. Red, then green, for each part; the probes' isolation check failed when they leaked; local check passes (static 13 s, gates 234 s, probes 156 s); CI green on GitHub, 8 min 51 s with cold caches.
+`test/windows-e2e`: 0038's manual checklist replaced by a Windows smoke test of the release executable and a one-off live sign-off ([decision 0029](../architecture/decisions/0029-automated-release-verification.md)); a WebDriver suite on Windows was dropped, as WebView2 ignores the debugging flag from the environment. Red, then green on CI: a console subsystem and a renamed portable folder each failed it; local check passes (static 15 s, gates 237 s, probes 160 s).
 
 ## Known limitations
 
@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0038's Windows checklist, run on the CI-built executable.
+Next: 0038's first-release sign-off: one live retrieval on Windows with the CI build.
 
 ## Keeping this file current
 
@@ -144,4 +144,5 @@ research, under a "From" heading.
 - [2026-10-13: third-party notices](history/2026-10-13-third-party-notices.md):
   cargo-about and the bundle's report, the notices list, the feature toggles,
   the frontend test clock, the retrieval disclosure and the release checks.
-- [2026-10-14: Windows CI](history/2026-10-14-windows-ci.md).
+- [2026-10-14: Windows CI](history/2026-10-14-windows-ci.md): the Windows job
+  and the CI pipeline's parallel jobs.

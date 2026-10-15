@@ -117,6 +117,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run coverage:backend-unit` | Reset backend counters, run Rust unit tests and freeze their report |
 | `npm run test:backend-integration` | The instrumented Cargo integration tests, without the desktop |
 | `npm run test:e2e-smoke` | Build and drive the desktop app end to end |
+| `npm run test:windows-smoke` | On Windows in CI only: smoke-test the release executable's window, icon, data folders and exit |
 | `npm run coverage:backend-report` | Render the backend report from the current counters |
 | `npm run test:probes` | The mutation probes alone, writing to `test-results/probe-run/` (run `npm run build` first) |
 | `npm run coverage:verify` | Validate every report against the source inventories |
