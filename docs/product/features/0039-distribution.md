@@ -31,7 +31,7 @@ One PR each, test first.
   - The notes' template was settled with the user from three rounds of drafts:
     the title is the tag, the body opens with "Astral Index" and the tag linked
     to the comparison, then Breaking changes, Features and Fixes (other types
-    are left out), then "How to use"; the download is
+    are left out), then "Usage"; the download is
     `Astral-Index-v1.2.0.exe`. One optional `notes` input replaces the
     generated sections, so an agent's notes keep the same frame. The draft
     leaves the tag to publishing. The first release needs notes given by hand.

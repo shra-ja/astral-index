@@ -38,7 +38,7 @@ spends no money.
   read from their merge commits, whose titles are Conventional Commits:
   Breaking changes, Features and Fixes, each title without its type prefix and
   with its pull request; other types are left out, and a release with none
-  says the app's features are unchanged. A "How to use" section ends the
+  says the app's features are unchanged. A "Usage" section ends the
   notes: download and run the executable, with a `data` folder beside it for
   portable mode. An optional `notes` input replaces the generated sections
   inside the same frame, and the draft can be edited before it is published,

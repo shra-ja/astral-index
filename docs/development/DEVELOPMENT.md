@@ -211,7 +211,7 @@ are outward-facing.
    summarising the release, then `### Breaking changes`, `### Features` and
    `### Fixes`, as needed and in that order, each entry one sentence in the
    present tense about what the app now does, ending with its pull request,
-   such as `(#117)`. The workflow adds the heading and "How to use" itself. The
+   such as `(#117)`. The workflow adds the heading and "Usage" itself. The
    first release needs notes, as there is no earlier tag to compare.
 4. **Start the workflow:**
    `gh workflow run release.yml --ref main` with `-f version=1.2.0` to choose

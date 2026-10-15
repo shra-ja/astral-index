@@ -128,7 +128,7 @@ export function releaseNotes({ repository, tag, previous, changes, notes }: Rele
     `## Astral Index [${tag}](${link})`,
     '',
     ...body,
-    '### How to use',
+    '### Usage',
     '',
     `Simply download and run Astral-Index-${tag}.exe. If you wish to run in [portable mode](${site}#portable-mode), create a \`data\` folder next to it before running it.`,
     '',

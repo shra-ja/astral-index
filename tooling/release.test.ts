@@ -76,7 +76,7 @@ test('a version given by hand is used when it is a plain version after the last'
 
 const repository = 'shra-ja/astral-index'
 const howToUse = [
-  '### How to use',
+  '### Usage',
   '',
   'Simply download and run Astral-Index-v1.1.0.exe. If you wish to run in [portable mode](https://github.com/shra-ja/astral-index#portable-mode), create a `data` folder next to it before running it.',
   '',
