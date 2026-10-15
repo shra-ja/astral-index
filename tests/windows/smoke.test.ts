@@ -150,7 +150,8 @@ test('the release executable carries the version it was built with', () => {
     `$v = (Get-Item '${release}').VersionInfo; "$($v.FileMajorPart).$($v.FileMinorPart).$($v.FileBuildPart)"`,
   )
   expect(file).toBe(version)
-})
+  // One PowerShell call, which a cold runner has taken over 6 s to start.
+}, 30000)
 
 test('installed, it keeps its history and webview profile in the local data folder, shows its icon and closes cleanly', async () => {
   remove(portable)

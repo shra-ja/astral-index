@@ -37,3 +37,8 @@ Integrated through PR #119.
 
 Integrated through PR #120.
 `fix/launch-background`, [0052](../../product/features/0052-windows-polish.md): the window and webview start in the sidebar's `#0b0d11` rather than white. No test can observe it (Tauri's mock runtime discards the colour; WebKitGTK paints the page's canvas over it), so a unit test checks it stays `main.css`'s `--sidebar` (red on drift, then green); the user chose it over the window colour after trying both on Windows. Local check passes (static 15 s, gates 234 s, probes 160 s).
+
+## Shared Windows build (2026-10-15)
+
+Integrated through PR #121.
+`ci/shared-windows-build`, [0039](../../product/features/0039-distribution.md): one composite action, `.github/actions/build-windows`, builds and smoke-tests the Windows executable for both CI and the release workflow, from a version and build identity; the CI test checks only it builds or names a build, and that the two jobs' remaining settings match. CI tests red, then green.

@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Shared Windows build (2026-10-15)
+### CI timeouts (2026-10-15)
 
-`ci/shared-windows-build`, [0039](../product/features/0039-distribution.md): one composite action, `.github/actions/build-windows`, builds and smoke-tests the Windows executable for both CI and the release workflow, from a version and build identity; the CI test checks only it builds or names a build, and that the two jobs' remaining settings match. CI tests red, then green.
+`fix/ci-timeouts`: two timeouts failed `main`'s runs after #120 and #121, with every assertion passing. The Windows smoke test's version check, one PowerShell call, took 6.4 s against Vitest's default 5 s, and now has 30 s; the coverage-command probe, a whole frontend and tooling coverage run that grew from 17–21 s to 27–30 s, now has 120 s (7.4 s locally). Local check passes (static 14 s, gates 233 s, probes 158 s).
 
 ## Known limitations
 
@@ -154,4 +154,5 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags, the release workflow and the launch background.
+  the version from tags, the release workflow, the launch background and the
+  shared Windows build.
