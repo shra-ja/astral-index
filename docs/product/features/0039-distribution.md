@@ -21,14 +21,23 @@ One PR each, test first.
     reported both through `app_info`. Test builds, locally and in the Linux
     jobs, carry neither, so the tests see a local build; only the Windows
     release job names its build.
-- [ ] **Release workflow.** Started by hand or `gh workflow run`: a tested
+- [x] **Release workflow.** Started by hand or `gh workflow run`: a tested
   script works out the next version from the Conventional Commits since the
   last tag, unless one is given; the workflow refuses unless `main` passed
   every check, builds the release executable, tags it and creates a draft
   release with the executable and generated notes (breaking changes, features
   and fixes from the merged pull requests' titles, the requirements and the
-  full changelog link) below an optional summary. A tag ruleset protects
-  `v*` tags (a repository setting, with the user's approval).
+  full changelog link) below an optional summary.
+  - The notes' template was settled with the user from three rounds of drafts:
+    the title is the tag, the body opens with "Astral Index" and the tag linked
+    to the comparison, then Breaking changes, Features and Fixes (other types
+    are left out), then "How to use"; the download is
+    `Astral-Index-v1.2.0.exe`. One optional `notes` input replaces the
+    generated sections, so an agent's notes keep the same frame. The draft
+    leaves the tag to publishing. The first release needs notes given by hand.
+  - The checks step was tried read-only against `main`: all five passed, and
+    an unknown name came back as missing. A preview against real history, with
+    a temporary local tag, matched the agreed draft.
 - [ ] **Release docs.** The README's download section: Windows 10 or 11 x64
   with WebView2, checking the download against the digest GitHub shows, the
   SmartScreen and antivirus warnings an unsigned executable meets, running it
@@ -36,7 +45,11 @@ One PR each, test first.
   `history.sqlite`, a database that will not open, resetting the webview
   profile, removing the app). DEVELOPMENT gets a Releasing guide that the user
   or an agent can follow.
-- [ ] **First release and migration fixture.** Release 1.0.0, then keep a
+- [ ] **First release and migration fixture.** Release 1.0.0. Once it is
+  published and looks right, add a tag ruleset that stops `v*` tags being
+  deleted or moved and lets only repository admins create them (a repository
+  setting, with the user's approval); it comes after, so redoing 1.0.0 needs no
+  bypass. Then keep a
   synthetic database of its schema as a test fixture that each later
   migration's tests open, to show saved history survives an upgrade
   ([decision 0029](../../architecture/decisions/0029-automated-release-verification.md)).

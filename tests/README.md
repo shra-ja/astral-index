@@ -41,6 +41,9 @@ Tests that belong to neither the frontend nor the backend alone.
   as expected, or runs out of time, leaves a snapshot in
   `test-results/probe-failures/`: its full output, the machine's processes, load
   and memory, and Vitest's results caches.
+- `release.test.ts` works out the next release's version and notes from the
+  pull requests merged since the last tag (`npm run release:prepare`, from
+  `tooling/release.ts`), for the release workflow.
 - `job-summary.test.ts` writes a CI job's summary (`npm run ci:summary`), from
   `tooling/job-summary.ts`.
 

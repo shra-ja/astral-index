@@ -122,6 +122,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run test:probes` | The mutation probes alone, writing to `test-results/probe-run/` (run `npm run build` first) |
 | `npm run coverage:verify` | Validate every report against the source inventories |
 | `npm run ci:summary` | Write a CI job's summary (CI sets `CHECK_JOB`, `CHECK_STATUS` and `GITHUB_STEP_SUMMARY`) |
+| `npm run release:prepare` | Work out the next release's version and notes from the merged pull requests, writing the notes to `test-results/release/notes.md`; the release workflow runs it |
 
 Run the check serially and do not edit or stage files while it runs: the probes
 change source briefly ([recovery](TESTING.md#mutation-probes)). On a machine with
@@ -190,3 +191,33 @@ Windows 11 includes. Linker warnings about missing `libcmt` debug information ar
 harmless. Release builds use the Windows GUI subsystem, so no console opens;
 debug builds keep it for logs. The executable embeds `src-tauri/icons/icon.ico`,
 which `npm run icons` generates.
+
+## Releasing
+
+Releases are versioned from git tags and drafted by the Release workflow,
+`.github/workflows/release.yml`
+([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)).
+The same steps suit a person or an agent; an agent asks before each one, as they
+are outward-facing.
+
+1. **Check `main`.** The workflow refuses unless every check passed on `main`'s
+   latest commit.
+2. **Preview.** `npm run release:prepare` prints the next version and the notes
+   the workflow would write, from the pull requests merged since the last tag.
+   The version follows semantic versioning: a breaking change (`!` or
+   `BREAKING CHANGE`) is major, a feature minor, anything else a patch.
+3. **Optionally, write the notes.** To describe the release for users, write
+   Markdown that replaces the generated sections: one or two sentences
+   summarising the release, then `### Breaking changes`, `### Features` and
+   `### Fixes`, as needed and in that order, each entry one sentence in the
+   present tense about what the app now does, ending with its pull request,
+   such as `(#117)`. The workflow adds the heading and "How to use" itself. The
+   first release needs notes, as there is no earlier tag to compare.
+4. **Start the workflow:**
+   `gh workflow run release.yml --ref main` with `-f version=1.2.0` to choose
+   the version and `-f notes="$(cat notes.md)"` to give the notes, or the "Run
+   workflow" button on the Actions page.
+5. **Review the draft.** The release appears as a draft titled with its tag,
+   with `Astral-Index-v1.2.0.exe` attached. Edit its notes there, or with
+   `gh release edit v1.2.0 --notes-file notes.md`.
+6. **Publish** the draft, which creates the tag.

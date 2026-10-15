@@ -28,18 +28,25 @@ spends no money.
   version from the Conventional Commits since the last tag (a breaking change
   is major, a feature minor, anything else a patch) unless a version is given,
   refuses unless `main`'s latest commit passed every check, builds the release
-  executable, tags it and creates a **draft** GitHub Release with the executable
-  attached. The user publishes the draft. No version-bump commit or pull
-  request is made, and no branch rule is bypassed. A tag ruleset protects the
-  `v*` tags.
-- **Notes are generated, and adjustable.** The workflow writes notes from the
-  pull requests merged since the last tag, whose titles are Conventional
-  Commits: breaking changes, features and fixes in sections, without their type
-  prefixes, then the download's requirements and a link to the full changelog.
-  An optional summary input goes above them, and the draft can be edited before
-  publishing, so an agent can write or rewrite the notes either way.
-- **The download is the executable alone.** `astral-index.exe`, run from any
-  folder, with portable mode as before; no installer. GitHub shows each
+  executable and creates a **draft** GitHub Release titled with the tag, such as
+  `v1.2.0`, with the executable attached. The user publishes the draft, which
+  creates the tag. No version-bump commit or pull request is made, and no
+  branch rule is bypassed.
+- **Notes follow one template, generated or written.** They open with the
+  heading "Astral Index" and the tag, linked to the changes since the previous
+  tag. The workflow then lists the pull requests merged since the last tag,
+  read from their merge commits, whose titles are Conventional Commits:
+  Breaking changes, Features and Fixes, each title without its type prefix and
+  with its pull request; other types are left out, and a release with none
+  says the app's features are unchanged. A "How to use" section ends the
+  notes: download and run the executable, with a `data` folder beside it for
+  portable mode. An optional `notes` input replaces the generated sections
+  inside the same frame, and the draft can be edited before it is published,
+  so an agent can describe the release for users without the notes looking
+  different. The first release has no previous tag, so it needs its notes
+  given by hand.
+- **The download is the executable alone.** `Astral-Index-v1.2.0.exe`, run
+  from any folder, with portable mode as before; no installer. GitHub shows each
   asset's SHA-256 digest, so no checksum file is attached. The licences and
   third-party notices are in the About dialog, inside the executable, which
   the licences accept, so no files ship beside it.

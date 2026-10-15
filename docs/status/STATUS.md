@@ -36,6 +36,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Release workflow (2026-10-15)
+
+`ci/release-workflow`, [0039](../product/features/0039-distribution.md): a hand-started workflow works out the version and notes from the merged pull requests, refuses unless `main` passed every check, builds and smoke-tests the release executable and drafts the release; the notes' template was settled from drafts. Tooling and CI tests red, then green; local check passes (static 14 s, gates 234 s, probes 166 s).
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -53,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's release workflow, after the version from tags.
+Next: 0039's release docs, then the first release, 1.0.0.
 
 ## Keeping this file current
 
