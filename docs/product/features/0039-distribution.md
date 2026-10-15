@@ -51,11 +51,17 @@ One PR each, test first.
   - The smoke test also checks that the executable's file version is the one
     `TAURI_CONFIG` gave the build, in CI and in the release, and a release run
     restores the Rust cache that main's checks saved but saves none itself.
-- [ ] **Shared Windows build.** One composite action builds and smoke-tests the
+- [x] **Shared Windows build.** One composite action builds and smoke-tests the
   release executable for both CI's Windows release job and the release
   workflow, taking the version and build identity as inputs, so the two builds
   cannot drift apart; `tooling/ci.test.ts` checks that the rest of the two jobs
   (runner, timeout, environment, checkout and setup) still match.
+  - The action installs cargo-about, builds with `TAURI_CONFIG` and
+    `ASTRAL_INDEX_BUILD` from its `version` and `build` inputs, and smoke-tests
+    with the same; checkout and setup stay in the jobs, as CI alone needs the
+    history to find the last tag and saves caches. CI's build-naming step now
+    gives the action the version as an output rather than setting job-wide
+    variables, so only the action names a build.
 - [ ] **Release docs.** The README's download section: Windows 10 or 11 x64
   with WebView2, checking the download against the digest GitHub shows, the
   SmartScreen and antivirus warnings an unsigned executable meets, running it
