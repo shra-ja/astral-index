@@ -4,7 +4,16 @@ import { vitestConfig } from './vitest-config'
 test('repository tooling and gate tests run in Node; the frontend runs its own tests', () => {
   expect(vitestConfig({}).test?.projects).toEqual([
     { test: { name: 'tooling', environment: 'node', include: ['tooling/**/*.test.ts'] } },
-    { test: { name: 'gates', environment: 'node', include: ['tests/**/*.test.ts'] } },
+    {
+      test: {
+        name: 'gates',
+        environment: 'node',
+        include: ['tests/**/*.test.ts'],
+        exclude: ['tests/windows/**'],
+      },
+    },
+    // The Windows smoke test runs only on Windows, against the release executable.
+    { test: { name: 'windows', environment: 'node', include: ['tests/windows/**/*.test.ts'] } },
   ])
 })
 

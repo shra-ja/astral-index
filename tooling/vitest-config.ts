@@ -6,7 +6,8 @@ import { outputs } from './outputs'
 /**
  * Repository tooling, whose unit tests sit beside it in `tooling/`, and the
  * repository-level verification in `tests/`: the native end-to-end test and the
- * coverage gates, run through the check commands. The frontend (`src-ui/`) runs
+ * coverage gates, run through the check commands, and the Windows smoke test in
+ * `tests/windows/`, run on Windows alone. The frontend (`src-ui/`) runs
  * its own tests and coverage, as the backend does with Cargo.
  */
 export function vitestConfig(env: NodeJS.ProcessEnv = process.env): ViteUserConfig {
@@ -20,7 +21,16 @@ export function vitestConfig(env: NodeJS.ProcessEnv = process.env): ViteUserConf
           : ['default'],
       projects: [
         { test: { name: 'tooling', environment: 'node', include: ['tooling/**/*.test.ts'] } },
-        { test: { name: 'gates', environment: 'node', include: ['tests/**/*.test.ts'] } },
+        {
+          test: {
+            name: 'gates',
+            environment: 'node',
+            include: ['tests/**/*.test.ts'],
+            exclude: ['tests/windows/**'],
+          },
+        },
+        // The Windows smoke test runs only on Windows, against the release executable.
+        { test: { name: 'windows', environment: 'node', include: ['tests/windows/**/*.test.ts'] } },
       ],
       coverage: {
         provider: 'v8',

@@ -214,6 +214,17 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
   expect(workflow.split('npm run tauri -- build --no-bundle')).toHaveLength(2)
 })
 
+test('Windows smoke-tests the release executable before keeping it', () => {
+  // The UI is tested end to end on Linux; Windows checks the native side (decision 0029).
+  const release = job('windows-release')
+  const build = release.indexOf('run: npm run tauri -- build --no-bundle')
+  const smoke = release.indexOf('run: npm run test:windows-smoke')
+  expect(smoke).toBeGreaterThan(build)
+  expect(smoke).toBeLessThan(release.indexOf('uses: actions/upload-artifact@'))
+  expect(step(release, 'run: npm run test:windows-smoke')).not.toMatch(/^\s+if:/m)
+  expect(scripts['test:windows-smoke']).toBe('vitest run --project windows')
+})
+
 test('a Windows build is published only once every check has passed', () => {
   const fromThisRepository =
     "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"

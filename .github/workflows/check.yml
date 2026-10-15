@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # The Linux jobs each run one part of `npm run check`; Windows, the first release's
-# only OS (decision 0027), runs the Rust unit tests and builds the release.
+# only OS (decision 0027), runs the Rust unit tests and builds and smoke-tests the
+# release.
 jobs:
   static:
     name: Format, lint, docs and Rust lints
@@ -156,6 +157,10 @@ jobs:
           tool: cargo-about@0.9.2
       - name: Build the release executable
         run: npm run tauri -- build --no-bundle
+      # The UI is tested end to end on Linux; this checks the native side on Windows:
+      # the window, its icon, the data folders and a clean exit (decision 0029).
+      - name: Smoke-test the release executable
+        run: npm run test:windows-smoke
       # Builds of pull requests from forks hold someone else's code, so only this
       # repository's own builds are kept. Each waits under an unverified name, and
       # expires in a day unless every check passes.
