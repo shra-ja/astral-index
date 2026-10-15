@@ -17,6 +17,11 @@ Tests that belong to neither the frontend nor the backend alone.
   `app-driver.ts` drives each app
   through tauri-driver and WebDriver; `close-window-helper.py` closes its window
   as a user would.
+- `windows/smoke.test.ts` runs the release executable on Windows, in CI only
+  (`npm run test:windows-smoke`, its own Vitest project, never in the gates): a
+  windowed app with no console, the committed icon in Explorer and on the
+  window, the history and webview profile in the local data folder or the
+  portable `data` folder, a second start on saved history, and a clean exit.
 - `backend-coverage-stages.test.ts` holds named stages, selected by the npm
   scripts, that run the instrumented Rust tests (unit, integration) and write
   their coverage reports.
