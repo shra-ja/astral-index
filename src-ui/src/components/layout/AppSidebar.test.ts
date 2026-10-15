@@ -84,12 +84,12 @@ test('each link names itself in a tooltip beside it, for the icon rail', () => {
   ).toBe(true)
 })
 
-test('names the app with the wordmark beside the decorative emblem tile', () => {
+test('names the app with the wordmark beside the decorative emblem', () => {
   const brand = sidebar('honkai-star-rail', 'history').get('.brand')
   const wordmark = brand.get('img')
   expect(wordmark.attributes('alt')).toBe('Astral Index')
   expect(wordmark.attributes('src')).toContain('astral-index-wordmark-small.svg')
-  expect(brand.get('.astral-tile').attributes('aria-hidden')).toBe('true')
+  expect(brand.get('.astral-emblem').attributes('aria-hidden')).toBe('true')
   // The wordmark is the title: no live text repeats it.
   expect(brand.text()).toBe('')
 })

@@ -6,7 +6,7 @@
 import { Download, Info, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
-import AstralTile from '../shared/AstralTile.vue'
+import AstralEmblem from '../shared/AstralEmblem.vue'
 import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
 import { games as names, monograms, terms, type Game, type Screen } from '../../format'
 
@@ -18,7 +18,7 @@ const emit = defineEmits<{ about: [] }>()
 <template>
   <nav class="sidebar" aria-label="Main">
     <div class="brand">
-      <AstralTile />
+      <AstralEmblem />
       <img class="wordmark" :src="wordmark" alt="Astral Index" />
     </div>
 
@@ -109,14 +109,13 @@ const emit = defineEmits<{ about: [] }>()
   border-right: 1px solid var(--divider);
   overflow-y: auto;
 }
-/* The lockup, sized from the wordmark's height H: a 2.4 H tile, then a 0.6 H gap.
-   The sidebar's padding keeps at least 0.7 H clear around it. */
+/* The brand's open lockup, sized from the wordmark's height H: the emblem without a
+   tile, then a 0.4 H gap. The sidebar's padding keeps at least 0.7 H clear around it. */
 .brand {
   --h: 18px;
-  --tile: calc(var(--h) * 2.4);
   display: flex;
   align-items: center;
-  gap: calc(var(--h) * 0.6);
+  gap: calc(var(--h) * 0.4);
   padding: 0 8px;
 }
 .wordmark {
@@ -251,10 +250,7 @@ ul {
   .sidebar .text {
     display: none;
   }
-  /* The tile alone; the wordmark stays as the app's name for assistive tech. */
-  .brand {
-    --tile: 32px;
-  }
+  /* The emblem alone, as large; the wordmark stays as the app's name for assistive tech. */
   .wordmark {
     position: absolute;
     width: 1px;

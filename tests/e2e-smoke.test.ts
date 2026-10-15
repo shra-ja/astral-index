@@ -67,23 +67,19 @@ const scrollbarOf = (app: AppSession, selector: string) =>
 // Every scrolling area's thin scrollbar: a --text-faint thumb, at least 3:1 against
 // every background, on a transparent track.
 const appScrollbar = { width: 'thin', color: 'rgb(95, 103, 115) rgba(0, 0, 0, 0)' }
-// The sidebar's brand lockup as drawn: sizes in CSS px, colours, and whether the
-// bundled wordmark loaded and still names the app.
+// The sidebar's open lockup as drawn: the emblem's size in CSS px and colour, the gap
+// to the wordmark, and whether the bundled wordmark loaded and still names the app.
 const lockup = (app: AppSession) =>
   app.execute(`
-    const tile = document.querySelector('nav .brand .astral-tile');
-    const emblem = tile.querySelector('svg');
+    const emblem = document.querySelector('nav .brand .astral-emblem');
     const wordmark = document.querySelector('nav .brand img');
-    const [t, e, w] = [tile, emblem, wordmark].map(el => el.getBoundingClientRect());
+    const [e, w] = [emblem, wordmark].map(el => el.getBoundingClientRect());
     const round = n => Math.round(n * 10) / 10;
     return {
-      tile: [round(t.width), round(t.height)],
-      radius: getComputedStyle(tile).borderTopLeftRadius,
-      background: getComputedStyle(tile).backgroundColor,
-      emblem: [round(e.width / t.width), getComputedStyle(emblem).color],
-      gap: round(w.left - t.right),
+      emblem: [round(e.width), round(e.height), getComputedStyle(emblem).color],
+      gap: round(w.left - e.right),
       wordmark: [round(w.height), round(w.width), wordmark.alt, wordmark.naturalWidth > 0],
-      centred: Math.abs((t.top + t.bottom) / 2 - (w.top + w.bottom) / 2) < 0.5,
+      centred: Math.abs((e.top + e.bottom) / 2 - (w.top + w.bottom) / 2) < 0.5,
     };
   `)
 
@@ -123,14 +119,12 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       width: 1200,
       height: 760,
     })
-    // The sidebar shows the brand lockup from the bundled files, sized from the
-    // wordmark's height: an 18 px wordmark, a 2.4× tile, a 0.6× gap, a 110% emblem.
+    // The sidebar shows the brand's open lockup from the bundled files, sized from the
+    // wordmark's height H, 18 px: the emblem without a tile, cropped to its artwork,
+    // 1.338 H high (1.953 H, 35.15 px, wide), then a 0.4 H gap.
     expect(await lockup(app)).toEqual({
-      tile: [43.2, 43.2],
-      radius: '21%',
-      background: 'rgb(32, 39, 53)',
-      emblem: [1.1, 'rgb(250, 249, 245)'],
-      gap: 10.8,
+      emblem: [35.1, 24.1, 'rgb(250, 249, 245)'],
+      gap: 7.2,
       wordmark: [18, 130, 'Astral Index', true],
       centred: true,
     })
@@ -170,10 +164,10 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       width: 480,
       height: 560,
     })
-    // Collapsed, the sidebar shows the tile alone; the hidden wordmark still names the app.
+    // Collapsed, the sidebar shows the emblem alone, as large; the hidden wordmark still
+    // names the app.
     expect(await lockup(app)).toMatchObject({
-      tile: [32, 32],
-      emblem: [1.1, 'rgb(250, 249, 245)'],
+      emblem: [35.1, 24.1, 'rgb(250, 249, 245)'],
       wordmark: [1, 1, 'Astral Index', true],
     })
     // Collapsed to icons, the sidebar names its links in themed tooltips (decision 0013):
