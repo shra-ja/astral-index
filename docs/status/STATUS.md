@@ -36,10 +36,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### CI timeouts (2026-10-15)
-
-`fix/ci-timeouts`: two timeouts failed `main`'s runs after #120 and #121, with every assertion passing. The Windows smoke test's version check, one PowerShell call, took 6.4 s against Vitest's default 5 s, and now has 30 s; the coverage-command probe, a whole frontend and tooling coverage run that grew from 17–21 s to 27–30 s, now has 120 s (7.4 s locally). Local check passes (static 14 s, gates 233 s, probes 158 s).
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -154,5 +150,5 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags, the release workflow, the launch background and the
-  shared Windows build.
+  the version from tags, the release workflow, the launch background, the
+  shared Windows build and the CI timeouts.
