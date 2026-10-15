@@ -36,9 +36,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Version from tags (2026-10-15)
+### Release workflow (2026-10-15)
 
-`build/tag-version`, [0039](../product/features/0039-distribution.md): releases are versioned from git tags, built and drafted by one workflow, and ship as the executable alone, unsigned for now ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)); this PR removes the manifests' versions (Cargo keeps a `0.0.0` placeholder the Tauri CLI requires) and shows each build's identity in About. Version check, Rust, frontend, end-to-end and CI tests red, then green; a release built with `TAURI_CONFIG` reported its version and commit; local check passes (static 15 s, gates 240 s, probes 169 s).
+`ci/release-workflow`, [0039](../product/features/0039-distribution.md): a hand-started workflow works out the version and notes from the merged pull requests, refuses unless `main` passed every check, builds and smoke-tests the release executable and drafts the release; the notes' template was settled from drafts. Tooling and CI tests red, then green; local check passes (static 14 s, gates 234 s, probes 166 s).
 
 ## Known limitations
 
@@ -57,7 +57,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's release workflow, after the version from tags.
+Next: the white flash on launch (0052), 0039's shared Windows build and release docs, then 1.0.0.
 
 ## Keeping this file current
 
@@ -153,4 +153,5 @@ research, under a "From" heading.
   and the CI pipeline's parallel jobs.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
-  sign-off, the STATUS budget, 0052's Windows polish and the sidebar emblem.
+  sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
+  the version from tags.

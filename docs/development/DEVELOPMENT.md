@@ -122,6 +122,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run test:probes` | The mutation probes alone, writing to `test-results/probe-run/` (run `npm run build` first) |
 | `npm run coverage:verify` | Validate every report against the source inventories |
 | `npm run ci:summary` | Write a CI job's summary (CI sets `CHECK_JOB`, `CHECK_STATUS` and `GITHUB_STEP_SUMMARY`) |
+| `npm run release:prepare` | Work out the next release's version and notes from the merged pull requests, writing the notes to `test-results/release/notes.md`; the release workflow runs it |
 
 Run the check serially and do not edit or stage files while it runs: the probes
 change source briefly ([recovery](TESTING.md#mutation-probes)). On a machine with
@@ -190,3 +191,42 @@ Windows 11 includes. Linker warnings about missing `libcmt` debug information ar
 harmless. Release builds use the Windows GUI subsystem, so no console opens;
 debug builds keep it for logs. The executable embeds `src-tauri/icons/icon.ico`,
 which `npm run icons` generates.
+
+## Releasing
+
+Releases are versioned from git tags and drafted by the Release workflow,
+`.github/workflows/release.yml`
+([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md)).
+The same steps suit a person or an agent; an agent asks before each one, as they
+are outward-facing.
+
+1. **Check `main`.** The workflow refuses unless every check passed on `main`'s
+   latest commit.
+2. **Preview.** Bring `main` and its tags up to date
+   (`git switch main && git pull --tags`), then `npm run release:prepare`
+   prints the next version and the notes the workflow would write, from the
+   pull requests merged since the last tag, and writes the notes to
+   `test-results/release/notes.md`. The version follows semantic versioning,
+   from each pull request's title: a breaking change (`!` after the type, as in
+   `feat!:`) is major, a feature minor, anything else a patch. For the first
+   release, which needs notes, give them as it will:
+   `RELEASE_NOTES="$(cat notes.md)" npm run release:prepare`.
+3. **Optionally, write the notes.** To describe the release for users, write
+   Markdown that replaces the generated sections: one or two sentences
+   summarising the release, then `### Breaking changes`, `### Features` and
+   `### Fixes`, as needed and in that order, each entry one sentence in the
+   present tense about what the app now does, ending with its pull request,
+   such as `(#117)`. The workflow adds the heading and "Usage" itself. The
+   first release needs notes, as there is no earlier tag to compare.
+4. **Start the workflow:**
+   `gh workflow run release.yml --ref main` with `-f version=1.2.0` to choose
+   the version and `-f notes="$(cat notes.md)"` to give the notes, or the "Run
+   workflow" button on the Actions page.
+5. **Review the draft.** The release appears as a draft titled with its tag,
+   with `Astral-Index-v1.2.0.exe` attached. Generated entries are pull request
+   titles as written, so check them for anything that should not be published,
+   such as an `@mention`. Edit the notes there, or with
+   `gh release edit v1.2.0 --notes-file notes.md`. Starting the workflow again
+   for the same version is refused while its draft exists: publish or delete
+   the draft first.
+6. **Publish** the draft, which creates the tag.

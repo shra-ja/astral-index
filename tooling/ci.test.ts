@@ -3,16 +3,17 @@ import { expect, test } from 'vitest'
 
 const read = (path: string) => readFileSync(path, 'utf8')
 const workflow = read('.github/workflows/check.yml')
+const release = read('.github/workflows/release.yml')
 const linuxSetup = read('.github/actions/setup-linux/action.yml')
 const windowsSetup = read('.github/actions/setup-windows/action.yml')
 const scripts = (JSON.parse(read('package.json')) as { scripts: Record<string, string> }).scripts
 
-/** A job's block in the workflow, from its key to the next job's. */
-function job(name: string) {
-  const start = workflow.indexOf(`\n  ${name}:\n`)
+/** A job's block in a workflow, from its key to the next job's. */
+function job(name: string, text = workflow) {
+  const start = text.indexOf(`\n  ${name}:\n`)
   expect(start, name).toBeGreaterThan(0)
-  const next = workflow.slice(start + 1).search(/\n {2}[a-z-]+:\n/)
-  return next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next)
+  const next = text.slice(start + 1).search(/\n {2}[a-z-]+:\n/)
+  return next < 0 ? text.slice(start) : text.slice(start, start + 1 + next)
 }
 /** The steps of a workflow job or a composite action, split at their list items. */
 const stepsOf = (text: string) => text.split(/^ {4,6}- /m).slice(1)
@@ -93,7 +94,7 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
     expect(rust).toContain('workspaces: src-tauri -> target')
     expect(rust).toContain('cache-bin: true')
     expect(rust).toContain('cache-workspace-crates: false')
-    expect(rust).toContain("save-if: ${{ github.ref == 'refs/heads/main' }}")
+    expect(rust).toMatch(/save-if: \$\{\{ .*github\.ref == 'refs\/heads\/main' \}\}/)
   }
   // Tool versions live in the setup actions; changing them must invalidate the cache.
   expect(step(linuxSetup, 'uses: Swatinem/rust-cache@')).toContain(
@@ -169,7 +170,7 @@ test('tools install at pinned versions, prebuilt where checksummed releases exis
 })
 
 test('every action outside the repository is pinned to a commit, named by its version', () => {
-  for (const text of [workflow, linuxSetup, windowsSetup]) {
+  for (const text of [workflow, release, linuxSetup, windowsSetup]) {
     for (const [, target] of text.matchAll(/uses: (\S+)/g)) {
       if (target.startsWith('./')) continue
       expect(text, target).toMatch(
@@ -290,4 +291,109 @@ test('each Linux job writes its own summary, however its check ended', () => {
     expect(summary).toContain(`CHECK_JOB: ${name}`)
     expect(summary).toContain('CHECK_STATUS: ${{ job.status }}')
   }
+})
+
+test('a release starts only by hand, from main, once every check has passed on it', () => {
+  // One action releases (decision 0030): nothing starts it on a push or a schedule.
+  const triggers = release.slice(release.indexOf('\non:\n'), release.indexOf('\npermissions:'))
+  expect(triggers).toMatch(/^ {2}workflow_dispatch:$/m)
+  expect(triggers).not.toMatch(/^ {2}(push|pull_request|schedule|release|workflow_run):/m)
+  expect(release).toContain('cancel-in-progress: false')
+  const prepare = job('prepare', release)
+  expect(step(prepare, 'uses: actions/checkout@')).toContain('fetch-depth: 0')
+  expect(step(prepare, 'refs/heads/main')).toContain('exit 1')
+  // Exactly the checks the check workflow runs, other than publishing.
+  const required = step(prepare, 'name: Require every check to have passed')!
+  const checks = [...workflow.matchAll(/^ {4}name: (.+)$/gm)]
+    .map(([, name]) => name)
+    .filter((name) => name !== 'Publish the Windows build')
+  expect(checks).toHaveLength(5)
+  for (const name of checks) expect(required).toContain(`\n            ${name}\n`)
+  expect(required).toContain('commits/$GITHUB_SHA/check-runs')
+  expect(prepare).toContain('checks: read')
+})
+
+test('a release’s version and notes come from the commits or the inputs, which never reach a script', () => {
+  const prepare = job('prepare', release)
+  expect(release).toMatch(/inputs:\n {6}version:\n[\s\S]*?required: false/)
+  expect(release).toMatch(/ {6}notes:\n[\s\S]*?required: false/)
+  const write = step(prepare, 'run: npm run release:prepare')!
+  expect(write).toContain('RELEASE_VERSION: ${{ inputs.version }}')
+  expect(write).toContain('RELEASE_NOTES: ${{ inputs.notes }}')
+  expect(scripts['release:prepare']).toBe(
+    "vitest run --project gates tests/release.test.ts -t '^write the release$'",
+  )
+  // Inputs reach scripts only through the environment.
+  for (const line of release.split('\n').filter((each) => each.includes('${{ inputs.'))) {
+    expect(line, line).toMatch(/^\s+RELEASE_(VERSION|NOTES): \$\{\{ inputs\.(version|notes) \}\}$/)
+  }
+})
+
+test('a release builds on Windows as a release, smoke-tested, and only drafts it', () => {
+  const build = job('build', release)
+  expect(build).toContain('runs-on: windows-2025')
+  expect(build).toContain('TAURI_CONFIG: \'{"version":"${{ needs.prepare.outputs.version }}"}\'')
+  expect(build).toContain('ASTRAL_INDEX_BUILD: release')
+  const built = build.indexOf('run: npm run tauri -- build --no-bundle')
+  expect(built).toBeGreaterThan(0)
+  expect(build.indexOf('run: npm run test:windows-smoke')).toBeGreaterThan(built)
+  expect(build).toContain('Astral-Index-${{ needs.prepare.outputs.tag }}.exe')
+  // Only the job that creates the draft may write to the repository.
+  expect(release).toMatch(/^permissions:\n {2}contents: read\n/m)
+  expect(release.split('contents: write')).toHaveLength(2)
+  const draft = job('release', release)
+  expect(draft).toContain('contents: write')
+  const create = step(draft, 'gh release create')!
+  expect(create).toContain('--draft')
+  expect(create).toContain('--title "$TAG"')
+  expect(create).toContain('--target "$GITHUB_SHA"')
+  expect(create).toContain('--notes-file')
+})
+
+test('a release refuses a version already drafted or released, and passes its files on intact', () => {
+  for (const name of ['prepare', 'build']) {
+    expect(step(job(name, release), 'uses: actions/checkout@'), name).toContain(
+      'persist-credentials: false',
+    )
+  }
+  // A draft creates no tag, so the drafting job, which can see drafts, checks first.
+  const draft = job('release', release)
+  const existing = step(draft, 'name: Refuse a version already drafted or released')!
+  expect(existing).toContain('gh release list')
+  expect(existing).toContain('select(.tagName == env.TAG)')
+  expect(existing).toContain('exit 1')
+  expect(draft.indexOf('name: Refuse a version already drafted or released')).toBeLessThan(
+    draft.indexOf('gh release create'),
+  )
+  // The notes and the executable arrive where the release is created from.
+  expect(step(job('prepare', release), 'name: release-notes')).toContain(
+    'path: test-results/release/notes.md',
+  )
+  expect(step(draft, 'uses: actions/download-artifact@')).toContain('merge-multiple: true')
+  expect(step(draft, 'gh release create')).toContain('--notes-file notes.md')
+  expect(step(draft, 'gh release create')).toContain('"Astral-Index-$TAG.exe"')
+  // The checks gate fails on anything but a passing run from GitHub Actions itself.
+  const required = step(job('prepare', release), 'name: Require every check to have passed')!
+  expect(required).toContain('select(.app.slug == "github-actions")')
+  expect(required).toMatch(/if \[ "\$result" != success \]; then[\s\S]*?exit 1/)
+})
+
+test('a release smoke-tests the version it built, and leaves CI’s caches to CI', () => {
+  const build = job('build', release)
+  // The smoke test reads the version from TAURI_CONFIG, so the whole job sees it.
+  const jobEnv = build.slice(0, build.indexOf('\n    steps:\n'))
+  expect(jobEnv).toContain('TAURI_CONFIG: \'{"version":"${{ needs.prepare.outputs.version }}"}\'')
+  expect(jobEnv).toContain('ASTRAL_INDEX_BUILD: release')
+  // A release, started by hand, restores the caches main saved but saves none.
+  expect(windowsSetup).toMatch(/save-rust-cache:\n[\s\S]*?default: 'true'/)
+  expect(windowsSetup).toContain(
+    "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
+  )
+  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain("save-rust-cache: 'false'")
+  // The tag reaches the copy step through the environment.
+  const name = step(build, 'name: Name the download')!
+  expect(name).toContain('TAG: ${{ needs.prepare.outputs.tag }}')
+  expect(name).toContain(
+    'run: cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"',
+  )
 })

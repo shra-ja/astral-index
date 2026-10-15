@@ -141,12 +141,24 @@ test('the release executable is a windowed app, with no console', () => {
   expect(image.readUInt16LE(header + 24 + 68)).toBe(2)
 })
 
+test('the release executable carries the version it was built with', () => {
+  // Builds receive their version through TAURI_CONFIG (decision 0030), which both
+  // workflows also give the smoke test, so a malformed or lost version cannot ship.
+  const { version } = JSON.parse(process.env.TAURI_CONFIG ?? '{}') as { version?: string }
+  expect(version, 'TAURI_CONFIG names the version').toMatch(/^\d+\.\d+\.\d+$/)
+  const file = powershell(
+    `$v = (Get-Item '${release}').VersionInfo; "$($v.FileMajorPart).$($v.FileMinorPart).$($v.FileBuildPart)"`,
+  )
+  expect(file).toBe(version)
+})
+
 test('installed, it keeps its history and webview profile in the local data folder, shows its icon and closes cleanly', async () => {
   remove(portable)
   remove(local)
   const pid = await start()
-  // The History screen reads saved history on opening, which creates the database.
-  await expect.poll(() => existsSync(join(local, 'history.sqlite')), { timeout: 15000 }).toBe(true)
+  // The History screen reads saved history on opening, which creates the database;
+  // a runner's first WebView2 start has taken 16 s.
+  await expect.poll(() => existsSync(join(local, 'history.sqlite')), { timeout: 30000 }).toBe(true)
   expect(existsSync(join(local, 'EBWebView'))).toBe(true)
   expect(existsSync(portable)).toBe(false)
   // Explorer and the title bar show the committed icon.
@@ -160,7 +172,7 @@ test('with a data folder beside it, it keeps everything there and leaves the loc
   mkdirSync(portable, { recursive: true })
   const pid = await start()
   await expect
-    .poll(() => existsSync(join(portable, 'history.sqlite')), { timeout: 15000 })
+    .poll(() => existsSync(join(portable, 'history.sqlite')), { timeout: 30000 })
     .toBe(true)
   expect(existsSync(join(portable, 'EBWebView'))).toBe(true)
   await close(pid)
