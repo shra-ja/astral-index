@@ -36,10 +36,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Sidebar emblem (2026-10-15)
-
-`feat/sidebar-emblem`, [0052](../product/features/0052-windows-polish.md): the sidebar shows the brand's open lockup and, collapsed, the emblem alone, without the tile; the app icon keeps its tile. Unit and native tests red, then green; local check passes (static 15 s, gates 242 s, probes 160 s).
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -153,4 +149,4 @@ research, under a "From" heading.
   and the CI pipeline's parallel jobs.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
-  sign-off, the STATUS budget and 0052's Windows polish.
+  sign-off, the STATUS budget, 0052's Windows polish and the sidebar emblem.
