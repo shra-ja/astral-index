@@ -30,30 +30,26 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   or overlapping imports add only new rolls.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
-  binary's synthetic HoYoverse, and checks of the docs, icons and app version.
+  binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
+  app version.
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
   executable (decision 0029).
+- **README:** the logo, badges, and screenshots of the mock's synthetic history,
+  retaken with `npm run readme:screenshots`; the features as they are today and
+  how to download and run the app.
 
 ## In progress
 
-### README presentation (2026-10-16)
+### Release docs housekeeping (2026-10-16)
 
-[0054](../product/features/0054-readme-presentation.md) on
-`docs/readme-presentation`: the README gains the logo, badges, a framed History
-hero, a two-image gallery and current-only content. `npm run readme:logo:check`
-(with a mutation probe) keeps the logo in step with the brand files;
-`npm run readme:screenshots` retakes the screenshots from the mock, whose
-Character Event history now spans a year with a realistic newest month (its
-mock tests went red, then green). The e2e smoke test passes 12/12 offline with
-the new dates. Previewed through GitHub's Markdown API in both themes. The
-staged `npm run check` passes: static, gates at 100% coverage, and 16 probes.
+`docs/release-docs-housekeeping`: 0054 done; 0039's release docs task rewritten to what the README delivered and ticked; the Releasing guide says when to write notes and to keep them unwrapped; staged check passes (static 17 s, gates 236 s, probes 161 s).
 
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
   native side. Live retrieval last worked on Windows on 2026-10-15.
 - Browsers may flag the unsigned executable until it is signed
-  ([0039](../product/features/0039-distribution.md)).
+  ([0053](../product/features/0053-code-signing.md)).
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
   banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
   colours use observed rather than published soft pity (decision 0020).
@@ -65,7 +61,7 @@ staged `npm run check` passes: static, gates at 100% coverage, and 16 probes.
 
 ## Next
 
-Next: 0054, README presentation (logo, screenshots, then the README), then 0039's first release, 1.0.0.
+Next: 0039's first release, 1.0.0, then its `v*` tag ruleset and the migration fixture.
 
 ## Keeping this file current
 
@@ -164,3 +160,5 @@ research, under a "From" heading.
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
   the version from tags, the release workflow, the launch background, the
   shared Windows build and the CI timeouts.
+- [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
+  the logo, screenshots and README, and the mock's year of history.
