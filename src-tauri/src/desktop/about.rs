@@ -43,6 +43,8 @@ pub struct AppInfo {
     version: String,
     build: Build,
     folder: Option<String>,
+    /// The history file in that folder, so the webview never builds a path.
+    file: Option<String>,
     portable: bool,
 }
 
@@ -86,6 +88,10 @@ fn info(version: String, build: Build, about: &About) -> AppInfo {
             .folder
             .as_ref()
             .map(|folder| folder.to_string_lossy().into_owned()),
+        file: about
+            .folder
+            .as_ref()
+            .map(|folder| folder.join(FILE_NAME).to_string_lossy().into_owned()),
         portable: about.portable,
     }
 }
@@ -187,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn app_info_gives_the_version_build_folder_and_mode() {
+    fn app_info_gives_the_version_build_folder_file_and_mode() {
         let shown = info("1.2.0".into(), Build::Release, &about(Some(folder()), true));
         assert_eq!(
             serde_json::to_value(shown).unwrap(),
@@ -195,12 +201,14 @@ mod tests {
                 "version": "1.2.0",
                 "build": { "kind": "release" },
                 "folder": "/local/astral-index",
+                // Joined natively, with the platform's own separator.
+                "file": folder().join("history.sqlite").to_string_lossy(),
                 "portable": true,
             })
         );
         // Without a folder from the platform, there is none to show.
         let shown = info("1.2.0".into(), Build::Local, &about(None, false));
-        assert_eq!(shown.folder, None);
+        assert_eq!((shown.folder, shown.file), (None, None));
         assert!(!shown.portable);
     }
 

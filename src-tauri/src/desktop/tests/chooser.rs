@@ -5,7 +5,7 @@ use tauri::{AppHandle, Runtime};
 pub use tauri_plugin_dialog::FilePath;
 
 /// What a save dialog was asked to show.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Asked {
     pub file_name: String,
     pub filter: String,

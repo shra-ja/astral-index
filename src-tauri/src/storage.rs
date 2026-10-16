@@ -2214,7 +2214,19 @@ pub(crate) mod tests {
         }
     }
 
-    const VACUUM: &str = "VACUUM INTO ?1";
+    pub(crate) const VACUUM: &str = "VACUUM INTO ?1";
+    /// `steps` up to and including the first running `sql`, which answers `reply`
+    /// instead and is the last step reached.
+    pub(crate) fn ending_at(
+        mut steps: Vec<Step>,
+        sql: &str,
+        reply: rusqlite::Result<Reply>,
+    ) -> Vec<Step> {
+        let at = steps.iter().position(|step| step.sql == sql).unwrap();
+        steps.truncate(at + 1);
+        steps[at].reply = reply;
+        steps
+    }
     /// A schema row as the check reads it from `sqlite_schema`.
     fn object(name: &str, sql: &str) -> Vec<Value> {
         vec![text(
@@ -2249,12 +2261,6 @@ pub(crate) mod tests {
             done(&format!("PREPARE {SCHEMA}")),
             rows(SCHEMA, vec![], schema),
         ]
-    }
-    /// The SQL for checking `backup.sqlite`, with `edit` changing the answers.
-    fn checking(edit: impl FnOnce(&mut Vec<Step>)) -> Vec<Step> {
-        let mut steps = check_script("backup.sqlite");
-        edit(&mut steps);
-        steps
     }
     fn check() -> Result<(), Error> {
         check_database(Path::new("backup.sqlite"))
@@ -2299,21 +2305,16 @@ pub(crate) mod tests {
 
     #[test]
     fn a_released_intact_database_of_this_app_passes_its_check() {
-        database::expect(checking(|_| {}));
+        database::expect(check_script("backup.sqlite"));
         assert_eq!(check(), Ok(()));
         database::finish();
         // A database that cannot be read at any step fails as a database error.
-        fail_each(&|| checking(|_| {}), None, &mut check);
+        fail_each(&|| check_script("backup.sqlite"), None, &mut check);
     }
 
-    /// The check's steps up to the first running `sql`, which answers `reply`
-    /// instead and is the last step the check reaches.
-    fn ending_at(sql: &str, reply: Reply) -> Vec<Step> {
-        let mut steps = check_script("backup.sqlite");
-        let at = steps.iter().position(|step| step.sql == sql).unwrap();
-        steps.truncate(at + 1);
-        steps[at].reply = Ok(reply);
-        steps
+    /// The check's steps up to the first running `sql`, which answers `reply`.
+    fn check_ending_at(sql: &str, reply: Reply) -> Vec<Step> {
+        ending_at(check_script("backup.sqlite"), sql, Ok(reply))
     }
     fn integer(value: i64) -> Reply {
         Reply::Rows(vec![Ok(vec![Value::Integer(value)])])
@@ -2322,13 +2323,16 @@ pub(crate) mod tests {
     #[test]
     fn another_apps_or_an_unreleased_schema_fails_its_check() {
         for app in [0, APPLICATION_ID + 1] {
-            database::expect(ending_at("PRAGMA application_id", integer(app.into())));
+            database::expect(check_ending_at(
+                "PRAGMA application_id",
+                integer(app.into()),
+            ));
             assert_eq!(check(), Err(Error::Schema), "application ID {app}");
             database::finish();
         }
         // Version 1 was a pre-release layout; 3 is newer than this app.
         for version in [0, 1, 3] {
-            database::expect(ending_at("PRAGMA user_version", integer(version)));
+            database::expect(check_ending_at("PRAGMA user_version", integer(version)));
             assert_eq!(check(), Err(Error::Schema), "version {version}");
             database::finish();
         }
@@ -2342,7 +2346,7 @@ pub(crate) mod tests {
             vec![],
         ] {
             let report = Reply::Rows(report.into_iter().map(Ok).collect());
-            database::expect(ending_at("PRAGMA integrity_check", report));
+            database::expect(check_ending_at("PRAGMA integrity_check", report));
             assert_eq!(check(), Err(Error::InvalidStoredData));
             database::finish();
         }
@@ -2352,7 +2356,7 @@ pub(crate) mod tests {
     fn a_row_that_cannot_be_read_fails_the_check() {
         for sql in ["PRAGMA integrity_check", SCHEMA] {
             let unreadable = Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]);
-            database::expect(ending_at(sql, unreadable));
+            database::expect(check_ending_at(sql, unreadable));
             assert_eq!(check(), Err(Error::Database), "{sql}");
             database::finish();
         }
@@ -2368,11 +2372,11 @@ pub(crate) mod tests {
             vec![object("accounts", "CREATE TABLE accounts (changed)")],
             vec![],
         ] {
-            database::expect(checking(|steps| {
-                // The file's schema is read first, then the fresh database's.
-                let file = steps.iter().position(|step| step.sql == SCHEMA).unwrap();
-                steps[file] = rows(SCHEMA, vec![], actual);
-            }));
+            // The file's schema is read first, then the fresh database's.
+            let mut steps = check_script("backup.sqlite");
+            let file = steps.iter().position(|step| step.sql == SCHEMA).unwrap();
+            steps[file] = rows(SCHEMA, vec![], actual);
+            database::expect(steps);
             assert_eq!(check(), Err(Error::Schema));
             database::finish();
         }

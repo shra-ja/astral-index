@@ -111,16 +111,18 @@ pub fn read_to_string(path: impl AsRef<Path>) -> io::Result<String> {
 /// Removes a file, failing if it did not exist; every attempt is recorded.
 pub fn remove_file(path: impl AsRef<Path>) -> io::Result<()> {
     let path = path.as_ref();
+    access(path);
     FIXTURE.with(|state| {
         let mut state = state.borrow_mut();
         state.removed_files.push(path.to_owned());
         state.files.remove(path).map(drop).ok_or_else(missing)
     })
 }
-/// Moves a file's contents to `to`, unless a folder occupies `to`. The source may
-/// be a file SQLite wrote, which this double never sees, so it need not exist here.
+/// Moves a file to `to`, failing if it is missing or a folder occupies `to`.
 pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
     let (from, to) = (from.as_ref(), to.as_ref());
+    access(from);
+    access(to);
     FIXTURE.with(|state| {
         let mut state = state.borrow_mut();
         state.renamed.push((from.to_owned(), to.to_owned()));
@@ -130,12 +132,13 @@ pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
                 "synthetic folder",
             ));
         }
-        let contents = state.files.remove(from).unwrap_or_default();
+        let contents = state.files.remove(from).ok_or_else(missing)?;
         state.files.insert(to.to_owned(), contents);
         Ok(())
     })
 }
-/// A folder's real path: itself if it exists here, else a failure.
+/// A folder's real path: itself if it exists here, else a failure. A lookup, so it
+/// is not recorded as an access.
 pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
     let path = path.as_ref();
     FIXTURE.with(|state| {

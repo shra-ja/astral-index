@@ -446,7 +446,13 @@ test('the mock binary records what the About dialog opens, and reports a failed 
     const info = await app.executeAsync(`
       const done = arguments[arguments.length - 1];
       window.__TAURI_INTERNALS__.invoke('app_info').then(done, (error) => done(String(error)))`)
-    expect(info).toEqual({ version: '0.0.0', build: { kind: 'local' }, folder, portable: false })
+    expect(info).toEqual({
+      version: '0.0.0',
+      build: { kind: 'local' },
+      folder,
+      file: resolve(folder, 'history.sqlite'),
+      portable: false,
+    })
     expect(await call('reveal_data_folder')).toBe('resolved')
     expect(readFileSync(record, 'utf8')).toBe(`reveal ${resolve(folder, 'history.sqlite')}\n`)
     expect(await call('open_issues_page')).toBe('resolved')

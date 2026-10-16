@@ -1156,6 +1156,7 @@ mod tests {
                 "version": "0.1.0",
                 "build": { "kind": "local" },
                 "folder": folder.to_string_lossy(),
+                "file": folder.join(database::FILE_NAME).to_string_lossy(),
                 "portable": false,
             })
         );
