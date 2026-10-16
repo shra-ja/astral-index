@@ -99,3 +99,7 @@ keep a copy of the database they upgrade
 ([decision 0031](decisions/0031-sqlite-snapshot-backups.md)). Imports will
 compare a roll's facts rather than its whole record
 ([decision 0032](decisions/0032-history-file-import-rules.md)).
+
+A derived UTC time per roll, from its record's local time and its account's
+offset, joins the next schema migration another feature needs; it stays empty
+where the offset is unknown. Records keep their source's local time.

@@ -45,9 +45,13 @@ over retrieved history. The evidence is in the
   names and types from it in one language, falling back to the record's text.
   Until then, a roll without a name, item type or rarity blocks the import,
   saying how many; afterwards only an item the catalogue does not know does.
-- **Times are kept as the server's local time.** A source in UTC is converted
-  with the server's offset from the game's rule; a source with local time keeps
-  its text.
+- **Times are kept as the server's local time.** Each source's adapter declares
+  whether its times are server-local or UTC; a format that leaves this unclear
+  is not supported. A source with local time keeps its text, and a source in UTC
+  is converted with the server's offset from the game's rule, so a Europe roll
+  at `2023-04-26T03:11:38Z` is saved as `2023-04-26 04:11:38`. A saved time
+  pairs with its account's offset, which together give the exact moment; an
+  account whose offset is unknown keeps it unknown.
 
 ## Alternatives and consequences
 
