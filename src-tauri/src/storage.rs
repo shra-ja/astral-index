@@ -2222,14 +2222,14 @@ pub(crate) mod tests {
         )]
     }
     /// The SQL for checking `path`, answered as a released, intact database whose
-    /// schema matches; `edit` changes the answers.
-    fn checking(edit: impl FnOnce(&mut Vec<Step>)) -> Vec<Step> {
+    /// schema matches.
+    pub(crate) fn check_script(path: &str) -> Vec<Step> {
         let schema = vec![object("accounts", "CREATE TABLE accounts")];
-        let mut steps = vec![
+        vec![
             step(
                 "OPEN WITH FLAGS",
                 vec![
-                    text("backup.sqlite"),
+                    text(path),
                     Value::Integer(rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY.bits().into()),
                 ],
                 Reply::Done,
@@ -2248,7 +2248,11 @@ pub(crate) mod tests {
             done(include_str!("../migrations/001_initial.sql")),
             done(&format!("PREPARE {SCHEMA}")),
             rows(SCHEMA, vec![], schema),
-        ];
+        ]
+    }
+    /// The SQL for checking `backup.sqlite`, with `edit` changing the answers.
+    fn checking(edit: impl FnOnce(&mut Vec<Step>)) -> Vec<Step> {
+        let mut steps = check_script("backup.sqlite");
         edit(&mut steps);
         steps
     }

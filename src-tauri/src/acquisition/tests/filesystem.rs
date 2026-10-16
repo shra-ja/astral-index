@@ -19,6 +19,10 @@ pub struct Fixture {
     pub accessed: Vec<PathBuf>,
     /// Folders removed, in order; removal always succeeds.
     pub removed: Vec<PathBuf>,
+    /// Files removed, in order, whether or not they existed.
+    pub removed_files: Vec<PathBuf>,
+    /// Files renamed, in order, as `(from, to)`.
+    pub renamed: Vec<(PathBuf, PathBuf)>,
 }
 thread_local! { static FIXTURE: RefCell<Fixture> = RefCell::default(); }
 pub fn install(fixture: Fixture) {
@@ -88,6 +92,43 @@ pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> io::Result<(
         state
             .files
             .insert(path.to_owned(), contents.as_ref().to_vec());
+        Ok(())
+    })
+}
+/// Reads a file's text, failing if it is missing.
+pub fn read_to_string(path: impl AsRef<Path>) -> io::Result<String> {
+    let path = path.as_ref();
+    access(path);
+    FIXTURE.with(|state| {
+        let state = state.borrow();
+        let bytes = state.files.get(path).ok_or_else(missing)?;
+        Ok(String::from_utf8_lossy(bytes).into_owned())
+    })
+}
+/// Removes a file, failing if it did not exist; every attempt is recorded.
+pub fn remove_file(path: impl AsRef<Path>) -> io::Result<()> {
+    let path = path.as_ref();
+    FIXTURE.with(|state| {
+        let mut state = state.borrow_mut();
+        state.removed_files.push(path.to_owned());
+        state.files.remove(path).map(drop).ok_or_else(missing)
+    })
+}
+/// Moves a file's contents to `to`, unless a folder occupies `to`. The source may
+/// be a file SQLite wrote, which this double never sees, so it need not exist here.
+pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
+    let (from, to) = (from.as_ref(), to.as_ref());
+    FIXTURE.with(|state| {
+        let mut state = state.borrow_mut();
+        state.renamed.push((from.to_owned(), to.to_owned()));
+        if state.directories.contains(&to.to_owned()) {
+            return Err(io::Error::new(
+                io::ErrorKind::IsADirectory,
+                "synthetic folder",
+            ));
+        }
+        let contents = state.files.remove(from).unwrap_or_default();
+        state.files.insert(to.to_owned(), contents);
         Ok(())
     })
 }
