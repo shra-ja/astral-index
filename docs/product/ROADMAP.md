@@ -171,9 +171,11 @@ documented formats.
 
 - [ ] [0037 — Backup and restore](features/0037-backup-and-restore.md)
 - [ ] [0030 — History-file import](features/0030-history-file-import.md)
+- [ ] [0055 — UIGF export](features/0055-uigf-export.md)
 
 Done when a fresh profile can recover the same records and metadata from a
-backup, and supported history files reuse the import pipeline.
+backup, UIGF files import through the same pipeline as retrieval, and saved
+history exports as UIGF.
 
 ### 12 — Genshin Impact and the banner catalogue
 
@@ -182,6 +184,8 @@ downloader ([decision 0022](../architecture/decisions/0022-banner-catalogue-down
 
 - [ ] [0031 — Second game adapter](features/0031-second-game-adapter.md)
 - [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
+- [ ] [0056 — Star Rail Station import](features/0056-star-rail-station-import.md)
+- [ ] [0057 — Pool ID completion](features/0057-pool-id-completion.md)
 - [ ] [0036 — Item icons and banner art](features/0036-item-icons-and-banner-art.md)
 
 Done when both games coexist without shared identity or rule assumptions, and a

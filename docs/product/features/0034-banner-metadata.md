@@ -20,6 +20,9 @@ catalogue folder (decision 0022).
 - [ ] Load a catalogue folder the user selects: validate it as untrusted input,
   keep a copy in the application's data folder, replace it on a later load, and
   show its version and coverage. No network requests.
+- [ ] Show item names and types from the catalogue's items, in one chosen
+  language, falling back to each roll's own text, so mixed-language sources
+  read alike ([decision 0032](../../architecture/decisions/0032-history-file-import-rules.md)).
 - [ ] Show banner names in the list's Banner column, keeping placeholder art,
   with rolls on pools the catalogue lacks shown as unknown rather than guessed.
 - [ ] Add the 50/50 button to the History toolbar and colour 5★ pity by

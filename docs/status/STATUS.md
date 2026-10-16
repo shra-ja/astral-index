@@ -42,9 +42,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Migration fixture (2026-10-16)
+### Milestone 11 requirements (2026-10-16)
 
-`test/migration-fixture`: 1.0.0's database, written once by its `Store` from synthetic history, is frozen in `src-tauri/tests/fixtures/storage/`; `released_databases.rs` pins its SHA-256, reads a copy back and imports into it (4 tests red while it was missing, then green). Staged check passes (static 18 s, gates 244 s, probes 162 s). 0039 and milestone 10 are done; the `v*` tag rulesets and the repository's description, topics and social preview are set.
+`docs/milestone-11-requirements`: requirements for 0037 and 0030, new features 0055 (UIGF export), 0056 (Star Rail Station import) and 0057 (pool ID completion), both after 0034, decisions 0031 and 0032, and file research from a player's StarDB and Star Rail Station exports, inspected for structure only.
 
 ## Known limitations
 
@@ -63,7 +63,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s versioned backup format.
+Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s backup.
 
 ## Keeping this file current
 
@@ -164,4 +164,5 @@ research, under a "From" heading.
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
   the logo, screenshots and README, the mock's year of history, the release
-  docs housekeeping and the release notes without a heading.
+  docs housekeeping, the release notes without a heading and the migration
+  fixture.
