@@ -722,7 +722,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       expect.objectContaining({
         number: 1250,
         id: '1800000000110000000',
-        time: '2026-09-28 21:03:03',
+        time: '2026-09-07 21:14:03',
       }),
     )
     const last = await history(63)
@@ -768,14 +768,14 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         expect.stringMatching(/^\d+$/),
         expect.stringMatching(/^[345]★$/),
         expect.any(String),
-        '28 Sep 2026, 21:03:03',
+        '7 Sep 2026, 21:14:03',
       ],
       [
         '1249',
         expect.stringMatching(/^\d+$/),
         expect.stringMatching(/^[345]★$/),
         expect.any(String),
-        '28 Sep 2026, 21:03:03',
+        '7 Sep 2026, 21:14:03',
       ],
     ])
     // Each roll's pity counts on from the older roll below it, starting again at 1
@@ -815,7 +815,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     }
     expect(strip[3].parts.slice(1)).toEqual([
       expect.stringMatching(/^\d{1,2} [A-Z][a-z]{2} \d{4} –$/),
-      '28 Sep 2026',
+      '7 Sep 2026',
     ])
     // Hiding 3★ rolls leaves the 5★ and 4★ ones of the whole category, still numbered
     // in it, while the tabs and strip keep counting everything.
@@ -860,7 +860,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       `const box = document.querySelector('input[type="search"]'); box.value = ''; box.dispatchEvent(new Event('input'))`,
     )
     // With the keyboard, the date button opens its popover at All dates; choosing
-    // 28 Sep onwards keeps only that day's 5★ and 4★ rolls, and Escape closes it.
+    // 7 Sep onwards keeps only that day's 5★ and 4★ rolls, and Escape closes it.
     await app.execute('document.querySelector(\'main button[aria-haspopup="dialog"]\').focus()')
     await app.press(ENTER)
     await expect
@@ -872,7 +872,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       )
       .toBe('All dates')
     expect(await textOf(app, '[role=dialog] .note')).toBe(
-      'Server time (UTC+8). Saved rolls span 25 Sep 2026 – 28 Sep 2026.',
+      'Server time (UTC+8). Saved rolls span 31 Aug 2025 – 7 Sep 2026.',
     )
     // The popover's buttons keep their own sizes: 30px quick ranges, 32px actions.
     expect(
@@ -889,23 +889,23 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       ['Done', 32],
     ])
     await app.execute(
-      `const from = [...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === 'From').querySelector('input'); from.value = '2026-09-28'; from.dispatchEvent(new Event('change'))`,
+      `const from = [...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === 'From').querySelector('input'); from.value = '2026-09-07'; from.dispatchEvent(new Event('change'))`,
     )
     await expect
       .poll(
         () =>
           app.execute<string[]>(
-            `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => row.lastElementChild.textContent.trim().slice(0, 11))`,
+            `return [...document.querySelectorAll(".roll-list .body [role=row]")].map(row => row.lastElementChild.textContent.trim().split(",")[0])`,
           ),
         { timeout: 10000 },
       )
-      .toSatisfy((days: string[]) => days.length > 0 && days.every((day) => day === '28 Sep 2026'))
+      .toSatisfy((days: string[]) => days.length > 0 && days.every((day) => day === '7 Sep 2026'))
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history-dates')
     await app.press(ESCAPE)
     await expect
       .poll(() => textOf(app, "main button[aria-haspopup='dialog']"), { timeout: 10000 })
-      .toMatch(/^\s*From 28 Sep 2026\s*$/)
+      .toMatch(/^\s*From 7 Sep 2026\s*$/)
     expect(await app.execute('return document.querySelector("[role=dialog]") === null')).toBe(true)
     expect(
       await app.execute(
