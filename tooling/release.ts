@@ -109,9 +109,9 @@ const sections: [title: string, includes: (change: Change) => boolean][] = [
 ]
 
 /**
- * The release's notes: the app and its version, linked to the changes since the
- * last release, then the breaking changes, features and fixes, or the notes given
- * by hand, then how to use the download.
+ * The release's notes: the breaking changes, features and fixes, or the notes
+ * given by hand, then how to use the download. The release's title already
+ * names its version, so the notes have no heading of their own.
  */
 export function releaseNotes({ repository, tag, previous, changes, notes }: Release): string {
   const site = `https://github.com/${repository}`
@@ -119,8 +119,6 @@ export function releaseNotes({ repository, tag, previous, changes, notes }: Rele
   if (previous === undefined && !given) {
     throw new Error('The first release needs its notes given by hand')
   }
-  const link =
-    previous === undefined ? `${site}/commits/${tag}` : `${site}/compare/${previous}...${tag}`
   const listed = sections.flatMap(([title, includes]) => {
     const entries = changes.filter(includes)
     return entries.length
@@ -133,8 +131,6 @@ export function releaseNotes({ repository, tag, previous, changes, notes }: Rele
       ? listed
       : ['No changes to the app’s features: this release updates how it is built and tested.', '']
   return [
-    `## Astral Index [${tag}](${link})`,
-    '',
     ...body,
     '### Usage',
     '',

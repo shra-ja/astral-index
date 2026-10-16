@@ -100,7 +100,7 @@ const howToUse = [
   '',
 ].join('\n')
 
-test('the notes list breaking changes, features and fixes under the app and its version', () => {
+test('the notes list breaking changes, features and fixes, with no heading of their own', () => {
   const notes = releaseNotes({
     repository,
     tag: 'v1.1.0',
@@ -120,8 +120,6 @@ test('the notes list breaking changes, features and fixes under the app and its 
   })
   expect(notes).toBe(
     [
-      '## Astral Index [v1.1.0](https://github.com/shra-ja/astral-index/compare/v1.0.0...v1.1.0)',
-      '',
       '### Breaking changes',
       '',
       '- Drop the old format (#115)',
@@ -149,8 +147,6 @@ test('without features or fixes, the notes say the app is unchanged', () => {
   })
   expect(notes).toBe(
     [
-      '## Astral Index [v1.1.0](https://github.com/shra-ja/astral-index/compare/v1.0.0...v1.1.0)',
-      '',
       'No changes to the app’s features: this release updates how it is built and tested.',
       '',
       howToUse,
@@ -168,8 +164,6 @@ test('notes given by hand replace the summary and changes, inside the same frame
   })
   expect(notes).toBe(
     [
-      '## Astral Index [v1.1.0](https://github.com/shra-ja/astral-index/compare/v1.0.0...v1.1.0)',
-      '',
       'The sidebar is clearer.',
       '',
       '### Features',
@@ -181,10 +175,10 @@ test('notes given by hand replace the summary and changes, inside the same frame
   )
 })
 
-test('the first release links its commits, and needs notes given by hand', () => {
+test('the first release needs notes given by hand', () => {
   const first = { repository, tag: 'v1.0.0', previous: undefined, changes: [] }
-  expect(releaseNotes({ ...first, notes: 'A local record of your warp history.' })).toContain(
-    '## Astral Index [v1.0.0](https://github.com/shra-ja/astral-index/commits/v1.0.0)',
+  expect(releaseNotes({ ...first, notes: 'A local record of your warp history.' })).toBe(
+    ['A local record of your warp history.', '', howToUse.replace('v1.1.0', 'v1.0.0')].join('\n'),
   )
   // Every pull request ever merged would be listed otherwise.
   expect(() => releaseNotes(first)).toThrow('The first release needs its notes given by hand')
