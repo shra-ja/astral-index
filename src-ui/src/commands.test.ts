@@ -59,6 +59,8 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'no_preview',
     'invalid_request',
     'backup_failed',
+    'backup_in_data_folder',
+    'history_damaged',
   ]) {
     mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })

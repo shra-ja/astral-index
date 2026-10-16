@@ -1,19 +1,25 @@
 <script setup lang="ts">
 // Presentational: where history is stored, with a button that asks to show the file
-// in its folder. The caller opens it and says whether that failed.
+// in its folder. The caller opens it and says whether that failed. Until the folder
+// has been read it shows nothing, and a failed read is told apart from having none.
 import { FolderOpen } from '@lucide/vue'
 import { computed } from 'vue'
 import { historyFile } from '../../format'
 import { openingFailures } from '../../messages'
 
-const props = defineProps<{ folder: string | null; failed: boolean }>()
+const props = defineProps<{
+  folder: string | null
+  failed: boolean
+  read: 'pending' | 'read' | 'failed'
+}>()
 const emit = defineEmits<{ reveal: [] }>()
 const file = computed(() => (props.folder === null ? null : historyFile(props.folder)))
 </script>
 
 <template>
-  <div class="location">
-    <template v-if="file">
+  <div v-if="read !== 'pending'" class="location">
+    <p v-if="read === 'failed'" class="note">Where history is stored couldn’t be read.</p>
+    <template v-else-if="file">
       <div class="where">
         <span class="label">History is stored in</span>
         <span class="path">{{ file }}</span>

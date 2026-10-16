@@ -10,12 +10,15 @@ export type Opening = 'folder' | 'issues'
 
 export function useAbout(readNotices = loadNotices) {
   const info = shallowRef<AppInfo | null>(null)
+  // Whether the details have been read, so a screen can tell waiting from failing.
+  const read = shallowRef<'pending' | 'read' | 'failed'>('pending')
   // The opening that failed last, until another is tried or the dialog closes.
   const failed = shallowRef<Opening | null>(null)
 
   async function load() {
     const result = await appInfo()
     info.value = 'failure' in result ? null : result.info
+    read.value = 'failure' in result ? 'failed' : 'read'
   }
 
   // The notices are read once, when first shown; a build may have generated none.
@@ -35,6 +38,7 @@ export function useAbout(readNotices = loadNotices) {
 
   return {
     info: readonly(info),
+    read: readonly(read),
     failed: readonly(failed),
     notices: readonly(notices),
     noticesMissing: readonly(noticesMissing),

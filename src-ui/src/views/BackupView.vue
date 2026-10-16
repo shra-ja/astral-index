@@ -11,7 +11,7 @@ import { useBackup } from '../composables/useBackup'
 
 const { state, name, message, save } = useBackup()
 // The data folder comes from the app's details, as the About dialog's does.
-const { info, failed, load, revealFolder } = useAbout()
+const { info, read, failed, load, revealFolder } = useAbout()
 onMounted(load)
 </script>
 
@@ -29,6 +29,7 @@ onMounted(load)
       <DataLocation
         :folder="info?.folder ?? null"
         :failed="failed === 'folder'"
+        :read
         @reveal="revealFolder"
       />
     </div>

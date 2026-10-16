@@ -34,6 +34,8 @@ const nativeKinds = [
   'invalid_request',
   'open_failed',
   'backup_failed',
+  'backup_in_data_folder',
+  'history_damaged',
 ] as const
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22']

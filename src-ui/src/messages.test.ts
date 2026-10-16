@@ -203,9 +203,18 @@ test.each<[Kind, string]>([
   expect(titleOf({ kind })).toBe(title)
 })
 
-test('a backup that could not be saved asks for another folder', () => {
+test('a backup that was not saved says why: the place, or the history itself', () => {
   expect(backupFailure({ kind: 'backup_failed' })).toBe(
     'The backup couldn’t be saved there. Choose another folder and try again.',
+  )
+  expect(backupFailure({ kind: 'backup_in_data_folder' })).toBe(
+    'A backup can’t be saved in the folder that holds your history. Choose another folder.',
+  )
+  expect(backupFailure({ kind: 'history_damaged' })).toBe(
+    'Your saved history failed its check, so no backup was made. Nothing was changed.',
+  )
+  expect(backupFailure({ kind: 'storage' })).toBe(
+    'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
   )
   expect(backupFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
 })

@@ -18,12 +18,15 @@ test('the details are unknown until read', async () => {
   vi.mocked(appInfo).mockResolvedValue({ info })
   const about = useAbout()
   expect(about.info.value).toBeNull()
+  expect(about.read.value).toBe('pending')
   await about.load()
   expect(about.info.value).toEqual(info)
-  // A failed read shows no details rather than stale ones.
+  expect(about.read.value).toBe('read')
+  // A failed read shows no details rather than stale ones, and says it failed.
   vi.mocked(appInfo).mockResolvedValue({ failure: { kind: 'unavailable' } })
   await about.load()
   expect(about.info.value).toBeNull()
+  expect(about.read.value).toBe('failed')
 })
 
 test('a failed opening is remembered until the next attempt or a reset', async () => {
