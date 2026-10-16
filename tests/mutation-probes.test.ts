@@ -308,6 +308,28 @@ test('the icons gate rejects a changed icon and a missing one', () => {
   expectCommandSuccess('npm', ['run', 'icons:check'])
 }, 60000)
 
+// The committed README logo must stay what the brand files produce.
+test('the README logo gate rejects a changed logo and a missing one', () => {
+  const [changed, missing] = [
+    'docs/assets/readme/astral-index-logo-dark.svg',
+    'docs/assets/readme/astral-index-logo-light.svg',
+  ]
+  const original = readFileSync(changed)
+  try {
+    writeFileSync(changed, Buffer.concat([original, Buffer.from('<!-- probe -->\n')]))
+    renameSync(missing, `${missing}.probe`)
+    expectCommandFailure(
+      'npm',
+      ['run', 'readme:logo:check'],
+      '"astral-index-logo-dark.svg",\n+   "astral-index-logo-light.svg",',
+    )
+  } finally {
+    writeFileSync(changed, original)
+    if (existsSync(`${missing}.probe`)) renameSync(`${missing}.probe`, missing)
+  }
+  expectCommandSuccess('npm', ['run', 'readme:logo:check'])
+}, 60000)
+
 // Release tags carry the version (decision 0030), so no manifest may declare one.
 test('the versions gate rejects a manifest that declares a version', () => {
   const manifest = 'src-ui/package.json'
