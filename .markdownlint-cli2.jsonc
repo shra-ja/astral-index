@@ -8,6 +8,12 @@
     "MD004": { "style": "dash" },
     "MD007": { "indent": 2 },
     "MD060": { "style": "compact" },
+    // Only the HTML GitHub needs for the README's centred header, its logo heading
+    // for light and dark themes, and sized screenshots, two in a gallery table;
+    // other inline HTML is refused.
+    "MD033": {
+      "allowed_elements": ["h1", "p", "picture", "source", "img", "a", "table", "tr", "td"],
+    },
   },
   "globs": ["**/*.md"],
   "gitignore": true,
