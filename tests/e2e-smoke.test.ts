@@ -461,6 +461,54 @@ test('the mock binary records what the About dialog opens, and reports a failed 
   })
 }, 60000)
 
+test('Backup & Restore saves a checked backup where the mock answers, and nothing on cancel or failure', async () => {
+  const backups = resolve(results, 'e2e-backups')
+  rmSync(backups, { recursive: true, force: true })
+  mkdirSync(backups, { recursive: true })
+  const backup = resolve(backups, 'history-copy.sqlite')
+  await withMock('history', {}, async (app) => {
+    const folder = resolve(mockData, 'astral-index-mock')
+    const answer = resolve(folder, 'save-as.txt')
+    await retrieveFromFile(app)
+    await expect.poll(() => textOf(app, '.review h2'), { timeout: 30000 }).toMatch(/^Ready to save/)
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    await expect
+      .poll(() => textOf(app, 'main .path'), { timeout: 5000 })
+      .toBe(resolve(folder, 'history.sqlite'))
+    const status = () => textOf(app, "main [role='status']")
+    // The mock answers the save dialog with the path its tests write.
+    writeFileSync(answer, `${backup}\n`)
+    await click(app, 'main', 'Save backup…')
+    await expect.poll(status, { timeout: 10000 }).toContain('Saved history-copy.sqlite')
+    // Cancelling the dialog writes nothing more.
+    rmSync(answer)
+    await click(app, 'main', 'Save backup…')
+    await expect.poll(status, { timeout: 10000 }).toBe('')
+    // A folder that does not exist fails, leaving no partial file.
+    const missing = resolve(backups, 'missing', 'copy.sqlite')
+    writeFileSync(answer, missing)
+    await click(app, 'main', 'Save backup…')
+    await expect
+      .poll(status, { timeout: 10000 })
+      .toContain('The backup couldn’t be saved there. Choose another folder and try again.')
+  })
+  // The backup is the closed app's history, checked: this app's, version 2, intact.
+  expect(readdirSync(backups)).toEqual(['history-copy.sqlite'])
+  const copy = new DatabaseSync(backup, { readOnly: true })
+  try {
+    const value = (sql: string) => Object.values(copy.prepare(sql).get()!)[0]
+    expect(value('PRAGMA application_id')).toBe(1381257795)
+    expect(value('PRAGMA user_version')).toBe(2)
+    expect(value('PRAGMA integrity_check')).toBe('ok')
+    expect(value('SELECT count(*) FROM rolls')).toBe(2060)
+  } finally {
+    copy.close()
+  }
+}, 120000)
+
 test('the About dialog opens from the keyboard, opens what it offers and closes back to its button', async () => {
   await withMock('history', {}, async (app) => {
     const folder = resolve(mockData, 'astral-index-mock')
