@@ -42,7 +42,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-No work in progress.
+### Milestone 11 requirements (2026-10-16)
+
+`docs/milestone-11-requirements`: requirements for 0037 and 0030, new features 0055 (UIGF export) and 0056 (Star Rail Station import, after 0034), decisions 0031 and 0032, and file research from a player's StarDB and Star Rail Station exports, inspected for structure only.
 
 ## Known limitations
 
@@ -61,7 +63,7 @@ No work in progress.
 
 ## Next
 
-Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s versioned backup format.
+Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s backup.
 
 ## Keeping this file current
 
