@@ -41,9 +41,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release notes without a heading (2026-10-16)
-
-`feat/release-notes-without-heading`: the notes no longer open with "Astral Index" and the tag, as the release's title shows the version (4 release-notes tests red, then green); 1.0.0's draft was edited to match before it was published. Staged check passes (static 15 s, gates 238 s, probes 159 s).
+No work in progress.
 
 ## Known limitations
 
@@ -162,5 +160,5 @@ research, under a "From" heading.
   the version from tags, the release workflow, the launch background, the
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
-  the logo, screenshots and README, the mock's year of history, and the
-  release docs housekeeping.
+  the logo, screenshots and README, the mock's year of history, the release
+  docs housekeeping and the release notes without a heading.
