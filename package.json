@@ -20,6 +20,7 @@
     "icons:check": "vitest run --project gates tests/app-icons.test.ts -t '^committed icons match the brand$'",
     "readme:logo": "vitest run --project gates tests/readme-logo.test.ts -t '^write the README logo$'",
     "readme:logo:check": "vitest run --project gates tests/readme-logo.test.ts -t '^the README logo matches the brand$'",
+    "readme:screenshots": "npm run build && dbus-run-session -- xvfb-run -a -s '-screen 0 3200x2000x24' vitest run --project gates tests/readme-screenshots.test.ts",
     "versions:check": "vitest run --project gates tests/versions.test.ts",
     "notices": "vitest run --project gates tests/notices.test.ts -t '^generate notices$'",
     "format": "prettier --write .",
