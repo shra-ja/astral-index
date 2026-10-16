@@ -91,9 +91,11 @@ account, import, roll and pity count
 migration's tests open the same fixtures, and each release that changes the
 schema adds its own.
 
-## Not yet designed
+## Planned
 
-Backups need their own versioned format and validation. A database is never
-overwritten until a replacement is validated; recovery behavior is defined before
-restore or destructive migrations are implemented. After the first release,
-schema changes use versioned migrations with data-preservation tests.
+Backups are snapshots of the database, restored by replacing it after a checked
+copy is migrated, with the current database kept as a safety copy; migrations
+keep a copy of the database they upgrade
+([decision 0031](decisions/0031-sqlite-snapshot-backups.md)). Imports will
+compare a roll's facts rather than its whole record
+([decision 0032](decisions/0032-history-file-import-rules.md)).

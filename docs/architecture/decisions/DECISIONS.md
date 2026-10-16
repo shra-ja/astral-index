@@ -63,3 +63,5 @@ HoYoverse fetching.
 - [0028 — Accessibility audit and large-history bounds](0028-release-checks.md)
 - [0029 — Automated release verification](0029-automated-release-verification.md)
 - [0030 — Tag-versioned releases](0030-tag-versioned-releases.md)
+- [0031 — SQLite snapshot backups](0031-sqlite-snapshot-backups.md)
+- [0032 — History-file import rules](0032-history-file-import-rules.md)

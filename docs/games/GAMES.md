@@ -6,7 +6,7 @@ Current support is in [STATUS](../status/STATUS.md); the shared import design is
 
 | Game | Docs |
 | --- | --- |
-| Honkai: Star Rail | [API contract](hsr/api-contract.md) (accepted behaviour the app relies on) and [API research](hsr/api-research.md) (dated evidence behind it, including supported extraction sources) |
+| Honkai: Star Rail | [API contract](hsr/api-contract.md) (accepted behaviour the app relies on), [API research](hsr/api-research.md) (dated evidence behind it, including supported extraction sources) and [file research](hsr/file-research.md) (other tools' history files) |
 | Genshin Impact | Not researched yet; add `genshin/` when that work starts |
 
 ## Researching a new source

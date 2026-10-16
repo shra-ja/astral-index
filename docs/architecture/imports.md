@@ -41,7 +41,8 @@ failure never leaves a partial batch.
 - Never assume a local file holds complete history, or promise to recover records
   the source no longer provides.
 - Never deduplicate by timestamp or localized name; identity is the source ID
-  within its game, account and server. Identical-looking rolls can be
+  within its game, account and server, and history files compare a roll's facts
+  ([decision 0032](decisions/0032-history-file-import-rules.md)). Identical-looking rolls can be
   legitimate, so ambiguous matches need reconciliation, not silent removal.
 - Fixtures are synthetic and say whether they model an external format or an
   internal proposal; a synthetic example alone never establishes compatibility.
