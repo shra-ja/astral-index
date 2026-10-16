@@ -321,7 +321,7 @@ test('the README logo gate rejects a changed logo and a missing one', () => {
     expectCommandFailure(
       'npm',
       ['run', 'readme:logo:check'],
-      '"astral-index-logo-dark.svg",\n+   "astral-index-logo-light.svg",',
+      'stale: astral-index-logo-dark.svg, astral-index-logo-light.svg;',
     )
   } finally {
     writeFileSync(changed, original)

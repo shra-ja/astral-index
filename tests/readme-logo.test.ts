@@ -34,5 +34,8 @@ test('the README logo matches the brand', () => {
         !existsSync(`${folder}/${name}`) || readFileSync(`${folder}/${name}`, 'utf8') !== svg,
     )
     .map(([name]) => name)
-  expect(stale, 'run `npm run readme:logo` and commit the result').toEqual([])
+  expect(
+    stale,
+    `stale: ${stale.join(', ')}; run \`npm run readme:logo\` and commit the result`,
+  ).toEqual([])
 })
