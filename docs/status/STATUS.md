@@ -40,9 +40,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release docs housekeeping (2026-10-16)
-
-`docs/release-docs-housekeeping`: 0054 done; 0039's release docs task rewritten to what the README delivered and ticked; the Releasing guide says when to write notes and to keep them unwrapped; staged check passes (static 17 s, gates 236 s, probes 161 s).
+No work in progress.
 
 ## Known limitations
 
@@ -161,4 +159,5 @@ research, under a "From" heading.
   the version from tags, the release workflow, the launch background, the
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
-  the logo, screenshots and README, and the mock's year of history.
+  the logo, screenshots and README, the mock's year of history, and the
+  release docs housekeeping.
