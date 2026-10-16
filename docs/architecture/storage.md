@@ -81,6 +81,16 @@ as a safe storage error rather than repairing it.
 - **Saved roll IDs:** the game's IDs grouped by account, for the quick refresh's
   stop check.
 
+## Released databases
+
+1.0.0 released schema version 2. Its database, written by 1.0.0 from synthetic
+history, is kept frozen in `src-tauri/tests/fixtures/storage/`, and
+`src-tauri/tests/released_databases.rs` opens a copy and reads back every
+account, import, roll and pity count
+([decision 0029](decisions/0029-automated-release-verification.md)). Each
+migration's tests open the same fixtures, and each release that changes the
+schema adds its own.
+
 ## Not yet designed
 
 Backups need their own versioned format and validation. A database is never

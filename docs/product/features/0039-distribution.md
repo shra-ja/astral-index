@@ -1,6 +1,6 @@
 # 0039 — Distribution
 
-Status: In progress · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 
 Release the app as a standalone Windows executable, versioned from git tags,
 with generated notes and a README that says how to download and run it
@@ -69,7 +69,7 @@ One PR each, test first.
   release notes' Usage text, with portable mode, and its Storage section says
   where history is kept. DEVELOPMENT's Releasing guide takes a person or an
   agent through previewing, drafting, reviewing and publishing a release.
-- [ ] **First release and migration fixture.** Release 1.0.0. Once it is
+- [x] **First release and migration fixture.** Release 1.0.0. Once it is
   published and looks right, add a tag ruleset that stops `v*` tags being
   deleted or moved and lets only repository admins create them (a repository
   setting, with the user's approval); it comes after, so redoing 1.0.0 needs no
@@ -80,3 +80,14 @@ One PR each, test first.
   - 1.0.0 was published on 2026-10-16 from `1c21dda`, with notes the user
     edited; its tag, the README's release badge and its latest-release link
     were checked afterwards.
+  - The tag rules are two rulesets, as a ruleset's bypass skips all its rules:
+    "release tags" stops anyone, admins included, deleting, updating or
+    force-moving a `v*` tag, and "release tag creation" lets only repository
+    admins create one, so publishing a draft still tags it. The repository's
+    description, topics and social preview were set with the user's approval.
+  - `src-tauri/tests/fixtures/storage/history-1.0.0.sqlite` is 1.0.0's
+    database, written once by its `Store` from synthetic history: two accounts
+    on one server and the same UID on another, a repeated import, an unknown
+    time zone and an unknown field. `released_databases.rs` pins its SHA-256
+    and reads a copy back, then imports into it; its four tests failed while
+    the fixture was missing, then passed.

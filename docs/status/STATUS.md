@@ -34,14 +34,17 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
   app version.
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
-  executable (decision 0029).
+  executable (decision 0029). A frozen 1.0.0 database shows each schema change
+  keeps saved history.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-No work in progress.
+### Migration fixture (2026-10-16)
+
+`test/migration-fixture`: 1.0.0's database, written once by its `Store` from synthetic history, is frozen in `src-tauri/tests/fixtures/storage/`; `released_databases.rs` pins its SHA-256, reads a copy back and imports into it (4 tests red while it was missing, then green). Staged check passes (static 18 s, gates 244 s, probes 162 s). 0039 and milestone 10 are done; the `v*` tag rulesets and the repository's description, topics and social preview are set.
 
 ## Known limitations
 
@@ -60,7 +63,7 @@ No work in progress.
 
 ## Next
 
-Next: 0039's `v*` tag ruleset, with the user's approval, then the migration fixture.
+Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s versioned backup format.
 
 ## Keeping this file current
 
