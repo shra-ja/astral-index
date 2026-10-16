@@ -36,17 +36,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### README presentation (2026-10-16)
-
-[0054](../product/features/0054-readme-presentation.md) on
-`docs/readme-presentation`: the README gains the logo, badges, a framed History
-hero, a two-image gallery and current-only content. `npm run readme:logo:check`
-(with a mutation probe) keeps the logo in step with the brand files;
-`npm run readme:screenshots` retakes the screenshots from the mock, whose
-Character Event history now spans a year with a realistic newest month (its
-mock tests went red, then green). The e2e smoke test passes 12/12 offline with
-the new dates. Previewed through GitHub's Markdown API in both themes. The
-staged `npm run check` passes: static, gates at 100% coverage, and 16 probes.
+No work in progress.
 
 ## Known limitations
 
@@ -164,3 +154,5 @@ research, under a "From" heading.
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
   the version from tags, the release workflow, the launch background, the
   shared Windows build and the CI timeouts.
+- [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
+  the logo, screenshots and README, and the mock's year of history.
