@@ -3,8 +3,9 @@
 Status: implemented. See decisions
 [0006](decisions/0006-desktop-extraction-commands.md),
 [0007](decisions/0007-validate-during-extraction.md),
-[0014](decisions/0014-mock-debug-binary.md) and
-[0024](decisions/0024-about-opening.md).
+[0014](decisions/0014-mock-debug-binary.md),
+[0024](decisions/0024-about-opening.md) and
+[0031](decisions/0031-sqlite-snapshot-backups.md).
 
 The webview reaches native code only through these commands, listed once in
 `src-tauri/src/desktop/commands.in` for both the library and the `build.rs` app
@@ -12,7 +13,9 @@ manifest. The manifest makes every command need a capability grant, and
 `capabilities/main.json` grants exactly these to the main window; anything else
 is refused. No plugins, arbitrary filesystem access or shell access are exposed;
 the opener plugin's functions are called from native code only, and the plugin
-is not registered.
+is not registered. The dialog plugin is registered for the real app, as its save
+dialog needs it, but the capability grants none of its permissions: only native
+code opens a dialog.
 
 | Command | Does | Contacts HoYoverse |
 | --- | --- | --- |
@@ -28,6 +31,7 @@ is not registered.
 | `app_info` | The app's version, which build it is (a release, a CI build of a commit, or local), the data folder in use and whether portable mode is on | No |
 | `reveal_data_folder` | Show `history.sqlite` selected in the system file manager, or open the data folder before the file exists | No |
 | `open_issues_page` | Open the repository's issues page in the default browser | No |
+| `save_backup` | Ask where to save in the system's save dialog, suggesting `Astral-Index-backup-<date>.sqlite` from the `date` sent (`YYYY-MM-DD`), then write a checked snapshot there; returns the file's name or a cancellation. The mock debug binary answers from `save-as.txt` in its data folder | No |
 
 ## Session
 
@@ -47,7 +51,8 @@ later the preview.
 ## IPC rules
 
 - Paths never cross IPC, except the data folder that `app_info` returns for the
-  About dialog to show. The file command takes a raw IPC body holding the file's
+  About dialog and the Backup & Restore screen to show. `save_backup` returns only
+  the saved file's name. The file command takes a raw IPC body holding the file's
   bytes (the webview rejects files over 16 MiB before reading); the CSP allows
   only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never

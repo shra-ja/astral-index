@@ -1,6 +1,6 @@
 # 0037 — Backup and restore
 
-Status: Planned · Milestone 11, Backup, restore and file import
+Status: In progress · Milestone 11, Backup, restore and file import
 
 A backup file holding the whole history, which a fresh profile can restore,
 on a new **Backup & Restore** screen in the sidebar
@@ -42,23 +42,31 @@ Backup and restore stay local and never make a network request.
 
 ## Tasks
 
-- [ ] **Backup.** The snapshot, its check, the dialog and the Backup & Restore
+- [x] **Backup.** The snapshot, its check, the dialog and the Backup & Restore
   screen with its Save backup action, in this order:
-  - [ ] Storage writes a snapshot with `VACUUM INTO`, and checks a database file
+  - [x] Storage writes a snapshot with `VACUUM INTO`, and checks a database file
     as restore will: the app's application ID, a released schema version no newer
     than the app's, a passing integrity check and exactly that version's schema.
-  - [ ] A `save_backup` command opens the save dialog from Rust
+  - [x] A `save_backup` command opens the save dialog from Rust
     (`tauri-plugin-dialog`, with no webview permission), suggesting
     `Astral-Index-backup-YYYY-MM-DD.sqlite` from the date the webview sends,
     writes the snapshot to a temporary file beside the target, checks it and
     renames it into place, removing the temporary file on any failure. It
     returns the saved file's name, a cancellation or a failure. The mock debug
     binary answers the dialog with a path its tests choose.
-  - [ ] The Backup & Restore screen in the sidebar, after Import, with the
+  - [x] The Backup & Restore screen in the sidebar, after Import, with the
     `database-backup` icon: the Backup card with its working, saved and failed
     states, and where history is stored, with Open folder.
-  - [ ] An end-to-end test saves a backup through the mock and checks the file
+  - [x] An end-to-end test saves a backup through the mock and checks the file
     it wrote.
+  - Each layer's tests failed first: storage's against missing functions, and
+    each check's own test against that check disabled; the command's against
+    stubs; the screen's against the missing modules and sidebar link. A real
+    damaged page fails the check as unreadable before its integrity report,
+    which unit tests cover. A backup can be made at any time, as storage runs
+    one operation at a time. The webview sends the date, as `chrono` here has no
+    clock; the screen sits under the current game, so the sidebar needs no
+    special case.
 - [ ] **Restore.** Checking, migrating, the confirmation, the safety copy and
   the replacement, including refusals of newer, corrupt, foreign and unrelated
   files.
