@@ -25,3 +25,8 @@ Integrated through PR #124.
 
 Integrated through PR #125.
 `feat/release-notes-without-heading`: the notes no longer open with "Astral Index" and the tag, as the release's title shows the version (4 release-notes tests red, then green); 1.0.0's draft was edited to match before it was published. Staged check passes (static 15 s, gates 238 s, probes 159 s).
+
+## Migration fixture (2026-10-16)
+
+Integrated through PR #126.
+`test/migration-fixture`: 1.0.0's database, written once by its `Store` from synthetic history, is frozen in `src-tauri/tests/fixtures/storage/`; `released_databases.rs` pins its SHA-256, reads a copy back and imports into it (4 tests red while it was missing, then green). Staged check passes (static 18 s, gates 244 s, probes 162 s). 0039 and milestone 10 are done; the `v*` tag rulesets and the repository's description, topics and social preview are set.

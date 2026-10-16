@@ -42,9 +42,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Migration fixture (2026-10-16)
-
-`test/migration-fixture`: 1.0.0's database, written once by its `Store` from synthetic history, is frozen in `src-tauri/tests/fixtures/storage/`; `released_databases.rs` pins its SHA-256, reads a copy back and imports into it (4 tests red while it was missing, then green). Staged check passes (static 18 s, gates 244 s, probes 162 s). 0039 and milestone 10 are done; the `v*` tag rulesets and the repository's description, topics and social preview are set.
+No work in progress.
 
 ## Known limitations
 
@@ -164,4 +162,5 @@ research, under a "From" heading.
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
   the logo, screenshots and README, the mock's year of history, the release
-  docs housekeeping and the release notes without a heading.
+  docs housekeeping, the release notes without a heading and the migration
+  fixture.
