@@ -68,7 +68,86 @@ const LARGE: u64 = 20_000;
 const COLLABORATION_PAGE: u64 = 20;
 /// How many newer rolls each category gains in the `NewerHistory` scenario.
 const NEWER: u64 = 25;
-const NEWEST: &str = "2026-09-28 21:14:03";
+const NEWEST: &str = "2026-09-07 21:14:03";
+/// How far apart ten-pulls are, so a category of 1,250 rolls spans about a year.
+const TEN_PULL_MINUTES: i64 = 3 * 24 * 60;
+
+/// The newest month of Character Event Warp, written to read like real play: its
+/// pulls, newest first, as ten-pulls sharing a time or single pulls, by roll count.
+const RECENT_PULLS: [(i64, &str); 19] = [
+    (10, "2026-09-07 21:14:03"),
+    (10, "2026-09-05 20:02:41"),
+    (1, "2026-09-03 08:15:12"),
+    (1, "2026-09-02 22:47:30"),
+    (10, "2026-08-31 19:31:08"),
+    (10, "2026-08-28 13:05:55"),
+    (1, "2026-08-26 09:12:44"),
+    (10, "2026-08-24 21:40:19"),
+    (10, "2026-08-21 18:22:07"),
+    (1, "2026-08-19 07:58:36"),
+    (10, "2026-08-17 20:11:52"),
+    (10, "2026-08-14 22:35:27"),
+    (1, "2026-08-13 12:00:03"),
+    (10, "2026-08-11 19:48:16"),
+    (1, "2026-08-10 23:10:45"),
+    (1, "2026-08-10 10:06:39"),
+    (1, "2026-08-09 21:52:18"),
+    (1, "2026-08-09 15:33:01"),
+    (1, "2026-08-09 09:41:27"),
+];
+/// That month's 4★ and 5★ rolls by age: as many as the pattern they replace, with a 4★
+/// or better at least every 10 rolls; Seele, the standard character a lost 50/50
+/// gives, at soft pity, then Robin • Summeretto at 67, on the first page.
+const RECENT_HITS: [(i64, &str, &str, &str); 12] = [
+    (2, "4", "Gallagher", "Character"),
+    (5, "5", "Robin • Summeretto", "Character"),
+    (14, "4", "Tingyun", "Character"),
+    (24, "4", "Dance! Dance! Dance!", "Light Cone"),
+    (33, "4", "Lynx", "Character"),
+    (43, "4", "Pela", "Character"),
+    (52, "4", "Planetary Rendezvous", "Light Cone"),
+    (62, "4", "Misha", "Character"),
+    (72, "5", "Seele", "Character"),
+    (81, "4", "Asta", "Character"),
+    (90, "4", "Past and Future", "Light Cone"),
+    (99, "4", "Hanya", "Character"),
+];
+/// 3★ light cones for that month.
+const RECENT_THREE: [&str; 15] = [
+    "Arrows",
+    "Cornucopia",
+    "Defense",
+    "Darkness",
+    "Loop",
+    "Meshing Cogs",
+    "Passkey",
+    "Fine Fruit",
+    "Hidden Shadow",
+    "Mediation",
+    "Multiplication",
+    "Pioneering",
+    "Sagacity",
+    "Shattered Home",
+    "Void",
+];
+
+/// A roll of the newest month of Character Event Warp: its rarity, name, type and time,
+/// or none outside that month.
+fn recent(age: i64) -> Option<(&'static str, &'static str, &'static str, &'static str)> {
+    let mut first = 0;
+    let time = RECENT_PULLS.iter().find_map(|&(count, time)| {
+        first += count;
+        (age >= first - count && age < first).then_some(time)
+    })?;
+    let (rarity, name, kind) = RECENT_HITS.iter().find(|hit| hit.0 == age).map_or_else(
+        || {
+            let index = usize::try_from(age * 7).unwrap_or(0) % RECENT_THREE.len();
+            ("3", RECENT_THREE[index], "Light Cone")
+        },
+        |&(_, rarity, name, kind)| (rarity, name, kind),
+    );
+    Some((rarity, name, kind, time))
+}
 
 /// Whose history a page holds: a UID, its server and the server's time zone.
 struct Account {
@@ -189,9 +268,15 @@ fn rolls(
                 (_, 3) => "4",
                 _ => "3",
             };
-            let minutes = age.div_euclid(10) * 37 + i64::try_from(code).unwrap_or(0);
-            let time = newest - chrono::Duration::minutes(minutes);
+            let minutes = age.div_euclid(10) * TEN_PULL_MINUTES + i64::try_from(code).unwrap_or(0);
+            let time = (newest - chrono::Duration::minutes(minutes))
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string();
             let (name, kind) = item(rarity, light_cones, age);
+            let (rarity, name, kind, time) = match recent(age).filter(|_| category == "11") {
+                Some((rarity, name, kind, time)) => (rarity, name, kind, time.to_owned()),
+                None => (rarity, name, kind, time),
+            };
             serde_json::json!({
                 "uid": account.uid,
                 "id": (top - index).to_string(),
@@ -199,7 +284,7 @@ fn rolls(
                 "gacha_type": category,
                 "item_id": format!("{rarity}{:03}", age.rem_euclid(7)),
                 "count": "1",
-                "time": time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                "time": time,
                 "name": name,
                 "lang": "en",
                 "item_type": kind,
@@ -386,6 +471,84 @@ mod tests {
                 assert!(page.list.len() <= 20);
             }
         }
+    }
+
+    /// Character Event Warp's rolls from the `History` scenario, newest first.
+    fn character_event() -> Vec<crate::hsr::Roll> {
+        let history = fetch(Scenario::History).unwrap();
+        history
+            .responses()
+            .iter()
+            .flat_map(|body| parse_response(body).unwrap().list)
+            .filter(|roll| roll.gacha_type == "11")
+            .collect()
+    }
+
+    fn time(roll: &crate::hsr::Roll) -> chrono::NaiveDateTime {
+        chrono::NaiveDateTime::parse_from_str(&roll.time, "%Y-%m-%d %H:%M:%S").unwrap()
+    }
+
+    #[test]
+    fn character_event_spans_about_a_year() {
+        let rolls = character_event();
+        let span = time(&rolls[0]) - time(rolls.last().unwrap());
+        assert!(
+            (350..=380).contains(&span.num_days()),
+            "{} days",
+            span.num_days()
+        );
+    }
+
+    #[test]
+    fn the_newest_month_of_character_event_reads_like_real_play() {
+        let rolls = character_event();
+        let month = &rolls[..100];
+        let rarity = |rank: &str| month.iter().filter(|roll| roll.rank_type == rank).count();
+        // As many 5★ and 4★ rolls as the pattern it replaces, so totals are unchanged.
+        assert_eq!((rarity("5"), rarity("4")), (2, 10));
+        // A month of pulls, as ten-pulls sharing a time or single pulls.
+        assert!(time(&month[0]) - time(&month[99]) <= chrono::Duration::days(30));
+        let mut groups = Vec::new();
+        for roll in month {
+            match groups.last_mut() {
+                Some((at, count)) if *at == roll.time => *count += 1,
+                _ => groups.push((roll.time.clone(), 1)),
+            }
+        }
+        assert!(groups.iter().all(|(_, count)| *count == 1 || *count == 10));
+        assert!(groups.iter().any(|(_, count)| *count == 1));
+        // Pity counts the rolls since the previous 5★, oldest first: soft pity, then an
+        // early one; a 4★ or better comes at least every 10 rolls, as the game ensures.
+        let oldest_first: Vec<_> = rolls.iter().rev().collect();
+        let mut since_five = 0;
+        let mut since_four = 0;
+        let mut pities = Vec::new();
+        for (index, roll) in oldest_first.iter().enumerate() {
+            since_five += 1;
+            since_four += 1;
+            assert!(since_four <= 10, "no 4★ in over 10 rolls at {index}");
+            if roll.rank_type == "5" {
+                if index >= oldest_first.len() - 100 {
+                    pities.push((since_five, roll.name.clone()));
+                }
+                since_five = 0;
+            }
+            if roll.rank_type != "3" {
+                since_four = 0;
+            }
+        }
+        assert_eq!(
+            pities,
+            [(74, "Seele".into()), (67, "Robin • Summeretto".into())]
+        );
+        // Varied 4★ characters and light cones, not a fixed cycle.
+        let fours: std::collections::HashSet<_> = month
+            .iter()
+            .filter(|roll| roll.rank_type == "4")
+            .map(|roll| (roll.name.clone(), roll.item_type.clone()))
+            .collect();
+        assert!(fours.len() >= 7, "{fours:?}");
+        assert!(fours.iter().any(|(_, kind)| kind == "Light Cone"));
     }
 
     #[test]

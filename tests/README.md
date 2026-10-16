@@ -28,6 +28,12 @@ Tests that belong to neither the frontend nor the backend alone.
 - `app-icons.test.ts` holds named stages: one writes the app icons from the
   brand's emblems (`npm run icons`), the other checks the committed ones match
   (`npm run icons:check`).
+- `readme-logo.test.ts` holds named stages: one writes the README's logo from
+  the brand files (`npm run readme:logo`), the other checks the committed ones
+  match (`npm run readme:logo:check`).
+- `readme-screenshots.test.ts` takes the README's screenshots from the mock
+  debug binary's synthetic history (`npm run readme:screenshots`), run by hand,
+  never in the gates.
 - `notices.test.ts` writes the third-party notices, failing on a missing or
   unaccepted licence (`npm run notices`, which every build runs).
 - `versions.test.ts` checks that every manifest declares the same app version

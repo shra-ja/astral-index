@@ -195,6 +195,27 @@ with `tooling/app-icons.ts` and fails, naming each file, when a committed icon
 differs or is missing; `npm run icons` writes them. A mutation probe proves the
 check fails.
 
+## README images
+
+The README's logo in `docs/assets/readme/` is the brand's open lockup, built by
+`tooling/readme-logo.ts` from the files in `src-ui/src/assets/brand/`.
+`npm run readme:logo:check`, part of `check:static`, runs
+`tests/readme-logo.test.ts` and fails, naming each file, when a committed logo
+differs or is missing; `npm run readme:logo` writes them. A mutation probe
+proves the check fails.
+
+The screenshots are not checked, since they change whenever a screen does.
+`npm run readme:screenshots` takes them again: it builds the app, then
+`tests/readme-screenshots.test.ts` drives the mock debug binary through its
+synthetic history at twice the pixel density, never a real account. It saves
+the History screen framed as a Windows 11 window on the brand's colours for
+the hero, and for the gallery, the import review and the History screen's grid
+at 760 px wide, the narrowest window that keeps the filters on one line, with
+the sidebar hidden. The grid shows the last 6 months with the page's clock set
+to the day after the newest roll. The window's title uses Segoe UI, read from
+the Windows drive when WSL can reach it; elsewhere it falls back to the app's
+font, and the run says which it used. Commit the images it changes.
+
 ## Third-party notices
 
 Every build generates the third-party notices

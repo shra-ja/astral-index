@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-15
+Updated: 2026-10-16
 
 ## Current state
 
@@ -36,9 +36,17 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### CI timeouts (2026-10-15)
+### README presentation (2026-10-16)
 
-`fix/ci-timeouts`: two timeouts failed `main`'s runs after #120 and #121, with every assertion passing. The Windows smoke test's version check, one PowerShell call, took 6.4 s against Vitest's default 5 s, and now has 30 s; the coverage-command probe, a whole frontend and tooling coverage run that grew from 17–21 s to 27–30 s, now has 120 s (7.4 s locally). Local check passes (static 14 s, gates 233 s, probes 158 s).
+[0054](../product/features/0054-readme-presentation.md) on
+`docs/readme-presentation`: the README gains the logo, badges, a framed History
+hero, a two-image gallery and current-only content. `npm run readme:logo:check`
+(with a mutation probe) keeps the logo in step with the brand files;
+`npm run readme:screenshots` retakes the screenshots from the mock, whose
+Character Event history now spans a year with a realistic newest month (its
+mock tests went red, then green). The e2e smoke test passes 12/12 offline with
+the new dates. Previewed through GitHub's Markdown API in both themes. The
+staged `npm run check` passes: static, gates at 100% coverage, and 16 probes.
 
 ## Known limitations
 
@@ -57,7 +65,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's release docs, then the first release, 1.0.0.
+Next: 0054, README presentation (logo, screenshots, then the README), then 0039's first release, 1.0.0.
 
 ## Keeping this file current
 
@@ -154,5 +162,5 @@ research, under a "From" heading.
 - [2026-10-15: Windows smoke test](history/2026-10-15-windows-smoke-test.md):
   decision 0029, the release executable's smoke test, the first-release
   sign-off, the STATUS budget, 0052's Windows polish, the sidebar emblem and
-  the version from tags, the release workflow, the launch background and the
-  shared Windows build.
+  the version from tags, the release workflow, the launch background, the
+  shared Windows build and the CI timeouts.
