@@ -42,7 +42,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-No work in progress.
+### Backup (2026-10-16)
+
+`feat/backup`: 0037's first task, the Backup card on a new Backup & Restore screen, broken into sub-tasks.
 
 ## Known limitations
 

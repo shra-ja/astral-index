@@ -33,15 +33,32 @@ Backup and restore stay local and never make a network request.
 - **Migration recovery:** before upgrading an older database on opening, the app
   copies it to `history-v<N>.sqlite` in the data folder; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
-- Backup and restore are unavailable while a retrieval or import is under way.
-  In portable mode, safety copies go to the portable data folder.
+- Restore is unavailable while a retrieval or import is under way; a backup can
+  be made at any time, as storage runs one operation at a time, so a snapshot is
+  always consistent. In portable mode, safety copies go to the portable data
+  folder.
 - The screen shows where history is stored, and errors never include file
   contents or full private paths.
 
 ## Tasks
 
 - [ ] **Backup.** The snapshot, its check, the dialog and the Backup & Restore
-  screen with its Back up action.
+  screen with its Save backup action, in this order:
+  - [ ] Storage writes a snapshot with `VACUUM INTO`, and checks a database file
+    as restore will: the app's application ID, a released schema version no newer
+    than the app's, a passing integrity check and exactly that version's schema.
+  - [ ] A `save_backup` command opens the save dialog from Rust
+    (`tauri-plugin-dialog`, with no webview permission), suggesting
+    `Astral-Index-backup-YYYY-MM-DD.sqlite` from the date the webview sends,
+    writes the snapshot to a temporary file beside the target, checks it and
+    renames it into place, removing the temporary file on any failure. It
+    returns the saved file's name, a cancellation or a failure. The mock debug
+    binary answers the dialog with a path its tests choose.
+  - [ ] The Backup & Restore screen in the sidebar, after Import, with the
+    `database-backup` icon: the Backup card with its working, saved and failed
+    states, and where history is stored, with Open folder.
+  - [ ] An end-to-end test saves a backup through the mock and checks the file
+    it wrote.
 - [ ] **Restore.** Checking, migrating, the confirmation, the safety copy and
   the replacement, including refusals of newer, corrupt, foreign and unrelated
   files.
