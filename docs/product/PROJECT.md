@@ -69,8 +69,10 @@ User-requested HoYoverse history acquisition is in scope; see
 
 ## Open decisions
 
-- Exact supported history-file formats and other local sources, verified with
-  documentation and synthetic or redacted samples before claiming compatibility.
+- Other history-file formats and local sources, verified with documentation and
+  synthetic or redacted samples before claiming compatibility. UIGF v4.0 to v4.2
+  and Star Rail Station's backup are settled
+  ([decision 0032](../architecture/decisions/0032-history-file-import-rules.md)).
 - How users identify accounts and resolve ambiguous imports, and account
   reconciliation in general.
 
