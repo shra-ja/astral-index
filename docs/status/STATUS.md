@@ -44,7 +44,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Milestone 11 requirements (2026-10-16)
 
-`docs/milestone-11-requirements`: requirements for 0037 and 0030, new features 0055 (UIGF export) and 0056 (Star Rail Station import, after 0034), decisions 0031 and 0032, and file research from a player's StarDB and Star Rail Station exports, inspected for structure only.
+`docs/milestone-11-requirements`: requirements for 0037 and 0030, new features 0055 (UIGF export), 0056 (Star Rail Station import) and 0057 (pool ID inference), both after 0034, decisions 0031 and 0032, and file research from a player's StarDB and Star Rail Station exports, inspected for structure only.
 
 ## Known limitations
 

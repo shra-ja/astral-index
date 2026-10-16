@@ -52,10 +52,23 @@ XLSX. The files were compared with each other by roll ID.
 - The newer backup holds every roll of the older backup and of both CSVs, with
   every field unchanged.
 
+## Servers from UIDs (2026-10-16)
+
+A widely used open-source HoYoLAB library maps a Star Rail UID to its server by
+the digits before its last eight: 1 and 2 for `prod_gf_cn`, 5 for `prod_qd_cn`,
+6 for `prod_official_usa`, 7 for `prod_official_eur`, 8 for
+`prod_official_asia` and 9 for `prod_official_cht`. The inspected Europe account
+agrees. The library gives no offsets; community reports give −5 for America,
++1 for Europe and +8 for the rest, of which only Europe's is confirmed above.
+
+## Pools over time (2026-10-16)
+
+In the inspected Star Rail Station backup, no two pools of one category have
+overlapping spans of rolls, so time and category identify every roll's pool
+there. That shows when this player rolled, not that the game never runs two
+pools of a category at once.
+
 ## Still to verify
 
-- The first digit of the UID for servers other than Europe, and each server's
-  offset, before the rule claims them: community observation gives 6 for
-  America, 7 for Europe, 8 for Asia and 9 for Taiwan, Hong Kong and Macao.
 - Whether manual entries in Star Rail Station carry HoYoverse's roll IDs; none of
   the inspected rolls were manual.

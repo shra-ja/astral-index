@@ -13,30 +13,34 @@ File import stays local and never makes a network request.
 - **Choosing a file:** the user chooses a file; its size is bounded, sized for at
   least 100,000 rolls, and it must be UIGF with `info.version` from `v4.0` to
   `v4.2`. Other versions, legacy UIGF and SRGF are refused with what was found.
-- **Sections:** every `hkrpg` account in the file is read; other games' sections
-  are reported as not supported yet and left out.
+- **Sections:** the file's `hkrpg` accounts are read; other games' sections are
+  reported as not supported yet and left out.
+- **One account per import:** the review covers one account, as retrieval's
+  does. A file with several asks which to import; importing it again covers
+  another.
 - **Accounts:** a UID given as a number is kept exactly as text. The server comes
   from Honkai: Star Rail's UID rule, kept behind a per-game interface; an
-  unrecognised UID blocks its account. The account's `timezone` is its time-zone
+  unrecognised UID blocks the import. The account's `timezone` is its time-zone
   evidence and must agree with a saved account's; its `lang` is kept with each
   record.
 - **Records:** each needs the fields UIGF requires for Star Rail and a name, item
   type and rarity; without them the import is refused, saying how many records
   lack which field. Records are stored in the same shape as retrieved ones.
 - **Duplicates and conflicts:** by the roll's facts (roll ID, banner category,
-  item ID, time and rarity), keeping the saved record; a pool ID equal to its
-  category code is unknown. A conflict blocks the import and names the roll.
-- **Review:** the review shows each account with its inferred server, and its
-  new, skipped and conflicting rolls per category and the period covered, as
-  retrieval's does; saving commits every account in one transaction.
+  item ID, time and rarity), keeping the saved record. A pool ID equal to its
+  category code is dropped, and the roll saved without one. A conflict blocks
+  the import and names the roll.
+- **Review:** the review shows the account with its inferred server, and its new,
+  skipped and conflicting rolls per category and the period covered, as
+  retrieval's does; saving commits in one transaction.
 - Errors never echo file contents; imported names are shown as text.
 
 ## Tasks
 
 - [ ] **Facts-based duplicates.** Storage compares facts rather than whole
-  records, for retrieval as well, with the pool-ID rule.
-- [ ] **Server rule.** The per-game UID rule and offsets, Star Rail's verified
-  for each server it claims ([file research](../../games/hsr/file-research.md)).
+  records, for retrieval as well, and stores and reads rolls without a pool ID.
+- [ ] **Server rule.** The per-game UID rule and offsets, Star Rail's from the
+  [file research](../../games/hsr/file-research.md).
 - [ ] **UIGF reading.** Detection, validation against a pinned local copy of the
   schema, and normalisation, with synthetic fixtures for every case the
   [UIGF skill](../../../.agents/skills/uigf/SKILL.md) lists and StarDB's shape.

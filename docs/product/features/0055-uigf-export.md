@@ -15,8 +15,10 @@ and never makes a network request.
 - Each account carries its UID as text, its time-zone evidence and its records'
   language; an account whose time zone is unknown is named and left out, as UIGF
   requires one.
-- Records keep their stored fields and text: IDs as strings, time as the
-  server's local time, and a pool ID that was unknown written back as given
+- Records keep their stored fields and text: IDs as strings and time as the
+  server's local time. UIGF requires a pool ID, so rolls saved without one are
+  left out, and the export says how many, until
+  [pool ID inference](0057-pool-id-inference.md) fills them
   ([decision 0032](../../architecture/decisions/0032-history-file-import-rules.md)).
   Order is deterministic: by account, then category, then time and roll ID.
 - The output is validated against the pinned local schema and written to a
@@ -28,5 +30,5 @@ and never makes a network request.
 
 - [ ] **Export.** Serialisation, validation and the atomic write.
 - [ ] **Round trips.** Exported files import back with every roll a duplicate,
-  including the synthetic StarDB shape and long IDs.
+  including long IDs; rolls without a pool ID are counted and left out.
 - [ ] **Screen.** The Export UIGF action and the standard's note.

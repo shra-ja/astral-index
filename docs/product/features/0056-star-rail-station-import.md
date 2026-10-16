@@ -26,8 +26,9 @@ network request.
   whose item the catalogue does not know blocks the import, saying how many.
   Star Rail Station's own pity and outcome fields are not imported: the app
   calculates its own.
-- **Manual entries:** rolls Star Rail Station marks as manual block the import
-  until their roll IDs are shown to be HoYoverse's.
+- **Manual entries:** rolls Star Rail Station marks as manual, added by hand and
+  possibly with IDs it made up, are left out, and the review says how many and
+  why.
 - Duplicates, conflicts, the review and saving follow file import's rules
   ([0030](0030-history-file-import.md)).
 

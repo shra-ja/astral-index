@@ -24,14 +24,16 @@ over retrieved history. The evidence is in the
   pool ID and absent optional fields are not compared, and the saved record is
   kept unchanged. A disagreement in the facts is a conflict, which blocks the
   import and names the roll.
-- **A pool ID equal to its category code is unknown.** The source's text is kept,
-  but nothing treats it as a pool: banner lookups and pity rules ignore it, and
-  UIGF export writes it back as given.
+- **A pool ID equal to its category code is dropped.** It is not the source's
+  pool, so the roll is saved without one rather than with a value HoYoverse did
+  not give. Rolls without a pool ID stay out of UIGF export, which requires one,
+  until [pool ID inference](../../product/features/0057-pool-id-inference.md)
+  fills those the banner catalogue makes unambiguous, marked as inferred.
 - **Servers come from a per-game rule.** Each game supplies the rule that turns a
   UID into its server and the server's time-zone offset; Honkai: Star Rail's
-  reads the UID's first digit. A UID the rule does not recognise blocks its
-  account. Correcting a wrongly inferred server can come later as its own
-  feature.
+  reads the digits before the UID's last eight. A UID the rule does not
+  recognise blocks the import. Correcting a wrongly inferred server can come
+  later as its own feature.
 - **Records the screens cannot show are refused.** A roll without a name, item
   type or rarity blocks the import, saying how many, until item metadata can
   supply them ([0034](../../product/features/0034-banner-metadata.md)).
@@ -45,10 +47,12 @@ over retrieved history. The evidence is in the
   from tools that omit optional fields, could never be imported over saved
   history.
 - **Pool ID among the facts:** every StarDB file would conflict with history
-  retrieved from HoYoverse.
+  retrieved from HoYoverse. Inference cannot restore it for every roll, as a
+  roll made while two pools of its category ran at once stays ambiguous, so it
+  could never be a fact for all rolls; the roll ID already identifies the roll.
 - **The user choosing each server:** nothing inferred, but a step on every import
   of a file. Servers and offsets inferred from UIDs rest on community
-  observation and a player's own files, not on published rules, so each server
-  the rule claims is verified first.
+  observation and a player's own files, not on published rules; the file
+  research records the sources.
 - **Placeholders for missing names and rarities:** more files accepted, but
   rarity counts and pity would silently leave rolls out.
