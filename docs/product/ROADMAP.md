@@ -185,7 +185,7 @@ downloader ([decision 0022](../architecture/decisions/0022-banner-catalogue-down
 - [ ] [0031 — Second game adapter](features/0031-second-game-adapter.md)
 - [ ] [0034 — Banner metadata](features/0034-banner-metadata.md)
 - [ ] [0056 — Star Rail Station import](features/0056-star-rail-station-import.md)
-- [ ] [0057 — Pool ID inference](features/0057-pool-id-inference.md)
+- [ ] [0057 — Pool ID completion](features/0057-pool-id-completion.md)
 - [ ] [0036 — Item icons and banner art](features/0036-item-icons-and-banner-art.md)
 
 Done when both games coexist without shared identity or rule assumptions, and a

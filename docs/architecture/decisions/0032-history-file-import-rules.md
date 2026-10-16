@@ -26,17 +26,25 @@ over retrieved history. The evidence is in the
   import and names the roll.
 - **A pool ID equal to its category code is dropped.** It is not the source's
   pool, so the roll is saved without one rather than with a value HoYoverse did
-  not give. Rolls without a pool ID stay out of UIGF export, which requires one,
-  until [pool ID inference](../../product/features/0057-pool-id-inference.md)
-  fills those the banner catalogue makes unambiguous, marked as inferred.
+  not give. A later source with the real pool ID fills it in, and so does
+  [pool ID completion](../../product/features/0057-pool-id-completion.md):
+  automatically where the banner catalogue shows one pool open, otherwise by the
+  user's choice among the pools it shows. Completion writes the pool ID into the
+  record, so history matches what HoYoverse would return, and a log of
+  completions allows undoing one and lets a real source replace it. Until then,
+  rolls without a pool ID stay out of UIGF export, which requires one.
 - **Servers come from a per-game rule.** Each game supplies the rule that turns a
   UID into its server and the server's time-zone offset; Honkai: Star Rail's
-  reads the digits before the UID's last eight. A UID the rule does not
-  recognise blocks the import. Correcting a wrongly inferred server can come
-  later as its own feature.
-- **Records the screens cannot show are refused.** A roll without a name, item
-  type or rarity blocks the import, saying how many, until item metadata can
-  supply them ([0034](../../product/features/0034-banner-metadata.md)).
+  reads the digits before the UID's last eight. An account whose UID is malformed
+  or has no server in the rule cannot be imported. Correcting a wrongly inferred
+  server can come later as its own feature.
+- **Records keep their source's text; screens prefer item metadata.** A roll's
+  record keeps the name, item type and language its source gave. Once the banner
+  catalogue's item metadata exists
+  ([0034](../../product/features/0034-banner-metadata.md)), the screens show
+  names and types from it in one language, falling back to the record's text.
+  Until then, a roll without a name, item type or rarity blocks the import,
+  saying how many; afterwards only an item the catalogue does not know does.
 - **Times are kept as the server's local time.** A source in UTC is converted
   with the server's offset from the game's rule; a source with local time keeps
   its text.
@@ -56,3 +64,8 @@ over retrieved history. The evidence is in the
   research records the sources.
 - **Placeholders for missing names and rarities:** more files accepted, but
   rarity counts and pity would silently leave rolls out.
+- **Names moved out of the records:** one language everywhere, but the records
+  would no longer match their sources, it would take a schema migration, and
+  before the catalogue the record's name is the only one there is.
+- **Inferred pool IDs kept apart from the record:** the record would hold only
+  what its source gave, but completed history would not match HoYoverse's.

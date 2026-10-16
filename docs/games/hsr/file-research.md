@@ -54,12 +54,12 @@ XLSX. The files were compared with each other by roll ID.
 
 ## Servers from UIDs (2026-10-16)
 
-A widely used open-source HoYoLAB library maps a Star Rail UID to its server by
-the digits before its last eight: 1 and 2 for `prod_gf_cn`, 5 for `prod_qd_cn`,
-6 for `prod_official_usa`, 7 for `prod_official_eur`, 8 for
-`prod_official_asia` and 9 for `prod_official_cht`. The inspected Europe account
-agrees. The library gives no offsets; community reports give −5 for America,
-+1 for Europe and +8 for the rest, of which only Europe's is confirmed above.
+Community documentation maps a Star Rail UID to its server by the digits before
+its last eight: 1 and 2 for `prod_gf_cn`, 5 for `prod_qd_cn`, 6 for
+`prod_official_usa`, 7 for `prod_official_eur`, 8 for `prod_official_asia` and
+9 for `prod_official_cht`. The inspected Europe account agrees. Community
+reports give the offsets as −5 for America, +1 for Europe and +8 for the rest,
+of which only Europe's is confirmed above.
 
 ## Pools over time (2026-10-16)
 

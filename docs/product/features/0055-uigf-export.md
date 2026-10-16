@@ -18,7 +18,7 @@ and never makes a network request.
 - Records keep their stored fields and text: IDs as strings and time as the
   server's local time. UIGF requires a pool ID, so rolls saved without one are
   left out, and the export says how many, until
-  [pool ID inference](0057-pool-id-inference.md) fills them
+  [pool ID completion](0057-pool-id-completion.md) fills them
   ([decision 0032](../../architecture/decisions/0032-history-file-import-rules.md)).
   Order is deterministic: by account, then category, then time and roll ID.
 - The output is validated against the pinned local schema and written to a
