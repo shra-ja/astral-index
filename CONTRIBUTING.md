@@ -81,14 +81,16 @@ frontend/tooling functions and test helpers. Straightforward accessors, wrappers
 and clearly named tests need no redundant comment. Keep comments accurate as code
 changes; treat this as the default review practice.
 
-## Pre-release database schemas
+## Database schemas
 
-While the application is unreleased, breaking schema changes are allowed. Keep
-one current initial schema instead of maintaining migrations between development
-versions. Reject incompatible existing databases without modifying them; recreate
-development databases explicitly when needed. Retain initialization, persistence,
-constraint and rollback tests. After release, use versioned migrations with data
-preservation and recovery tests for changes to persisted data.
+Since 1.0.0, every change to persisted data is a versioned migration. Its tests
+open a copy of every released database in `src-tauri/tests/fixtures/storage/`
+and show that the history it holds survives, alongside recovery tests for a
+migration that fails. A release that changes the schema adds its own frozen
+database there, written by that release from synthetic history. Reject
+unrelated, future and incompatible databases without modifying them, and keep
+the initialization, persistence, constraint and rollback tests. Before 1.0.0,
+one initial schema was kept without migrations.
 
 ## Coverage is a blocking gate
 

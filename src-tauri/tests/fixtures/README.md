@@ -2,7 +2,9 @@
 
 Commit synthetic data only. Group fixtures by game and format/version, and
 describe the scenario and expected result beside each set, as
-[hsr-api/README.md](hsr-api/README.md) does for the HSR API responses. Include
+[hsr-api/README.md](hsr-api/README.md) does for the HSR API responses and
+[storage/README.md](storage/README.md) for the databases released versions
+wrote. Include
 valid, empty, malformed, overlapping, conflicting, and incomplete histories as
 relevant.
 

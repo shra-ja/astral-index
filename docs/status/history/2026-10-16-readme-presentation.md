@@ -20,3 +20,8 @@ staged `npm run check` passes: static, gates at 100% coverage, and 16 probes.
 
 Integrated through PR #124.
 `docs/release-docs-housekeeping`: 0054 done; 0039's release docs task rewritten to what the README delivered and ticked; the Releasing guide says when to write notes and to keep them unwrapped; staged check passes (static 17 s, gates 236 s, probes 161 s).
+
+## Release notes without a heading (2026-10-16)
+
+Integrated through PR #125.
+`feat/release-notes-without-heading`: the notes no longer open with "Astral Index" and the tag, as the release's title shows the version (4 release-notes tests red, then green); 1.0.0's draft was edited to match before it was published. Staged check passes (static 15 s, gates 238 s, probes 159 s).

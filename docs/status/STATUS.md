@@ -34,16 +34,17 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
   app version.
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
-  executable (decision 0029).
+  executable (decision 0029). A frozen 1.0.0 database shows each schema change
+  keeps saved history.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-### Release notes without a heading (2026-10-16)
+### Migration fixture (2026-10-16)
 
-`feat/release-notes-without-heading`: the notes no longer open with "Astral Index" and the tag, as the release's title shows the version (4 release-notes tests red, then green); 1.0.0's draft was edited to match before it was published. Staged check passes (static 15 s, gates 238 s, probes 159 s).
+`test/migration-fixture`: 1.0.0's database, written once by its `Store` from synthetic history, is frozen in `src-tauri/tests/fixtures/storage/`; `released_databases.rs` pins its SHA-256, reads a copy back and imports into it (4 tests red while it was missing, then green). Staged check passes (static 18 s, gates 244 s, probes 162 s). 0039 and milestone 10 are done; the `v*` tag rulesets and the repository's description, topics and social preview are set.
 
 ## Known limitations
 
@@ -62,7 +63,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's `v*` tag ruleset, with the user's approval, then the migration fixture.
+Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s versioned backup format.
 
 ## Keeping this file current
 
@@ -162,5 +163,5 @@ research, under a "From" heading.
   the version from tags, the release workflow, the launch background, the
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
-  the logo, screenshots and README, the mock's year of history, and the
-  release docs housekeeping.
+  the logo, screenshots and README, the mock's year of history, the release
+  docs housekeeping and the release notes without a heading.

@@ -42,8 +42,8 @@ feature exists.
   hidden network dependencies. User-requested HoYoverse acquisition is in scope
   ([decision 0002](docs/architecture/decisions/0002-user-requested-history-acquisition.md)).
 - Keep player data local. Never commit real histories, account IDs, credentials,
-  auth URLs, game logs, databases or private filesystem paths; use synthetic
-  fixtures.
+  auth URLs, game logs, databases holding real data or private filesystem
+  paths; use synthetic fixtures, which may be databases.
 
 ## Implementation conventions
 

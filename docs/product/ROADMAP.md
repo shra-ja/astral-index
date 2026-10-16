@@ -159,7 +159,7 @@ The first release covers Honkai: Star Rail only
 - [x] [0038 — Release verification](features/0038-release-verification.md)
 - [x] [0052 — Windows polish](features/0052-windows-polish.md)
 - [x] [0054 — README presentation](features/0054-readme-presentation.md)
-- [ ] [0039 — Distribution](features/0039-distribution.md)
+- [x] [0039 — Distribution](features/0039-distribution.md)
 
 Done when the app carries the Astral brand, its screens fit every window size,
 an About dialog shows its version, licences and third-party notices, release

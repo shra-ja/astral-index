@@ -42,6 +42,7 @@ path = "src/lib.rs"
 tauri = { version = "=2.12.0", features = ["test"] }
 rusqlite = { version = "=0.40.2", features = ["hooks", "limits"] }
 tokio = { version = "=1.53.1", features = ["test-util"] }
+sha2 = "=0.10.9"
 
 
 [[bin]]
