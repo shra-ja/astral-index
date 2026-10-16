@@ -99,7 +99,7 @@ than `true` or `false` stops the build, the dev server and the tests.
 | Command | Does |
 | --- | --- |
 | `npm run check` | Every gate: `check:static`, then `check:gates`, then `check:probes` |
-| `npm run check:static` | Formatting, lint, the docs, icon and version checks, the frontend bundle, Rust formatting and Clippy |
+| `npm run check:static` | Formatting, lint, the docs, icon, README logo and version checks, the frontend bundle, Rust formatting and Clippy |
 | `npm run check:probes` | The build (which generates and checks the third-party notices), then the mutation probes |
 | `npm run check:gates` | The build, coverage, the offline native tests and report validation |
 | `npm test` | The frontend's tests (in `src-ui/`), then the tooling tests |
@@ -110,6 +110,8 @@ than `true` or `false` stops the build, the dev server and the tests.
 | `npm run lint` / `lint:check` | Fix what ESLint and markdownlint can, or only check, failing on warnings |
 | `npm run docs:check` | Check that doc links and anchors resolve, every doc is reachable from `AGENTS.md`, and STATUS stays short |
 | `npm run icons` / `icons:check` | Write the app icons in `src-tauri/icons/` from the brand's emblems, or only check that the committed ones match |
+| `npm run readme:logo` / `readme:logo:check` | Write the README's logo in `docs/assets/readme/` from the brand files, or only check that the committed ones match |
+| `npm run readme:screenshots` | Take the README's screenshots in `docs/assets/readme/` from the mock debug binary's synthetic history, the hero framed as a Windows 11 window; run it again when those screens change |
 | `npm run notices` | Write the gitignored third-party notices with cargo-about and the bundle's licence report, failing on a missing or unaccepted licence; `npm run build` runs it first |
 | `npm run versions:check` | Check that no manifest declares a version, beyond Cargo's `0.0.0` placeholder: builds receive it from the release tags |
 | `npm run test:backend` | Rust unit, integration and end-to-end tests with coverage reports |
