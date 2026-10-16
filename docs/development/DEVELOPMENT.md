@@ -213,17 +213,18 @@ are outward-facing.
    `feat!:`) is major, a feature minor, anything else a patch. For the first
    release, which needs notes, give them as it will:
    `RELEASE_NOTES="$(cat notes.md)" npm run release:prepare`.
-3. **Optionally, write the notes.** To describe the release for users, write
-   Markdown that replaces the generated sections: one or two sentences
-   summarising the release, then `### Breaking changes`, `### Features` and
-   `### Fixes`, as needed and in that order, each entry one sentence in the
-   present tense about what the app now does, ending with its pull request,
-   such as `(#117)`. The workflow adds the heading and "Usage" itself. The
-   first release needs notes, as there is no earlier tag to compare. Write
-   each paragraph and entry on one line: the workflow passes the notes through
-   verbatim, and a release page turns every newline into a line break. Preview
-   them as a release page renders them with
-   `gh api -X POST markdown -f mode=gfm -f text="$(cat notes.md)"`.
+3. **Write the notes if the generated ones won't do.** Step 2's notes list the
+   pull request titles as written. When they don't describe the release well
+   for users, such as titles about tooling or tests, or when there is no
+   earlier tag, write Markdown that replaces the generated sections: one or two
+   sentences summarising the release, then `### Breaking changes`,
+   `### Features` and `### Fixes`, as needed and in that order, each entry one
+   sentence in the present tense about what the app now does, ending with its
+   pull request, such as `(#117)`. Write each paragraph and entry on one line: the workflow
+   passes the notes through verbatim, and a release page turns every newline
+   into a line break. Preview them as a release page renders them with
+   `gh api -X POST markdown -f mode=gfm -f text="$(cat notes.md)"`. The
+   workflow adds the heading and "Usage" itself.
 4. **Start the workflow:**
    `gh workflow run release.yml --ref main` with `-f version=1.2.0` to choose
    the version and `-f notes="$(cat notes.md)"` to give the notes, or the "Run
