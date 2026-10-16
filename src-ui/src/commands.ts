@@ -33,6 +33,7 @@ const nativeKinds = [
   'no_preview',
   'invalid_request',
   'open_failed',
+  'backup_failed',
 ] as const
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22']
@@ -318,4 +319,20 @@ export function revealDataFolder(): Promise<Failure | undefined> {
 /** Open the project's issues page in the default browser, which makes the request. */
 export function openIssuesPage(): Promise<Failure | undefined> {
   return run(() => invoke('open_issues_page'))
+}
+
+/** Save a checked backup where the user chooses in the native dialog. Only today's
+ * date is sent, for the suggested file name; the saved file's name comes back. */
+export async function saveBackup(
+  date: string,
+): Promise<{ saved: string } | { cancelled: true } | { failure: Failure }> {
+  try {
+    const result = await invoke<{ kind: 'saved'; name: string } | { kind: 'cancelled' }>(
+      'save_backup',
+      { date },
+    )
+    return result.kind === 'saved' ? { saved: result.name } : { cancelled: true }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
 }

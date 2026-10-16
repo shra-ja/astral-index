@@ -6,7 +6,7 @@ import AppSidebar from './AppSidebar.vue'
 type Game = 'genshin-impact' | 'honkai-star-rail'
 const sidebar = (
   game: Game,
-  screen: 'history' | 'import',
+  screen: 'history' | 'import' | 'backup',
   games: Game[] = ['genshin-impact', 'honkai-star-rail'],
 ) => mount(AppSidebar, { props: { game, screen, games }, global: { plugins: [router] } })
 const links = (wrapper: ReturnType<typeof sidebar>, group: string) =>
@@ -29,6 +29,7 @@ test('lists the games and screens as links, marking the current ones', () => {
   expect(links(wrapper, 'sidebar-screens')).toEqual([
     ['Warp History', '#/honkai-star-rail/history', 'page'],
     ['Import', '#/honkai-star-rail/import', undefined],
+    ['Backup & Restore', '#/honkai-star-rail/backup', undefined],
   ])
   expect(wrapper.text()).toContain('Stored on this device')
   expect(wrapper.text()).toContain('No account, no cloud sync')
@@ -43,6 +44,18 @@ test('switching games keeps the current screen, and each game names its history'
   expect(links(wrapper, 'sidebar-screens')).toEqual([
     ['Wish History', '#/genshin-impact/history', undefined],
     ['Import', '#/genshin-impact/import', 'page'],
+    ['Backup & Restore', '#/genshin-impact/backup', undefined],
+  ])
+  // Backup & Restore covers every game, and stays shown when the game changes.
+  const backup = sidebar('genshin-impact', 'backup')
+  expect(links(backup, 'sidebar-games')).toEqual([
+    ['Genshin Impact', '#/genshin-impact/backup', 'true'],
+    ['Honkai: Star Rail', '#/honkai-star-rail/backup', undefined],
+  ])
+  expect(links(backup, 'sidebar-screens')[2]).toEqual([
+    'Backup & Restore',
+    '#/genshin-impact/backup',
+    'page',
   ])
 })
 
@@ -62,6 +75,7 @@ test('labels stay in each link, beside the game monograms, for the expanded side
     'SRHonkai: Star Rail',
     'Warp History',
     'Import',
+    'Backup & Restore',
   ])
 })
 
@@ -77,6 +91,7 @@ test('each link names itself in a tooltip beside it, for the icon rail', () => {
     ['Honkai: Star Rail', 'right'],
     ['Warp History', 'right'],
     ['Import', 'right'],
+    ['Backup & Restore', 'right'],
   ])
   // The links already carry their names, so the tooltips only show them.
   expect(

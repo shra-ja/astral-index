@@ -2,7 +2,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { Channel } from '@tauri-apps/api/core'
-import { localDateTime } from '../src/format'
+import { localDate, localDateTime } from '../src/format'
 
 // Tauri rejects a command with the native failure as plain data, not an Error.
 function reject(failure: unknown): never {
@@ -79,8 +79,8 @@ function icons() {
     [...svg.classList].find((name) => name.startsWith('lucide-'))!.slice('lucide-'.length),
   )
 }
-// The icons below the sidebar's four: the current screen's, then any dialog's.
-const screenIcons = () => icons().slice(4)
+// The icons below the sidebar's five: the current screen's, then any dialog's.
+const screenIcons = () => icons().slice(5)
 
 const panel = () => document.querySelector<HTMLElement>('.retrieval')!
 // Each step of the flow is its own screen inside the panel, rendered only while shown.
@@ -196,6 +196,9 @@ test('opens on Star Rail’s warp history, with the games and screens in a sideb
   ])
   expect(named(sidebar(), 'Genshin Impact').getAttribute('href')).toBe('#/genshin-impact/history')
   expect(named(sidebar(), 'Import').getAttribute('href')).toBe('#/honkai-star-rail/import')
+  expect(named(sidebar(), 'Backup & Restore').getAttribute('href')).toBe(
+    '#/honkai-star-rail/backup',
+  )
   expect(sidebar().textContent).toContain('Stored on this device')
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Warp History Yet')
   expect(document.querySelector('.retrieval')).toBeNull()
@@ -203,6 +206,7 @@ test('opens on Star Rail’s warp history, with the games and screens in a sideb
   expect(icons()).toEqual([
     'text-align-start',
     'download',
+    'database-backup',
     'info',
     'lock',
     'text-align-start',
@@ -1216,4 +1220,58 @@ test('closing the About dialog returns to its button, and a failure does not out
   await settle()
   expect(document.querySelector('dialog')).toBeNull()
   expect(document.activeElement).toBe(about)
+})
+
+test('Backup & Restore saves a backup where the user chooses, and shows where history is kept', async () => {
+  const saving = pending()
+  const dates: unknown[] = []
+  const calls = serve({
+    app_info: () => ({
+      version: '1.2.0',
+      build: { kind: 'release' },
+      folder: '/local/astral-index',
+      portable: false,
+    }),
+    save_backup: (args) => {
+      dates.push(args.date)
+      return saving.handler()
+    },
+    reveal_data_folder: () => reject({ kind: 'open_failed' }),
+  })
+  await follow(named(sidebar(), 'Backup & Restore'))
+  expect(location.hash).toBe('#/honkai-star-rail/backup')
+  expect(heading()).toBe('Backup & Restore')
+  // Backups hold every game's history, so the header names none.
+  expect(document.querySelector('header .game')).toBeNull()
+  expect(current(sidebar())).toEqual([
+    ['Honkai: Star Rail', 'true'],
+    ['Backup & Restore', 'page'],
+  ])
+  const main = document.querySelector('main')!
+  expect(main.querySelector('h2')?.textContent).toBe('Keep Your History Safe')
+  expect(main.querySelector('.path')?.textContent).toBe('/local/astral-index/history.sqlite')
+  expect(screenIcons()).toEqual(['database-backup', 'folder-open'])
+  // Saving sends today's local date and waits for the native dialog and check.
+  await click(button(main, 'Save backup…'))
+  expect(dates).toEqual([localDate(new Date())])
+  expect(button(main, 'Saving backup…').disabled).toBe(true)
+  saving.resolve({ kind: 'saved', name: 'Astral-Index-backup-2026-10-16.sqlite' })
+  await settle()
+  expect(main.querySelector('[role="status"]')?.textContent?.trim()).toBe(
+    'Saved Astral-Index-backup-2026-10-16.sqlite',
+  )
+  // A failed opening keeps the path on screen.
+  button(main, 'Show in Folder').click()
+  await settle()
+  expect(main.querySelector('[role="alert"]')?.textContent).toBe(
+    'The folder couldn’t be opened. Its path is shown above.',
+  )
+  // The screen stays when the game changes, as backups cover every game.
+  await follow(named(sidebar(), 'Genshin Impact'))
+  expect(location.hash).toBe('#/genshin-impact/backup')
+  expect(heading()).toBe('Backup & Restore')
+  // Only the app's details, the backup and the opening; nothing is fetched.
+  expect(
+    calls.filter((call) => !['history_page', 'saved_accounts', 'last_import'].includes(call)),
+  ).toEqual(['app_info', 'save_backup', 'reveal_data_folder'])
 })

@@ -2,6 +2,8 @@ import { expect, test } from 'vitest'
 import {
   categoryTabs,
   dateRangeLabel,
+  historyFile,
+  localDate,
   initials,
   localDateTime,
   pityBand,
@@ -143,4 +145,18 @@ test('5★ pity is early, near or in soft pity by the category’s thresholds', 
   ])
   // Without known soft pity there is no band.
   expect(pityBand(50, null)).toBeUndefined()
+})
+
+test('the local date is the calendar day on this device, as YYYY-MM-DD', () => {
+  expect(localDate(new Date(2026, 9, 16, 23, 59))).toBe('2026-10-16')
+  expect(localDate(new Date(2026, 0, 5, 0, 0))).toBe('2026-01-05')
+})
+
+test('the history file is named in its folder with the folder’s own separator', () => {
+  expect(historyFile('/home/player/.local/share/astral-index')).toBe(
+    '/home/player/.local/share/astral-index/history.sqlite',
+  )
+  expect(historyFile('C:\\Users\\Player\\AppData\\Local\\Astral-Index')).toBe(
+    'C:\\Users\\Player\\AppData\\Local\\Astral-Index\\history.sqlite',
+  )
 })

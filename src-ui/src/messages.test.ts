@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import type { Failure, Kind } from './commands'
 import {
   automaticMessages,
+  backupFailure,
   commitMessages,
   describe,
   fileMessages,
@@ -200,6 +201,13 @@ test.each<[Kind, string]>([
   ['unavailable', 'Something Went Wrong'],
 ])('a %s failure is headed %s', (kind, title) => {
   expect(titleOf({ kind })).toBe(title)
+})
+
+test('a backup that could not be saved asks for another folder', () => {
+  expect(backupFailure({ kind: 'backup_failed' })).toBe(
+    'The backup couldn’t be saved there. Choose another folder and try again.',
+  )
+  expect(backupFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
 })
 
 test('reading saved history explains damage, and anything else asks to try again', () => {

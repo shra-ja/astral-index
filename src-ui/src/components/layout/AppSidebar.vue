@@ -3,7 +3,7 @@
 // links stay within the game. The router does the rest. The About button asks for the
 // About dialog. Below 1100px the sidebar collapses to icons, so every link and button
 // carries its name as a label and in a tooltip.
-import { Download, Info, Lock, TextAlignStart } from '@lucide/vue'
+import { DatabaseBackup, Download, Info, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
 import AstralEmblem from '../shared/AstralEmblem.vue'
@@ -67,6 +67,19 @@ const emit = defineEmits<{ about: [] }>()
             >
               <Download :size="18" />
               <span class="text">Import</span>
+            </RouterLink>
+          </AppTooltip>
+        </li>
+        <li>
+          <AppTooltip text="Backup &amp; Restore" placement="right">
+            <RouterLink
+              class="link screen"
+              :to="{ name: 'backup', params: { game } }"
+              aria-label="Backup &amp; Restore"
+              :aria-current="screen === 'backup' ? 'page' : undefined"
+            >
+              <DatabaseBackup :size="18" />
+              <span class="text">Backup &amp; Restore</span>
             </RouterLink>
           </AppTooltip>
         </li>
