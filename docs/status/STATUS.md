@@ -42,9 +42,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Milestone 11 requirements (2026-10-16)
-
-`docs/milestone-11-requirements`: requirements for 0037 and 0030, new features 0055 (UIGF export), 0056 (Star Rail Station import) and 0057 (pool ID completion), both after 0034, decisions 0031 and 0032, and file research from a player's StarDB and Star Rail Station exports, inspected for structure only.
+No work in progress.
 
 ## Known limitations
 
@@ -164,5 +162,5 @@ research, under a "From" heading.
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
   the logo, screenshots and README, the mock's year of history, the release
-  docs housekeeping, the release notes without a heading and the migration
-  fixture.
+  docs housekeeping, the release notes without a heading, the migration
+  fixture and the milestone 11 requirements.
