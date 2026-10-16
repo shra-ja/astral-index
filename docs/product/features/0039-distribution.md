@@ -77,3 +77,6 @@ One PR each, test first.
   synthetic database of its schema as a test fixture that each later
   migration's tests open, to show saved history survives an upgrade
   ([decision 0029](../../architecture/decisions/0029-automated-release-verification.md)).
+  - 1.0.0 was published on 2026-10-16 from `1c21dda`, with notes the user
+    edited; its tag, the README's release badge and its latest-release link
+    were checked afterwards.
