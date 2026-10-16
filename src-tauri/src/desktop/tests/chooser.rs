@@ -18,6 +18,8 @@ pub struct Fixture {
     pub answer: Option<FilePath>,
     /// Every dialog shown, in order.
     pub asked: Vec<Asked>,
+    /// The dialog panics, as a fault in the plugin would.
+    pub crash: bool,
 }
 thread_local! { static FIXTURE: RefCell<Fixture> = RefCell::default(); }
 pub fn install(fixture: Fixture) {
@@ -60,6 +62,7 @@ impl FileDialogBuilder {
     pub fn blocking_save_file(self) -> Option<FilePath> {
         FIXTURE.with(|state| {
             let mut state = state.borrow_mut();
+            assert!(!state.crash, "synthetic dialog fault");
             state.asked.push(self.0);
             state.answer.take()
         })

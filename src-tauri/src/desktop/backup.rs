@@ -22,6 +22,8 @@ use tokio::task::spawn_blocking;
 /// The file in which the mock debug binary's tests name where a backup is saved;
 /// without it, the save dialog counts as cancelled.
 pub const ANSWER: &str = "save-as.txt";
+/// How many temporary names beside a target are tried before giving up.
+const PARTIAL_NAMES: usize = 8;
 
 /// How the save dialog is answered.
 #[derive(Clone, Copy)]
@@ -61,9 +63,12 @@ fn suggested_name(date: &str) -> Result<String, Failure> {
 }
 
 /// Where to save the backup: the user's choice in the save dialog, or the mock's
-/// answer. Closing the dialog, or choosing something that is not a local file,
-/// chooses nothing.
-fn choose<R: Runtime>(app: &AppHandle<R>, backup: &Backup, name: &str) -> Option<PathBuf> {
+/// answer; none when the dialog is closed. A choice that is not a local file fails.
+fn choose<R: Runtime>(
+    app: &AppHandle<R>,
+    backup: &Backup,
+    name: &str,
+) -> Result<Option<PathBuf>, Failure> {
     match backup.saver {
         Saver::System => app
             .dialog()
@@ -71,46 +76,90 @@ fn choose<R: Runtime>(app: &AppHandle<R>, backup: &Backup, name: &str) -> Option
             .set_file_name(name)
             .add_filter("Astral Index backup", &["sqlite"])
             .blocking_save_file()
-            .and_then(|chosen| chosen.into_path().ok()),
-        Saver::Answering => backup
+            .map(|chosen| chosen.into_path().map_err(|_| Failure::BackupFailed))
+            .transpose(),
+        Saver::Answering => Ok(backup
             .folder
             .as_ref()
             .and_then(|folder| fs::read_to_string(folder.join(ANSWER)).ok())
-            .map(|answer| PathBuf::from(answer.trim_end())),
+            .map(|answer| PathBuf::from(answer.trim_end()))),
     }
 }
 
-/// The temporary file beside `target` that a snapshot is written to first.
-fn partial(target: &Path) -> PathBuf {
-    let mut name = target.as_os_str().to_owned();
-    name.push(".partial");
-    PathBuf::from(name)
+/// A folder's real path where it can be found, so links and differing forms of
+/// the same folder compare equal.
+fn real(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_owned())
+}
+
+/// Whether `target` would sit inside the data folder, where a backup could replace
+/// the live database or its journal.
+fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
+    folder
+        .zip(target.parent())
+        .is_some_and(|(folder, parent)| real(parent).starts_with(real(folder)))
+}
+
+/// Claim an unused temporary file beside `target` by creating it empty, so a file
+/// the user already has is never touched: `<target>.partial`, else `.1.partial`
+/// and on.
+fn claim_partial(target: &Path) -> Result<PathBuf, Failure> {
+    for attempt in 0..PARTIAL_NAMES {
+        let mut name = target.as_os_str().to_owned();
+        if attempt > 0 {
+            name.push(format!(".{attempt}"));
+        }
+        name.push(".partial");
+        let partial = PathBuf::from(name);
+        match fs::File::create_new(&partial) {
+            Ok(_) => return Ok(partial),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => break,
+        }
+    }
+    Err(Failure::BackupFailed)
 }
 
 /// Write a checked backup to `target`: a snapshot goes to a temporary file beside
-/// it, is checked as restore would check it, then takes the target's name. Any
-/// failure removes the temporary file, so nothing is left half-written.
-async fn save_to(database: &Database, target: &Path) -> Result<Saved, Failure> {
+/// it, is checked as restore would check it and flushed to disk, then takes the
+/// target's name. Any failure removes the temporary file, and only that file, so
+/// nothing is left half-written. A target in the data folder is refused.
+pub async fn save_to(
+    database: &Database,
+    folder: Option<&Path>,
+    target: &Path,
+) -> Result<Saved, Failure> {
     let name = target
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .ok_or(Failure::BackupFailed)?;
-    let written = partial(target);
-    // A file left by an interrupted attempt would stop the snapshot.
-    let _ = fs::remove_file(&written);
+    if in_data_folder(folder, target) {
+        return Err(Failure::BackupInDataFolder);
+    }
+    let written = claim_partial(target)?;
     let snapshot = written.clone();
-    let checked = database
+    let saved = database
         .run(move |store| {
             store
                 .write_snapshot(&snapshot)
-                .and_then(|()| check_database(&snapshot))
+                .map_err(|_| Failure::BackupFailed)?;
+            check_database(&snapshot).map_err(|_| Failure::HistoryDamaged)
         })
-        .await;
-    if matches!(checked, Ok(Ok(()))) && fs::rename(&written, target).is_ok() {
-        Ok(Saved::Saved { name })
-    } else {
-        let _ = fs::remove_file(&written);
-        Err(Failure::BackupFailed)
+        .await
+        .map_err(|_| Failure::Storage)
+        .and_then(|checked| checked)
+        .and_then(|()| {
+            fs::File::open(&written)
+                .and_then(|file| file.sync_all())
+                .and_then(|()| fs::rename(&written, target))
+                .map_err(|_| Failure::BackupFailed)
+        });
+    match saved {
+        Ok(()) => Ok(Saved::Saved { name }),
+        Err(failure) => {
+            let _ = fs::remove_file(&written);
+            Err(failure)
+        }
     }
 }
 
@@ -129,10 +178,9 @@ async fn save_into<R: Runtime>(
     };
     let chosen = spawn_blocking(move || choose(&app, &asking, &name))
         .await
-        .ok()
-        .flatten();
+        .map_err(|_| Failure::BackupFailed)??;
     match chosen {
-        Some(target) => save_to(database, &target).await,
+        Some(target) => save_to(database, backup.folder.as_deref(), &target).await,
         None => Ok(Saved::Cancelled),
     }
 }
@@ -158,6 +206,7 @@ mod tests {
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 
     const NAME: &str = "Astral-Index-backup-2026-10-16.sqlite";
+    const VACUUM: &str = "VACUUM INTO ?1";
 
     fn run<T>(future: impl std::future::Future<Output = T>) -> T {
         tokio::runtime::Builder::new_current_thread()
@@ -175,11 +224,14 @@ mod tests {
     fn folder() -> PathBuf {
         PathBuf::from("/data/astral-index")
     }
-    fn target() -> PathBuf {
-        PathBuf::from("/backups").join(NAME)
+    fn backups() -> PathBuf {
+        PathBuf::from("/backups")
     }
-    fn partial() -> PathBuf {
-        PathBuf::from(format!("/backups/{NAME}.partial"))
+    fn target() -> PathBuf {
+        backups().join(NAME)
+    }
+    fn partial(suffix: &str) -> PathBuf {
+        PathBuf::from(format!("/backups/{NAME}{suffix}.partial"))
     }
     fn system() -> Backup {
         Backup {
@@ -190,22 +242,46 @@ mod tests {
     fn database() -> Database {
         Database::new(Some(folder()))
     }
-    /// The SQL for opening the database, writing a snapshot to the partial file and
-    /// checking it.
-    fn saving() -> Vec<Step> {
+    /// The SQL for opening the database.
+    fn opening() -> Vec<Step> {
         let mut steps = vec![step(
             "OPEN",
             vec![text(&folder().join("history.sqlite").to_string_lossy())],
             Reply::Done,
         )];
         steps.extend(setup(true));
+        steps
+    }
+    /// The SQL for opening the database, writing a snapshot to `written` and
+    /// checking it.
+    fn saving(written: &Path) -> Vec<Step> {
+        let mut steps = opening();
         steps.push(step(
-            "VACUUM INTO ?1",
-            vec![text(&partial().to_string_lossy())],
+            VACUUM,
+            vec![text(&written.to_string_lossy())],
             Reply::Count(0),
         ));
-        steps.extend(check_script(&partial().to_string_lossy()));
+        steps.extend(check_script(&written.to_string_lossy()));
         steps
+    }
+    /// `steps` up to and including the first step running `sql`, which fails.
+    fn failing_at(mut steps: Vec<Step>, sql: &str) -> Vec<Step> {
+        let at = steps.iter().position(|step| step.sql == sql).unwrap();
+        steps.truncate(at + 1);
+        steps[at].reply = Err(rusqlite::Error::InvalidQuery);
+        steps
+    }
+    fn files(entries: &[(PathBuf, &[u8])]) -> Files {
+        Files {
+            files: entries
+                .iter()
+                .map(|(path, bytes)| (path.clone(), bytes.to_vec()))
+                .collect(),
+            ..Default::default()
+        }
+    }
+    fn save(database: &Database) -> Result<Saved, Failure> {
+        run(save_to(database, Some(&folder()), &target()))
     }
     fn removed_files() -> Vec<PathBuf> {
         filesystem::inspect(|state| state.removed_files.clone())
@@ -213,15 +289,21 @@ mod tests {
     fn renamed() -> Vec<(PathBuf, PathBuf)> {
         filesystem::inspect(|state| state.renamed.clone())
     }
-    fn asked() -> Vec<Asked> {
-        chooser::inspect(|state| state.asked.iter().map(clone_asked).collect())
+    fn has(path: &Path) -> bool {
+        filesystem::inspect(|state| state.files.contains_key(path))
     }
-    fn clone_asked(asked: &Asked) -> Asked {
-        Asked {
-            file_name: asked.file_name.clone(),
-            filter: asked.filter.clone(),
-            extensions: asked.extensions.clone(),
-        }
+    fn asked() -> Vec<Asked> {
+        chooser::inspect(|state| {
+            state
+                .asked
+                .iter()
+                .map(|asked| Asked {
+                    file_name: asked.file_name.clone(),
+                    filter: asked.filter.clone(),
+                    extensions: asked.extensions.clone(),
+                })
+                .collect()
+        })
     }
 
     #[test]
@@ -245,7 +327,7 @@ mod tests {
             answer: Some(FilePath::Path(target())),
             ..Default::default()
         });
-        assert_eq!(choose(&app(), &system(), NAME), Some(target()));
+        assert_eq!(choose(&app(), &system(), NAME), Ok(Some(target())));
         assert_eq!(
             asked(),
             [Asked {
@@ -254,16 +336,16 @@ mod tests {
                 extensions: vec!["sqlite".into()],
             }]
         );
-        // Closing the dialog, or a choice that is not a local file, saves nothing.
+        // Closing the dialog chooses nothing; a choice that is not a local file fails.
         chooser::install(Dialogs::default());
-        assert_eq!(choose(&app(), &system(), NAME), None);
+        assert_eq!(choose(&app(), &system(), NAME), Ok(None));
         chooser::install(Dialogs {
             answer: Some(FilePath::Url(
                 "https://example.com/backup.sqlite".parse().unwrap(),
             )),
             ..Default::default()
         });
-        assert_eq!(choose(&app(), &system(), NAME), None);
+        assert_eq!(choose(&app(), &system(), NAME), Err(Failure::BackupFailed));
     }
 
     #[test]
@@ -272,82 +354,140 @@ mod tests {
             folder,
             saver: Saver::Answering,
         };
-        filesystem::install(Files {
-            files: [(
-                folder().join(ANSWER),
-                format!("{}\n", target().display()).into_bytes(),
-            )]
-            .into(),
-            ..Default::default()
-        });
+        let answer = format!("{}\n", target().display());
+        filesystem::install(files(&[(folder().join(ANSWER), answer.as_bytes())]));
         chooser::install(Dialogs::default());
         assert_eq!(
             choose(&app(), &answering(Some(folder())), NAME),
-            Some(target())
+            Ok(Some(target()))
         );
         // It never opens the real dialog.
         assert_eq!(asked(), []);
         filesystem::install(Files::default());
-        assert_eq!(choose(&app(), &answering(Some(folder())), NAME), None);
-        assert_eq!(choose(&app(), &answering(None), NAME), None);
+        assert_eq!(choose(&app(), &answering(Some(folder())), NAME), Ok(None));
+        assert_eq!(choose(&app(), &answering(None), NAME), Ok(None));
     }
 
     #[test]
-    fn a_checked_snapshot_is_written_beside_the_target_then_takes_its_name() {
-        // A partial file left by an interrupted attempt would stop the snapshot.
+    fn a_checked_snapshot_is_flushed_beside_the_target_then_takes_its_name() {
+        filesystem::install(Files::default());
+        sql::expect(saving(&partial("")));
+        assert_eq!(save(&database()), Ok(Saved::Saved { name: NAME.into() }));
+        sql::finish();
+        filesystem::inspect(|state| assert_eq!(state.synced, [partial("")]));
+        assert_eq!(renamed(), [(partial(""), target())]);
+        assert!(removed_files().is_empty());
+    }
+
+    #[test]
+    fn a_file_the_user_already_has_beside_the_target_is_never_touched() {
+        // Their own file takes the first name, so the next free one is used.
+        filesystem::install(files(&[(partial(""), b"the user's own file")]));
+        sql::expect(saving(&partial(".1")));
+        assert_eq!(save(&database()), Ok(Saved::Saved { name: NAME.into() }));
+        sql::finish();
+        assert!(has(&partial("")));
+        assert_eq!(renamed(), [(partial(".1"), target())]);
+        // When every name is taken, nothing is written and nothing removed.
+        let taken: Vec<(PathBuf, &[u8])> = (0..PARTIAL_NAMES)
+            .map(|attempt| {
+                let suffix = if attempt == 0 {
+                    String::new()
+                } else {
+                    format!(".{attempt}")
+                };
+                (partial(&suffix), b"taken".as_slice())
+            })
+            .collect();
+        filesystem::install(files(&taken));
+        assert_eq!(save(&database()), Err(Failure::BackupFailed));
+        assert_eq!((removed_files(), renamed()), (vec![], vec![]));
+        // A place that cannot be written fails at once.
         filesystem::install(Files {
-            files: [(partial(), b"interrupted".to_vec())].into(),
+            directories: vec![partial("")],
             ..Default::default()
         });
-        sql::expect(saving());
-        assert_eq!(
-            run(save_to(&database(), &target())),
-            Ok(Saved::Saved { name: NAME.into() })
-        );
-        sql::finish();
-        // It is cleared first, and the checked snapshot takes the target's name.
-        assert_eq!(removed_files(), [partial()]);
-        assert_eq!(renamed(), [(partial(), target())]);
-        filesystem::inspect(|state| assert!(!state.files.contains_key(&partial())));
+        assert_eq!(save(&database()), Err(Failure::BackupFailed));
+        assert!(removed_files().is_empty());
     }
 
     #[test]
-    fn a_failed_snapshot_check_or_rename_leaves_no_partial_file() {
-        // The snapshot fails, or its check fails.
-        for failing_step in [7, 12] {
+    fn each_failure_says_what_went_wrong_and_leaves_no_partial_file() {
+        let failures = [
+            // The history cannot be opened.
+            (failing_at(opening(), "OPEN"), Failure::Storage),
+            // The snapshot cannot be written there.
+            (
+                failing_at(saving(&partial("")), VACUUM),
+                Failure::BackupFailed,
+            ),
+            // The snapshot of the history fails its check.
+            (
+                failing_at(saving(&partial("")), "PRAGMA integrity_check"),
+                Failure::HistoryDamaged,
+            ),
+        ];
+        for (steps, failure) in failures {
             filesystem::install(Files::default());
-            let mut steps = saving();
-            steps.truncate(failing_step + 1);
-            steps[failing_step].reply = Err(rusqlite::Error::InvalidQuery);
             sql::expect(steps);
-            assert_eq!(
-                run(save_to(&database(), &target())),
-                Err(Failure::BackupFailed),
-                "step {failing_step}"
-            );
+            assert_eq!(save(&database()), Err(failure.clone()), "{failure:?}");
             sql::finish();
-            assert_eq!(removed_files(), [partial(), partial()]);
+            assert_eq!(removed_files(), [partial("")]);
+            assert!(!has(&partial("")));
             assert_eq!(renamed(), []);
         }
-        // The rename fails.
-        filesystem::install(Files {
-            directories: vec![target()],
-            ..Default::default()
-        });
-        sql::expect(saving());
-        assert_eq!(
-            run(save_to(&database(), &target())),
-            Err(Failure::BackupFailed)
-        );
-        sql::finish();
-        assert_eq!(removed_files(), [partial(), partial()]);
+        // Flushing fails, or the rename does.
+        for files in [
+            Files {
+                sync_failure: true,
+                ..Default::default()
+            },
+            Files {
+                directories: vec![target()],
+                ..Default::default()
+            },
+        ] {
+            filesystem::install(files);
+            sql::expect(saving(&partial("")));
+            assert_eq!(save(&database()), Err(Failure::BackupFailed));
+            sql::finish();
+            assert_eq!(removed_files(), [partial("")]);
+        }
+    }
+
+    #[test]
+    fn a_backup_is_never_saved_in_the_data_folder() {
+        for target in [
+            folder().join("history.sqlite"),
+            folder().join("history.sqlite-journal"),
+            folder().join("old").join(NAME),
+        ] {
+            // Whether or not the folders can be resolved, nothing is written.
+            for directories in [vec![], vec![folder(), folder().join("old")]] {
+                filesystem::install(Files {
+                    directories,
+                    ..Default::default()
+                });
+                assert_eq!(
+                    run(save_to(&database(), Some(&folder()), &target)),
+                    Err(Failure::BackupInDataFolder),
+                    "{}",
+                    target.display()
+                );
+                filesystem::inspect(|state| assert!(state.accessed.is_empty()));
+            }
+        }
+        // Beside it, or anywhere when there is no data folder, is fine.
+        let beside = PathBuf::from("/data/astral-index-backups").join(NAME);
+        assert!(!in_data_folder(Some(&folder()), &beside));
+        assert!(!in_data_folder(None, &target()));
         // A target without a file name is refused before anything is written.
         filesystem::install(Files::default());
         assert_eq!(
-            run(save_to(&database(), Path::new("/"))),
+            run(save_to(&database(), Some(&folder()), Path::new("/"))),
             Err(Failure::BackupFailed)
         );
-        assert_eq!((removed_files(), renamed()), (vec![], vec![]));
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
     }
 
     #[test]
@@ -366,19 +506,41 @@ mod tests {
             Ok(Saved::Cancelled)
         );
         assert_eq!(asked().len(), 1);
-        assert_eq!((removed_files(), renamed()), (vec![], vec![]));
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
+        // A fault in the dialog fails rather than passing for a cancellation.
+        chooser::install(Dialogs {
+            crash: true,
+            ..Default::default()
+        });
+        assert_eq!(
+            run(save_into(app(), &system(), &database(), "2026-10-16")),
+            Err(Failure::BackupFailed)
+        );
+        // So does a choice that is not a local file, before anything is written.
+        chooser::install(Dialogs {
+            answer: Some(FilePath::Url(
+                "https://example.com/backup.sqlite".parse().unwrap(),
+            )),
+            ..Default::default()
+        });
+        filesystem::install(Files::default());
+        assert_eq!(
+            run(save_into(app(), &system(), &database(), "2026-10-16")),
+            Err(Failure::BackupFailed)
+        );
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         // Choosing a file saves the backup there.
         chooser::install(Dialogs {
             answer: Some(FilePath::Path(target())),
             ..Default::default()
         });
-        sql::expect(saving());
+        sql::expect(saving(&partial("")));
         assert_eq!(
             run(save_into(app(), &system(), &database(), "2026-10-16")),
             Ok(Saved::Saved { name: NAME.into() })
         );
         sql::finish();
-        assert_eq!(renamed(), [(partial(), target())]);
+        assert_eq!(renamed(), [(partial(""), target())]);
     }
 
     #[test]

@@ -23,6 +23,9 @@ pub struct Fixture {
     pub removed_files: Vec<PathBuf>,
     /// Files renamed, in order, as `(from, to)`.
     pub renamed: Vec<(PathBuf, PathBuf)>,
+    /// Files flushed to disk, in order; `sync_failure` makes flushing fail.
+    pub synced: Vec<PathBuf>,
+    pub sync_failure: bool,
 }
 thread_local! { static FIXTURE: RefCell<Fixture> = RefCell::default(); }
 pub fn install(fixture: Fixture) {
@@ -132,6 +135,18 @@ pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
         Ok(())
     })
 }
+/// A folder's real path: itself if it exists here, else a failure.
+pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+    let path = path.as_ref();
+    FIXTURE.with(|state| {
+        let state = state.borrow();
+        state
+            .directories
+            .contains(&path.to_owned())
+            .then(|| path.to_owned())
+            .ok_or_else(missing)
+    })
+}
 pub struct Metadata(bool);
 impl Metadata {
     pub fn is_file(&self) -> bool {
@@ -195,6 +210,38 @@ impl OpenOptions {
     }
 }
 impl File {
+    /// Creates an empty file, failing if a file has the name already, or if a folder
+    /// does, which stands for a place that cannot be written.
+    pub fn create_new(path: impl AsRef<Path>) -> io::Result<Self> {
+        let path = path.as_ref();
+        access(path);
+        FIXTURE.with(|state| {
+            let mut state = state.borrow_mut();
+            if state.files.contains_key(path) {
+                return Err(io::Error::new(io::ErrorKind::AlreadyExists, "synthetic"));
+            }
+            if state.directories.contains(&path.to_owned()) {
+                return Err(io::Error::new(io::ErrorKind::PermissionDenied, "synthetic"));
+            }
+            state.files.insert(path.to_owned(), Vec::new());
+            Ok(Self {
+                path: path.to_owned(),
+                reader: Cursor::new(Vec::new()),
+            })
+        })
+    }
+    /// Records the flush, failing when the fixture says so.
+    pub fn sync_all(&self) -> io::Result<()> {
+        FIXTURE.with(|state| {
+            let mut state = state.borrow_mut();
+            state.synced.push(self.path.clone());
+            if state.sync_failure {
+                Err(missing())
+            } else {
+                Ok(())
+            }
+        })
+    }
     pub fn open(path: &Path) -> io::Result<Self> {
         access(path);
         FIXTURE.with(|state| {

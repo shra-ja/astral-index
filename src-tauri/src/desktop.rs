@@ -79,9 +79,13 @@ pub enum Failure {
     InvalidRequest,
     /// The file manager or browser could not be opened.
     OpenFailed,
-    /// A backup could not be written where the user chose, or did not pass its
-    /// check; nothing was left there.
+    /// A backup could not be written where the user chose; nothing was left there.
     BackupFailed,
+    /// The chosen place is inside the data folder, where a backup could replace
+    /// the history itself.
+    BackupInDataFolder,
+    /// A snapshot of the saved history failed its check, so no backup was made.
+    HistoryDamaged,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -1273,6 +1277,20 @@ mod tests {
         assert!(missing.unwrap_err().contains("onProgress"));
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
+        // The dialog plugin is registered for the native save dialog alone: the
+        // window may call none of its commands.
+        for command in ["save", "open", "message", "ask", "confirm"] {
+            let refused = invoke(
+                &window,
+                &format!("plugin:dialog|{command}"),
+                InvokeBody::Json(serde_json::json!({ "options": {} })),
+            );
+            let refused = refused.unwrap_err();
+            assert!(
+                refused.contains("not allowed"),
+                "plugin:dialog|{command}: {refused}"
+            );
+        }
         assert_eq!(stored(&window.state::<Session>()), None);
     }
 

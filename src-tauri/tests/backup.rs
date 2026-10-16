@@ -1,5 +1,10 @@
 //! Backups are snapshots of the real database, checked as restore will check them
 //! ([decision 0031](../../docs/architecture/decisions/0031-sqlite-snapshot-backups.md)).
+use astral_index::desktop::{
+    Failure,
+    backup::{Saved, save_to},
+    database::Database,
+};
 use astral_index::storage::{Error, Store, check_database};
 use rusqlite::Connection;
 use std::{
@@ -136,4 +141,83 @@ fn a_damaged_database_fails_the_check() {
     // SQLite cannot read the page at all, so the check fails before its integrity
     // report; the unit tests cover a report that finds damage.
     assert_eq!(check_database(&backup), Err(Error::Database));
+}
+
+/// Save a backup of the history in `data` to `target`, as the command does.
+fn save(data: &Path, target: &Path) -> Result<Saved, Failure> {
+    let database = Database::new(Some(data.to_owned()));
+    tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(save_to(&database, Some(data), target))
+}
+/// A data folder holding the synthetic page's history, closed again.
+fn data_with_history(folder: &Folder) -> PathBuf {
+    let data = folder.path("data");
+    std::fs::create_dir(&data).unwrap();
+    drop(store_with_history(&data.join("history.sqlite")));
+    data
+}
+/// The names in a folder, sorted.
+fn names(folder: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn saving_replaces_a_file_the_user_chose_to_replace_with_a_checked_backup() {
+    let folder = Folder::new();
+    let data = data_with_history(&folder);
+    let target = folder.path("backup.sqlite");
+    std::fs::write(
+        &target,
+        b"an older file the save dialog confirmed replacing",
+    )
+    .unwrap();
+    assert_eq!(
+        save(&data, &target),
+        Ok(Saved::Saved {
+            name: "backup.sqlite".into()
+        })
+    );
+    assert_eq!(check_database(&target), Ok(()));
+    let saved = Store::open(&target).unwrap();
+    assert_eq!(saved.history(UID, SERVER).unwrap().len(), 2);
+    // Nothing else was left beside it.
+    assert_eq!(names(&folder.0), ["backup.sqlite", "data"]);
+}
+
+#[test]
+fn a_failed_rename_leaves_no_partial_file_and_the_users_own_files_untouched() {
+    let folder = Folder::new();
+    let data = data_with_history(&folder);
+    // A folder in the target's place cannot be replaced by the backup.
+    let target = folder.path("backup.sqlite");
+    std::fs::create_dir(&target).unwrap();
+    // The user's own file with the first temporary name is left alone.
+    let own = folder.path("backup.sqlite.partial");
+    std::fs::write(&own, b"the user's own file").unwrap();
+    assert_eq!(save(&data, &target), Err(Failure::BackupFailed));
+    assert_eq!(
+        names(&folder.0),
+        ["backup.sqlite", "backup.sqlite.partial", "data"]
+    );
+    assert_eq!(std::fs::read(&own).unwrap(), b"the user's own file");
+}
+
+#[test]
+fn a_backup_into_the_data_folder_is_refused_and_the_history_left_as_it_was() {
+    let folder = Folder::new();
+    let data = data_with_history(&folder);
+    let live = data.join("history.sqlite");
+    let before = std::fs::read(&live).unwrap();
+    for target in [live.clone(), data.join("copy.sqlite")] {
+        assert_eq!(save(&data, &target), Err(Failure::BackupInDataFolder));
+    }
+    assert_eq!(std::fs::read(&live).unwrap(), before);
+    assert_eq!(names(&data), ["history.sqlite"]);
 }
