@@ -99,14 +99,18 @@ A backup is a snapshot of the database
 checks a database file as restore will, opening it read-only: this app's
 application ID, a released schema version, a passing integrity check and exactly
 the schema its version's SQL creates, compared against a fresh in-memory database
-built from that SQL. `save_backup` writes the snapshot to a partial file beside
-the chosen one, checks it, then renames it into place.
+built from that SQL. `save_backup` refuses a target inside the data folder,
+writes the snapshot to a temporary file it creates new beside the chosen one,
+checks and flushes it, then renames it into place.
 
 ## Planned
 
 Restore replaces the database after a checked copy is migrated, with the current
-database kept as a safety copy; migrations keep a copy of the database they
-upgrade (decision 0031). Imports will
+database kept as a safety copy, and hardens the check against hostile files;
+migrations keep a copy of the database they upgrade (decision 0031). Once a
+migration exists, each version's expected schema is the one its migrations
+produce from the first release's schema, not a fresh creation
+([0037](../product/features/0037-backup-and-restore.md)). Imports will
 compare a roll's facts rather than its whole record
 ([decision 0032](decisions/0032-history-file-import-rules.md)).
 

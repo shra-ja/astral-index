@@ -12,8 +12,12 @@ Backup and restore stay local and never make a network request.
 - **Back up:** a save dialog, opened by the Rust side, suggests
   `Astral-Index-backup-YYYY-MM-DD.sqlite`; the app writes a consistent snapshot
   of the database with `VACUUM INTO` to a temporary file beside the target,
-  checks it as restore would, then renames it into place. A failure leaves no
-  partial file and says what went wrong.
+  checks it as restore would, flushes it to disk, then renames it into place.
+  The temporary file is claimed new (`.partial`, else `.1.partial` and on), so
+  a file the user has is never touched. A target inside the data folder is
+  refused, as it could replace the history itself. A failure leaves no partial
+  file and says what went wrong: the chosen place, the history failing its
+  check, or the history not being readable.
 - **Restore:** an open dialog, opened by the Rust side, chooses the file. Restore
   checks a copy before anything changes:
   - its size is bounded, and it is a SQLite database with the app's application
@@ -24,6 +28,13 @@ Backup and restore stay local and never make a network request.
     version;
   - it migrates to the current schema.
 
+  As the file is untrusted, the check runs on a copy inside the data folder,
+  enforces the size bound before opening, compares the schema before the
+  integrity check, and opens with `trusted_schema` off, SQLite's defensive mode,
+  no memory mapping and lowered limits, so a hostile file cannot run its own
+  constraints or stall the app. The source and the safety copy get the same
+  data-folder guard as backups.
+
   The confirmation then shows the backup's accounts, their roll counts and its
   last import beside the current history's, and says that the current history
   will be kept as a safety copy. On confirming, the current database is copied
@@ -33,6 +44,10 @@ Backup and restore stay local and never make a network request.
 - **Migration recovery:** before upgrading an older database on opening, the app
   copies it to `history-v<N>.sqlite` in the data folder; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
+  Each released version's expected schema, which the check compares against,
+  is the one its migrations produce from the first release's schema, run in
+  memory, not a fresh creation: an upgraded database's schema text differs from
+  a newly created one's.
 - Restore is unavailable while a retrieval or import is under way; a backup can
   be made at any time, as storage runs one operation at a time, so a snapshot is
   always consistent. In portable mode, safety copies go to the portable data
@@ -67,6 +82,15 @@ Backup and restore stay local and never make a network request.
     one operation at a time. The webview sends the date, as `chrono` here has no
     clock; the screen sits under the current game, so the sidebar needs no
     special case.
+  - A read-only reviewer agent found a backup could replace the live database
+    and every failure asked for another folder. Fixed: the data-folder guard,
+    distinct failures, a claimed temporary name that never removes the user's
+    files, a flush before the rename, a dialog fault failing rather than
+    cancelling, refusing non-UTF-8 paths, misplaced doc comments, a loading
+    state for the data folder, and tests that the dialog plugin's commands are
+    refused. Each fix's test failed with the fix undone; real-file tests cover
+    replacing a chosen file, a failed rename and the data folder. The real save
+    dialog runs only in release builds; its Windows check is in Verification.
 - [ ] **Restore.** Checking, migrating, the confirmation, the safety copy and
   the replacement, including refusals of newer, corrupt, foreign and unrelated
   files.

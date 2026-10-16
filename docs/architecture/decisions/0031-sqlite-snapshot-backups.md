@@ -32,6 +32,9 @@ evidence and each import's provenance.
 - **Migrations keep the database they upgrade.** Before upgrading an older
   database on opening, the app keeps a copy of it in the data folder, and a failed
   migration leaves the original unchanged.
+- **Backups stay out of the data folder.** (Amended 2026-10-17:) a backup, a
+  restore's source and its safety copy are never placed where they could
+  replace the live database or its journal.
 - **The webview never names paths.** Backup and restore choose their files through
   dialogs that the Rust side opens, so no command takes a filesystem path from the
   webview.

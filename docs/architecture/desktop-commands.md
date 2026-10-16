@@ -14,8 +14,10 @@ manifest. The manifest makes every command need a capability grant, and
 is refused. No plugins, arbitrary filesystem access or shell access are exposed;
 the opener plugin's functions are called from native code only, and the plugin
 is not registered. The dialog plugin is registered for the real app, as its save
-dialog needs it, but the capability grants none of its permissions: only native
-code opens a dialog.
+dialog needs it, but the capability grants none of its permissions, and a test
+checks its commands are refused: only native code opens a dialog. The plugin
+also injects a script that routes `window.alert` and `window.confirm` to its
+refused commands, so the webview must not use them.
 
 | Command | Does | Contacts HoYoverse |
 | --- | --- | --- |
@@ -31,7 +33,7 @@ code opens a dialog.
 | `app_info` | The app's version, which build it is (a release, a CI build of a commit, or local), the data folder in use and whether portable mode is on | No |
 | `reveal_data_folder` | Show `history.sqlite` selected in the system file manager, or open the data folder before the file exists | No |
 | `open_issues_page` | Open the repository's issues page in the default browser | No |
-| `save_backup` | Ask where to save in the system's save dialog, suggesting `Astral-Index-backup-<date>.sqlite` from the `date` sent (`YYYY-MM-DD`), then write a checked snapshot there; returns the file's name or a cancellation. The mock debug binary answers from `save-as.txt` in its data folder | No |
+| `save_backup` | Ask where to save in the system's save dialog, suggesting `Astral-Index-backup-<date>.sqlite` from the `date` sent (`YYYY-MM-DD`), then write a checked snapshot there; returns the file's name or a cancellation. A place inside the data folder is refused (`backup_in_data_folder`), and a snapshot that fails its check is `history_damaged`. The mock debug binary answers from `save-as.txt` in its data folder | No |
 
 ## Session
 
