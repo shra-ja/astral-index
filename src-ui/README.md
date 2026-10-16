@@ -14,15 +14,17 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   `layout/` for the shell and screen frame (`AppSidebar`, `ScreenHeader`,
   and `SizeOverlay`, the development window size overlay),
   `history/` for the History screen, `import/` for the Import screen, `backup/`
-  for Backup & Restore (`BackupCard`, `DataLocation`), `about/`
+  for Backup & Restore (`BackupCard`), `about/`
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
-  (`AppTooltip`, `CachePicker`, `AstralEmblem`, the small brand emblem without a
+  (`AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
+  Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native
-  commands: `useRetrieval.ts` runs retrieval, review and saving, and
-  `useAbout.ts` reads the About dialog's details and opens the data folder or
-  issues page, and `useHistory.ts` reads the saved accounts and saved history a
+  commands: `useRetrieval.ts` runs retrieval, review and saving,
+  `useDataFolder.ts` reads the app's details and opens the data folder, and
+  `useAbout.ts` builds on it for the About dialog, adding the issues page and
+  notices, and `useHistory.ts` reads the saved accounts and saved history a
   page at a time, keeping each game's account chosen in the switcher until the
   app restarts or a save into that game. `useBackup.ts` saves a backup and
   tracks how it went. `useWindowSize.ts` follows the window's size for the

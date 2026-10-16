@@ -91,6 +91,13 @@ Backup and restore stay local and never make a network request.
     refused. Each fix's test failed with the fix undone; real-file tests cover
     replacing a chosen file, a failed rename and the data folder. The real save
     dialog runs only in release builds; its Windows check is in Verification.
+  - A second reviewer agent, on code quality: saving is split into writing a
+    checked snapshot and publishing it; `useDataFolder` serves About and Backup
+    & Restore, which share one `DataFolder` component in About's boxed style,
+    as the user chose; `app_info` sends the history file's path; the
+    filesystem fake records every write; About's backup advice points here.
+    The Backup card and the Import screen's source cards share their styles,
+    to be extracted into one card component when the Restore card arrives.
 - [ ] **Restore.** Checking, migrating, the confirmation, the safety copy and
   the replacement, including refusals of newer, corrupt, foreign and unrelated
   files.
