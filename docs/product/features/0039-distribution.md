@@ -3,7 +3,7 @@
 Status: In progress · Milestone 10, Release readiness
 
 Release the app as a standalone Windows executable, versioned from git tags,
-with generated notes and documented requirements and recovery help
+with generated notes and a README that says how to download and run it
 ([decision 0030](../../architecture/decisions/0030-tag-versioned-releases.md)).
 
 ## Tasks
@@ -62,13 +62,11 @@ One PR each, test first.
     history to find the last tag and saves caches. CI's build-naming step now
     gives the action the version as an output rather than setting job-wide
     variables, so only the action names a build.
-- [ ] **Release docs** (done by [0054](0054-readme-presentation.md)'s README). The README's download section: Windows 10 or 11 x64
-  with WebView2, checking the download against the digest GitHub shows, the
-  SmartScreen and antivirus warnings an unsigned executable meets, running it
-  from any folder, portable mode, and recovery help (backing up and restoring
-  `history.sqlite`, a database that will not open, resetting the webview
-  profile, removing the app). DEVELOPMENT gets a Releasing guide that the user
-  or an agent can follow.
+- [x] **Release docs.** Done by [0054](0054-readme-presentation.md)'s
+  README: its Download section points at the latest release and mirrors the
+  release notes' Usage text, with portable mode, and its Storage section says
+  where history is kept. DEVELOPMENT's Releasing guide takes a person or an
+  agent through previewing, drafting, reviewing and publishing a release.
 - [ ] **First release and migration fixture.** Release 1.0.0. Once it is
   published and looks right, add a tag ruleset that stops `v*` tags being
   deleted or moved and lets only repository admins create them (a repository
