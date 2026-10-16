@@ -30,20 +30,26 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   or overlapping imports add only new rolls.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
-  binary's synthetic HoYoverse, and checks of the docs, icons and app version.
+  binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
+  app version.
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
   executable (decision 0029).
+- **README:** the logo, badges, and screenshots of the mock's synthetic history,
+  retaken with `npm run readme:screenshots`; the features as they are today and
+  how to download and run the app.
 
 ## In progress
 
-No work in progress.
+### Release docs housekeeping (2026-10-16)
+
+`docs/release-docs-housekeeping`: 0054 done; 0039's release docs task rewritten to what the README delivered and ticked; the Releasing guide says when to write notes and to keep them unwrapped; staged check passes (static 17 s, gates 236 s, probes 161 s).
 
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
   native side. Live retrieval last worked on Windows on 2026-10-15.
 - Browsers may flag the unsigned executable until it is signed
-  ([0039](../product/features/0039-distribution.md)).
+  ([0053](../product/features/0053-code-signing.md)).
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
   banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
   colours use observed rather than published soft pity (decision 0020).
@@ -55,7 +61,7 @@ No work in progress.
 
 ## Next
 
-Next: 0054, README presentation (logo, screenshots, then the README), then 0039's first release, 1.0.0.
+Next: 0039's first release, 1.0.0, then its `v*` tag ruleset and the migration fixture.
 
 ## Keeping this file current
 

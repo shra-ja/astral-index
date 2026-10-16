@@ -1,6 +1,6 @@
 # 0054 — README presentation
 
-Status: In progress · Milestone 10, Release readiness
+Status: Done · Milestone 10, Release readiness
 
 Give the README the shape of a well-crafted project page before the first
 release links to it: the brand at the top, a few badges, screenshots of the app
