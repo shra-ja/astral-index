@@ -220,11 +220,12 @@ are outward-facing.
    sentences summarising the release, then `### Breaking changes`,
    `### Features` and `### Fixes`, as needed and in that order, each entry one
    sentence in the present tense about what the app now does, ending with its
-   pull request, such as `(#117)`. Write each paragraph and entry on one line: the workflow
-   passes the notes through verbatim, and a release page turns every newline
-   into a line break. Preview them as a release page renders them with
+   pull request, such as `(#117)`. Write each paragraph and entry on one
+   line: the workflow passes the notes through verbatim, and a release page
+   turns every newline into a line break. Preview them as a release page
+   renders them with
    `gh api -X POST markdown -f mode=gfm -f text="$(cat notes.md)"`. The
-   workflow adds the heading and "Usage" itself.
+   workflow adds "Usage" itself.
 4. **Start the workflow:**
    `gh workflow run release.yml --ref main` with `-f version=1.2.0` to choose
    the version and `-f notes="$(cat notes.md)"` to give the notes, or the "Run

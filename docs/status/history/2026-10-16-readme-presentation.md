@@ -15,3 +15,8 @@ Character Event history now spans a year with a realistic newest month (its
 mock tests went red, then green). The e2e smoke test passes 12/12 offline with
 the new dates. Previewed through GitHub's Markdown API in both themes. The
 staged `npm run check` passes: static, gates at 100% coverage, and 16 probes.
+
+## Release docs housekeeping (2026-10-16)
+
+Integrated through PR #124.
+`docs/release-docs-housekeeping`: 0054 done; 0039's release docs task rewritten to what the README delivered and ticked; the Releasing guide says when to write notes and to keep them unwrapped; staged check passes (static 17 s, gates 236 s, probes 161 s).

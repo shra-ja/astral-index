@@ -4,7 +4,8 @@ Updated: 2026-10-16
 
 ## Current state
 
-Astral Index is a Tauri 2 desktop app with a Vue webview. Honkai: Star Rail
+Astral Index is a Tauri 2 desktop app with a Vue webview, released as
+[1.0.0](https://github.com/shra-ja/astral-index/releases/tag/v1.0.0) on 2026-10-16. Honkai: Star Rail
 history import works end to end; Genshin Impact, with no import yet, shows only in development builds (decision 0026).
 
 - **Retrieval, on request only:** the app finds the warp history link by
@@ -40,9 +41,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release docs housekeeping (2026-10-16)
+### Release notes without a heading (2026-10-16)
 
-`docs/release-docs-housekeeping`: 0054 done; 0039's release docs task rewritten to what the README delivered and ticked; the Releasing guide says when to write notes and to keep them unwrapped; staged check passes (static 17 s, gates 236 s, probes 161 s).
+`feat/release-notes-without-heading`: the notes no longer open with "Astral Index" and the tag, as the release's title shows the version (4 release-notes tests red, then green); 1.0.0's draft was edited to match before it was published. Staged check passes (static 15 s, gates 238 s, probes 159 s).
 
 ## Known limitations
 
@@ -61,7 +62,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: 0039's first release, 1.0.0, then its `v*` tag ruleset and the migration fixture.
+Next: 0039's `v*` tag ruleset, with the user's approval, then the migration fixture.
 
 ## Keeping this file current
 
@@ -161,4 +162,5 @@ research, under a "From" heading.
   the version from tags, the release workflow, the launch background, the
   shared Windows build and the CI timeouts.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
-  the logo, screenshots and README, and the mock's year of history.
+  the logo, screenshots and README, the mock's year of history, and the
+  release docs housekeeping.
