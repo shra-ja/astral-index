@@ -28,12 +28,14 @@ One PR each, test first.
   creates a draft release with it and the notes: generated from the titles, or
   given by hand, in the same template. Publishing the draft creates the tag.
   - The notes' template was settled with the user from three rounds of drafts:
-    the title is the tag, the body opens with "Astral Index" and the tag linked
-    to the comparison, then Breaking changes, Features and Fixes (other types
-    are left out), then "Usage"; the download is
+    the title is the tag, the body lists Breaking changes, Features and Fixes
+    (other types are left out), then "Usage"; the download is
     `Astral-Index-v1.2.0.exe`. One optional `notes` input replaces the
     generated sections, so an agent's notes keep the same frame. The draft
     leaves the tag to publishing. The first release needs notes given by hand.
+    After seeing 1.0.0's draft, the user dropped the body's opening heading,
+    "Astral Index" and the tag linked to the changes, as the title already
+    shows the version.
   - The checks step was tried read-only against `main`: all five passed, and
     an unknown name came back as missing. A preview against real history, with
     a temporary local tag, matched the agreed draft.

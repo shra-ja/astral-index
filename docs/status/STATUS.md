@@ -40,7 +40,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-No work in progress.
+### Release notes without a heading (2026-10-16)
+
+`feat/release-notes-without-heading`: the notes no longer open with "Astral Index" and the tag, as the release's title shows the version (4 release-notes tests red, then green); 1.0.0's draft was edited to match.
 
 ## Known limitations
 
@@ -59,7 +61,7 @@ No work in progress.
 
 ## Next
 
-Next: 0039's first release, 1.0.0, then its `v*` tag ruleset and the migration fixture.
+Next: publish 1.0.0's draft, then its `v*` tag ruleset and the migration fixture.
 
 ## Keeping this file current
 

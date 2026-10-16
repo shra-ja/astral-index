@@ -32,9 +32,10 @@ spends no money.
   `v1.2.0`, with the executable attached. The user publishes the draft, which
   creates the tag. No version-bump commit or pull request is made, and no
   branch rule is bypassed.
-- **Notes follow one template, generated or written.** They open with the
-  heading "Astral Index" and the tag, linked to the changes since the previous
-  tag. The workflow then lists the pull requests merged since the last tag,
+- **Notes follow one template, generated or written.** (Amended 2026-10-16:
+  they no longer open with the heading "Astral Index" and the tag, linked to
+  the changes since the previous tag, as the release's title already shows the
+  version.) The workflow lists the pull requests merged since the last tag,
   read from their merge commits, whose titles are Conventional Commits:
   Breaking changes, Features and Fixes, each title without its type prefix and
   with its pull request; other types are left out, and a release with none
