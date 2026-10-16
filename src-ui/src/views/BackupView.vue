@@ -4,14 +4,13 @@
 // game (decision 0031). Restore and UIGF export join it in later work.
 import { onMounted } from 'vue'
 import BackupCard from '../components/backup/BackupCard.vue'
-import DataLocation from '../components/backup/DataLocation.vue'
+import DataFolder from '../components/shared/DataFolder.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
-import { useAbout } from '../composables/useAbout'
+import { useDataFolder } from '../composables/useDataFolder'
 import { useBackup } from '../composables/useBackup'
 
 const { state, name, message, save } = useBackup()
-// The data folder comes from the app's details, as the About dialog's does.
-const { info, read, failed, load, revealFolder } = useAbout()
+const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
 </script>
 
@@ -26,12 +25,10 @@ onMounted(load)
       <div class="cards">
         <BackupCard :state :name :message @save="save" />
       </div>
-      <DataLocation
-        :folder="info?.folder ?? null"
-        :failed="failed === 'folder'"
-        :read
-        @reveal="revealFolder"
-      />
+      <section class="location" aria-labelledby="backup-location">
+        <h2 id="backup-location">Saved History</h2>
+        <DataFolder :path="info?.file ?? null" :read :failed="revealFailed" @reveal="reveal" />
+      </section>
     </div>
   </main>
 </template>
@@ -63,6 +60,11 @@ h2 {
   line-height: 1.5;
 }
 /* Room for Restore and UIGF export beside Backup as they arrive. */
+.location {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));

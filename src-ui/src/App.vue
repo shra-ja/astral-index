@@ -47,6 +47,7 @@ function closeAbout() {
     <AboutDialog
       v-if="aboutOpen"
       :info="about.info.value"
+      :read="about.read.value"
       :failed="about.failed.value"
       :notices="about.notices.value"
       :notices-missing="about.noticesMissing.value"

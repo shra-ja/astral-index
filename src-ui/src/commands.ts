@@ -301,6 +301,8 @@ export interface AppInfo {
   build: Build
   /** The data folder in use, or none if the platform gave the app none. */
   folder: string | null
+  /** The history file in that folder, joined natively. */
+  file: string | null
   portable: boolean
 }
 

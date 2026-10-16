@@ -1150,6 +1150,7 @@ test('the About dialog opens over the current screen with the native details', a
       version: '1.2.0',
       build: { kind: 'dev', commit: 'a1b2c3d' },
       folder: '/local/astral-index',
+      file: '/local/astral-index/history.sqlite',
       portable: false,
     }),
     reveal_data_folder: () => reject({ kind: 'open_failed' }),
@@ -1196,6 +1197,7 @@ test('closing the About dialog returns to its button, and a failure does not out
       version: '1.2.0',
       build: { kind: 'dev', commit: 'a1b2c3d' },
       folder: '/local/astral-index',
+      file: '/local/astral-index/history.sqlite',
       portable: true,
     }),
     reveal_data_folder: () => reject({ kind: 'open_failed' }),
@@ -1230,6 +1232,7 @@ test('Backup & Restore saves a backup where the user chooses, and shows where hi
       version: '1.2.0',
       build: { kind: 'release' },
       folder: '/local/astral-index',
+      file: '/local/astral-index/history.sqlite',
       portable: false,
     }),
     save_backup: (args) => {

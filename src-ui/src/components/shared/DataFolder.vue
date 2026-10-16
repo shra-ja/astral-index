@@ -1,30 +1,24 @@
 <script setup lang="ts">
-// Presentational: where history is stored, with a button that asks to show the file
-// in its folder. The caller opens it and says whether that failed. Until the folder
-// has been read it shows nothing, and a failed read is told apart from having none.
+// Presentational: where history is stored, with a button that asks to show it in its
+// folder; the caller opens it and says whether that failed. Until the folder has been
+// read it shows nothing, and a failed read is told apart from having no folder. Used
+// by the About dialog and the Backup & Restore screen.
 import { FolderOpen } from '@lucide/vue'
-import { computed } from 'vue'
-import { historyFile } from '../../format'
+import type { Read } from '../../composables/useDataFolder'
 import { openingFailures } from '../../messages'
 
-const props = defineProps<{
-  folder: string | null
-  failed: boolean
-  read: 'pending' | 'read' | 'failed'
-}>()
+defineProps<{ path: string | null; read: Read; failed: boolean }>()
 const emit = defineEmits<{ reveal: [] }>()
-const file = computed(() => (props.folder === null ? null : historyFile(props.folder)))
 </script>
 
 <template>
-  <div v-if="read !== 'pending'" class="location">
+  <div v-if="read !== 'pending'" class="data-folder">
     <p v-if="read === 'failed'" class="note">Where history is stored couldn’t be read.</p>
-    <template v-else-if="file">
-      <div class="where">
-        <span class="label">History is stored in</span>
-        <span class="path">{{ file }}</span>
+    <template v-else-if="path">
+      <div class="folder">
+        <span class="path">{{ path }}</span>
         <button type="button" class="secondary" @click="emit('reveal')">
-          <FolderOpen :size="16" :stroke-width="1.75" />
+          <FolderOpen :size="16" aria-hidden="true" />
           Show in Folder
         </button>
       </div>
@@ -35,34 +29,32 @@ const file = computed(() => (props.folder === null ? null : historyFile(props.fo
 </template>
 
 <style scoped>
-.location {
+.data-folder {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 20px;
-  border: 1px solid var(--divider);
-  border-radius: 12px;
 }
-.where {
+.folder {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
-}
-.label {
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
+  gap: 10px;
 }
 .path {
   flex: 1 1 260px;
   min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-rim);
+  border-radius: 10px;
+  background: var(--list);
   color: var(--text-soft);
-  font-size: 14px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.4;
   overflow-wrap: anywhere;
   user-select: text;
 }
-.where button {
+.folder button {
   font-size: 14px;
 }
 .failure {

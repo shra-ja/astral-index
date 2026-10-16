@@ -1,12 +1,12 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
-import DataLocation from './DataLocation.vue'
+import DataFolder from './DataFolder.vue'
 
-test('names the history file and asks to show it in its folder', async () => {
-  const wrapper = mount(DataLocation, {
-    props: { folder: '/local/astral-index', failed: false, read: 'read' },
-  })
-  expect(wrapper.get('.label').text()).toBe('History is stored in')
+const shown = (path: string | null, read: 'pending' | 'read' | 'failed', failed = false) =>
+  mount(DataFolder, { props: { path, read, failed } })
+
+test('shows the path and asks to show it in its folder', async () => {
+  const wrapper = shown('/local/astral-index/history.sqlite', 'read')
   expect(wrapper.get('.path').text()).toBe('/local/astral-index/history.sqlite')
   expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   await wrapper.get('button').trigger('click')
@@ -18,15 +18,15 @@ test('names the history file and asks to show it in its folder', async () => {
   )
 })
 
-test('without a data folder there is nothing to show', () => {
-  const wrapper = mount(DataLocation, { props: { folder: null, failed: false, read: 'read' } })
+test('without a data folder there is nothing to show or open', () => {
+  const wrapper = shown(null, 'read')
   expect(wrapper.find('.path').exists()).toBe(false)
   expect(wrapper.find('button').exists()).toBe(false)
   expect(wrapper.text()).toBe('No data folder is available on this device.')
 })
 
 test('until the folder is known it says nothing, and a failed read says so', async () => {
-  const wrapper = mount(DataLocation, { props: { folder: null, failed: false, read: 'pending' } })
+  const wrapper = shown(null, 'pending')
   expect(wrapper.text()).toBe('')
   await wrapper.setProps({ read: 'failed' })
   expect(wrapper.text()).toBe('Where history is stored couldn’t be read.')

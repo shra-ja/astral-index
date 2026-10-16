@@ -8,6 +8,7 @@ const info = {
   version: '1.2.0',
   build: { kind: 'release' as const },
   folder: '/local/astral-index',
+  file: '/local/astral-index/history.sqlite',
   portable: false,
 }
 
@@ -42,7 +43,7 @@ const notices = {
 }
 const open = () =>
   mount(AboutDialog, {
-    props: { info, failed: null, notices, noticesMissing: false },
+    props: { info, read: 'read', failed: null, notices, noticesMissing: false },
     attachTo: document.body,
   })
 type Dialog = ReturnType<typeof open>

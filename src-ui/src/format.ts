@@ -214,7 +214,3 @@ export const localDate = (date: Date) =>
   [date.getFullYear(), date.getMonth() + 1, date.getDate()]
     .map((part) => String(part).padStart(2, '0'))
     .join('-')
-
-/** The history file in the data folder, joined with the folder's own separator. */
-export const historyFile = (folder: string) =>
-  `${folder}${folder.includes('\\') ? '\\' : '/'}history.sqlite`
