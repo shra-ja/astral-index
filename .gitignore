@@ -26,6 +26,8 @@ playwright-report/
 *.sqlite-*
 *.sqlite3
 *.sqlite3-*
+# Synthetic databases released versions wrote, for the migration tests (decision 0029).
+!/src-tauri/tests/fixtures/storage/*.sqlite
 /local-data/
 /private-imports/
 /backups/
