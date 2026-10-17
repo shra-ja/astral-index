@@ -36,13 +36,18 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
   executable (decision 0029). A frozen 1.0.0 database shows each schema change
   keeps saved history.
+- **Backup:** the Backup & Restore screen saves a checked snapshot of the whole
+  history where the user chooses, never inside the data folder, and shows where
+  history is stored, as the About dialog does.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-No work in progress.
+### 0037 breakdown (2026-10-17)
+
+`docs/0037-breakdown`: 0037's Restore, Migration recovery and Verification tasks broken into steps, Restore as two PRs, with the questions to settle.
 
 ## Known limitations
 
@@ -61,7 +66,7 @@ No work in progress.
 
 ## Next
 
-Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s backup.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Restore, checking and preview, starting with the shared card component.
 
 ## Keeping this file current
 
