@@ -30,3 +30,8 @@ Integrated through PR #125.
 
 Integrated through PR #126.
 `test/migration-fixture`: 1.0.0's database, written once by its `Store` from synthetic history, is frozen in `src-tauri/tests/fixtures/storage/`; `released_databases.rs` pins its SHA-256, reads a copy back and imports into it (4 tests red while it was missing, then green). Staged check passes (static 18 s, gates 244 s, probes 162 s). 0039 and milestone 10 are done; the `v*` tag rulesets and the repository's description, topics and social preview are set.
+
+## Milestone 11 requirements (2026-10-16)
+
+Integrated through PR #127.
+`docs/milestone-11-requirements`: requirements for 0037 and 0030, new features 0055 (UIGF export), 0056 (Star Rail Station import) and 0057 (pool ID completion), both after 0034, decisions 0031 and 0032, and file research from a player's StarDB and Star Rail Station exports, inspected for structure only.

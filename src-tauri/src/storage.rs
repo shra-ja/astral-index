@@ -5,7 +5,7 @@ use crate::hsr::{Category, SoftPity};
 use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
 #[cfg(not(test))]
 use rusqlite::Connection;
-use rusqlite::{OptionalExtension, TransactionBehavior, params};
+use rusqlite::{OpenFlags, OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -14,6 +14,13 @@ use std::{
 
 const GAME: &str = "honkai-star-rail";
 const APPLICATION_ID: i32 = 1381257795;
+/// The schema versions released versions wrote, each with the SQL that creates it
+/// ([decision 0029](../../docs/architecture/decisions/0029-automated-release-verification.md)).
+/// Version 1 was a pre-release layout and is refused.
+const RELEASED: [(i32, &str); 1] = [(2, include_str!("../migrations/001_initial.sql"))];
+/// A database's schema objects, as compared between a file and its version's SQL.
+const SCHEMA: &str =
+    "SELECT json_array(type,name,tbl_name,sql) FROM sqlite_schema ORDER BY type,name";
 
 /// Safe categories only: SQLite, JSON and source messages never cross the boundary.
 #[derive(Debug, PartialEq, Eq)]
@@ -514,6 +521,16 @@ impl Store {
         Ok(preview.summary)
     }
 
+    /// Write a consistent copy of the whole database to `path`, which must be missing
+    /// or empty ([decision 0031](../../docs/architecture/decisions/0031-sqlite-snapshot-backups.md)).
+    /// SQLite takes the path as text, so a path that is not UTF-8 is refused rather
+    /// than written under another name.
+    pub fn write_snapshot(&self, path: &Path) -> Result<(), Error> {
+        let path = path.to_str().ok_or(Error::Database)?;
+        self.connection.execute("VACUUM INTO ?1", params![path])?;
+        Ok(())
+    }
+
     /// Returns a deterministic identity ordering, not an inferred chronological ordering.
     pub fn history(&self, uid: &str, server: &str) -> Result<Vec<Roll>, Error> {
         let mut statement = self.connection.prepare(
@@ -789,6 +806,42 @@ fn check_timezone(
         return Err(Error::Context);
     }
     Ok(())
+}
+
+/// Check a database file as restore will, opening it read-only so it is never
+/// changed: it must have this app's application ID, a released schema version, a
+/// passing integrity check and exactly the schema its version's SQL creates.
+pub fn check_database(path: &Path) -> Result<(), Error> {
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let app: i32 = connection.query_row("PRAGMA application_id", [], |row| row.get(0))?;
+    if app != APPLICATION_ID {
+        return Err(Error::Schema);
+    }
+    let version: i32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let creation = RELEASED
+        .iter()
+        .find(|(released, _)| *released == version)
+        .map(|(_, sql)| *sql)
+        .ok_or(Error::Schema)?;
+    if texts(&connection, "PRAGMA integrity_check")? != ["ok"] {
+        return Err(Error::InvalidStoredData);
+    }
+    let actual = texts(&connection, SCHEMA)?;
+    let fresh = Connection::open_in_memory()?;
+    fresh.execute_batch(creation)?;
+    if texts(&fresh, SCHEMA)? != actual {
+        return Err(Error::Schema);
+    }
+    Ok(())
+}
+
+/// The single text column of every row `sql` returns.
+fn texts(connection: &Connection, sql: &str) -> Result<Vec<String>, Error> {
+    let mut statement = connection.prepare(sql)?;
+    let rows = statement
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
 }
 
 /// Bind a preview to one database revision so later writes require renewed review.
@@ -2157,6 +2210,174 @@ pub(crate) mod tests {
                 read(&Filter::default(), 2, 2),
                 Err(Error::InvalidStoredData)
             );
+            database::finish();
+        }
+    }
+
+    pub(crate) const VACUUM: &str = "VACUUM INTO ?1";
+    /// `steps` up to and including the first running `sql`, which answers `reply`
+    /// instead and is the last step reached.
+    pub(crate) fn ending_at(
+        mut steps: Vec<Step>,
+        sql: &str,
+        reply: rusqlite::Result<Reply>,
+    ) -> Vec<Step> {
+        let at = steps.iter().position(|step| step.sql == sql).unwrap();
+        steps.truncate(at + 1);
+        steps[at].reply = reply;
+        steps
+    }
+    /// A schema row as the check reads it from `sqlite_schema`.
+    fn object(name: &str, sql: &str) -> Vec<Value> {
+        vec![text(
+            &serde_json::json!(["table", name, name, sql]).to_string(),
+        )]
+    }
+    /// The SQL for checking `path`, answered as a released, intact database whose
+    /// schema matches.
+    pub(crate) fn check_script(path: &str) -> Vec<Step> {
+        let schema = vec![object("accounts", "CREATE TABLE accounts")];
+        vec![
+            step(
+                "OPEN WITH FLAGS",
+                vec![
+                    text(path),
+                    Value::Integer(rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY.bits().into()),
+                ],
+                Reply::Done,
+            ),
+            rows(
+                "PRAGMA application_id",
+                vec![],
+                vec![vec![Value::Integer(APPLICATION_ID.into())]],
+            ),
+            rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(2)]]),
+            done("PREPARE PRAGMA integrity_check"),
+            rows("PRAGMA integrity_check", vec![], vec![vec![text("ok")]]),
+            done(&format!("PREPARE {SCHEMA}")),
+            rows(SCHEMA, vec![], schema.clone()),
+            step("OPEN IN MEMORY", vec![], Reply::Done),
+            done(include_str!("../migrations/001_initial.sql")),
+            done(&format!("PREPARE {SCHEMA}")),
+            rows(SCHEMA, vec![], schema),
+        ]
+    }
+    fn check() -> Result<(), Error> {
+        check_database(Path::new("backup.sqlite"))
+    }
+
+    #[test]
+    fn a_snapshot_is_written_with_vacuum_into_the_given_path() {
+        database::expect(vec![step(
+            VACUUM,
+            vec![text("backup.sqlite.partial")],
+            Reply::Count(0),
+        )]);
+        assert_eq!(
+            store().write_snapshot(Path::new("backup.sqlite.partial")),
+            Ok(())
+        );
+        database::finish();
+        let mut failing = step(VACUUM, vec![text("backup.sqlite.partial")], Reply::Count(0));
+        failing.reply = Err(rusqlite::Error::InvalidQuery);
+        database::expect(vec![failing]);
+        assert_eq!(
+            store().write_snapshot(Path::new("backup.sqlite.partial")),
+            Err(Error::Database)
+        );
+        database::finish();
+        // A path that is not UTF-8 is refused before any SQL.
+        database::expect(vec![]);
+        assert_eq!(store().write_snapshot(&not_utf8()), Err(Error::Database));
+        database::finish();
+    }
+    /// A path SQLite could not be given as text.
+    #[cfg(unix)]
+    fn not_utf8() -> std::path::PathBuf {
+        use std::os::unix::ffi::OsStrExt;
+        std::path::PathBuf::from(std::ffi::OsStr::from_bytes(b"backup-\xff.sqlite"))
+    }
+    #[cfg(windows)]
+    fn not_utf8() -> std::path::PathBuf {
+        use std::os::windows::ffi::OsStringExt;
+        std::path::PathBuf::from(std::ffi::OsString::from_wide(&[0x62, 0xD800, 0x62]))
+    }
+
+    #[test]
+    fn a_released_intact_database_of_this_app_passes_its_check() {
+        database::expect(check_script("backup.sqlite"));
+        assert_eq!(check(), Ok(()));
+        database::finish();
+        // A database that cannot be read at any step fails as a database error.
+        fail_each(&|| check_script("backup.sqlite"), None, &mut check);
+    }
+
+    /// The check's steps up to the first running `sql`, which answers `reply`.
+    fn check_ending_at(sql: &str, reply: Reply) -> Vec<Step> {
+        ending_at(check_script("backup.sqlite"), sql, Ok(reply))
+    }
+    fn integer(value: i64) -> Reply {
+        Reply::Rows(vec![Ok(vec![Value::Integer(value)])])
+    }
+
+    #[test]
+    fn another_apps_or_an_unreleased_schema_fails_its_check() {
+        for app in [0, APPLICATION_ID + 1] {
+            database::expect(check_ending_at(
+                "PRAGMA application_id",
+                integer(app.into()),
+            ));
+            assert_eq!(check(), Err(Error::Schema), "application ID {app}");
+            database::finish();
+        }
+        // Version 1 was a pre-release layout; 3 is newer than this app.
+        for version in [0, 1, 3] {
+            database::expect(check_ending_at("PRAGMA user_version", integer(version)));
+            assert_eq!(check(), Err(Error::Schema), "version {version}");
+            database::finish();
+        }
+    }
+
+    #[test]
+    fn a_damaged_database_fails_its_check() {
+        for report in [
+            vec![vec![text("*** in database main ***")]],
+            vec![vec![text("ok")], vec![text("ok")]],
+            vec![],
+        ] {
+            let report = Reply::Rows(report.into_iter().map(Ok).collect());
+            database::expect(check_ending_at("PRAGMA integrity_check", report));
+            assert_eq!(check(), Err(Error::InvalidStoredData));
+            database::finish();
+        }
+    }
+
+    #[test]
+    fn a_row_that_cannot_be_read_fails_the_check() {
+        for sql in ["PRAGMA integrity_check", SCHEMA] {
+            let unreadable = Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]);
+            database::expect(check_ending_at(sql, unreadable));
+            assert_eq!(check(), Err(Error::Database), "{sql}");
+            database::finish();
+        }
+    }
+
+    #[test]
+    fn a_schema_unlike_its_versions_fails_its_check() {
+        for actual in [
+            vec![
+                object("accounts", "CREATE TABLE accounts"),
+                object("extra", "CREATE TABLE extra"),
+            ],
+            vec![object("accounts", "CREATE TABLE accounts (changed)")],
+            vec![],
+        ] {
+            // The file's schema is read first, then the fresh database's.
+            let mut steps = check_script("backup.sqlite");
+            let file = steps.iter().position(|step| step.sql == SCHEMA).unwrap();
+            steps[file] = rows(SCHEMA, vec![], actual);
+            database::expect(steps);
+            assert_eq!(check(), Err(Error::Schema));
             database::finish();
         }
     }

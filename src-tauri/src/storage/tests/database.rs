@@ -1,7 +1,7 @@
 //! Strict scripted SQLite API double: checks SQL, bindings, ordering and transaction cleanup.
 //! No SQLite connection is created by this module.
 use rusqlite::{
-    Error, Result, TransactionBehavior,
+    Error, OpenFlags, Result, TransactionBehavior,
     types::{FromSql, ToSql, ToSqlOutput, Value, ValueRef},
 };
 use std::{cell::RefCell, collections::VecDeque, ops::Deref, path::Path};
@@ -64,6 +64,20 @@ impl Connection {
             "OPEN",
             vec![Value::Text(path.to_string_lossy().into_owned())],
         )?;
+        Ok(Self)
+    }
+    pub fn open_with_flags(path: &Path, flags: OpenFlags) -> Result<Self> {
+        call(
+            "OPEN WITH FLAGS",
+            vec![
+                Value::Text(path.to_string_lossy().into_owned()),
+                Value::Integer(flags.bits().into()),
+            ],
+        )?;
+        Ok(Self)
+    }
+    pub fn open_in_memory() -> Result<Self> {
+        call("OPEN IN MEMORY", vec![])?;
         Ok(Self)
     }
     pub fn execute_batch(&self, sql: &str) -> Result<()> {

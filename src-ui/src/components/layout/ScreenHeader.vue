@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// Presentational: a screen's title and game, with room for the screen's own controls.
-defineProps<{ title: string; game: string }>()
+// Presentational: a screen's title and, for a game's screen, the game, with room for
+// the screen's own controls.
+defineProps<{ title: string; game?: string }>()
 </script>
 
 <template>
   <header class="screen-header">
     <div class="titles">
       <h1>{{ title }}</h1>
-      <span class="game">{{ game }}</span>
+      <span v-if="game" class="game">{{ game }}</span>
     </div>
     <slot />
   </header>

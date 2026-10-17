@@ -23,7 +23,7 @@ export const games = {
 export type Game = keyof typeof games
 
 /** The screens each game has. */
-export type Screen = 'history' | 'import'
+export type Screen = 'history' | 'import' | 'backup'
 
 /** What each game calls a roll, as in "Warp History". */
 export const terms: Record<Game, 'Wish' | 'Warp'> = {
@@ -208,3 +208,9 @@ export const serverName = (server: string) => servers[server] ?? server
 
 /** The `gacha_type` codes in the order retrieval requests them. */
 export const retrievalOrder = ['1', '2', '11', '12', '21', '22']
+
+/** The calendar day on this device, as `YYYY-MM-DD`. */
+export const localDate = (date: Date) =>
+  [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join('-')

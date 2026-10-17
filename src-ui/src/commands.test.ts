@@ -14,6 +14,7 @@ import {
   openIssuesPage,
   retrieveHistory,
   revealDataFolder,
+  saveBackup,
   savedAccounts,
 } from './commands'
 
@@ -57,6 +58,9 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'stale_preview',
     'no_preview',
     'invalid_request',
+    'backup_failed',
+    'backup_in_data_folder',
+    'history_damaged',
   ]) {
     mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })
@@ -345,4 +349,20 @@ test('the data folder and issues page open with no arguments, failing by kind al
   mockIPC(() => reject({ kind: 'open_failed' }))
   expect(await revealDataFolder()).toEqual({ kind: 'open_failed' })
   expect(await openIssuesPage()).toEqual({ kind: 'open_failed' })
+})
+
+test('a backup sends only the day’s date, and gets back the file’s name or a cancellation', async () => {
+  const calls: [string, unknown][] = []
+  mockIPC((cmd, args) => {
+    calls.push([cmd, args])
+    return { kind: 'saved', name: 'Astral-Index-backup-2026-10-16.sqlite' }
+  })
+  expect(await saveBackup('2026-10-16')).toEqual({
+    saved: 'Astral-Index-backup-2026-10-16.sqlite',
+  })
+  expect(calls).toEqual([['save_backup', { date: '2026-10-16' }]])
+  mockIPC(() => ({ kind: 'cancelled' }))
+  expect(await saveBackup('2026-10-16')).toEqual({ cancelled: true })
+  mockIPC(() => reject({ kind: 'backup_failed' }))
+  expect(await saveBackup('2026-10-16')).toEqual({ failure: { kind: 'backup_failed' } })
 })

@@ -14,7 +14,10 @@ for how the parts fit together; run commands from the repository root.
   `src/desktop/database.rs` chooses the database location and runs SQLite work
   off the async workers; `src/desktop/about.rs` holds the About dialog's
   commands, which open the data folder or the issues page through the opener
-  plugin's functions, or record the request in the mock debug binary.
+  plugin's functions, or record the request in the mock debug binary; and
+  `src/desktop/backup.rs` holds the Backup & Restore commands, which choose files
+  in the dialog plugin's dialogs, or the mock's answers, and save checked
+  snapshots.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its

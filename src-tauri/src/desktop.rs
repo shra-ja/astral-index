@@ -25,6 +25,7 @@ use tauri::{
 use tokio_util::sync::CancellationToken;
 
 pub mod about;
+pub mod backup;
 pub mod database;
 pub use database::Database;
 
@@ -78,6 +79,13 @@ pub enum Failure {
     InvalidRequest,
     /// The file manager or browser could not be opened.
     OpenFailed,
+    /// A backup could not be written where the user chose; nothing was left there.
+    BackupFailed,
+    /// The chosen place is inside the data folder, where a backup could replace
+    /// the history itself.
+    BackupInDataFolder,
+    /// A snapshot of the saved history failed its check, so no backup was made.
+    HistoryDamaged,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -278,7 +286,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         saved_accounts,
         about::app_info,
         about::reveal_data_folder,
-        about::open_issues_page
+        about::open_issues_page,
+        backup::save_backup
     ])
 }
 
@@ -291,8 +300,13 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         portable: true,
         fresh_webview: false,
         opener: about::Opener::System,
+        saver: backup::Saver::System,
     };
-    register_with(builder, Network::Https, settings)
+    register_with(
+        builder.plugin(tauri_plugin_dialog::init()),
+        Network::Https,
+        settings,
+    )
 }
 
 /// Register the app for the mock debug binary: requests go to a synthetic
@@ -306,6 +320,7 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         portable: false,
         fresh_webview: true,
         opener: about::Opener::Recording,
+        saver: backup::Saver::Answering,
     };
     register_with(builder, Network::Mock(scenario), settings)
 }
@@ -318,6 +333,7 @@ struct Settings {
     /// Whether the webview's profile is cleared at each start.
     fresh_webview: bool,
     opener: about::Opener,
+    saver: backup::Saver,
 }
 
 fn register_with<R: Runtime>(
@@ -343,6 +359,10 @@ fn register_with<R: Runtime>(
             portable: database::portable(executable.as_deref(), folder.as_deref()),
             folder: folder.clone(),
             opener: settings.opener,
+        });
+        app.manage(backup::Backup {
+            folder: folder.clone(),
+            saver: settings.saver,
         });
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
@@ -929,6 +949,7 @@ async fn extract_from_file(
 #[cfg(test)]
 mod tests {
     pub(crate) mod blocking;
+    pub(crate) mod chooser;
     mod events;
     pub(crate) mod launcher;
     use super::*;
@@ -1115,7 +1136,8 @@ mod tests {
                 "saved_accounts",
                 "app_info",
                 "reveal_data_folder",
-                "open_issues_page"
+                "open_issues_page",
+                "save_backup"
             ]
         );
         // The About commands take no arguments. Opening goes to the test double,
@@ -1134,11 +1156,28 @@ mod tests {
                 "version": "0.1.0",
                 "build": { "kind": "local" },
                 "folder": folder.to_string_lossy(),
+                "file": folder.join(database::FILE_NAME).to_string_lossy(),
                 "portable": false,
             })
         );
         assert_eq!(invoke(&window, COMMANDS[10], InvokeBody::default()), Ok(()));
         assert_eq!(invoke(&window, COMMANDS[11], InvokeBody::default()), Ok(()));
+        // A backup needs the day's date, checked before any dialog opens.
+        for body in [
+            serde_json::json!({}),
+            serde_json::json!({ "date": 20261016 }),
+        ] {
+            let malformed = invoke(&window, COMMANDS[12], InvokeBody::Json(body));
+            assert!(malformed.unwrap_err().contains("date"));
+        }
+        assert_eq!(
+            invoke(
+                &window,
+                COMMANDS[12],
+                InvokeBody::Json(serde_json::json!({ "date": "16/10/2026" }))
+            ),
+            Err(r#"{"kind":"invalid_request"}"#.into())
+        );
         assert_eq!(
             invoke(&window, COMMANDS[8], InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
@@ -1239,6 +1278,20 @@ mod tests {
         assert!(missing.unwrap_err().contains("onProgress"));
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
+        // The dialog plugin is registered for the native save dialog alone: the
+        // window may call none of its commands.
+        for command in ["save", "open", "message", "ask", "confirm"] {
+            let refused = invoke(
+                &window,
+                &format!("plugin:dialog|{command}"),
+                InvokeBody::Json(serde_json::json!({ "options": {} })),
+            );
+            let refused = refused.unwrap_err();
+            assert!(
+                refused.contains("not allowed"),
+                "plugin:dialog|{command}: {refused}"
+            );
+        }
         assert_eq!(stored(&window.state::<Session>()), None);
     }
 
@@ -1265,6 +1318,10 @@ mod tests {
         assert_eq!(about.folder, Some(folder));
         assert!(!about.portable);
         assert!(matches!(about.opener, about::Opener::System));
+        // Backups are saved where the user chooses in the system's dialog.
+        let backup = app.state::<backup::Backup>();
+        assert_eq!(backup.folder.as_ref(), about.folder.as_ref());
+        assert!(matches!(backup.saver, backup::Saver::System));
         assert!(app.get_webview_window("main").is_some());
         // The app keeps its webview profile.
         filesystem::inspect(|state| assert!(state.removed.is_empty()));
@@ -1295,6 +1352,10 @@ mod tests {
         assert_eq!(about.folder.as_deref(), Some(folder.as_path()));
         assert!(!about.portable);
         assert!(matches!(about.opener, about::Opener::Recording));
+        // Its tests answer the save dialog from its data folder.
+        let backup = app.state::<backup::Backup>();
+        assert_eq!(backup.folder.as_deref(), Some(folder.as_path()));
+        assert!(matches!(backup.saver, backup::Saver::Answering));
         assert!(app.get_webview_window("main").is_some());
         // The mock starts each run with a fresh webview profile.
         filesystem::inspect(|state| {

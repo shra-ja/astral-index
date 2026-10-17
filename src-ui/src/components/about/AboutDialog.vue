@@ -8,12 +8,14 @@ import { nextTick, onMounted, shallowRef, useTemplateRef, type DeepReadonly } fr
 import licence from '../../../../LICENSE?raw'
 import type { AppInfo } from '../../commands'
 import type { Opening } from '../../composables/useAbout'
+import type { Read } from '../../composables/useDataFolder'
 import type { Notices } from '../../notices'
 import AboutSummary from './AboutSummary.vue'
 import NoticesList from './NoticesList.vue'
 
 defineProps<{
   info: AppInfo | null
+  read: Read
   failed: Opening | null
   notices: DeepReadonly<Notices> | null
   noticesMissing: boolean
@@ -94,6 +96,7 @@ async function returnFrom(current: Exclude<View, 'main'>) {
       <div class="body">
         <AboutSummary
           :info
+          :read
           :failed
           @reveal="emit('reveal')"
           @issues="emit('issues')"

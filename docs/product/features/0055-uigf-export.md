@@ -10,8 +10,12 @@ and never makes a network request.
 
 - A save dialog, opened by the Rust side, suggests
   `Astral-Index-UIGF-YYYY-MM-DD.json`. The file holds every saved Star Rail
-  account in `hkrpg`, with `info.export_app` `Astral Index`, the app's version
-  and `version` `v4.2`.
+  account in `hkrpg`, or the one the user chooses, with `info.export_app`
+  `Astral Index`, the app's version and `version` `v4.2`.
+- An "Account to export" selector, styled like the History screen's account
+  switcher, offers All accounts, with their count, or one account, each with its
+  server and roll count. With a single saved account it shows that account
+  alone, with no menu.
 - Each account carries its UID as text, its time-zone evidence and its records'
   language; an account whose time zone is unknown is named and left out, as UIGF
   requires one.
@@ -31,4 +35,5 @@ and never makes a network request.
 - [ ] **Export.** Serialisation, validation and the atomic write.
 - [ ] **Round trips.** Exported files import back with every roll a duplicate,
   including long IDs; rolls without a pool ID are counted and left out.
-- [ ] **Screen.** The Export UIGF action and the standard's note.
+- [ ] **Screen.** The account selector, the Export UIGF file action and the
+  standard's note.

@@ -4,26 +4,30 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
 [decision 0011](../docs/architecture/decisions/0011-vue-frontend.md) for the conventions.
 
 - `src/main.ts` mounts `App.vue`, the shell with the sidebar beside the current
-  screen and the About dialog over it; `src/router/` maps each game's History and Import routes to views,
-  with hash history.
-- `src/views/` holds screens: `HistoryView.vue` shows saved history and
-  `ImportView.vue` the retrieval flow. Views wire composables to components and
+  screen and the About dialog over it; `src/router/` maps each game's History, Import and Backup & Restore
+  routes to views, with hash history.
+- `src/views/` holds screens: `HistoryView.vue` shows saved history,
+  `ImportView.vue` the retrieval flow and `BackupView.vue` Backup & Restore. Views wire composables to components and
   move focus.
 - `src/components/` holds presentational components, which take props and emit
   events and never make native calls, grouped by where they are used:
   `layout/` for the shell and screen frame (`AppSidebar`, `ScreenHeader`,
   and `SizeOverlay`, the development window size overlay),
-  `history/` for the History screen, `import/` for the Import screen, `about/`
+  `history/` for the History screen, `import/` for the Import screen, `backup/`
+  for Backup & Restore (`BackupCard`), `about/`
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
-  (`AppTooltip`, `CachePicker`, `AstralEmblem`, the small brand emblem without a
+  (`AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
+  Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native
-  commands: `useRetrieval.ts` runs retrieval, review and saving, and
-  `useAbout.ts` reads the About dialog's details and opens the data folder or
-  issues page, and `useHistory.ts` reads the saved accounts and saved history a
+  commands: `useRetrieval.ts` runs retrieval, review and saving,
+  `useDataFolder.ts` reads the app's details and opens the data folder, and
+  `useAbout.ts` builds on it for the About dialog, adding the issues page and
+  notices, and `useHistory.ts` reads the saved accounts and saved history a
   page at a time, keeping each game's account chosen in the switcher until the
-  app restarts or a save into that game. `useWindowSize.ts` follows the window's size for the
+  app restarts or a save into that game. `useBackup.ts` saves a backup and
+  tracks how it went. `useWindowSize.ts` follows the window's size for the
   size overlay.
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep

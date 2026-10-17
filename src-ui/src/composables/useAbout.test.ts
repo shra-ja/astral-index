@@ -11,6 +11,7 @@ const info = {
   version: '1.2.0',
   build: { kind: 'release' as const },
   folder: '/local/astral-index',
+  file: '/local/astral-index/history.sqlite',
   portable: false,
 }
 
@@ -18,12 +19,15 @@ test('the details are unknown until read', async () => {
   vi.mocked(appInfo).mockResolvedValue({ info })
   const about = useAbout()
   expect(about.info.value).toBeNull()
+  expect(about.read.value).toBe('pending')
   await about.load()
   expect(about.info.value).toEqual(info)
-  // A failed read shows no details rather than stale ones.
+  expect(about.read.value).toBe('read')
+  // A failed read shows no details rather than stale ones, and says it failed.
   vi.mocked(appInfo).mockResolvedValue({ failure: { kind: 'unavailable' } })
   await about.load()
   expect(about.info.value).toBeNull()
+  expect(about.read.value).toBe('failed')
 })
 
 test('a failed opening is remembered until the next attempt or a reset', async () => {
@@ -40,7 +44,13 @@ test('a failed opening is remembered until the next attempt or a reset', async (
   expect(about.failed.value).toBe('issues')
   about.reset()
   expect(about.failed.value).toBeNull()
-  expect(revealDataFolder).toHaveBeenCalledTimes(1)
+  // Opening the folder again succeeds, so nothing has failed.
+  vi.mocked(revealDataFolder).mockResolvedValue({ kind: 'open_failed' })
+  await about.revealFolder()
+  vi.mocked(revealDataFolder).mockResolvedValue(undefined)
+  await about.revealFolder()
+  expect(about.failed.value).toBeNull()
+  expect(revealDataFolder).toHaveBeenCalledTimes(3)
   expect(openIssuesPage).toHaveBeenCalledTimes(2)
 })
 

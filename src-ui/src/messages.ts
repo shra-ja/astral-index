@@ -91,6 +91,10 @@ const titles: Record<Kind, string> = {
   invalid_request: 'Something Went Wrong',
   // Only the About dialog opens things, and it says what failed itself.
   open_failed: 'Something Went Wrong',
+  // Only the Backup & Restore screen saves backups, and it says what failed itself.
+  backup_failed: 'Something Went Wrong',
+  backup_in_data_folder: 'Something Went Wrong',
+  history_damaged: 'Something Went Wrong',
   unavailable: 'Something Went Wrong',
 }
 
@@ -104,6 +108,17 @@ export function describe(failure: Failure, messages: Messages) {
   }
   return messages[failure.kind] ?? unexpected
 }
+
+/** Why a backup wasn’t saved. */
+export const backupFailure = (failure: Failure) =>
+  describe(failure, {
+    backup_failed: 'The backup couldn’t be saved there. Choose another folder and try again.',
+    backup_in_data_folder:
+      'A backup can’t be saved in the folder that holds your history. Choose another folder.',
+    history_damaged:
+      'Your saved history failed its check, so no backup was made. Nothing was changed.',
+    storage: 'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
+  })
 
 /** Why saved history couldn’t be shown. */
 export const historyFailure = (failure: Failure) =>

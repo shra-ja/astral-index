@@ -1,6 +1,6 @@
 # 0037 — Backup and restore
 
-Status: Planned · Milestone 11, Backup, restore and file import
+Status: In progress · Milestone 11, Backup, restore and file import
 
 A backup file holding the whole history, which a fresh profile can restore,
 on a new **Backup & Restore** screen in the sidebar
@@ -12,8 +12,12 @@ Backup and restore stay local and never make a network request.
 - **Back up:** a save dialog, opened by the Rust side, suggests
   `Astral-Index-backup-YYYY-MM-DD.sqlite`; the app writes a consistent snapshot
   of the database with `VACUUM INTO` to a temporary file beside the target,
-  checks it as restore would, then renames it into place. A failure leaves no
-  partial file and says what went wrong.
+  checks it as restore would, flushes it to disk, then renames it into place.
+  The temporary file is claimed new (`.partial`, else `.1.partial` and on), so
+  a file the user has is never touched. A target inside the data folder is
+  refused, as it could replace the history itself. A failure leaves no partial
+  file and says what went wrong: the chosen place, the history failing its
+  check, or the history not being readable.
 - **Restore:** an open dialog, opened by the Rust side, chooses the file. Restore
   checks a copy before anything changes:
   - its size is bounded, and it is a SQLite database with the app's application
@@ -24,6 +28,13 @@ Backup and restore stay local and never make a network request.
     version;
   - it migrates to the current schema.
 
+  As the file is untrusted, the check runs on a copy inside the data folder,
+  enforces the size bound before opening, compares the schema before the
+  integrity check, and opens with `trusted_schema` off, SQLite's defensive mode,
+  no memory mapping and lowered limits, so a hostile file cannot run its own
+  constraints or stall the app. The source and the safety copy get the same
+  data-folder guard as backups.
+
   The confirmation then shows the backup's accounts, their roll counts and its
   last import beside the current history's, and says that the current history
   will be kept as a safety copy. On confirming, the current database is copied
@@ -33,15 +44,60 @@ Backup and restore stay local and never make a network request.
 - **Migration recovery:** before upgrading an older database on opening, the app
   copies it to `history-v<N>.sqlite` in the data folder; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
-- Backup and restore are unavailable while a retrieval or import is under way.
-  In portable mode, safety copies go to the portable data folder.
+  Each released version's expected schema, which the check compares against,
+  is the one its migrations produce from the first release's schema, run in
+  memory, not a fresh creation: an upgraded database's schema text differs from
+  a newly created one's.
+- Restore is unavailable while a retrieval or import is under way; a backup can
+  be made at any time, as storage runs one operation at a time, so a snapshot is
+  always consistent. In portable mode, safety copies go to the portable data
+  folder.
 - The screen shows where history is stored, and errors never include file
   contents or full private paths.
 
 ## Tasks
 
-- [ ] **Backup.** The snapshot, its check, the dialog and the Backup & Restore
-  screen with its Back up action.
+- [x] **Backup.** The snapshot, its check, the dialog and the Backup & Restore
+  screen with its Save backup action, in this order:
+  - [x] Storage writes a snapshot with `VACUUM INTO`, and checks a database file
+    as restore will: the app's application ID, a released schema version no newer
+    than the app's, a passing integrity check and exactly that version's schema.
+  - [x] A `save_backup` command opens the save dialog from Rust
+    (`tauri-plugin-dialog`, with no webview permission), suggesting
+    `Astral-Index-backup-YYYY-MM-DD.sqlite` from the date the webview sends,
+    writes the snapshot to a temporary file beside the target, checks it and
+    renames it into place, removing the temporary file on any failure. It
+    returns the saved file's name, a cancellation or a failure. The mock debug
+    binary answers the dialog with a path its tests choose.
+  - [x] The Backup & Restore screen in the sidebar, after Import, with the
+    `database-backup` icon: the Backup card with its working, saved and failed
+    states, and where history is stored, with Open folder.
+  - [x] An end-to-end test saves a backup through the mock and checks the file
+    it wrote.
+  - Each layer's tests failed first: storage's against missing functions, and
+    each check's own test against that check disabled; the command's against
+    stubs; the screen's against the missing modules and sidebar link. A real
+    damaged page fails the check as unreadable before its integrity report,
+    which unit tests cover. A backup can be made at any time, as storage runs
+    one operation at a time. The webview sends the date, as `chrono` here has no
+    clock; the screen sits under the current game, so the sidebar needs no
+    special case.
+  - A read-only reviewer agent found a backup could replace the live database
+    and every failure asked for another folder. Fixed: the data-folder guard,
+    distinct failures, a claimed temporary name that never removes the user's
+    files, a flush before the rename, a dialog fault failing rather than
+    cancelling, refusing non-UTF-8 paths, misplaced doc comments, a loading
+    state for the data folder, and tests that the dialog plugin's commands are
+    refused. Each fix's test failed with the fix undone; real-file tests cover
+    replacing a chosen file, a failed rename and the data folder. The real save
+    dialog runs only in release builds; its Windows check is in Verification.
+  - A second reviewer agent, on code quality: saving is split into writing a
+    checked snapshot and publishing it; `useDataFolder` serves About and Backup
+    & Restore, which share one `DataFolder` component in About's boxed style,
+    as the user chose; `app_info` sends the history file's path; the
+    filesystem fake records every write; About's backup advice points here.
+    The Backup card and the Import screen's source cards share their styles,
+    to be extracted into one card component when the Restore card arrives.
 - [ ] **Restore.** Checking, migrating, the confirmation, the safety copy and
   the replacement, including refusals of newer, corrupt, foreign and unrelated
   files.

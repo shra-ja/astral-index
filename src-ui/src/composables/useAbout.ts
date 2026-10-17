@@ -1,22 +1,19 @@
-// The About dialog's details, its two openings and the third-party notices. Reading
-// the details and notices stays on this device; opening hands the folder or the
-// issues page to the system.
+// The About dialog's details, its two openings and the third-party notices. The
+// details and the folder come from `useDataFolder`; reading them and the notices
+// stays on this device, and opening hands the folder or the issues page to the
+// system.
 import { readonly, shallowRef } from 'vue'
-import { appInfo, openIssuesPage, revealDataFolder, type AppInfo } from '../commands'
+import { openIssuesPage } from '../commands'
 import { loadNotices, type Notices } from '../notices'
+import { useDataFolder } from './useDataFolder'
 
 /** What the About dialog can open. */
 export type Opening = 'folder' | 'issues'
 
 export function useAbout(readNotices = loadNotices) {
-  const info = shallowRef<AppInfo | null>(null)
+  const data = useDataFolder()
   // The opening that failed last, until another is tried or the dialog closes.
   const failed = shallowRef<Opening | null>(null)
-
-  async function load() {
-    const result = await appInfo()
-    info.value = 'failure' in result ? null : result.info
-  }
 
   // The notices are read once, when first shown; a build may have generated none.
   const notices = shallowRef<Notices | null>(null)
@@ -27,21 +24,26 @@ export function useAbout(readNotices = loadNotices) {
     noticesMissing.value = notices.value === null
   }
 
-  async function open(opening: Opening) {
+  async function revealFolder() {
     failed.value = null
-    const failure = await (opening === 'folder' ? revealDataFolder() : openIssuesPage())
-    failed.value = failure ? opening : null
+    await data.reveal()
+    failed.value = data.revealFailed.value ? 'folder' : null
+  }
+  async function openIssues() {
+    failed.value = null
+    failed.value = (await openIssuesPage()) ? 'issues' : null
   }
 
   return {
-    info: readonly(info),
+    info: data.info,
+    read: data.read,
     failed: readonly(failed),
     notices: readonly(notices),
     noticesMissing: readonly(noticesMissing),
-    load,
+    load: data.load,
     showNotices,
-    revealFolder: () => open('folder'),
-    openIssues: () => open('issues'),
+    revealFolder,
+    openIssues,
     reset: () => {
       failed.value = null
     },

@@ -91,12 +91,26 @@ account, import, roll and pity count
 migration's tests open the same fixtures, and each release that changes the
 schema adds its own.
 
+## Backups
+
+A backup is a snapshot of the database
+([decision 0031](decisions/0031-sqlite-snapshot-backups.md)):
+`Store::write_snapshot` writes one with `VACUUM INTO`, and `check_database`
+checks a database file as restore will, opening it read-only: this app's
+application ID, a released schema version, a passing integrity check and exactly
+the schema its version's SQL creates, compared against a fresh in-memory database
+built from that SQL. `save_backup` refuses a target inside the data folder,
+writes the snapshot to a temporary file it creates new beside the chosen one,
+checks and flushes it, then renames it into place.
+
 ## Planned
 
-Backups are snapshots of the database, restored by replacing it after a checked
-copy is migrated, with the current database kept as a safety copy; migrations
-keep a copy of the database they upgrade
-([decision 0031](decisions/0031-sqlite-snapshot-backups.md)). Imports will
+Restore replaces the database after a checked copy is migrated, with the current
+database kept as a safety copy, and hardens the check against hostile files;
+migrations keep a copy of the database they upgrade (decision 0031). Once a
+migration exists, each version's expected schema is the one its migrations
+produce from the first release's schema, not a fresh creation
+([0037](../product/features/0037-backup-and-restore.md)). Imports will
 compare a roll's facts rather than its whole record
 ([decision 0032](decisions/0032-history-file-import-rules.md)).
 

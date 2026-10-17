@@ -55,7 +55,7 @@ test('file import is shown as coming soon, focusable so its tooltip can explain'
   await fileImport.trigger('click')
   expect(wrapper.emitted()).not.toHaveProperty('search')
   expect(wrapper.emitted()).not.toHaveProperty('choose')
-  expect(wrapper.text()).toContain('Load an export from another tracker or an Astral Index backup.')
+  expect(wrapper.text()).toContain('Load an export from another tracker.')
   wrapper.unmount()
 })
 
