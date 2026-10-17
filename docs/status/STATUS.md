@@ -42,9 +42,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Backup (2026-10-16)
-
-`feat/backup`: 0037's Backup task: checked `VACUUM INTO` snapshots saved where the user chooses (`save_backup`, `tauri-plugin-dialog` 2.8.1 with no webview permission), on a new Backup & Restore screen. Storage, desktop and UI tests red first, then green at 100%; the end-to-end test saves, cancels and fails through the mock in WebKitGTK. Two reviewer agents' findings are fixed: the data-folder guard, distinct failures, never touching the user's files, a flush before rename; saving split into steps, and About and Backup & Restore sharing their data-folder view.
+No work in progress.
 
 ## Known limitations
 
@@ -165,4 +163,4 @@ research, under a "From" heading.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
   the logo, screenshots and README, the mock's year of history, the release
   docs housekeeping, the release notes without a heading, the migration
-  fixture and the milestone 11 requirements.
+  fixture, the milestone 11 requirements and backups.
