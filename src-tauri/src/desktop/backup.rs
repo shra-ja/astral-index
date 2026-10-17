@@ -231,14 +231,15 @@ mod tests {
     fn target() -> PathBuf {
         backups().join(NAME)
     }
-    /// The temporary name a save tries on its `attempt`, counting from 0.
+    /// The temporary name a save tries on its `attempt`, counting from 0, built
+    /// from the target as the platform joins it.
     fn partial(attempt: usize) -> PathBuf {
-        let number = if attempt == 0 {
-            String::new()
-        } else {
-            format!(".{attempt}")
-        };
-        PathBuf::from(format!("/backups/{NAME}{number}.partial"))
+        let mut name = target().into_os_string();
+        if attempt > 0 {
+            name.push(format!(".{attempt}"));
+        }
+        name.push(".partial");
+        PathBuf::from(name)
     }
     fn system() -> Backup {
         Backup {
