@@ -47,7 +47,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### 0037 breakdown (2026-10-17)
 
-`docs/0037-breakdown`: 0037's Restore, Migration recovery and Verification tasks broken into steps, Restore as two PRs, with the questions to settle.
+`docs/0037-breakdown`: 0037's Restore, Migration recovery and Verification tasks broken into steps, Restore as two PRs: a 256 MiB bound, the safety copy named from the webview's local time, and an in-screen confirmation.
 
 ## Known limitations
 

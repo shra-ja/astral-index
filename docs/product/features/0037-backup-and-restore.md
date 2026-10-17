@@ -20,7 +20,7 @@ Backup and restore stay local and never make a network request.
   check, or the history not being readable.
 - **Restore:** an open dialog, opened by the Rust side, chooses the file. Restore
   checks a copy before anything changes:
-  - its size is bounded, and it is a SQLite database with the app's application
+  - it is at most 256 MiB, and it is a SQLite database with the app's application
     ID;
   - its schema version is a released one no newer than the app's; a newer one is
     refused as "made by a newer version of Astral Index";
@@ -103,8 +103,8 @@ Backup and restore stay local and never make a network request.
   - [ ] Extract one card component from the Import screen's source cards and
     the Backup card, which share their markup and styles, with no change in
     behaviour or look.
-  - [ ] Harden the database check for untrusted files: enforce a size bound
-    before opening; compare the schema before the integrity check; open with
+  - [ ] Harden the database check for untrusted files: refuse files over
+    256 MiB before opening, room for several hundred thousand rolls; compare the schema before the integrity check; open with
     `trusted_schema` off, SQLite's defensive mode, no memory mapping and lowered
     limits; and report not a database, another app's, a newer version and
     damage as distinct errors.
@@ -116,14 +116,19 @@ Backup and restore stay local and never make a network request.
     the session; it returns the backup's summary and the current history's,
     never a path. A `cancel_restore` command removes the held copy. The mock
     debug binary answers the dialog from a file its tests write.
-  - [ ] The Restore card on Backup & Restore, its confirmation showing both
-    summaries side by side, and its refusals and failures, by keyboard; the
-    confirmation is designed on the canvas first.
+  - [ ] The Restore card on Backup & Restore, and its confirmation, which
+    replaces the screen's content, as the Import review does: both summaries
+    side by side, Restore and Cancel, and its refusals and failures, by
+    keyboard. Leaving the screen keeps the checked copy, so the confirmation is
+    still shown on return, until it is confirmed, cancelled or another backup
+    chosen. The confirmation is designed on the canvas first.
 - [ ] **Restore, replacing** (one PR). Replacing the history with the checked
   copy:
   - [ ] Restore is refused while a retrieval or import is under way.
   - [ ] Confirming closes the store, copies the current database to
-    `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, renames
+    `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, named
+    from the local time the webview sends, checked strictly as a real date and
+    time as the backup's date is, renames
     the checked copy over `history.sqlite` and reopens it; any failure before the
     rename leaves the history as it was, and the copy is removed.
   - [ ] The screens refresh from the restored history: the History screen, the
@@ -152,8 +157,3 @@ Backup and restore stay local and never make a network request.
     open dialogs, a backup to another folder or drive, a restore into a fresh
     profile, portable mode and the data-folder refusal; the result is recorded
     here and in STATUS.
-
-Open questions for those PRs: the restore size bound (large enough for well
-over 100,000 rolls); how the timestamped safety copy gets the local time, as
-the webview supplies the date for backups; and whether the confirmation is a
-dialog or replaces the screen's content.
