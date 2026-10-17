@@ -20,7 +20,7 @@ Backup and restore stay local and never make a network request.
   check, or the history not being readable.
 - **Restore:** an open dialog, opened by the Rust side, chooses the file. Restore
   checks a copy before anything changes:
-  - its size is bounded, and it is a SQLite database with the app's application
+  - it is at most 256 MiB, and it is a SQLite database with the app's application
     ID;
   - its schema version is a released one no newer than the app's; a newer one is
     refused as "made by a newer version of Astral Index";
@@ -98,11 +98,62 @@ Backup and restore stay local and never make a network request.
     filesystem fake records every write; About's backup advice points here.
     The Backup card and the Import screen's source cards share their styles,
     to be extracted into one card component when the Restore card arrives.
-- [ ] **Restore.** Checking, migrating, the confirmation, the safety copy and
-  the replacement, including refusals of newer, corrupt, foreign and unrelated
-  files.
-- [ ] **Migration recovery.** The pre-migration copy and the failure path, ready
-  for the first schema change.
-- [ ] **Verification.** Round trips through a fresh profile; the 1.0.0 fixture
-  restored as a backup; a Windows check of back up and restore with the release
-  executable.
+- [ ] **Restore, checking and preview** (one PR). Choosing a backup, checking
+  it as untrusted input and showing what it holds, without changing anything:
+  - [ ] Extract one card component from the Import screen's source cards and
+    the Backup card, which share their markup and styles, with no change in
+    behaviour or look.
+  - [ ] Harden the database check for untrusted files: refuse files over
+    256 MiB before opening, room for several hundred thousand rolls; compare the schema before the integrity check; open with
+    `trusted_schema` off, SQLite's defensive mode, no memory mapping and lowered
+    limits; and report not a database, another app's, a newer version and
+    damage as distinct errors.
+  - [ ] Storage reads a checked file's summary for the confirmation: its
+    accounts with their servers and roll counts, and its last import.
+  - [ ] A `choose_restore` command opens the open dialog from Rust, refuses a
+    source inside the data folder, copies the file into the data folder under a
+    temporary name claimed new, checks and migrates the copy, and holds it in
+    the session; it returns the backup's summary and the current history's,
+    never a path. A `cancel_restore` command removes the held copy. The mock
+    debug binary answers the dialog from a file its tests write.
+  - [ ] The Restore card on Backup & Restore, and its confirmation, which
+    replaces the screen's content, as the Import review does: both summaries
+    side by side, Restore and Cancel, and its refusals and failures, by
+    keyboard. Leaving the screen keeps the checked copy, so the confirmation is
+    still shown on return, until it is confirmed, cancelled or another backup
+    chosen. The confirmation is designed on the canvas first.
+- [ ] **Restore, replacing** (one PR). Replacing the history with the checked
+  copy:
+  - [ ] Restore is refused while a retrieval or import is under way.
+  - [ ] Confirming closes the store, copies the current database to
+    `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, named
+    from the local time the webview sends, checked strictly as a real date and
+    time as the backup's date is, renames
+    the checked copy over `history.sqlite` and reopens it; any failure before the
+    rename leaves the history as it was, and the copy is removed.
+  - [ ] The screens refresh from the restored history: the History screen, the
+    account switcher and the last import.
+  - [ ] The confirmation's outcome: restored, naming the safety copy, or why
+    not.
+  - [ ] An end-to-end test restores through the mock, checks the safety copy
+    and the restored history, and covers a refusal and a cancellation.
+- [ ] **Migration recovery** (one PR). Ready for the first schema change:
+  - [ ] A migration runner: migrations in order, each in one transaction,
+    upgrading an older released version on opening; tested with a test-only
+    migration against the 1.0.0 fixture.
+  - [ ] Each released version's expected schema comes from its migrations run
+    in memory from the first release's schema, for the check and restore.
+  - [ ] Before upgrading, the database is copied to `history-v<N>.sqlite`; a
+    failed migration leaves the original unchanged, and the screens say so and
+    name the copy.
+  - [ ] CONTRIBUTING's database-schema rules gain the steps for a schema
+    change: the migration, its tests against every released fixture, and the
+    new release's frozen fixture.
+- [ ] **Verification** (one PR, with the user's Windows check):
+  - [ ] A round trip through a fresh profile: back up, restore into a new data
+    folder, and find the same accounts, rolls and imports.
+  - [ ] The 1.0.0 fixture restored as a backup.
+  - [ ] The user checks the release executable on Windows: the real save and
+    open dialogs, a backup to another folder or drive, a restore into a fresh
+    profile, portable mode and the data-folder refusal; the result is recorded
+    here and in STATUS.

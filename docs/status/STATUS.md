@@ -36,15 +36,18 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
   executable (decision 0029). A frozen 1.0.0 database shows each schema change
   keeps saved history.
+- **Backup:** the Backup & Restore screen saves a checked snapshot of the whole
+  history where the user chooses, never inside the data folder, and shows where
+  history is stored, as the About dialog does.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-### Backup (2026-10-16)
+### 0037 breakdown (2026-10-17)
 
-`feat/backup`: 0037's Backup task: checked `VACUUM INTO` snapshots saved where the user chooses (`save_backup`, `tauri-plugin-dialog` 2.8.1 with no webview permission), on a new Backup & Restore screen. Storage, desktop and UI tests red first, then green at 100%; the end-to-end test saves, cancels and fails through the mock in WebKitGTK. Two reviewer agents' findings are fixed: the data-folder guard, distinct failures, never touching the user's files, a flush before rename; saving split into steps, and About and Backup & Restore sharing their data-folder view.
+`docs/0037-breakdown`: 0037's Restore, Migration recovery and Verification tasks broken into steps, Restore as two PRs: a 256 MiB bound, the safety copy named from the webview's local time, and an in-screen confirmation.
 
 ## Known limitations
 
@@ -63,7 +66,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: milestone 11, starting with [0037](../product/features/0037-backup-and-restore.md)'s backup.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Restore, checking and preview, starting with the shared card component.
 
 ## Keeping this file current
 
@@ -165,4 +168,4 @@ research, under a "From" heading.
 - [2026-10-16: README presentation](history/2026-10-16-readme-presentation.md):
   the logo, screenshots and README, the mock's year of history, the release
   docs housekeeping, the release notes without a heading, the migration
-  fixture and the milestone 11 requirements.
+  fixture, the milestone 11 requirements and backups.
