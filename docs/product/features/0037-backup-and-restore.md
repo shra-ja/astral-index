@@ -139,8 +139,8 @@ Backup and restore stay local and never make a network request.
     chosen. The confirmation is designed on the canvas first.
 - [ ] **App-wide screen** (one PR). Move Backup & Restore out of the selected
   game's screens (decision 0033):
-  - [ ] The route becomes `/backup`, with no game; the old `/:game/backup`
-    addresses redirect to it.
+  - [ ] The route becomes `/backup`, with no game. `/:game/backup` was never
+    released, as 1.0.0 predates backups, so it is removed without a redirect.
   - [ ] The sidebar gives it its own group above About. While it is open, the
     game switcher marks no game as current, choosing a game opens its History,
     and the View group's links keep pointing to the game shown last.
