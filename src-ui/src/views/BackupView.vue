@@ -1,29 +1,58 @@
 <script setup lang="ts">
-// The Backup & Restore screen: saving a backup of everything saved, and where
-// history is stored. A backup holds every game's history, so the screen names no
-// game (decision 0031). Restore and UIGF export join it in later work.
-import { onMounted } from 'vue'
+// The Backup & Restore screen: saving a backup of everything saved, choosing one to
+// restore, and where history is stored. A backup holds every game's history, so the
+// screen names no game (decision 0031). A checked backup's confirmation replaces the
+// screen's content until it is cancelled, and is still shown on return.
+import { computed, inject, onMounted, useTemplateRef, watch } from 'vue'
 import BackupCard from '../components/backup/BackupCard.vue'
+import RestoreCard from '../components/backup/RestoreCard.vue'
+import RestoreConfirm from '../components/backup/RestoreConfirm.vue'
 import DataFolder from '../components/shared/DataFolder.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { useDataFolder } from '../composables/useDataFolder'
 import { useBackup } from '../composables/useBackup'
+import { restoreKey } from '../composables/restore'
 
 const { state, name, message, save } = useBackup()
 const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
+
+const restore = inject(restoreKey)!
+const checked = computed(() =>
+  restore.state.value === 'confirming' ? restore.checked.value : null,
+)
+// Closing the confirmation returns focus to the button that chose the backup.
+const restoreCard = useTemplateRef('restoreCard')
+watch(
+  checked,
+  (now, before) => {
+    if (before && !now) restoreCard.value!.focus()
+  },
+  { flush: 'post' },
+)
 </script>
 
 <template>
   <main>
-    <ScreenHeader title="Backup & Restore" />
-    <div class="backup">
+    <ScreenHeader :title="checked ? 'Restore Backup' : 'Backup & Restore'">
+      <span v-if="checked" class="source"
+        >Restoring from <span class="name">{{ checked.name }}</span></span
+      >
+    </ScreenHeader>
+    <RestoreConfirm v-if="checked" :checked @cancel="restore.cancel" />
+    <div v-else class="backup">
       <div class="intro">
         <h2>Keep Your History Safe</h2>
         <p>Save a copy of your saved history to restore later or on another computer.</p>
       </div>
       <div class="cards">
         <BackupCard :state :name :message @save="save" />
+        <RestoreCard
+          ref="restoreCard"
+          :state="restore.state.value"
+          :message="restore.message.value"
+          @choose="restore.choose"
+        />
       </div>
       <section class="location" aria-labelledby="backup-location">
         <h2 id="backup-location">Saved History</h2>
@@ -48,6 +77,18 @@ onMounted(load)
   flex-direction: column;
   gap: 6px;
 }
+.source {
+  max-width: 100%;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--selected);
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.source .name {
+  color: var(--text-soft);
+}
 h2 {
   margin: 0;
   font-size: 18px;
@@ -59,7 +100,6 @@ h2 {
   font-size: 15px;
   line-height: 1.5;
 }
-/* Room for Restore and UIGF export beside Backup as they arrive. */
 .location {
   display: flex;
   flex-direction: column;

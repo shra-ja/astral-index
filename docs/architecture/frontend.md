@@ -10,25 +10,28 @@ rearranged without rewriting the flows behind them.
 ## Layers
 
 - **Shell and routes:** `App.vue` places the sidebar beside the current screen.
-  Hash routes give each game a History and an Import screen
-  (`/:game/history`, `/:game/import`) for each game the build shows, which
+  Hash routes give each game a History, an Import and a Backup & Restore screen
+  (`/:game/history`, `/:game/import`, `/:game/backup`) for each game the build
+  shows, which
   `features.ts` lists from the build-time feature toggles
   ([decision 0026](decisions/0026-feature-toggles.md)); release builds hide
   Genshin Impact, and its addresses redirect. The app opens on Star Rail's history. The
-  shell creates the retrieval flow and provides it to the screens, so a running
-  retrieval and its review survive switching screens. It also shows the About
+  shell creates the retrieval and restore flows and provides them to the
+  screens, so a running retrieval and its review, and a checked backup and its
+  confirmation, survive switching screens. It also shows the About
   dialog, a native modal `<dialog>` with no route, over whichever screen is open,
   and returns focus to the sidebar's About button when it closes.
 - **Flows (composables):** `useRetrieval` owns retrieval, review and saving;
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
-  last import; `useAbout` reads the About dialog's details, asks the native
+  last import; `useBackup` saves a backup; `useRestore` chooses a backup to
+  restore and holds it while its confirmation is shown; `useAbout` reads the About dialog's details, asks the native
   side to open the data folder or issues page, and loads the third-party
   notices once, when first shown. They are the only callers of the native commands, through the
   typed client in `commands.ts`. They expose read-only state and actions.
 - **Views:** wire flows to components and manage focus between steps.
 - **Components:** presentational only: props in, events out, no native calls.
-  Grouped by where they are used (`layout/`, `history/`, `import/`, `about/`,
-  `shared/`).
+  Grouped by where they are used (`layout/`, `history/`, `import/`, `backup/`,
+  `about/`, `shared/`).
 - **Text:** `messages.ts` turns failures, progress and save results into what the
   user reads; `format.ts` holds names, dates, times and other display text.
 

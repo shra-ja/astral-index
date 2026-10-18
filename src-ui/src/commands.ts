@@ -36,7 +36,20 @@ const nativeKinds = [
   'backup_failed',
   'backup_in_data_folder',
   'history_damaged',
+  'restore_refused',
+  'restore_in_data_folder',
+  'restore_failed',
 ] as const
+/** Why a backup was refused for restoring. */
+const refusals = [
+  'too_large',
+  'not_database',
+  'other_app',
+  'newer',
+  'damaged',
+  'unreadable',
+] as const
+export type Refusal = (typeof refusals)[number]
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22']
 
@@ -47,10 +60,14 @@ export interface Location {
   gacha_type: string
   page: number
 }
-/** Only `api_error` carries a code: the first nonzero code HoYoverse returned. */
+/**
+ * Only `api_error` carries a code: the first nonzero code HoYoverse returned; only
+ * `restore_refused` carries a refusal: why the backup was refused.
+ */
 export interface Failure {
   kind: Kind
   code?: number
+  refusal?: Refusal
   location?: Location
 }
 
@@ -86,17 +103,27 @@ export type Progress =
 /** A quick refresh that stops at saved rolls, or the full history (decision 0015). */
 export type Mode = 'new' | 'full'
 
-// Accept only the native shape; only API errors carry a code, and it must be an integer.
-// A location is kept only when both its category and page are valid.
+// Accept only the native shape; only API errors carry a code, and it must be an integer,
+// and a refused restore's code must be a known refusal. A location is kept only when
+// both its category and page are valid.
 function parse(error: unknown): Failure {
   const { kind, code, gacha_type, page } = (
     typeof error === 'object' && error !== null ? error : {}
   ) as Record<string, unknown>
   const known = nativeKinds.find((candidate) => candidate === kind)
-  if (!known || (known === 'api_error') !== Number.isSafeInteger(code))
+  const refusal = refusals.find((candidate) => candidate === code)
+  if (
+    !known ||
+    (known === 'api_error') !== Number.isSafeInteger(code) ||
+    (known === 'restore_refused' && !refusal)
+  )
     return { kind: 'unavailable' }
   const failure: Failure =
-    known === 'api_error' ? { kind: known, code: code as number } : { kind: known }
+    known === 'api_error'
+      ? { kind: known, code: code as number }
+      : known === 'restore_refused'
+        ? { kind: known, refusal }
+        : { kind: known }
   if (
     typeof gacha_type === 'string' &&
     categories.includes(gacha_type) &&
@@ -339,4 +366,38 @@ export async function saveBackup(
   } catch (error) {
     return { failure: parse(error) }
   }
+}
+
+/** What a history holds: its accounts with their roll totals, and its newest import. */
+export interface HistoryContents {
+  accounts: SavedAccount[]
+  last_import: LastImport | null
+}
+/** A checked backup held for restoring: its file name, and what it and the current history hold. */
+export interface CheckedBackup {
+  name: string
+  backup: HistoryContents
+  current: HistoryContents
+}
+
+/** Choose a backup in the native dialog; the native side copies, checks and holds it.
+ * Nothing of the history changes, and only the file's name comes back. */
+export async function chooseRestore(): Promise<
+  { checked: CheckedBackup } | { cancelled: true } | { failure: Failure }
+> {
+  try {
+    const result = await invoke<({ kind: 'checked' } & CheckedBackup) | { kind: 'cancelled' }>(
+      'choose_restore',
+    )
+    if (result.kind === 'cancelled') return { cancelled: true }
+    const { name, backup, current } = result
+    return { checked: { name, backup, current } }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
+}
+
+/** Drop the held copy of the backup; the history is unchanged. */
+export function cancelRestore(): Promise<Failure | undefined> {
+  return run(() => invoke('cancel_restore'))
 }

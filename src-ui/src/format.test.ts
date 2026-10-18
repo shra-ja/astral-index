@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import {
+  holdsAccount,
   categoryTabs,
   dateRangeLabel,
   localDate,
@@ -149,4 +150,11 @@ test('5★ pity is early, near or in soft pity by the category’s thresholds', 
 test('the local date is the calendar day on this device, as YYYY-MM-DD', () => {
   expect(localDate(new Date(2026, 9, 16, 23, 59))).toBe('2026-10-16')
   expect(localDate(new Date(2026, 0, 5, 0, 0))).toBe('2026-01-05')
+})
+
+test('an account is held when a history has its UID on the same server', () => {
+  const history = { accounts: [{ uid: '800000117', server: 'prod_official_asia' }] }
+  expect(holdsAccount(history, { uid: '800000117', server: 'prod_official_asia' })).toBe(true)
+  expect(holdsAccount(history, { uid: '800000117', server: 'prod_official_eur' })).toBe(false)
+  expect(holdsAccount(history, { uid: '800009999', server: 'prod_official_asia' })).toBe(false)
 })

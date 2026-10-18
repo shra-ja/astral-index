@@ -16,6 +16,8 @@ import {
   revealDataFolder,
   saveBackup,
   savedAccounts,
+  chooseRestore,
+  cancelRestore,
 } from './commands'
 
 // Tauri rejects a command with the native failure as plain data, not an Error.
@@ -61,6 +63,8 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'backup_failed',
     'backup_in_data_folder',
     'history_damaged',
+    'restore_in_data_folder',
+    'restore_failed',
   ]) {
     mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })
@@ -79,6 +83,9 @@ test('known native kinds pass through and anything else becomes unavailable', as
     { kind: 'api_error', code: '-100' },
     { kind: 'api_error', code: 1.5 },
     { kind: 'network', code: 1 },
+    { kind: 'restore_refused' },
+    { kind: 'restore_refused', code: 'unknown_reason' },
+    { kind: 'restore_refused', code: 1 },
   ]) {
     mockIPC(() => reject(unexpected))
     expect(await extractAutomatically()).toEqual({ kind: 'unavailable' })
@@ -365,4 +372,54 @@ test('a backup sends only the day’s date, and gets back the file’s name or a
   expect(await saveBackup('2026-10-16')).toEqual({ cancelled: true })
   mockIPC(() => reject({ kind: 'backup_failed' }))
   expect(await saveBackup('2026-10-16')).toEqual({ failure: { kind: 'backup_failed' } })
+})
+
+test('a refused restore says why, with one of the known reasons', async () => {
+  for (const refusal of [
+    'too_large',
+    'not_database',
+    'other_app',
+    'newer',
+    'damaged',
+    'unreadable',
+  ]) {
+    mockIPC(() => reject({ kind: 'restore_refused', code: refusal }))
+    expect(await chooseRestore()).toEqual({ failure: { kind: 'restore_refused', refusal } })
+  }
+})
+
+test('choosing a backup to restore returns its name and both histories, or a cancel', async () => {
+  const contents = (rolls: number) => ({
+    accounts: [{ uid: '100000002', server: 'prod_official_asia', timezone: 8, rolls }],
+    last_import: null,
+  })
+  const calls: string[] = []
+  mockIPC((cmd) => {
+    calls.push(cmd)
+    return {
+      kind: 'checked',
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: contents(15),
+      current: contents(4),
+    }
+  })
+  expect(await chooseRestore()).toEqual({
+    checked: {
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: contents(15),
+      current: contents(4),
+    },
+  })
+  expect(calls).toEqual(['choose_restore'])
+  mockIPC(() => ({ kind: 'cancelled' }))
+  expect(await chooseRestore()).toEqual({ cancelled: true })
+  mockIPC(() => reject({ kind: 'restore_failed' }))
+  expect(await chooseRestore()).toEqual({ failure: { kind: 'restore_failed' } })
+  // Cancelling the restore drops the held copy.
+  calls.length = 0
+  mockIPC((cmd) => {
+    calls.push(cmd)
+  })
+  expect(await cancelRestore()).toBeUndefined()
+  expect(calls).toEqual(['cancel_restore'])
 })
