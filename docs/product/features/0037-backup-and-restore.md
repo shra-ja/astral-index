@@ -123,6 +123,11 @@ Backup and restore stay local and never make a network request.
     copying, removing a refused copy, and dropping the copy held before.
     Without a data folder no dialog opens. Opening the checked copy as a store
     is its migration for now; the runner arrives with Migration recovery.
+  - The confirmation shows the backup's file name, from `choose_restore`, and
+    marks current accounts the backup lacks; its Restore button stays
+    unavailable until Restore, replacing. Each layer's tests failed first; the
+    end-to-end test checks a real backup through the mock, the held copy in the
+    data folder, Cancel removing it and focus returning, and a refusal.
   - [x] Storage reads a checked file's summary for the confirmation: its
     accounts with their servers and roll counts, and its last import.
   - [x] A `choose_restore` command opens the open dialog from Rust, refuses a
@@ -131,7 +136,7 @@ Backup and restore stay local and never make a network request.
     the session; it returns the backup's summary and the current history's,
     never a path. A `cancel_restore` command removes the held copy. The mock
     debug binary answers the dialog from a file its tests write.
-  - [ ] The Restore card on Backup & Restore, and its confirmation, which
+  - [x] The Restore card on Backup & Restore, and its confirmation, which
     replaces the screen's content, as the Import review does: both summaries
     side by side, Restore and Cancel, and its refusals and failures, by
     keyboard. Leaving the screen keeps the checked copy, so the confirmation is

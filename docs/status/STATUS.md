@@ -45,7 +45,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-No work in progress.
+### Restore, checking and preview (2026-10-18)
+
+`feat/restore-preview`: 0037's restore up to its confirmation: the shared `ActionCard`, the hardened check with distinct refusals, `Store::contents`, `choose_restore`/`cancel_restore` holding a checked copy in the data folder, and the Restore card and confirmation, its Restore button unavailable until replacing. Each layer red first; decisions 0031 (amended) and 0033 (app-wide screens) and the safety-copy task recorded.
 
 ## Known limitations
 
