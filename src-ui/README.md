@@ -17,7 +17,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   for Backup & Restore (`BackupCard`), `about/`
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
-  (`AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
+  (`ActionCard`, the card offering one action on Import and Backup & Restore,
+  `AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
   Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native

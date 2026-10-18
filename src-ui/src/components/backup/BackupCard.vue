@@ -3,24 +3,26 @@
 // it and reports how it went, which a status region announces.
 import { CircleAlert, Check, DatabaseBackup } from '@lucide/vue'
 import type { BackupState } from '../../composables/useBackup'
+import ActionCard from '../shared/ActionCard.vue'
 
 defineProps<{ state: BackupState; name?: string | null; message?: string | null }>()
 const emit = defineEmits<{ save: [] }>()
 </script>
 
 <template>
-  <section class="card" aria-labelledby="backup-title">
-    <div class="icon accent" aria-hidden="true">
-      <DatabaseBackup :size="22" :stroke-width="1.75" />
-    </div>
-    <h3 id="backup-title">Backup</h3>
-    <p>Save a copy of all your saved history to a file you choose.</p>
-    <ul>
-      <li>Every account, roll and import in one file</li>
-      <li>Restore it here or on another computer</li>
-      <li>Written on this device; nothing is sent anywhere</li>
-    </ul>
-    <div class="actions">
+  <ActionCard
+    id="backup-title"
+    title="Backup"
+    text="Save a copy of all your saved history to a file you choose."
+    :points="[
+      'Every account, roll and import in one file',
+      'Restore it here or on another computer',
+      'Written on this device; nothing is sent anywhere',
+    ]"
+    accent
+  >
+    <template #icon><DatabaseBackup :size="22" :stroke-width="1.75" /></template>
+    <template #actions>
       <button type="button" :disabled="state === 'saving'" @click="emit('save')">
         {{ state === 'saving' ? 'Saving backup…' : 'Save backup…' }}
       </button>
@@ -36,63 +38,11 @@ const emit = defineEmits<{ save: [] }>()
           <span>{{ message }}</span>
         </p>
       </div>
-    </div>
-  </section>
+    </template>
+  </ActionCard>
 </template>
 
 <style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid var(--rim);
-  border-radius: 14px;
-  background: var(--panel);
-}
-.icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--panel-rim);
-  color: var(--text-soft);
-}
-.icon.accent {
-  background: var(--accent-tint);
-  color: var(--accent);
-}
-h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-.card > p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.5;
-}
-ul {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding-left: 20px;
-  color: var(--text-soft);
-  font-size: 14px;
-  line-height: 1.45;
-}
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: auto;
-}
-.actions > button {
-  align-self: flex-start;
-}
 .status {
   min-height: 20px;
 }

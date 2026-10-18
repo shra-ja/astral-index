@@ -8,6 +8,7 @@ import { CloudDownload, FileText } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
 import type { Mode } from '../../commands'
 import type { Source } from '../../composables/useRetrieval'
+import ActionCard from '../shared/ActionCard.vue'
 import AppTooltip from '../shared/AppTooltip.vue'
 import CachePicker from '../shared/CachePicker.vue'
 
@@ -34,22 +35,18 @@ defineExpose({
     <p v-if="note" class="note" role="status">{{ note }}</p>
 
     <div class="sources">
-      <section class="source" aria-labelledby="source-retrieve">
-        <div class="icon accent" aria-hidden="true">
-          <CloudDownload :size="22" :stroke-width="1.75" />
-        </div>
-        <h3 id="source-retrieve">Retrieve from HoYoverse</h3>
-        <p>
-          Finds the {{ term.toLowerCase() }} history link in the game’s local files, then downloads
-          your roll history from HoYoverse.
-        </p>
-        <ul>
-          <li>
-            Open your {{ term.toLowerCase() }} history in the game first, so the link is fresh
-          </li>
-          <li>Needs an internet connection to contact HoYoverse; runs only when you click</li>
-          <li>Long histories can take a few minutes</li>
-        </ul>
+      <ActionCard
+        id="source-retrieve"
+        title="Retrieve from HoYoverse"
+        :text="`Finds the ${term.toLowerCase()} history link in the game’s local files, then downloads your roll history from HoYoverse.`"
+        :points="[
+          `Open your ${term.toLowerCase()} history in the game first, so the link is fresh`,
+          'Needs an internet connection to contact HoYoverse; runs only when you click',
+          'Long histories can take a few minutes',
+        ]"
+        accent
+      >
+        <template #icon><CloudDownload :size="22" :stroke-width="1.75" /></template>
         <fieldset class="mode" aria-describedby="mode-hint">
           <!-- The options speak for themselves; screen readers still need the group's name. -->
           <legend class="visually-hidden">What to retrieve</legend>
@@ -79,7 +76,7 @@ defineExpose({
             Select “Full history” to fill in earlier gaps of missing data.
           </p>
         </fieldset>
-        <div class="actions">
+        <template #actions>
           <div class="buttons">
             <button ref="searchButton" type="button" :disabled="!available" @click="emit('search')">
               Retrieve history
@@ -95,21 +92,21 @@ defineExpose({
             If the game files can’t be found, choose its <code>data_2</code> cache file yourself.
           </p>
           <p v-else class="hint">Retrieval for {{ game }} is coming soon.</p>
-        </div>
-      </section>
+        </template>
+      </ActionCard>
 
-      <section class="source" aria-labelledby="source-file">
-        <div class="icon" aria-hidden="true">
-          <FileText :size="22" :stroke-width="1.75" />
-        </div>
-        <h3 id="source-file">Import from a file</h3>
-        <p>Load an export from another tracker.</p>
-        <ul>
-          <li>UIGF v4 JSON files</li>
-          <li>Read on this device; nothing is sent anywhere</li>
-          <li>Rolls you already have are skipped</li>
-        </ul>
-        <div class="actions">
+      <ActionCard
+        id="source-file"
+        title="Import from a file"
+        text="Load an export from another tracker."
+        :points="[
+          'UIGF v4 JSON files',
+          'Read on this device; nothing is sent anywhere',
+          'Rolls you already have are skipped',
+        ]"
+      >
+        <template #icon><FileText :size="22" :stroke-width="1.75" /></template>
+        <template #actions>
           <AppTooltip v-slot="{ tooltipId }" text="Importing from a file isn’t available yet.">
             <button
               type="button"
@@ -121,8 +118,8 @@ defineExpose({
             </button>
           </AppTooltip>
           <p class="hint">Coming soon</p>
-        </div>
-      </section>
+        </template>
+      </ActionCard>
     </div>
     <slot />
   </div>
@@ -192,8 +189,7 @@ h2 {
   font-size: 18px;
   font-weight: 600;
 }
-.intro p,
-.source > p {
+.intro p {
   margin: 0;
   color: var(--text-secondary);
   font-size: 15px;
@@ -213,56 +209,10 @@ h2 {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
   gap: 20px;
 }
-.source {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid var(--rim);
-  border-radius: 14px;
-  background: var(--panel);
-}
-.icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--panel-rim);
-  color: var(--text-soft);
-}
-.icon.accent {
-  background: var(--accent-tint);
-  color: var(--accent);
-}
-h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-ul {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding-left: 20px;
-  color: var(--text-soft);
-  font-size: 14px;
-  line-height: 1.45;
-}
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: auto;
-}
 .buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-.actions > button {
-  align-self: flex-start;
 }
 .hint {
   margin: 0;
