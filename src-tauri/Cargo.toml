@@ -18,7 +18,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["arbitrary_precision", "raw_value"] }
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 tauri = { version = "=2.12.0", features = [] }
-rusqlite = { version = "=0.40.2", features = ["bundled"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "limits"] }
 dirs = "=6.0.0"
 tokio = { version = "=1.53.1", features = ["process", "io-util", "time", "rt"] }
 tokio-util = { version = "=0.7.19", default-features = false }

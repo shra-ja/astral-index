@@ -100,14 +100,20 @@ Backup and restore stay local and never make a network request.
     to be extracted into one card component when the Restore card arrives.
 - [ ] **Restore, checking and preview** (one PR). Choosing a backup, checking
   it as untrusted input and showing what it holds, without changing anything:
-  - [ ] Extract one card component from the Import screen's source cards and
+  - [x] Extract one card component from the Import screen's source cards and
     the Backup card, which share their markup and styles, with no change in
     behaviour or look.
-  - [ ] Harden the database check for untrusted files: refuse files over
+  - [x] Harden the database check for untrusted files: refuse files over
     256 MiB before opening, room for several hundred thousand rolls; compare the schema before the integrity check; open with
     `trusted_schema` off, SQLite's defensive mode, no memory mapping and lowered
     limits; and report not a database, another app's, a newer version and
     damage as distinct errors.
+  - `ActionCard` holds the shared card; screenshots of both screens at two
+    widths match the previous build pixel for pixel. The check's tests failed
+    first against the old check, and each rule's test fails with that rule
+    removed. An unreleased version or a schema unlike its version's counts as
+    damage. A history over the bound would fail its backup as damaged, as restore
+    could not accept it.
   - [ ] Storage reads a checked file's summary for the confirmation: its
     accounts with their servers and roll counts, and its last import.
   - [ ] A `choose_restore` command opens the open dialog from Rust, refuses a

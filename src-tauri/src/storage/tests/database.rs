@@ -2,6 +2,8 @@
 //! No SQLite connection is created by this module.
 use rusqlite::{
     Error, OpenFlags, Result, TransactionBehavior,
+    config::DbConfig,
+    limits::Limit,
     types::{FromSql, ToSql, ToSqlOutput, Value, ValueRef},
 };
 use std::{cell::RefCell, collections::VecDeque, ops::Deref, path::Path};
@@ -79,6 +81,22 @@ impl Connection {
     pub fn open_in_memory() -> Result<Self> {
         call("OPEN IN MEMORY", vec![])?;
         Ok(Self)
+    }
+    /// Answers with the setting's previous value, which callers ignore.
+    pub fn set_db_config(&self, config: DbConfig, on: bool) -> Result<bool> {
+        call(
+            "DB CONFIG",
+            vec![Value::Integer(config as i64), Value::Integer(on.into())],
+        )?;
+        Ok(!on)
+    }
+    /// Answers with the limit's previous value, which callers ignore.
+    pub fn set_limit(&self, limit: Limit, value: i32) -> Result<i32> {
+        call(
+            "LIMIT",
+            vec![Value::Integer(limit as i64), Value::Integer(value.into())],
+        )?;
+        Ok(0)
     }
     pub fn execute_batch(&self, sql: &str) -> Result<()> {
         call(sql, vec![])?;

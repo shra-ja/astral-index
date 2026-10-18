@@ -15,6 +15,9 @@ pub struct Fixture {
     pub files: BTreeMap<PathBuf, Vec<u8>>,
     pub directories: Vec<PathBuf>,
     pub metadata_failure: bool,
+    /// Lengths that metadata reports in place of a file's contents' length, so a
+    /// large file needs no contents.
+    pub lengths: BTreeMap<PathBuf, u64>,
     pub reads: usize,
     pub accessed: Vec<PathBuf>,
     /// Folders removed, in order; removal always succeeds.
@@ -150,13 +153,19 @@ pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
             .ok_or_else(missing)
     })
 }
-pub struct Metadata(bool);
+pub struct Metadata {
+    file: bool,
+    len: u64,
+}
 impl Metadata {
     pub fn is_file(&self) -> bool {
-        self.0
+        self.file
     }
     pub fn is_dir(&self) -> bool {
-        !self.0
+        !self.file
+    }
+    pub fn len(&self) -> u64 {
+        self.len
     }
 }
 pub fn metadata(path: &Path) -> io::Result<Metadata> {
@@ -166,10 +175,17 @@ pub fn metadata(path: &Path) -> io::Result<Metadata> {
         if state.metadata_failure {
             return Err(missing());
         }
-        if state.files.contains_key(path) {
-            Ok(Metadata(true))
+        if let Some(contents) = state.files.get(path) {
+            let len = state.lengths.get(path).copied();
+            Ok(Metadata {
+                file: true,
+                len: len.unwrap_or(contents.len() as u64),
+            })
         } else if state.directories.contains(&path.to_owned()) {
-            Ok(Metadata(false))
+            Ok(Metadata {
+                file: false,
+                len: 0,
+            })
         } else {
             Err(missing())
         }
