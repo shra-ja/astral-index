@@ -7,7 +7,7 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure,
-    backup::{Backup, Dialogs, answer, claim_partial, in_data_folder, partial_names},
+    backup::{Backup, Dialogs, answer, in_data_folder},
     database::Database,
 };
 #[cfg(test)]
@@ -31,8 +31,9 @@ use tokio::task::spawn_blocking;
 /// The file in which the mock debug binary's tests name the backup to restore;
 /// without it, the open dialog counts as cancelled.
 pub const ANSWER: &str = "restore-from.txt";
-/// The held copy's name in the data folder, before its claimed temporary suffix.
-const HELD: &str = "restore.sqlite";
+/// The held copy's name in the data folder. Only the held copy uses it, so a file of
+/// that name is always the app's own, left by an earlier run, and is replaced.
+const HELD: &str = "restore.sqlite.partial";
 
 /// The checked copy of the backup being restored, in the data folder, until it is
 /// restored, cancelled or another backup is chosen.
@@ -50,14 +51,12 @@ impl Restore {
     }
 }
 
-/// Remove copies an earlier run held when the app closed or crashed, so they neither
-/// take space nor use up the temporary names. Only the names a held copy can take are
-/// removed; nothing else in the data folder is looked at.
+/// Remove a copy an earlier run held when the app closed or crashed, so it takes no
+/// space. Only the held copy's name is removed; nothing else in the data folder is
+/// looked at.
 pub fn remove_leftovers(folder: Option<&Path>) {
     if let Some(folder) = folder {
-        for leftover in partial_names(&folder.join(HELD)) {
-            let _ = fs::remove_file(leftover);
-        }
+        let _ = fs::remove_file(folder.join(HELD));
     }
 }
 
@@ -119,11 +118,13 @@ fn copy_bounded(source: &Path, to: &mut dyn Write, limit: u64) -> Result<(), Fai
     }
 }
 
-/// Copy `source` into the data folder under a claimed temporary name, check the
-/// copy as untrusted input, open it, which brings it to the current schema, and read
-/// what it holds. Any failure removes the copy.
+/// Copy `source` into the data folder under the held copy's name, replacing any copy
+/// left there, check it as untrusted input, open it, which brings it to the current
+/// schema, and read what it holds. Any failure removes the copy.
 pub fn hold_copy(folder: &Path, source: &Path) -> Result<(PathBuf, Contents), Failure> {
-    let (copy, mut file) = claim_partial(&folder.join(HELD)).map_err(|_| Failure::RestoreFailed)?;
+    let copy = folder.join(HELD);
+    let _ = fs::remove_file(&copy);
+    let mut file = fs::File::create_new(&copy).map_err(|_| Failure::RestoreFailed)?;
     let checked = copy_bounded(source, &mut file, MAX_DATABASE_BYTES)
         .and_then(|()| {
             drop(file);
@@ -210,7 +211,6 @@ pub fn cancel_restore(restore: State<'_, Restore>) {
 mod tests {
     use super::*;
     use crate::acquisition::tests::filesystem::{self, Fixture as Files};
-    use crate::desktop::backup::PARTIAL_NAMES;
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{
         SERVER, UID, accounts_row, accounts_script, check_script, ending_at, last_import_row,
@@ -241,15 +241,9 @@ mod tests {
     fn source() -> PathBuf {
         PathBuf::from("/backups/Astral-Index-backup-2026-10-16.sqlite")
     }
-    /// The temporary name the held copy takes on its `attempt`, counting from 0,
-    /// built as the platform joins it.
-    fn held(attempt: usize) -> PathBuf {
-        let mut name = folder().join(HELD).into_os_string();
-        if attempt > 0 {
-            name.push(format!(".{attempt}"));
-        }
-        name.push(".partial");
-        PathBuf::from(name)
+    /// Where the held copy is kept: one name in the data folder that only it uses.
+    fn held() -> PathBuf {
+        folder().join("restore.sqlite.partial")
     }
     fn system() -> Backup {
         Backup {
@@ -381,28 +375,32 @@ mod tests {
     fn a_chosen_backup_is_copied_into_the_data_folder_checked_and_held() {
         filesystem::install(files(&[]));
         answering(Some(source()));
-        sql::expect(choosing(&held(0)));
+        sql::expect(choosing(&held()));
         let restore = Restore::default();
         assert_eq!(choose_now(&restore), Ok(checked()));
         sql::finish();
-        // The copy holds the backup's bytes; the backup itself is untouched.
+        // The copy holds the backup's bytes; the backup itself is untouched, and the
+        // only removal is clearing the held copy's name before copying.
         filesystem::inspect(|state| {
-            assert_eq!(state.files[&held(0)], BYTES);
+            assert_eq!(state.files[&held()], BYTES);
             assert_eq!(state.files[&source()], BYTES);
-            assert!(state.removed_files.is_empty());
+            assert_eq!(state.removed_files, [held()]);
             assert!(state.renamed.is_empty());
         });
-        assert_eq!(holding(&restore), Some(held(0)));
+        assert_eq!(holding(&restore), Some(held()));
     }
 
     #[test]
-    fn a_file_already_in_the_data_folder_is_never_touched() {
-        filesystem::install(files(&[(held(0), b"another file")]));
+    fn a_copy_left_behind_is_replaced_by_the_new_one() {
+        filesystem::install(files(&[(held(), b"left by an earlier run")]));
         answering(Some(source()));
-        sql::expect(choosing(&held(1)));
+        sql::expect(choosing(&held()));
         assert_eq!(choose_now(&Restore::default()), Ok(checked()));
         sql::finish();
-        filesystem::inspect(|state| assert_eq!(state.files[&held(0)], b"another file"));
+        filesystem::inspect(|state| {
+            assert_eq!(state.removed_files, [held()]);
+            assert_eq!(state.files[&held()], BYTES);
+        });
     }
 
     #[test]
@@ -410,11 +408,11 @@ mod tests {
         filesystem::install(files(&[]));
         answering(None);
         let restore = Restore::default();
-        *restore.held.lock().unwrap() = Some(held(0));
+        *restore.held.lock().unwrap() = Some(held());
         assert_eq!(choose_now(&restore), Ok(Chosen::Cancelled));
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         // A copy held earlier is kept for its confirmation.
-        assert_eq!(holding(&restore), Some(held(0)));
+        assert_eq!(holding(&restore), Some(held()));
         // A fault in the dialog fails rather than passing for a cancellation.
         chooser::install(Answers {
             crash: true,
@@ -430,7 +428,7 @@ mod tests {
         });
         assert_eq!(choose_now(&restore), Err(Failure::RestoreFailed));
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
-        assert_eq!(holding(&restore), Some(held(0)));
+        assert_eq!(holding(&restore), Some(held()));
     }
 
     #[test]
@@ -492,7 +490,7 @@ mod tests {
             (
                 files(&[]),
                 ending_at(
-                    check_script(&held(0).to_string_lossy()),
+                    check_script(&held().to_string_lossy()),
                     "PRAGMA application_id",
                     Ok(Reply::Rows(vec![Ok(vec![
                         rusqlite::types::Value::Integer(0),
@@ -504,7 +502,7 @@ mod tests {
             (
                 files(&[]),
                 ending_at(
-                    choosing(&held(0)),
+                    choosing(&held()),
                     "OPEN",
                     Err(rusqlite::Error::InvalidQuery),
                 ),
@@ -514,7 +512,7 @@ mod tests {
             (
                 files(&[]),
                 {
-                    let mut steps = choosing(&held(0));
+                    let mut steps = choosing(&held());
                     let last = steps.iter().rposition(|step| step.sql == "OPEN").unwrap();
                     steps.truncate(last + 1);
                     steps[last].reply = Err(rusqlite::Error::InvalidQuery);
@@ -530,34 +528,34 @@ mod tests {
             let restore = Restore::default();
             assert_eq!(choose_now(&restore), Err(failure.clone()), "{failure:?}");
             sql::finish();
-            assert!(!has(&held(0)), "{failure:?}");
+            assert!(!has(&held()), "{failure:?}");
             assert_eq!(holding(&restore), None);
         }
-        // When no temporary name can be claimed, nothing is written or removed.
-        let taken: Vec<(PathBuf, &[u8])> = (0..PARTIAL_NAMES)
-            .map(|attempt| (held(attempt), b"x".as_slice()))
-            .collect();
-        filesystem::install(files(&taken));
+        // When the copy cannot be made there, nothing is read or held.
+        filesystem::install(Files {
+            directories: vec![held()],
+            ..files(&[])
+        });
         answering(Some(source()));
-        assert_eq!(choose_now(&Restore::default()), Err(Failure::RestoreFailed));
-        filesystem::inspect(|state| assert!(state.removed_files.is_empty()));
+        let restore = Restore::default();
+        assert_eq!(choose_now(&restore), Err(Failure::RestoreFailed));
+        filesystem::inspect(|state| assert_eq!(state.reads, 0));
+        assert_eq!(holding(&restore), None);
     }
 
     #[test]
-    fn copies_left_by_an_earlier_run_are_removed_and_nothing_else() {
+    fn a_copy_left_by_an_earlier_run_is_removed_and_nothing_else() {
         let history = folder().join("history.sqlite");
-        let beyond = folder().join(format!("{HELD}.{PARTIAL_NAMES}.partial"));
+        let other = folder().join("restore.sqlite.1.partial");
         filesystem::install(files(&[
-            (held(0), b"left by a quit"),
-            (held(PARTIAL_NAMES - 1), b"left by a crash"),
+            (held(), b"left by a quit"),
             (history.clone(), b"the history"),
-            (beyond.clone(), b"not a name a copy takes"),
+            (other.clone(), b"not the held copy's name"),
         ]));
         remove_leftovers(Some(&folder()));
         filesystem::inspect(|state| {
-            let names: Vec<PathBuf> = (0..PARTIAL_NAMES).map(held).collect();
-            assert_eq!(state.removed_files, names);
-            let mut kept = vec![source(), history.clone(), beyond.clone()];
+            assert_eq!(state.removed_files, [held()]);
+            let mut kept = vec![source(), history.clone(), other.clone()];
             kept.sort();
             assert_eq!(state.files.keys().cloned().collect::<Vec<_>>(), kept);
         });
@@ -617,21 +615,18 @@ mod tests {
 
     #[test]
     fn choosing_another_backup_or_cancelling_drops_the_held_copy() {
-        filesystem::install(files(&[(held(0), b"the earlier copy")]));
+        filesystem::install(files(&[(held(), b"the earlier copy")]));
         let restore = Restore::default();
-        *restore.held.lock().unwrap() = Some(held(0));
+        *restore.held.lock().unwrap() = Some(held());
         answering(Some(source()));
-        // The earlier copy is removed first, so its name is free for the new one.
-        sql::expect(choosing(&held(0)));
+        // The earlier copy is removed first, then the new one takes its name.
+        sql::expect(choosing(&held()));
         assert_eq!(choose_now(&restore), Ok(checked()));
         sql::finish();
-        filesystem::inspect(|state| {
-            assert_eq!(state.removed_files, [held(0)]);
-            assert_eq!(state.files[&held(0)], BYTES);
-        });
-        assert_eq!(holding(&restore), Some(held(0)));
+        filesystem::inspect(|state| assert_eq!(state.files[&held()], BYTES));
+        assert_eq!(holding(&restore), Some(held()));
         // A refused choice drops it too, as the confirmation no longer shows it.
-        let mut too_large = files(&[(held(0), BYTES)]);
+        let mut too_large = files(&[(held(), BYTES)]);
         too_large.lengths = [(source(), MAX_DATABASE_BYTES + 1)].into();
         filesystem::install(too_large);
         answering(Some(source()));
@@ -639,13 +634,13 @@ mod tests {
             choose_now(&restore),
             Err(Failure::RestoreRefused(Refusal::TooLarge))
         );
-        assert!(!has(&held(0)));
+        assert!(!has(&held()));
         assert_eq!(holding(&restore), None);
         // Cancelling the restore removes the held copy; with none, it does nothing.
-        filesystem::install(files(&[(held(0), BYTES)]));
-        *restore.held.lock().unwrap() = Some(held(0));
+        filesystem::install(files(&[(held(), BYTES)]));
+        *restore.held.lock().unwrap() = Some(held());
         restore.hold(None);
-        assert!(!has(&held(0)));
+        assert!(!has(&held()));
         restore.hold(None);
         assert_eq!(holding(&restore), None);
     }

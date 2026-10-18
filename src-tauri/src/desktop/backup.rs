@@ -23,7 +23,7 @@ use tokio::task::spawn_blocking;
 /// without it, the save dialog counts as cancelled.
 pub const ANSWER: &str = "save-as.txt";
 /// How many temporary names beside a target are tried before giving up.
-pub(super) const PARTIAL_NAMES: usize = 8;
+const PARTIAL_NAMES: usize = 8;
 
 /// How the file dialogs are answered.
 #[derive(Clone, Copy)]
@@ -106,7 +106,7 @@ pub(super) fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
 
 /// The temporary names beside `target`, in the order they are tried:
 /// `<target>.partial`, then `<target>.1.partial` and on.
-pub(super) fn partial_names(target: &Path) -> impl Iterator<Item = PathBuf> + '_ {
+fn partial_names(target: &Path) -> impl Iterator<Item = PathBuf> + '_ {
     (0..PARTIAL_NAMES).map(move |attempt| {
         let mut name = target.as_os_str().to_owned();
         if attempt > 0 {
@@ -120,7 +120,7 @@ pub(super) fn partial_names(target: &Path) -> impl Iterator<Item = PathBuf> + '_
 /// Claim an unused temporary file beside `target` by creating it empty, so a file
 /// the user already has is never touched: `<target>.partial`, else `.1.partial`
 /// and on. Returns the name claimed and the file, open for writing.
-pub(super) fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
+fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
     for partial in partial_names(target) {
         match fs::File::create_new(&partial) {
             Ok(file) => return Ok((partial, file)),
