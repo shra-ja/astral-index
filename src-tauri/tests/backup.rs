@@ -5,7 +5,7 @@ use astral_index::desktop::{
     backup::{Saved, save_to},
     database::Database,
 };
-use astral_index::storage::{Error, Store, check_database};
+use astral_index::storage::{Error, MAX_DATABASE_BYTES, Refusal, Store, check_database};
 use rusqlite::Connection;
 use std::{
     path::{Path, PathBuf},
@@ -68,6 +68,11 @@ fn a_snapshot_passes_the_check_and_holds_the_same_history() {
         store.history(UID, SERVER).unwrap()
     );
     assert_eq!(restored.accounts().unwrap(), store.accounts().unwrap());
+    // Its contents, as the restore confirmation shows them, match the history's.
+    let contents = restored.contents().unwrap();
+    assert_eq!(contents.accounts[0].rolls, 2);
+    assert_eq!(contents.last_import.as_ref().unwrap().inserted, 2);
+    assert_eq!(contents, store.contents().unwrap());
 }
 
 #[test]
@@ -90,45 +95,60 @@ fn the_released_1_0_0_database_passes_the_check_unchanged() {
 }
 
 #[test]
-fn files_that_are_not_this_apps_released_databases_fail_the_check() {
+fn files_that_are_not_databases_are_refused_as_such() {
     let folder = Folder::new();
-    // Not a database at all.
     let text = folder.path("notes.txt");
     std::fs::write(&text, b"not a database, just some text that is long enough").unwrap();
-    assert_eq!(check_database(&text), Err(Error::Database));
+    assert_eq!(check_database(&text), Err(Refusal::NotDatabase));
+    let empty = folder.path("empty.sqlite");
+    std::fs::write(&empty, b"").unwrap();
+    assert_eq!(check_database(&empty), Err(Refusal::NotDatabase));
     // A missing file is never created by checking it.
     let missing = folder.path("missing.sqlite");
-    assert_eq!(check_database(&missing), Err(Error::Database));
+    assert_eq!(check_database(&missing), Err(Refusal::Unreadable));
     assert!(!missing.exists());
-    // Another app's database.
+}
+
+#[test]
+fn a_file_over_the_bound_is_refused_without_being_read() {
+    let folder = Folder::new();
+    // A sparse file: as large as the bound allows, then one byte more.
+    let large = folder.path("large.sqlite");
+    let file = std::fs::File::create(&large).unwrap();
+    file.set_len(MAX_DATABASE_BYTES + 1).unwrap();
+    assert_eq!(check_database(&large), Err(Refusal::TooLarge));
+}
+
+#[test]
+fn another_apps_or_a_newer_versions_database_is_refused_as_such() {
+    let folder = Folder::new();
     let other = folder.path("other.sqlite");
     Connection::open(&other)
         .unwrap()
         .execute_batch("CREATE TABLE notes(text TEXT);")
         .unwrap();
-    assert_eq!(check_database(&other), Err(Error::Schema));
-    // This app's database from a newer version.
+    assert_eq!(check_database(&other), Err(Refusal::OtherApp));
     let newer = snapshot(&folder);
     Connection::open(&newer)
         .unwrap()
         .execute_batch("PRAGMA user_version = 3;")
         .unwrap();
-    assert_eq!(check_database(&newer), Err(Error::Schema));
+    assert_eq!(check_database(&newer), Err(Refusal::Newer));
 }
 
 #[test]
-fn a_changed_schema_fails_the_check() {
+fn a_changed_schema_is_damage() {
     let folder = Folder::new();
     let backup = snapshot(&folder);
     Connection::open(&backup)
         .unwrap()
         .execute_batch("CREATE TABLE extra(value TEXT);")
         .unwrap();
-    assert_eq!(check_database(&backup), Err(Error::Schema));
+    assert_eq!(check_database(&backup), Err(Refusal::Damaged));
 }
 
 #[test]
-fn a_damaged_database_fails_the_check() {
+fn a_damaged_database_is_refused_as_damaged() {
     let folder = Folder::new();
     let backup = snapshot(&folder);
     // Overwrite the last page, which holds stored rolls, leaving the header and
@@ -138,9 +158,7 @@ fn a_damaged_database_fails_the_check() {
     let start = bytes.len() - page;
     bytes[start..].fill(0xA5);
     std::fs::write(&backup, &bytes).unwrap();
-    // SQLite cannot read the page at all, so the check fails before its integrity
-    // report; the unit tests cover a report that finds damage.
-    assert_eq!(check_database(&backup), Err(Error::Database));
+    assert_eq!(check_database(&backup), Err(Refusal::Damaged));
 }
 
 /// Save a backup of the history in `data` to `target`, as the command does.

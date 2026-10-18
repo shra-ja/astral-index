@@ -1,6 +1,6 @@
 // What the retrieval flow tells the user about failures, progress and saving, and
-// what the About dialog says when it couldn’t open something.
-import type { Counts, Failure, Kind, LastImport, Progress } from './commands'
+// what the About dialog and Backup & Restore say when something couldn’t be done.
+import type { Counts, Failure, Kind, LastImport, Progress, Refusal } from './commands'
 import type { Opening } from './composables/useAbout'
 import { localDateTime, plural, serverName, warps } from './format'
 
@@ -95,6 +95,10 @@ const titles: Record<Kind, string> = {
   backup_failed: 'Something Went Wrong',
   backup_in_data_folder: 'Something Went Wrong',
   history_damaged: 'Something Went Wrong',
+  // Restore's failures, too, are told on its own screen.
+  restore_refused: 'Something Went Wrong',
+  restore_in_data_folder: 'Something Went Wrong',
+  restore_failed: 'Something Went Wrong',
   unavailable: 'Something Went Wrong',
 }
 
@@ -119,6 +123,44 @@ export const backupFailure = (failure: Failure) =>
       'Your saved history failed its check, so no backup was made. Nothing was changed.',
     storage: 'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
   })
+
+/** Why a backup was refused for restoring. */
+const refusals: Record<Refusal, string> = {
+  too_large: 'This file is too large to be an Astral Index backup.',
+  not_database: 'This file isn’t an Astral Index backup.',
+  other_app: 'This file is another app’s database, not an Astral Index backup.',
+  newer:
+    'This backup was made by a newer version of Astral Index. Update the app, then restore it.',
+  damaged: 'This backup is damaged and can’t be restored.',
+  unreadable: 'The file couldn’t be read. Check that it’s still there and try again.',
+}
+
+/** Why a backup can’t be restored; nothing of the history was changed. */
+export const restoreFailure = (failure: Failure) =>
+  failure.kind === 'restore_refused'
+    ? refusals[failure.refusal!]
+    : describe(failure, {
+        restore_in_data_folder:
+          'This file is inside the data folder. Copy it somewhere else, then restore it from there.',
+        restore_failed: 'The backup couldn’t be checked. Try again.',
+        storage:
+          'Your current history couldn’t be read to compare with the backup. Nothing was changed.',
+      })
+
+/** What a history holds, as far as the summary needs it. */
+type Holding = { accounts: readonly { rolls: number }[] }
+/** A history's rolls and accounts, as "2,430 rolls in 3 accounts". */
+const holding = ({ accounts }: Holding) =>
+  `${plural(
+    accounts.reduce((sum, account) => sum + account.rolls, 0),
+    'roll',
+  )} in ${plural(accounts.length, 'account')}`
+
+/** The restore confirmation's summary of what replaces what. */
+export const restoreSummary = (current: Holding, backup: Holding) =>
+  current.accounts.length === 0
+    ? `Restoring saves ${holding(backup)}.`
+    : `Restoring replaces ${holding(current)} with ${holding(backup)}.`
 
 /** Why saved history couldn’t be shown. */
 export const historyFailure = (failure: Failure) =>

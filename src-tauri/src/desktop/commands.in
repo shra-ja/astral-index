@@ -12,4 +12,6 @@
     "reveal_data_folder",
     "open_issues_page",
     "save_backup",
+    "choose_restore",
+    "cancel_restore",
 ]

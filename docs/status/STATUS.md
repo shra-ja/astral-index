@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-16
+Updated: 2026-10-18
 
 ## Current state
 
@@ -45,9 +45,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### 0037 breakdown (2026-10-17)
+### Restore, checking and preview (2026-10-18)
 
-`docs/0037-breakdown`: 0037's Restore, Migration recovery and Verification tasks broken into steps, Restore as two PRs: a 256 MiB bound, the safety copy named from the webview's local time, and an in-screen confirmation.
+`feat/restore-preview`: 0037's restore up to its confirmation: the shared `ActionCard`, the hardened check with distinct refusals, `Store::contents`, `choose_restore`/`cancel_restore` holding a checked copy in the data folder, and the Restore card and confirmation, its Restore button unavailable until replacing. Each layer red first. Two reviewer agents' findings fixed: leaving the confirmation cancels it after a prompt, the held copy keeps one name and is removed at startup, one shared status line. Decisions 0031 (amended) and 0033 recorded.
 
 ## Known limitations
 
@@ -169,3 +169,5 @@ research, under a "From" heading.
   the logo, screenshots and README, the mock's year of history, the release
   docs housekeeping, the release notes without a heading, the migration
   fixture, the milestone 11 requirements and backups.
+- [2026-10-17: restore breakdown](history/2026-10-17-restore-breakdown.md):
+  0037's restore, migration recovery and verification steps.

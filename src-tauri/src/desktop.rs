@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 pub mod about;
 pub mod backup;
 pub mod database;
+pub mod restore;
 pub use database::Database;
 
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
@@ -86,6 +87,13 @@ pub enum Failure {
     BackupInDataFolder,
     /// A snapshot of the saved history failed its check, so no backup was made.
     HistoryDamaged,
+    /// The backup chosen for restoring failed its check, for the reason given.
+    RestoreRefused(crate::storage::Refusal),
+    /// The backup chosen for restoring is inside the data folder.
+    RestoreInDataFolder,
+    /// The backup chosen for restoring could not be copied into the data folder
+    /// and read there, or the open dialog failed.
+    RestoreFailed,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -287,7 +295,9 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         about::app_info,
         about::reveal_data_folder,
         about::open_issues_page,
-        backup::save_backup
+        backup::save_backup,
+        restore::choose_restore,
+        restore::cancel_restore
     ])
 }
 
@@ -300,7 +310,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         portable: true,
         fresh_webview: false,
         opener: about::Opener::System,
-        saver: backup::Saver::System,
+        dialogs: backup::Dialogs::System,
     };
     register_with(
         builder.plugin(tauri_plugin_dialog::init()),
@@ -320,7 +330,7 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         portable: false,
         fresh_webview: true,
         opener: about::Opener::Recording,
-        saver: backup::Saver::Answering,
+        dialogs: backup::Dialogs::Answering,
     };
     register_with(builder, Network::Mock(scenario), settings)
 }
@@ -333,7 +343,7 @@ struct Settings {
     /// Whether the webview's profile is cleared at each start.
     fresh_webview: bool,
     opener: about::Opener,
-    saver: backup::Saver,
+    dialogs: backup::Dialogs,
 }
 
 fn register_with<R: Runtime>(
@@ -341,7 +351,10 @@ fn register_with<R: Runtime>(
     network: Network,
     settings: Settings,
 ) -> Builder<R> {
-    let builder = builder.manage(Session::default()).manage(network);
+    let builder = builder
+        .manage(Session::default())
+        .manage(restore::Restore::default())
+        .manage(network);
     handle_commands(builder).setup(move |app| {
         // Portable mode, or else local, not roaming, app data: history never
         // leaves the machine with a roaming Windows profile.
@@ -362,8 +375,9 @@ fn register_with<R: Runtime>(
         });
         app.manage(backup::Backup {
             folder: folder.clone(),
-            saver: settings.saver,
+            dialogs: settings.dialogs,
         });
+        restore::remove_leftovers(folder.as_deref());
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
     })
@@ -1137,7 +1151,9 @@ mod tests {
                 "app_info",
                 "reveal_data_folder",
                 "open_issues_page",
-                "save_backup"
+                "save_backup",
+                "choose_restore",
+                "cancel_restore"
             ]
         );
         // The About commands take no arguments. Opening goes to the test double,
@@ -1178,6 +1194,13 @@ mod tests {
             ),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
+        // Restore's commands take no arguments; on the worker thread the dialog's
+        // test double chooses nothing, so nothing is copied or held.
+        assert_eq!(
+            reply_to(&window, COMMANDS[13]),
+            serde_json::json!({ "kind": "cancelled" })
+        );
+        assert_eq!(invoke(&window, COMMANDS[14], InvokeBody::default()), Ok(()));
         assert_eq!(
             invoke(&window, COMMANDS[8], InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
@@ -1300,6 +1323,15 @@ mod tests {
         let mut app = register(mock_builder())
             .build(mock_context(noop_assets()))
             .unwrap();
+        // A restore's copy left when the app last closed is removed as it starts.
+        let local = app.path().local_data_dir().unwrap();
+        let leftover = local
+            .join(database::FOLDER_NAME)
+            .join("restore.sqlite.partial");
+        filesystem::install(filesystem::Fixture {
+            files: [(leftover.clone(), b"a held copy".to_vec())].into(),
+            ..Default::default()
+        });
         // Tauri runs setup hooks on the event loop's first event; with the mock
         // runtime, only this deprecated call runs them. It is called once here.
         #[allow(deprecated)]
@@ -1321,10 +1353,14 @@ mod tests {
         // Backups are saved where the user chooses in the system's dialog.
         let backup = app.state::<backup::Backup>();
         assert_eq!(backup.folder.as_ref(), about.folder.as_ref());
-        assert!(matches!(backup.saver, backup::Saver::System));
+        assert!(matches!(backup.dialogs, backup::Dialogs::System));
         assert!(app.get_webview_window("main").is_some());
-        // The app keeps its webview profile.
-        filesystem::inspect(|state| assert!(state.removed.is_empty()));
+        // The app keeps its webview profile, and only the leftover copy is removed.
+        filesystem::inspect(|state| {
+            assert!(state.removed.is_empty());
+            assert!(state.files.is_empty());
+            assert!(state.removed_files.contains(&leftover));
+        });
     }
 
     #[test]
@@ -1355,7 +1391,7 @@ mod tests {
         // Its tests answer the save dialog from its data folder.
         let backup = app.state::<backup::Backup>();
         assert_eq!(backup.folder.as_deref(), Some(folder.as_path()));
-        assert!(matches!(backup.saver, backup::Saver::Answering));
+        assert!(matches!(backup.dialogs, backup::Dialogs::Answering));
         assert!(app.get_webview_window("main").is_some());
         // The mock starts each run with a fresh webview profile.
         filesystem::inspect(|state| {
@@ -1477,6 +1513,39 @@ mod tests {
             let error = invoke(&window, command, raw(cache(&["synthetic"])));
             assert!(error.unwrap_err().contains("state not managed"));
         }
+    }
+
+    #[test]
+    fn restore_fails_over_ipc_without_a_data_folder_or_its_state() {
+        let backup = || backup::Backup {
+            folder: None,
+            dialogs: backup::Dialogs::System,
+        };
+        let builders = [
+            mock_builder().manage(backup()),
+            mock_builder()
+                .manage(backup())
+                .manage(restore::Restore::default()),
+            mock_builder()
+                .manage(backup())
+                .manage(restore::Restore::default())
+                .manage(Database::new(None)),
+        ];
+        let replies: Vec<_> = builders
+            .into_iter()
+            .map(|builder| {
+                let app = handle_commands(builder)
+                    .build(mock_context(noop_assets()))
+                    .unwrap();
+                let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+                    .build()
+                    .unwrap();
+                invoke(&window, "choose_restore", InvokeBody::default()).unwrap_err()
+            })
+            .collect();
+        assert!(replies[0].contains("state not managed"));
+        assert!(replies[1].contains("state not managed"));
+        assert_eq!(replies[2], r#"{"kind":"restore_failed"}"#);
     }
 
     #[test]

@@ -34,7 +34,9 @@ evidence and each import's provenance.
   migration leaves the original unchanged.
 - **Backups stay out of the data folder.** (Amended 2026-10-17:) a backup, a
   restore's source and its safety copy are never placed where they could
-  replace the live database or its journal.
+  replace the live database or its journal. (Amended 2026-10-18:) a restore's
+  source is refused only when it is the history itself, `history.sqlite`, so a
+  safety copy can be restored from the data folder.
 - **The webview never names paths.** Backup and restore choose their files through
   dialogs that the Rust side opens, so no command takes a filesystem path from the
   webview.

@@ -5,6 +5,8 @@ Status: In progress · Milestone 11, Backup, restore and file import
 A backup file holding the whole history, which a fresh profile can restore,
 on a new **Backup & Restore** screen in the sidebar
 ([decision 0031](../../architecture/decisions/0031-sqlite-snapshot-backups.md)).
+As it covers every game, the screen is app-wide, outside the selected game's
+screens ([decision 0033](../../architecture/decisions/0033-app-wide-and-per-game-screens.md)).
 Backup and restore stay local and never make a network request.
 
 ## Requirements
@@ -32,15 +34,19 @@ Backup and restore stay local and never make a network request.
   enforces the size bound before opening, compares the schema before the
   integrity check, and opens with `trusted_schema` off, SQLite's defensive mode,
   no memory mapping and lowered limits, so a hostile file cannot run its own
-  constraints or stall the app. The source and the safety copy get the same
-  data-folder guard as backups.
+  constraints or stall the app. The safety copy gets the same data-folder guard
+  as backups. A source inside the data folder is refused only when it is the
+  history itself, `history.sqlite`, so a safety copy can be restored where it
+  is.
 
   The confirmation then shows the backup's accounts, their roll counts and its
   last import beside the current history's, and says that the current history
   will be kept as a safety copy. On confirming, the current database is copied
   to `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder and the
   checked copy replaces it; the screens then show the restored history. Cancel
-  or any failure leaves the current history untouched.
+  or any failure leaves the current history untouched. Leaving the
+  confirmation asks first, and leaving cancels the restore, so a checked copy
+  is never left held.
 - **Migration recovery:** before upgrading an older database on opening, the app
   copies it to `history-v<N>.sqlite` in the data folder; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
@@ -100,31 +106,71 @@ Backup and restore stay local and never make a network request.
     to be extracted into one card component when the Restore card arrives.
 - [ ] **Restore, checking and preview** (one PR). Choosing a backup, checking
   it as untrusted input and showing what it holds, without changing anything:
-  - [ ] Extract one card component from the Import screen's source cards and
+  - [x] Extract one card component from the Import screen's source cards and
     the Backup card, which share their markup and styles, with no change in
     behaviour or look.
-  - [ ] Harden the database check for untrusted files: refuse files over
+  - [x] Harden the database check for untrusted files: refuse files over
     256 MiB before opening, room for several hundred thousand rolls; compare the schema before the integrity check; open with
     `trusted_schema` off, SQLite's defensive mode, no memory mapping and lowered
     limits; and report not a database, another app's, a newer version and
     damage as distinct errors.
-  - [ ] Storage reads a checked file's summary for the confirmation: its
+  - `ActionCard` holds the shared card; screenshots of both screens at two
+    widths match the previous build pixel for pixel. The check's tests failed
+    first against the old check, and each rule's test fails with that rule
+    removed. An unreleased version or a schema unlike its version's counts as
+    damage. A history over the bound would fail its backup as damaged, as restore
+    could not accept it.
+  - `choose_restore`'s tests failed first against stubs, and each rule's test
+    fails with the rule removed: the data-folder guard, the bound while
+    copying, removing a refused copy, and dropping the copy held before.
+    Without a data folder no dialog opens. Opening the checked copy as a store
+    is its migration for now; the runner arrives with Migration recovery.
+  - The confirmation shows the backup's file name, from `choose_restore`, and
+    marks current accounts the backup lacks; its Restore button stays
+    unavailable until Restore, replacing. Each layer's tests failed first; the
+    end-to-end test checks a real backup through the mock, the held copy in the
+    data folder, Cancel removing it and focus returning, and a refusal.
+  - Two reviewer agents found a held copy outlived a normal quit, and eight
+    used up backup's temporary names, blocking every later restore. Fixed as
+    the user chose: leaving the confirmation cancels it after a prompt, the
+    held copy keeps one name of its own, and startup removes it. Also fixed:
+    the cards share one status line, and the restore flow keeps no state twice.
+  - [x] Storage reads a checked file's summary for the confirmation: its
     accounts with their servers and roll counts, and its last import.
-  - [ ] A `choose_restore` command opens the open dialog from Rust, refuses a
-    source inside the data folder, copies the file into the data folder under a
-    temporary name claimed new, checks and migrates the copy, and holds it in
-    the session; it returns the backup's summary and the current history's,
+  - [x] A `choose_restore` command opens the open dialog from Rust, refuses a
+    source inside the data folder, copies the file into the data folder under
+    the one name only the held copy uses, `restore.sqlite.partial`, replacing an
+    earlier run's copy, checks and migrates it, and holds it in the session; it returns the backup's summary and the current history's,
     never a path. A `cancel_restore` command removes the held copy. The mock
     debug binary answers the dialog from a file its tests write.
-  - [ ] The Restore card on Backup & Restore, and its confirmation, which
+  - [x] The Restore card on Backup & Restore, and its confirmation, which
     replaces the screen's content, as the Import review does: both summaries
     side by side, Restore and Cancel, and its refusals and failures, by
-    keyboard. Leaving the screen keeps the checked copy, so the confirmation is
-    still shown on return, until it is confirmed, cancelled or another backup
-    chosen. The confirmation is designed on the canvas first.
+    keyboard. Leaving the confirmation asks first, in a modal with Stay and
+    Leave, and leaving cancels the restore; a copy left when the app closes is
+    removed at the next start. The confirmation is designed on the canvas
+    first.
+- [ ] **App-wide screen** (one PR). Move Backup & Restore out of the selected
+  game's screens (decision 0033):
+  - [ ] The route becomes `/backup`, with no game. `/:game/backup` was never
+    released, as 1.0.0 predates backups, so it is removed without a redirect.
+  - [ ] The sidebar gives it its own group above About. While it is open, the
+    game switcher marks no game as current, choosing a game opens its History,
+    and the View group's links keep pointing to the game shown last.
+  - [ ] The sidebar's new group is designed on the canvas first, without the
+    Export card that moves to its own screen
+    ([0055](0055-uigf-export.md)); the end-to-end tests reach the screen at its
+    new address.
 - [ ] **Restore, replacing** (one PR). Replacing the history with the checked
   copy:
-  - [ ] Restore is refused while a retrieval or import is under way.
+  - [ ] Restore is refused while a retrieval or import is under way: choosing
+    a backup and confirming one.
+  - [ ] Confirming reads the current history again, so the confirmation never
+    acts on counts that changed since it was shown.
+  - [ ] Closing the app drops the held copy through the same clean-up as
+    cancelling, rather than waiting for the next start. This needs a small
+    hook in `main.rs`, a coverage-exempt file, so it is added only with the
+    user's explicit approval.
   - [ ] Confirming closes the store, copies the current database to
     `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, named
     from the local time the webview sends, checked strictly as a real date and
@@ -137,6 +183,16 @@ Backup and restore stay local and never make a network request.
     not.
   - [ ] An end-to-end test restores through the mock, checks the safety copy
     and the restored history, and covers a refusal and a cancellation.
+- [ ] **Restoring a safety copy** (one PR). Relax the source's data-folder
+  guard to protect only the history itself:
+  - [ ] `choose_restore` refuses `history.sqlite`, compared by its real path,
+    and accepts any other file in the data folder, such as a
+    `history-before-restore-*.sqlite` safety copy or a migration's
+    `history-v<N>.sqlite`. A journal needs no rule, as it fails the check as
+    not a database. Backups and safety copies keep the full guard.
+  - [ ] The refusal's message names the history rather than the data folder.
+  - [ ] An end-to-end test restores a safety copy from the data folder through
+    the mock and is refused the history itself.
 - [ ] **Migration recovery** (one PR). Ready for the first schema change:
   - [ ] A migration runner: migrations in order, each in one transaction,
     upgrading an older released version on opening; tested with a test-only

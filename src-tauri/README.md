@@ -15,9 +15,11 @@ for how the parts fit together; run commands from the repository root.
   off the async workers; `src/desktop/about.rs` holds the About dialog's
   commands, which open the data folder or the issues page through the opener
   plugin's functions, or record the request in the mock debug binary; and
-  `src/desktop/backup.rs` holds the Backup & Restore commands, which choose files
-  in the dialog plugin's dialogs, or the mock's answers, and save checked
-  snapshots.
+  `src/desktop/backup.rs` holds the Backup & Restore screen's backup command,
+  which chooses where to save in the dialog plugin's save dialog, or takes the
+  mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its
+  restore commands, which choose a backup in the open dialog, then copy, check
+  and hold it in the data folder.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its

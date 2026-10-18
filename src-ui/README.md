@@ -14,10 +14,14 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   `layout/` for the shell and screen frame (`AppSidebar`, `ScreenHeader`,
   and `SizeOverlay`, the development window size overlay),
   `history/` for the History screen, `import/` for the Import screen, `backup/`
-  for Backup & Restore (`BackupCard`), `about/`
+  for Backup & Restore (`BackupCard`, `RestoreCard`, and `RestoreConfirm`,
+  the restore confirmation, with a `ContentsPanel` for each history, and
+  `LeaveRestoreDialog`, asking before leaving it), `about/`
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
-  (`AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
+  (`ActionCard`, the card offering one action on Import and Backup & Restore,
+  with `StatusLine` for what its action reported,
+  `AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
   Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native
@@ -27,7 +31,9 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   notices, and `useHistory.ts` reads the saved accounts and saved history a
   page at a time, keeping each game's account chosen in the switcher until the
   app restarts or a save into that game. `useBackup.ts` saves a backup and
-  tracks how it went. `useWindowSize.ts` follows the window's size for the
+  tracks how it went, and `useRestore.ts` chooses a backup to restore and holds
+  it for its confirmation, which the Backup & Restore screen owns: leaving it,
+  once agreed, cancels the restore. `useWindowSize.ts` follows the window's size for the
   size overlay.
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep

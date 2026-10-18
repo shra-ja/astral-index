@@ -96,18 +96,24 @@ schema adds its own.
 A backup is a snapshot of the database
 ([decision 0031](decisions/0031-sqlite-snapshot-backups.md)):
 `Store::write_snapshot` writes one with `VACUUM INTO`, and `check_database`
-checks a database file as restore will, opening it read-only: this app's
-application ID, a released schema version, a passing integrity check and exactly
-the schema its version's SQL creates, compared against a fresh in-memory database
-built from that SQL. `save_backup` refuses a target inside the data folder,
+checks a database file as restore will, as untrusted input. It refuses a file
+over `MAX_DATABASE_BYTES` (256 MiB) before opening it, then opens it read-only in
+SQLite's defensive mode, with `trusted_schema` off, no memory mapping, checked
+cell sizes and lowered limits. The file must be a non-empty database with this
+app's application ID and a released schema version no newer than the app's,
+with exactly the schema its version's SQL creates, compared against a fresh
+in-memory database built from that SQL before the integrity check runs the
+file's schema. Each refusal is a distinct `Refusal`: too large, not a database,
+another app's, newer, damaged or unreadable. `Store::contents` summarizes a
+history for restore's confirmation: its accounts with their roll totals and its
+last import. `save_backup` refuses a target inside the data folder,
 writes the snapshot to a temporary file it creates new beside the chosen one,
 checks and flushes it, then renames it into place.
 
 ## Planned
 
 Restore replaces the database after a checked copy is migrated, with the current
-database kept as a safety copy, and hardens the check against hostile files;
-migrations keep a copy of the database they upgrade (decision 0031). Once a
+database kept as a safety copy; migrations keep a copy of the database they upgrade (decision 0031). Once a
 migration exists, each version's expected schema is the one its migrations
 produce from the first release's schema, not a fresh creation
 ([0037](../product/features/0037-backup-and-restore.md)). Imports will

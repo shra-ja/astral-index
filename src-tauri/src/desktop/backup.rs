@@ -25,12 +25,12 @@ pub const ANSWER: &str = "save-as.txt";
 /// How many temporary names beside a target are tried before giving up.
 const PARTIAL_NAMES: usize = 8;
 
-/// How the save dialog is answered.
+/// How the file dialogs are answered.
 #[derive(Clone, Copy)]
-pub enum Saver {
-    /// By the user, in the system's save dialog.
+pub enum Dialogs {
+    /// By the user, in the system's dialogs.
     System,
-    /// From `save-as.txt` in the data folder, for the mock debug binary, which never
+    /// From answer files in the data folder, for the mock debug binary, which never
     /// opens a dialog
     /// ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
     Answering,
@@ -40,7 +40,7 @@ pub enum Saver {
 #[derive(Clone)]
 pub struct Backup {
     pub folder: Option<PathBuf>,
-    pub saver: Saver,
+    pub dialogs: Dialogs,
 }
 
 /// What became of a backup.
@@ -70,8 +70,8 @@ fn choose<R: Runtime>(
     backup: &Backup,
     name: &str,
 ) -> Result<Option<PathBuf>, Failure> {
-    match backup.saver {
-        Saver::System => app
+    match backup.dialogs {
+        Dialogs::System => app
             .dialog()
             .file()
             .set_file_name(name)
@@ -79,12 +79,15 @@ fn choose<R: Runtime>(
             .blocking_save_file()
             .map(|chosen| chosen.into_path().map_err(|_| Failure::BackupFailed))
             .transpose(),
-        Saver::Answering => Ok(backup
-            .folder
-            .as_ref()
-            .and_then(|folder| fs::read_to_string(folder.join(ANSWER)).ok())
-            .map(|answer| PathBuf::from(answer.trim_end()))),
+        Dialogs::Answering => Ok(answer(backup.folder.as_deref(), ANSWER)),
     }
+}
+
+/// The mock's answer to a dialog: the path in the data folder's `file`, if any.
+pub(super) fn answer(folder: Option<&Path>, file: &str) -> Option<PathBuf> {
+    folder
+        .and_then(|folder| fs::read_to_string(folder.join(file)).ok())
+        .map(|answer| PathBuf::from(answer.trim_end()))
 }
 
 /// A folder's real path where it can be found, so links and differing forms of
@@ -95,25 +98,32 @@ fn real(path: &Path) -> PathBuf {
 
 /// Whether `target` would sit inside the data folder, where a backup could replace
 /// the live database or its journal.
-fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
+pub(super) fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
     folder
         .zip(target.parent())
         .is_some_and(|(folder, parent)| real(parent).starts_with(real(folder)))
 }
 
-/// Claim an unused temporary file beside `target` by creating it empty, so a file
-/// the user already has is never touched: `<target>.partial`, else `.1.partial`
-/// and on.
-fn claim_partial(target: &Path) -> Result<PathBuf, Failure> {
-    for attempt in 0..PARTIAL_NAMES {
+/// The temporary names beside `target`, in the order they are tried:
+/// `<target>.partial`, then `<target>.1.partial` and on.
+fn partial_names(target: &Path) -> impl Iterator<Item = PathBuf> + '_ {
+    (0..PARTIAL_NAMES).map(move |attempt| {
         let mut name = target.as_os_str().to_owned();
         if attempt > 0 {
             name.push(format!(".{attempt}"));
         }
         name.push(".partial");
-        let partial = PathBuf::from(name);
+        PathBuf::from(name)
+    })
+}
+
+/// Claim an unused temporary file beside `target` by creating it empty, so a file
+/// the user already has is never touched: `<target>.partial`, else `.1.partial`
+/// and on. Returns the name claimed and the file, open for writing.
+fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
+    for partial in partial_names(target) {
         match fs::File::create_new(&partial) {
-            Ok(_) => return Ok(partial),
+            Ok(file) => return Ok((partial, file)),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(_) => break,
         }
@@ -157,7 +167,7 @@ pub async fn save_to(
     if in_data_folder(folder, target) {
         return Err(Failure::BackupInDataFolder);
     }
-    let written = claim_partial(target)?;
+    let (written, _) = claim_partial(target)?;
     let saved = match write_checked(database, &written).await {
         Ok(()) => publish(&written, target).map_err(|_| Failure::BackupFailed),
         Err(failure) => Err(failure),
@@ -204,7 +214,7 @@ mod tests {
     use crate::acquisition::tests::filesystem::{self, Fixture as Files};
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{VACUUM, check_script, ending_at, setup, step, text};
-    use chooser::{Asked, FilePath, Fixture as Dialogs};
+    use chooser::{Asked, FilePath, Fixture as Answers};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 
     const NAME: &str = "Astral-Index-backup-2026-10-16.sqlite";
@@ -244,7 +254,7 @@ mod tests {
     fn system() -> Backup {
         Backup {
             folder: Some(folder()),
-            saver: Saver::System,
+            dialogs: Dialogs::System,
         }
     }
     fn database() -> Database {
@@ -318,7 +328,7 @@ mod tests {
 
     #[test]
     fn the_save_dialog_suggests_the_name_and_returns_the_chosen_file() {
-        chooser::install(Dialogs {
+        chooser::install(Answers {
             answer: Some(FilePath::Path(target())),
             ..Default::default()
         });
@@ -326,15 +336,16 @@ mod tests {
         assert_eq!(
             asked(),
             [Asked {
+                opening: false,
                 file_name: NAME.into(),
                 filter: "Astral Index backup".into(),
                 extensions: vec!["sqlite".into()],
             }]
         );
         // Closing the dialog chooses nothing; a choice that is not a local file fails.
-        chooser::install(Dialogs::default());
+        chooser::install(Answers::default());
         assert_eq!(choose(&app(), &system(), NAME), Ok(None));
-        chooser::install(Dialogs {
+        chooser::install(Answers {
             answer: Some(FilePath::Url(
                 "https://example.com/backup.sqlite".parse().unwrap(),
             )),
@@ -347,11 +358,11 @@ mod tests {
     fn the_mock_answers_from_its_data_folder_and_otherwise_cancels() {
         let answering = |folder: Option<PathBuf>| Backup {
             folder,
-            saver: Saver::Answering,
+            dialogs: Dialogs::Answering,
         };
         let answer = format!("{}\n", target().display());
         filesystem::install(files(&[(folder().join(ANSWER), answer.as_bytes())]));
-        chooser::install(Dialogs::default());
+        chooser::install(Answers::default());
         assert_eq!(
             choose(&app(), &answering(Some(folder())), NAME),
             Ok(Some(target()))
@@ -481,7 +492,7 @@ mod tests {
     #[test]
     fn saving_asks_where_then_saves_or_does_nothing_when_cancelled() {
         // A malformed date is refused before any dialog.
-        chooser::install(Dialogs::default());
+        chooser::install(Answers::default());
         assert_eq!(
             run(save_into(app(), &system(), &database(), "16/10/2026")),
             Err(Failure::InvalidRequest)
@@ -496,7 +507,7 @@ mod tests {
         assert_eq!(asked().len(), 1);
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         // A fault in the dialog fails rather than passing for a cancellation.
-        chooser::install(Dialogs {
+        chooser::install(Answers {
             crash: true,
             ..Default::default()
         });
@@ -505,7 +516,7 @@ mod tests {
             Err(Failure::BackupFailed)
         );
         // So does a choice that is not a local file, before anything is written.
-        chooser::install(Dialogs {
+        chooser::install(Answers {
             answer: Some(FilePath::Url(
                 "https://example.com/backup.sqlite".parse().unwrap(),
             )),
@@ -518,7 +529,7 @@ mod tests {
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         // Choosing a file saves the backup there.
-        chooser::install(Dialogs {
+        chooser::install(Answers {
             answer: Some(FilePath::Path(target())),
             ..Default::default()
         });

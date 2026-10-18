@@ -14,7 +14,7 @@ manifest. The manifest makes every command need a capability grant, and
 is refused. No plugins, arbitrary filesystem access or shell access are exposed;
 the opener plugin's functions are called from native code only, and the plugin
 is not registered. The dialog plugin is registered for the real app, as its save
-dialog needs it, but the capability grants none of its permissions, and a test
+and open dialogs need it, but the capability grants none of its permissions, and a test
 checks its commands are refused: only native code opens a dialog. The plugin
 also injects a script that routes `window.alert` and `window.confirm` to its
 refused commands, so the webview must not use them.
@@ -34,6 +34,8 @@ refused commands, so the webview must not use them.
 | `reveal_data_folder` | Show `history.sqlite` selected in the system file manager, or open the data folder before the file exists | No |
 | `open_issues_page` | Open the repository's issues page in the default browser | No |
 | `save_backup` | Ask where to save in the system's save dialog, suggesting `Astral-Index-backup-<date>.sqlite` from the `date` sent (`YYYY-MM-DD`), then write a checked snapshot there; returns the file's name or a cancellation. A place inside the data folder is refused (`backup_in_data_folder`), and a snapshot that fails its check is `history_damaged`. The mock debug binary answers from `save-as.txt` in its data folder | No |
+| `choose_restore` | Ask which backup to restore in the system's open dialog, copy it into the data folder under a temporary name claimed new, check the copy as untrusted input and hold it; returns the backup's file name, what it holds and what the current history holds (accounts with roll totals, and the last import), or a cancellation. Choosing a file drops any copy held before. A backup inside the data folder is refused (`restore_in_data_folder`), one that fails its check is `restore_refused` with the reason (`too_large`, `not_database`, `other_app`, `newer`, `damaged`, `unreadable`), and a copy that cannot be made or read is `restore_failed`. The mock debug binary answers from `restore-from.txt` in its data folder | No |
+| `cancel_restore` | Drop the held copy of the backup; the history is unchanged | No |
 
 ## Session
 
@@ -49,18 +51,23 @@ later the preview.
 - The preview is kept for commit unless the operation was cancelled. A commit
   uses it up whatever the outcome; without one, commit fails with `no_preview`.
 - A commit is atomic and quick, so it is not cancellable.
+- Apart from the acquisition, the restore state holds at most one checked copy
+  of a backup, in the data folder under the one name `restore.sqlite.partial`,
+  until it is cancelled or another backup is chosen; the webview cancels it
+  when the user leaves its confirmation. A copy an earlier run left, as the app
+  closed or crashed, is replaced by the next one and removed at startup.
 
 ## IPC rules
 
 - Paths never cross IPC, except the data folder and history file that `app_info`
   returns for the About dialog and the Backup & Restore screen to show; the
   webview never builds a path itself. `save_backup` returns only
-  the saved file's name. The file command takes a raw IPC body holding the file's
+  the saved file's name, and `choose_restore` only the chosen file's. The file command takes a raw IPC body holding the file's
   bytes (the webview rejects files over 16 MiB before reading); the CSP allows
   only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never
   reach the webview. Results and failures are small typed values; failures are
-  `{"kind": …}` categories, plus the API code for `api_error` and the failing
+  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, and the failing
   category and page for retrieval failures. The full list lives with the
   messages that describe them in `src-ui/src/messages.ts`.
 - The webview's `src-ui/src/commands.ts` treats any rejection that is not exactly

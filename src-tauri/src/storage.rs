@@ -1,12 +1,16 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
 #[cfg(test)]
 use self::tests::database::Connection;
+#[cfg(test)]
+use crate::acquisition::tests::filesystem as fs;
 use crate::hsr::{Category, SoftPity};
 use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
 #[cfg(not(test))]
 use rusqlite::Connection;
 use rusqlite::{OpenFlags, OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
+#[cfg(not(test))]
+use std::fs;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     path::Path,
@@ -170,6 +174,15 @@ pub struct LastImport {
     pub server: String,
     /// Rolls it added; rolls already saved are not counted.
     pub inserted: usize,
+}
+
+/// What a history holds, for comparing a backup with the current history before
+/// restoring it: the game's accounts with their roll totals, and its newest import.
+/// Holds player identifiers: never log it.
+#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Contents {
+    pub accounts: Vec<SavedAccount>,
+    pub last_import: Option<LastImport>,
 }
 
 /// Where an import came from, without exposing internal adapter names.
@@ -602,6 +615,14 @@ impl Store {
         }))
     }
 
+    /// What the history holds: its accounts, newest import first, and that import.
+    pub fn contents(&self) -> Result<Contents, Error> {
+        Ok(Contents {
+            accounts: self.accounts()?,
+            last_import: self.last_import()?,
+        })
+    }
+
     /// The account an import last went into, if any.
     pub fn latest_account(&self) -> Result<Option<Account>, Error> {
         Ok(self
@@ -808,35 +829,117 @@ fn check_timezone(
     Ok(())
 }
 
-/// Check a database file as restore will, opening it read-only so it is never
-/// changed: it must have this app's application ID, a released schema version, a
-/// passing integrity check and exactly the schema its version's SQL creates.
-pub fn check_database(path: &Path) -> Result<(), Error> {
+/// The largest database file a check accepts, room for several hundred thousand rolls.
+pub const MAX_DATABASE_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Why a database file was refused. Safe to show: no paths or file contents.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Refusal {
+    /// Larger than `MAX_DATABASE_BYTES`.
+    TooLarge,
+    /// Empty, or not a SQLite database.
+    NotDatabase,
+    /// A SQLite database without this app's application ID.
+    OtherApp,
+    /// Written by a newer version of the app.
+    Newer,
+    /// This app's database, but with an unreleased version, a schema unlike its
+    /// version's or a failed integrity check.
+    Damaged,
+    /// The file could not be read.
+    Unreadable,
+}
+impl From<rusqlite::Error> for Refusal {
+    // SQLite's own codes say whether the file is a database at all, or a damaged one.
+    fn from(error: rusqlite::Error) -> Self {
+        use rusqlite::ErrorCode::{DatabaseCorrupt, NotADatabase, TooBig};
+        match error.sqlite_error_code() {
+            Some(NotADatabase) => Self::NotDatabase,
+            Some(DatabaseCorrupt | TooBig) => Self::Damaged,
+            _ => Self::Unreadable,
+        }
+    }
+}
+
+/// SQLite's limits for an untrusted file, lowered as SQLite's own advice for
+/// untrusted databases suggests: ample for this app's schema and queries, and
+/// small enough that a hostile file cannot stall the app.
+const UNTRUSTED_LIMITS: [(rusqlite::limits::Limit, i32); 11] = {
+    use rusqlite::limits::Limit::*;
+    [
+        (SQLITE_LIMIT_LENGTH, 1_000_000),
+        (SQLITE_LIMIT_SQL_LENGTH, 100_000),
+        (SQLITE_LIMIT_COLUMN, 100),
+        (SQLITE_LIMIT_EXPR_DEPTH, 10),
+        (SQLITE_LIMIT_COMPOUND_SELECT, 3),
+        (SQLITE_LIMIT_VDBE_OP, 25_000),
+        (SQLITE_LIMIT_FUNCTION_ARG, 8),
+        (SQLITE_LIMIT_ATTACHED, 0),
+        (SQLITE_LIMIT_LIKE_PATTERN_LENGTH, 50),
+        (SQLITE_LIMIT_VARIABLE_NUMBER, 10),
+        (SQLITE_LIMIT_TRIGGER_DEPTH, 10),
+    ]
+};
+
+/// Open an untrusted database file read-only, so it is never changed, in SQLite's
+/// defensive mode, with its schema distrusted so it cannot run functions with side
+/// effects, the lowered limits, no memory mapping and checked cell sizes.
+fn open_untrusted(path: &Path) -> Result<Connection, Refusal> {
+    use rusqlite::config::DbConfig;
     let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)?;
+    for (limit, value) in UNTRUSTED_LIMITS {
+        connection.set_limit(limit, value)?;
+    }
+    connection.execute_batch("PRAGMA mmap_size=0; PRAGMA cell_size_check=ON;")?;
+    Ok(connection)
+}
+
+/// Check a database file as restore will, treating it as untrusted: at most
+/// `MAX_DATABASE_BYTES`, checked before it is opened; then a non-empty database
+/// with this app's application ID and a released schema version no newer than the
+/// app's, with exactly the schema its version's SQL creates, compared before the
+/// integrity check runs the file's schema, and a passing integrity check.
+pub fn check_database(path: &Path) -> Result<(), Refusal> {
+    let size = fs::metadata(path).map_err(|_| Refusal::Unreadable)?.len();
+    if size > MAX_DATABASE_BYTES {
+        return Err(Refusal::TooLarge);
+    }
+    let connection = open_untrusted(path)?;
+    let pages: i64 = connection.query_row("PRAGMA page_count", [], |row| row.get(0))?;
+    if pages == 0 {
+        return Err(Refusal::NotDatabase);
+    }
     let app: i32 = connection.query_row("PRAGMA application_id", [], |row| row.get(0))?;
     if app != APPLICATION_ID {
-        return Err(Error::Schema);
+        return Err(Refusal::OtherApp);
     }
     let version: i32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let newest = RELEASED.iter().map(|(released, _)| *released).max();
+    if newest.is_some_and(|newest| version > newest) {
+        return Err(Refusal::Newer);
+    }
     let creation = RELEASED
         .iter()
         .find(|(released, _)| *released == version)
         .map(|(_, sql)| *sql)
-        .ok_or(Error::Schema)?;
-    if texts(&connection, "PRAGMA integrity_check")? != ["ok"] {
-        return Err(Error::InvalidStoredData);
-    }
+        .ok_or(Refusal::Damaged)?;
     let actual = texts(&connection, SCHEMA)?;
     let fresh = Connection::open_in_memory()?;
     fresh.execute_batch(creation)?;
     if texts(&fresh, SCHEMA)? != actual {
-        return Err(Error::Schema);
+        return Err(Refusal::Damaged);
+    }
+    if texts(&connection, "PRAGMA integrity_check")? != ["ok"] {
+        return Err(Refusal::Damaged);
     }
     Ok(())
 }
 
 /// The single text column of every row `sql` returns.
-fn texts(connection: &Connection, sql: &str) -> Result<Vec<String>, Error> {
+fn texts(connection: &Connection, sql: &str) -> Result<Vec<String>, Refusal> {
     let mut statement = connection.prepare(sql)?;
     let rows = statement
         .query_map([], |row| row.get(0))?
@@ -897,11 +1000,12 @@ fn classify(
 pub(crate) mod tests {
     use super::*;
     pub(crate) mod database;
+    use crate::acquisition::tests::filesystem;
     use database::{Reply, Step};
     use rusqlite::types::Value;
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
-    const UID: &str = "100000002";
-    const SERVER: &str = "synthetic-server";
+    pub(crate) const UID: &str = "100000002";
+    pub(crate) const SERVER: &str = "synthetic-server";
     const SNAPSHOT: &str = "SELECT database_id,revision FROM metadata WHERE singleton=1";
     const TIMEZONE: &str = "SELECT timezone FROM accounts WHERE game=?1 AND uid=?2 AND server=?3";
     const LOOKUP: &str =
@@ -1771,6 +1875,45 @@ pub(crate) mod tests {
         ]
     }
 
+    #[test]
+    fn the_contents_are_the_accounts_with_their_rolls_and_the_last_import() {
+        let script = |accounts: Vec<Vec<Value>>, last: Vec<Vec<Value>>| {
+            let mut steps = accounts_script(accounts);
+            steps.push(last_import_step(last));
+            steps
+        };
+        database::expect(script(vec![accounts_row()], vec![last_import_row()]));
+        assert_eq!(
+            store().contents(),
+            Ok(Contents {
+                accounts: vec![SavedAccount {
+                    uid: UID.into(),
+                    server: SERVER.into(),
+                    timezone: Some(8),
+                    rolls: 15,
+                }],
+                last_import: Some(LastImport {
+                    imported_at: 1_790_000_000,
+                    source: Source::Hoyoverse,
+                    uid: UID.into(),
+                    server: SERVER.into(),
+                    inserted: 96,
+                }),
+            })
+        );
+        database::finish();
+        // An empty history holds nothing.
+        database::expect(script(vec![], vec![]));
+        assert_eq!(store().contents(), Ok(Contents::default()));
+        database::finish();
+        // Any failing read fails the whole.
+        fail_each(
+            &|| script(vec![accounts_row()], vec![last_import_row()]),
+            None,
+            &mut || store().contents().map(|_| ()),
+        );
+    }
+
     /// The SQL for finding the latest account, answered with `found`.
     pub(crate) fn latest_step(found: Vec<Vec<Value>>) -> Step {
         rows(LATEST, vec![text(GAME)], found)
@@ -2234,9 +2377,20 @@ pub(crate) mod tests {
         )]
     }
     /// The SQL for checking `path`, answered as a released, intact database whose
-    /// schema matches.
+    /// schema matches: opened read-only with its schema distrusted and SQLite's
+    /// limits lowered, then compared with its version's schema before its integrity
+    /// check.
     pub(crate) fn check_script(path: &str) -> Vec<Step> {
+        use rusqlite::{config::DbConfig, limits::Limit};
         let schema = vec![object("accounts", "CREATE TABLE accounts")];
+        let config = |config: DbConfig, on: bool| {
+            let bindings = vec![Value::Integer(config as i64), Value::Integer(on.into())];
+            step("DB CONFIG", bindings, Reply::Done)
+        };
+        let limit = |limit: Limit, value: i64| {
+            let bindings = vec![Value::Integer(limit as i64), Value::Integer(value)];
+            step("LIMIT", bindings, Reply::Done)
+        };
         vec![
             step(
                 "OPEN WITH FLAGS",
@@ -2246,24 +2400,52 @@ pub(crate) mod tests {
                 ],
                 Reply::Done,
             ),
+            config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true),
+            config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false),
+            limit(Limit::SQLITE_LIMIT_LENGTH, 1_000_000),
+            limit(Limit::SQLITE_LIMIT_SQL_LENGTH, 100_000),
+            limit(Limit::SQLITE_LIMIT_COLUMN, 100),
+            limit(Limit::SQLITE_LIMIT_EXPR_DEPTH, 10),
+            limit(Limit::SQLITE_LIMIT_COMPOUND_SELECT, 3),
+            limit(Limit::SQLITE_LIMIT_VDBE_OP, 25_000),
+            limit(Limit::SQLITE_LIMIT_FUNCTION_ARG, 8),
+            limit(Limit::SQLITE_LIMIT_ATTACHED, 0),
+            limit(Limit::SQLITE_LIMIT_LIKE_PATTERN_LENGTH, 50),
+            limit(Limit::SQLITE_LIMIT_VARIABLE_NUMBER, 10),
+            limit(Limit::SQLITE_LIMIT_TRIGGER_DEPTH, 10),
+            done("PRAGMA mmap_size=0; PRAGMA cell_size_check=ON;"),
+            rows("PRAGMA page_count", vec![], vec![vec![Value::Integer(4)]]),
             rows(
                 "PRAGMA application_id",
                 vec![],
                 vec![vec![Value::Integer(APPLICATION_ID.into())]],
             ),
             rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(2)]]),
-            done("PREPARE PRAGMA integrity_check"),
-            rows("PRAGMA integrity_check", vec![], vec![vec![text("ok")]]),
             done(&format!("PREPARE {SCHEMA}")),
             rows(SCHEMA, vec![], schema.clone()),
             step("OPEN IN MEMORY", vec![], Reply::Done),
             done(include_str!("../migrations/001_initial.sql")),
             done(&format!("PREPARE {SCHEMA}")),
             rows(SCHEMA, vec![], schema),
+            done("PREPARE PRAGMA integrity_check"),
+            rows("PRAGMA integrity_check", vec![], vec![vec![text("ok")]]),
         ]
     }
-    fn check() -> Result<(), Error> {
+    /// A file system holding the checked file, `length` bytes long.
+    fn holding(length: u64) {
+        let path = std::path::PathBuf::from("backup.sqlite");
+        filesystem::install(filesystem::Fixture {
+            files: [(path.clone(), vec![])].into(),
+            lengths: [(path, length)].into(),
+            ..Default::default()
+        });
+    }
+    fn check() -> Result<(), Refusal> {
         check_database(Path::new("backup.sqlite"))
+    }
+    /// A failure SQLite reports with `code`.
+    fn sqlite(code: std::ffi::c_int) -> rusqlite::Error {
+        rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(code), None)
     }
 
     #[test]
@@ -2305,11 +2487,56 @@ pub(crate) mod tests {
 
     #[test]
     fn a_released_intact_database_of_this_app_passes_its_check() {
+        holding(4096);
         database::expect(check_script("backup.sqlite"));
         assert_eq!(check(), Ok(()));
         database::finish();
-        // A database that cannot be read at any step fails as a database error.
-        fail_each(&|| check_script("backup.sqlite"), None, &mut check);
+        // The bound is inclusive.
+        holding(MAX_DATABASE_BYTES);
+        database::expect(check_script("backup.sqlite"));
+        assert_eq!(check(), Ok(()));
+        database::finish();
+    }
+
+    #[test]
+    fn a_file_too_large_or_unreadable_is_refused_before_it_is_opened() {
+        assert_eq!(MAX_DATABASE_BYTES, 256 * 1024 * 1024);
+        holding(MAX_DATABASE_BYTES + 1);
+        database::expect(vec![]);
+        assert_eq!(check(), Err(Refusal::TooLarge));
+        database::finish();
+        // A file whose size cannot be read is never opened either.
+        filesystem::install(filesystem::Fixture::default());
+        assert_eq!(check(), Err(Refusal::Unreadable));
+        database::finish();
+    }
+
+    #[test]
+    fn each_failing_step_says_whether_the_file_is_damaged_or_not_a_database() {
+        for (code, refusal) in [
+            (rusqlite::ffi::SQLITE_NOTADB, Refusal::NotDatabase),
+            (rusqlite::ffi::SQLITE_CORRUPT, Refusal::Damaged),
+            (rusqlite::ffi::SQLITE_TOOBIG, Refusal::Damaged),
+            (rusqlite::ffi::SQLITE_IOERR, Refusal::Unreadable),
+        ] {
+            for index in 0..check_script("backup.sqlite").len() {
+                let mut steps = check_script("backup.sqlite");
+                steps.truncate(index + 1);
+                steps[index].reply = Err(sqlite(code));
+                holding(4096);
+                database::expect(steps);
+                assert_eq!(check(), Err(refusal), "step {index}, code {code}");
+                database::finish();
+            }
+        }
+        // Errors without a SQLite code, such as an unreadable row, are unreadable.
+        for sql in [SCHEMA, "PRAGMA integrity_check"] {
+            let unreadable = Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]);
+            holding(4096);
+            database::expect(check_ending_at(sql, unreadable));
+            assert_eq!(check(), Err(Refusal::Unreadable), "{sql}");
+            database::finish();
+        }
     }
 
     /// The check's steps up to the first running `sql`, which answers `reply`.
@@ -2321,49 +2548,55 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn another_apps_or_an_unreleased_schema_fails_its_check() {
+    fn an_empty_file_is_not_a_database() {
+        holding(0);
+        database::expect(check_ending_at("PRAGMA page_count", integer(0)));
+        assert_eq!(check(), Err(Refusal::NotDatabase));
+        database::finish();
+    }
+
+    #[test]
+    fn another_apps_newer_or_unreleased_database_is_refused_as_such() {
         for app in [0, APPLICATION_ID + 1] {
+            holding(4096);
             database::expect(check_ending_at(
                 "PRAGMA application_id",
                 integer(app.into()),
             ));
-            assert_eq!(check(), Err(Error::Schema), "application ID {app}");
+            assert_eq!(check(), Err(Refusal::OtherApp), "application ID {app}");
             database::finish();
         }
-        // Version 1 was a pre-release layout; 3 is newer than this app.
-        for version in [0, 1, 3] {
+        // 3 is newer than this app; version 1 was a pre-release layout, and 0 was
+        // never written with this app's ID, so neither can be trusted.
+        for (version, refusal) in [
+            (3, Refusal::Newer),
+            (1, Refusal::Damaged),
+            (0, Refusal::Damaged),
+        ] {
+            holding(4096);
             database::expect(check_ending_at("PRAGMA user_version", integer(version)));
-            assert_eq!(check(), Err(Error::Schema), "version {version}");
+            assert_eq!(check(), Err(refusal), "version {version}");
             database::finish();
         }
     }
 
     #[test]
-    fn a_damaged_database_fails_its_check() {
+    fn a_failed_integrity_check_is_damage() {
         for report in [
             vec![vec![text("*** in database main ***")]],
             vec![vec![text("ok")], vec![text("ok")]],
             vec![],
         ] {
             let report = Reply::Rows(report.into_iter().map(Ok).collect());
+            holding(4096);
             database::expect(check_ending_at("PRAGMA integrity_check", report));
-            assert_eq!(check(), Err(Error::InvalidStoredData));
+            assert_eq!(check(), Err(Refusal::Damaged));
             database::finish();
         }
     }
 
     #[test]
-    fn a_row_that_cannot_be_read_fails_the_check() {
-        for sql in ["PRAGMA integrity_check", SCHEMA] {
-            let unreadable = Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]);
-            database::expect(check_ending_at(sql, unreadable));
-            assert_eq!(check(), Err(Error::Database), "{sql}");
-            database::finish();
-        }
-    }
-
-    #[test]
-    fn a_schema_unlike_its_versions_fails_its_check() {
+    fn a_schema_unlike_its_versions_is_damage_found_before_the_integrity_check() {
         for actual in [
             vec![
                 object("accounts", "CREATE TABLE accounts"),
@@ -2372,12 +2605,19 @@ pub(crate) mod tests {
             vec![object("accounts", "CREATE TABLE accounts (changed)")],
             vec![],
         ] {
-            // The file's schema is read first, then the fresh database's.
+            // The file's schema is read first, then the fresh database's; the
+            // integrity check, which would run the file's schema, never runs.
             let mut steps = check_script("backup.sqlite");
             let file = steps.iter().position(|step| step.sql == SCHEMA).unwrap();
             steps[file] = rows(SCHEMA, vec![], actual);
+            let integrity = steps
+                .iter()
+                .position(|step| step.sql == "PREPARE PRAGMA integrity_check")
+                .unwrap();
+            steps.truncate(integrity);
+            holding(4096);
             database::expect(steps);
-            assert_eq!(check(), Err(Error::Schema));
+            assert_eq!(check(), Err(Refusal::Damaged));
             database::finish();
         }
     }

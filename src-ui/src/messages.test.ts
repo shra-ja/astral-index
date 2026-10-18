@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import type { Failure, Kind } from './commands'
+import type { Failure, Kind, Refusal } from './commands'
 import {
   automaticMessages,
   backupFailure,
@@ -9,6 +9,8 @@ import {
   historyFailure,
   lastImportParts,
   progressText,
+  restoreFailure,
+  restoreSummary,
   retrievalFailure,
   savedDetail,
   savedTitle,
@@ -217,6 +219,55 @@ test('a backup that was not saved says why: the place, or the history itself', (
     'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
   )
   expect(backupFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
+})
+
+test('a refused or failed restore says why, and that nothing was changed', () => {
+  const refused: [Refusal, string][] = [
+    ['too_large', 'This file is too large to be an Astral Index backup.'],
+    ['not_database', 'This file isn’t an Astral Index backup.'],
+    ['other_app', 'This file is another app’s database, not an Astral Index backup.'],
+    [
+      'newer',
+      'This backup was made by a newer version of Astral Index. Update the app, then restore it.',
+    ],
+    ['damaged', 'This backup is damaged and can’t be restored.'],
+    ['unreadable', 'The file couldn’t be read. Check that it’s still there and try again.'],
+  ]
+  for (const [refusal, message] of refused) {
+    expect(restoreFailure({ kind: 'restore_refused', refusal })).toBe(message)
+  }
+  expect(restoreFailure({ kind: 'restore_in_data_folder' })).toBe(
+    'This file is inside the data folder. Copy it somewhere else, then restore it from there.',
+  )
+  expect(restoreFailure({ kind: 'restore_failed' })).toBe(
+    'The backup couldn’t be checked. Try again.',
+  )
+  expect(restoreFailure({ kind: 'storage' })).toBe(
+    'Your current history couldn’t be read to compare with the backup. Nothing was changed.',
+  )
+  expect(restoreFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
+  // Every native kind has a heading, these included.
+  expect(titleOf({ kind: 'restore_failed' })).toBe('Something Went Wrong')
+})
+
+test('the restore confirmation sums up what replaces what', () => {
+  const holding = (...rolls: number[]) => ({
+    accounts: rolls.map((count, index) => ({
+      uid: `10000000${index}`,
+      server: 'prod_official_asia',
+      timezone: 8,
+      rolls: count,
+    })),
+    last_import: null,
+  })
+  expect(restoreSummary(holding(2244, 51), holding(2030, 312, 88))).toBe(
+    'Restoring replaces 2,295 rolls in 2 accounts with 2,430 rolls in 3 accounts.',
+  )
+  expect(restoreSummary(holding(1), holding(1))).toBe(
+    'Restoring replaces 1 roll in 1 account with 1 roll in 1 account.',
+  )
+  // With no saved history, nothing is replaced.
+  expect(restoreSummary(holding(), holding(15))).toBe('Restoring saves 15 rolls in 1 account.')
 })
 
 test('reading saved history explains damage, and anything else asks to try again', () => {

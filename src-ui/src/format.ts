@@ -214,3 +214,9 @@ export const localDate = (date: Date) =>
   [date.getFullYear(), date.getMonth() + 1, date.getDate()]
     .map((part) => String(part).padStart(2, '0'))
     .join('-')
+
+/** Whether a history holds the account: its UID on the same server. */
+export const holdsAccount = (
+  history: { accounts: readonly { uid: string; server: string }[] },
+  { uid, server }: { uid: string; server: string },
+) => history.accounts.some((held) => held.uid === uid && held.server === server)

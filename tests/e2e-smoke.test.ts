@@ -467,7 +467,7 @@ test('the mock binary records what the About dialog opens, and reports a failed 
   })
 }, 60000)
 
-test('Backup & Restore saves a checked backup where the mock answers, and nothing on cancel or failure', async () => {
+test('Backup & Restore saves a checked backup and checks one to restore, where the mock answers', async () => {
   const backups = resolve(results, 'e2e-backups')
   rmSync(backups, { recursive: true, force: true })
   mkdirSync(backups, { recursive: true })
@@ -500,6 +500,58 @@ test('Backup & Restore saves a checked backup where the mock answers, and nothin
     await expect
       .poll(status, { timeout: 10000 })
       .toContain('The backup couldn’t be saved there. Choose another folder and try again.')
+    // Restoring that backup: the mock answers the open dialog with the path its tests
+    // write. The copy is checked in the data folder and compared with the history.
+    const restoreFrom = resolve(folder, 'restore-from.txt')
+    const held = resolve(folder, 'restore.sqlite.partial')
+    writeFileSync(restoreFrom, `${backup}\n`)
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(await textOf(app, 'header .source')).toBe('Restoring from history-copy.sqlite')
+    expect(await textOf(app, '#in-backup + .tag')).toBe('Becomes your history')
+    expect(
+      await app.execute(
+        `return [...document.querySelectorAll('main section .value')].map((value) => value.textContent)`,
+      ),
+    ).toEqual(['2,060', '1', '2,060', '1'])
+    expect(await textOf(app, 'main .footnote')).toBe(
+      'Restoring replaces 2,060 rolls in 1 account with 2,060 rolls in 1 account.',
+    )
+    expect(await app.execute(`return document.activeElement.classList.contains('intro')`)).toBe(
+      true,
+    )
+    expect(existsSync(held)).toBe(true)
+    // Restoring isn't available yet; Cancel drops the held copy, and focus returns.
+    await click(app, 'main footer', 'Cancel')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    await expect.poll(() => existsSync(held), { timeout: 5000 }).toBe(false)
+    expect(await app.execute(`return document.activeElement.textContent.trim()`)).toBe(
+      'Restore from backup…',
+    )
+    // Leaving a held backup's confirmation asks first; Leave cancels the restore.
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(existsSync(held)).toBe(true)
+    await app.execute(`document.querySelector('nav a[aria-label="Import"]').click()`)
+    await expect
+      .poll(() => textOf(app, 'dialog.leave-restore h2'), { timeout: 5000 })
+      .toBe('Leave Without Restoring?')
+    expect(await app.execute(`return document.activeElement.textContent.trim()`)).toBe('Stay')
+    await click(app, 'dialog.leave-restore', 'Leave')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    await expect.poll(() => existsSync(held), { timeout: 5000 }).toBe(false)
+    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    // A file that isn't a backup is refused, and nothing is left in the data folder.
+    const notes = resolve(results, 'e2e-not-a-backup.sqlite')
+    writeFileSync(notes, 'not a database, just some text that is long enough')
+    writeFileSync(restoreFrom, notes)
+    await click(app, 'main', 'Restore from backup…')
+    await expect
+      .poll(() => textOf(app, "#restore-title ~ .actions [role='status']"), { timeout: 10000 })
+      .toContain('This file isn’t an Astral Index backup.')
+    expect(existsSync(held)).toBe(false)
+    rmSync(notes)
   })
   // The backup is the closed app's history, checked: this app's, version 2, intact.
   expect(readdirSync(backups)).toEqual(['history-copy.sqlite'])
