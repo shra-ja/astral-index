@@ -5,6 +5,8 @@ Status: In progress · Milestone 11, Backup, restore and file import
 A backup file holding the whole history, which a fresh profile can restore,
 on a new **Backup & Restore** screen in the sidebar
 ([decision 0031](../../architecture/decisions/0031-sqlite-snapshot-backups.md)).
+As it covers every game, the screen is app-wide, outside the selected game's
+screens ([decision 0033](../../architecture/decisions/0033-app-wide-and-per-game-screens.md)).
 Backup and restore stay local and never make a network request.
 
 ## Requirements
@@ -135,6 +137,17 @@ Backup and restore stay local and never make a network request.
     keyboard. Leaving the screen keeps the checked copy, so the confirmation is
     still shown on return, until it is confirmed, cancelled or another backup
     chosen. The confirmation is designed on the canvas first.
+- [ ] **App-wide screen** (one PR). Move Backup & Restore out of the selected
+  game's screens (decision 0033):
+  - [ ] The route becomes `/backup`, with no game; the old `/:game/backup`
+    addresses redirect to it.
+  - [ ] The sidebar gives it its own group above About. While it is open, the
+    game switcher marks no game as current, choosing a game opens its History,
+    and the View group's links keep pointing to the game shown last.
+  - [ ] The sidebar's new group is designed on the canvas first, without the
+    Export card that moves to its own screen
+    ([0055](0055-uigf-export.md)); the end-to-end tests reach the screen at its
+    new address.
 - [ ] **Restore, replacing** (one PR). Replacing the history with the checked
   copy:
   - [ ] Restore is refused while a retrieval or import is under way.

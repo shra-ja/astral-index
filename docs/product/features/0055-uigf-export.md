@@ -2,12 +2,15 @@
 
 Status: Planned · Milestone 11, Backup, restore and file import
 
-Export the saved Honkai: Star Rail history as a UIGF v4.2 file from the Backup &
-Restore screen, so it can be read and moved to other tools. Export stays local
+Export the saved Honkai: Star Rail history as a UIGF v4.2 file from its own
+Export screen, so it can be read and moved to other tools. Export stays local
 and never makes a network request.
 
 ## Requirements
 
+- The Export screen is one of the selected game's screens, after Import in the
+  sidebar's View group, at `/:game/export`
+  ([decision 0033](../../architecture/decisions/0033-app-wide-and-per-game-screens.md)).
 - A save dialog, opened by the Rust side, suggests
   `Astral-Index-UIGF-YYYY-MM-DD.json`. The file holds every saved Star Rail
   account in `hkrpg`, or the one the user chooses, with `info.export_app`
@@ -35,5 +38,6 @@ and never makes a network request.
 - [ ] **Export.** Serialisation, validation and the atomic write.
 - [ ] **Round trips.** Exported files import back with every roll a duplicate,
   including long IDs; rolls without a pool ID are counted and left out.
-- [ ] **Screen.** The account selector, the Export UIGF file action and the
+- [ ] **Screen.** The Export screen in the View group, designed on the canvas
+  first, with the account selector, the Export UIGF file action and the
   standard's note.

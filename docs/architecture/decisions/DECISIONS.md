@@ -65,3 +65,4 @@ HoYoverse fetching.
 - [0030 — Tag-versioned releases](0030-tag-versioned-releases.md)
 - [0031 — SQLite snapshot backups](0031-sqlite-snapshot-backups.md)
 - [0032 — History-file import rules](0032-history-file-import-rules.md)
+- [0033 — App-wide and per-game screens](0033-app-wide-and-per-game-screens.md)
