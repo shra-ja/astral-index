@@ -34,8 +34,8 @@ Backup and restore stay local and never make a network request.
   no memory mapping and lowered limits, so a hostile file cannot run its own
   constraints or stall the app. The safety copy gets the same data-folder guard
   as backups. A source inside the data folder is refused only when it is the
-  history itself, `history.sqlite` or its journal, so a safety copy can be
-  restored where it is.
+  history itself, `history.sqlite`, so a safety copy can be restored where it
+  is.
 
   The confirmation then shows the backup's accounts, their roll counts and its
   last import beside the current history's, and says that the current history
@@ -152,11 +152,11 @@ Backup and restore stay local and never make a network request.
     and the restored history, and covers a refusal and a cancellation.
 - [ ] **Restoring a safety copy** (one PR). Relax the source's data-folder
   guard to protect only the history itself:
-  - [ ] `choose_restore` refuses `history.sqlite` and its journal
-    (`history.sqlite-journal`, `-wal` and `-shm`), compared by their real paths,
+  - [ ] `choose_restore` refuses `history.sqlite`, compared by its real path,
     and accepts any other file in the data folder, such as a
     `history-before-restore-*.sqlite` safety copy or a migration's
-    `history-v<N>.sqlite`. Backups and safety copies keep the full guard.
+    `history-v<N>.sqlite`. A journal needs no rule, as it fails the check as
+    not a database. Backups and safety copies keep the full guard.
   - [ ] The refusal's message names the history rather than the data folder.
   - [ ] An end-to-end test restores a safety copy from the data folder through
     the mock and is refused the history itself.
