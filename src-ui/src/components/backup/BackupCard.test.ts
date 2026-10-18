@@ -28,7 +28,7 @@ test('while saving the button waits; then it names the file or says what went wr
   await wrapper.setProps({ state: 'saved', name: NAME })
   expect(wrapper.get('button').text()).toBe('Save backup…')
   expect(status(wrapper)).toBe(`Saved ${NAME}`)
-  expect(wrapper.find('[role="status"] .saved').exists()).toBe(true)
+  expect(wrapper.find('[role="status"] .done').exists()).toBe(true)
   await wrapper.setProps({
     state: 'failed',
     name: null,

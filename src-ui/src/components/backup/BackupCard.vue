@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // Presentational: the Backup card. Asks for a backup with an event; the caller saves
 // it and reports how it went, which a status region announces.
-import { CircleAlert, Check, DatabaseBackup } from '@lucide/vue'
+import { DatabaseBackup } from '@lucide/vue'
 import type { BackupState } from '../../composables/useBackup'
 import ActionCard from '../shared/ActionCard.vue'
+import StatusLine from '../shared/StatusLine.vue'
 
 defineProps<{ state: BackupState; name?: string | null; message?: string | null }>()
 const emit = defineEmits<{ save: [] }>()
@@ -26,49 +27,19 @@ const emit = defineEmits<{ save: [] }>()
       <button type="button" :disabled="state === 'saving'" @click="emit('save')">
         {{ state === 'saving' ? 'Saving backup…' : 'Save backup…' }}
       </button>
-      <div class="status" role="status">
-        <p v-if="state === 'saved'" class="saved">
-          <Check :size="16" :stroke-width="2" />
-          <span
-            >Saved <span class="name">{{ name }}</span></span
-          >
-        </p>
-        <p v-else-if="state === 'failed'" class="failed">
-          <CircleAlert :size="16" :stroke-width="1.75" />
-          <span>{{ message }}</span>
-        </p>
-      </div>
+    </template>
+    <template #status>
+      <StatusLine v-if="state === 'saved'" tone="done"
+        >Saved <span class="name">{{ name }}</span></StatusLine
+      >
+      <StatusLine v-else-if="state === 'failed'" tone="failed">{{ message }}</StatusLine>
     </template>
   </ActionCard>
 </template>
 
 <style scoped>
-.status {
-  min-height: 20px;
-}
-.status p {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.status svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-.saved {
-  color: var(--text-secondary);
-}
-.saved svg {
-  color: var(--accent);
-}
 .name {
   color: var(--text-soft);
   overflow-wrap: anywhere;
-}
-.failed {
-  color: var(--error);
 }
 </style>

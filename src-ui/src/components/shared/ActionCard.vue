@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // Presentational: a card offering one action, as on the Import and Backup & Restore
 // screens: an icon, a heading naming the section, a description and its points. The
-// default slot adds controls below the points; the actions slot holds the buttons and
-// what they report, at the card's foot.
+// default slot adds controls below the points; the actions slot holds the buttons, at
+// the card's foot, and the status slot what they report, which a status region below
+// them announces.
 defineProps<{ id: string; title: string; text: string; points: string[]; accent?: boolean }>()
 </script>
 
@@ -19,6 +20,9 @@ defineProps<{ id: string; title: string; text: string; points: string[]; accent?
     <slot />
     <div class="actions">
       <slot name="actions" />
+      <div v-if="$slots.status" class="status" role="status">
+        <slot name="status" />
+      </div>
     </div>
   </section>
 </template>
@@ -75,5 +79,8 @@ ul {
 }
 .actions > :slotted(button) {
   align-self: flex-start;
+}
+.status {
+  min-height: 20px;
 }
 </style>

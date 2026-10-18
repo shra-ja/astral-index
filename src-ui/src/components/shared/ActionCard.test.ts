@@ -37,3 +37,20 @@ test('hides the icon from screen readers and marks an accented one', async () =>
   await wrapper.setProps({ accent: true })
   expect(wrapper.get('.icon').classes()).toContain('accent')
 })
+
+test('announces what its actions report in a status region below them', () => {
+  const wrapper = mount(ActionCard, {
+    props: { id: 'card-title', title: 'Backup', text: 'Save a copy.', points: [] },
+    slots: {
+      actions: '<button type="button">Save</button>',
+      status: '<p class="note">Saved</p>',
+    },
+  })
+  const status = wrapper.get('.actions [role="status"]')
+  expect(status.get('.note').text()).toBe('Saved')
+  expect(wrapper.find('.actions button + [role="status"]').exists()).toBe(true)
+})
+
+test('without a status slot there is no status region', () => {
+  expect(card().find('[role="status"]').exists()).toBe(false)
+})
