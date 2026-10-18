@@ -176,6 +176,15 @@ pub struct LastImport {
     pub inserted: usize,
 }
 
+/// What a history holds, for comparing a backup with the current history before
+/// restoring it: the game's accounts with their roll totals, and its newest import.
+/// Holds player identifiers: never log it.
+#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Contents {
+    pub accounts: Vec<SavedAccount>,
+    pub last_import: Option<LastImport>,
+}
+
 /// Where an import came from, without exposing internal adapter names.
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -604,6 +613,14 @@ impl Store {
             // The schema keeps counts non-negative.
             inserted: usize::try_from(inserted).unwrap_or_default(),
         }))
+    }
+
+    /// What the history holds: its accounts, newest import first, and that import.
+    pub fn contents(&self) -> Result<Contents, Error> {
+        Ok(Contents {
+            accounts: self.accounts()?,
+            last_import: self.last_import()?,
+        })
     }
 
     /// The account an import last went into, if any.
@@ -1855,6 +1872,45 @@ pub(crate) mod tests {
             text(SERVER),
             Value::Integer(96),
         ]
+    }
+
+    #[test]
+    fn the_contents_are_the_accounts_with_their_rolls_and_the_last_import() {
+        let script = |accounts: Vec<Vec<Value>>, last: Vec<Vec<Value>>| {
+            let mut steps = accounts_script(accounts);
+            steps.push(last_import_step(last));
+            steps
+        };
+        database::expect(script(vec![accounts_row()], vec![last_import_row()]));
+        assert_eq!(
+            store().contents(),
+            Ok(Contents {
+                accounts: vec![SavedAccount {
+                    uid: UID.into(),
+                    server: SERVER.into(),
+                    timezone: Some(8),
+                    rolls: 15,
+                }],
+                last_import: Some(LastImport {
+                    imported_at: 1_790_000_000,
+                    source: Source::Hoyoverse,
+                    uid: UID.into(),
+                    server: SERVER.into(),
+                    inserted: 96,
+                }),
+            })
+        );
+        database::finish();
+        // An empty history holds nothing.
+        database::expect(script(vec![], vec![]));
+        assert_eq!(store().contents(), Ok(Contents::default()));
+        database::finish();
+        // Any failing read fails the whole.
+        fail_each(
+            &|| script(vec![accounts_row()], vec![last_import_row()]),
+            None,
+            &mut || store().contents().map(|_| ()),
+        );
     }
 
     /// The SQL for finding the latest account, answered with `found`.

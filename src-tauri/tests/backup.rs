@@ -68,6 +68,11 @@ fn a_snapshot_passes_the_check_and_holds_the_same_history() {
         store.history(UID, SERVER).unwrap()
     );
     assert_eq!(restored.accounts().unwrap(), store.accounts().unwrap());
+    // Its contents, as the restore confirmation shows them, match the history's.
+    let contents = restored.contents().unwrap();
+    assert_eq!(contents.accounts[0].rolls, 2);
+    assert_eq!(contents.last_import.as_ref().unwrap().inserted, 2);
+    assert_eq!(contents, store.contents().unwrap());
 }
 
 #[test]

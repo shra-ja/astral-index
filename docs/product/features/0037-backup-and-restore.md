@@ -114,7 +114,7 @@ Backup and restore stay local and never make a network request.
     removed. An unreleased version or a schema unlike its version's counts as
     damage. A history over the bound would fail its backup as damaged, as restore
     could not accept it.
-  - [ ] Storage reads a checked file's summary for the confirmation: its
+  - [x] Storage reads a checked file's summary for the confirmation: its
     accounts with their servers and roll counts, and its last import.
   - [ ] A `choose_restore` command opens the open dialog from Rust, refuses a
     source inside the data folder, copies the file into the data folder under a
