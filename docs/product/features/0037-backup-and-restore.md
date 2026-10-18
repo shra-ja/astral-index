@@ -114,9 +114,14 @@ Backup and restore stay local and never make a network request.
     removed. An unreleased version or a schema unlike its version's counts as
     damage. A history over the bound would fail its backup as damaged, as restore
     could not accept it.
+  - `choose_restore`'s tests failed first against stubs, and each rule's test
+    fails with the rule removed: the data-folder guard, the bound while
+    copying, removing a refused copy, and dropping the copy held before.
+    Without a data folder no dialog opens. Opening the checked copy as a store
+    is its migration for now; the runner arrives with Migration recovery.
   - [x] Storage reads a checked file's summary for the confirmation: its
     accounts with their servers and roll counts, and its last import.
-  - [ ] A `choose_restore` command opens the open dialog from Rust, refuses a
+  - [x] A `choose_restore` command opens the open dialog from Rust, refuses a
     source inside the data folder, copies the file into the data folder under a
     temporary name claimed new, checks and migrates the copy, and holds it in
     the session; it returns the backup's summary and the current history's,

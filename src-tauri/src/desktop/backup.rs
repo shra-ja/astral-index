@@ -23,7 +23,7 @@ use tokio::task::spawn_blocking;
 /// without it, the save dialog counts as cancelled.
 pub const ANSWER: &str = "save-as.txt";
 /// How many temporary names beside a target are tried before giving up.
-const PARTIAL_NAMES: usize = 8;
+pub(super) const PARTIAL_NAMES: usize = 8;
 
 /// How the file dialogs are answered.
 #[derive(Clone, Copy)]
@@ -79,12 +79,15 @@ fn choose<R: Runtime>(
             .blocking_save_file()
             .map(|chosen| chosen.into_path().map_err(|_| Failure::BackupFailed))
             .transpose(),
-        Dialogs::Answering => Ok(backup
-            .folder
-            .as_ref()
-            .and_then(|folder| fs::read_to_string(folder.join(ANSWER)).ok())
-            .map(|answer| PathBuf::from(answer.trim_end()))),
+        Dialogs::Answering => Ok(answer(backup.folder.as_deref(), ANSWER)),
     }
+}
+
+/// The mock's answer to a dialog: the path in the data folder's `file`, if any.
+pub(super) fn answer(folder: Option<&Path>, file: &str) -> Option<PathBuf> {
+    folder
+        .and_then(|folder| fs::read_to_string(folder.join(file)).ok())
+        .map(|answer| PathBuf::from(answer.trim_end()))
 }
 
 /// A folder's real path where it can be found, so links and differing forms of
@@ -95,7 +98,7 @@ fn real(path: &Path) -> PathBuf {
 
 /// Whether `target` would sit inside the data folder, where a backup could replace
 /// the live database or its journal.
-fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
+pub(super) fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
     folder
         .zip(target.parent())
         .is_some_and(|(folder, parent)| real(parent).starts_with(real(folder)))
@@ -103,8 +106,8 @@ fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
 
 /// Claim an unused temporary file beside `target` by creating it empty, so a file
 /// the user already has is never touched: `<target>.partial`, else `.1.partial`
-/// and on.
-fn claim_partial(target: &Path) -> Result<PathBuf, Failure> {
+/// and on. Returns the name claimed and the file, open for writing.
+pub(super) fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
     for attempt in 0..PARTIAL_NAMES {
         let mut name = target.as_os_str().to_owned();
         if attempt > 0 {
@@ -113,7 +116,7 @@ fn claim_partial(target: &Path) -> Result<PathBuf, Failure> {
         name.push(".partial");
         let partial = PathBuf::from(name);
         match fs::File::create_new(&partial) {
-            Ok(_) => return Ok(partial),
+            Ok(file) => return Ok((partial, file)),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(_) => break,
         }
@@ -157,7 +160,7 @@ pub async fn save_to(
     if in_data_folder(folder, target) {
         return Err(Failure::BackupInDataFolder);
     }
-    let written = claim_partial(target)?;
+    let (written, _) = claim_partial(target)?;
     let saved = match write_checked(database, &written).await {
         Ok(()) => publish(&written, target).map_err(|_| Failure::BackupFailed),
         Err(failure) => Err(failure),
@@ -326,6 +329,7 @@ mod tests {
         assert_eq!(
             asked(),
             [Asked {
+                opening: false,
                 file_name: NAME.into(),
                 filter: "Astral Index backup".into(),
                 extensions: vec!["sqlite".into()],

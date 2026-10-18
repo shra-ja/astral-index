@@ -833,7 +833,8 @@ fn check_timezone(
 pub const MAX_DATABASE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Why a database file was refused. Safe to show: no paths or file contents.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Refusal {
     /// Larger than `MAX_DATABASE_BYTES`.
     TooLarge,
@@ -1003,8 +1004,8 @@ pub(crate) mod tests {
     use database::{Reply, Step};
     use rusqlite::types::Value;
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
-    const UID: &str = "100000002";
-    const SERVER: &str = "synthetic-server";
+    pub(crate) const UID: &str = "100000002";
+    pub(crate) const SERVER: &str = "synthetic-server";
     const SNAPSHOT: &str = "SELECT database_id,revision FROM metadata WHERE singleton=1";
     const TIMEZONE: &str = "SELECT timezone FROM accounts WHERE game=?1 AND uid=?2 AND server=?3";
     const LOOKUP: &str =

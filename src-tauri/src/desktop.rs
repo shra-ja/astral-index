@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 pub mod about;
 pub mod backup;
 pub mod database;
+pub mod restore;
 pub use database::Database;
 
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
@@ -86,6 +87,13 @@ pub enum Failure {
     BackupInDataFolder,
     /// A snapshot of the saved history failed its check, so no backup was made.
     HistoryDamaged,
+    /// The backup chosen for restoring failed its check, for the reason given.
+    RestoreRefused(crate::storage::Refusal),
+    /// The backup chosen for restoring is inside the data folder.
+    RestoreInDataFolder,
+    /// The backup chosen for restoring could not be copied into the data folder
+    /// and read there, or the open dialog failed.
+    RestoreFailed,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -287,7 +295,9 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         about::app_info,
         about::reveal_data_folder,
         about::open_issues_page,
-        backup::save_backup
+        backup::save_backup,
+        restore::choose_restore,
+        restore::cancel_restore
     ])
 }
 
@@ -341,7 +351,10 @@ fn register_with<R: Runtime>(
     network: Network,
     settings: Settings,
 ) -> Builder<R> {
-    let builder = builder.manage(Session::default()).manage(network);
+    let builder = builder
+        .manage(Session::default())
+        .manage(restore::Restore::default())
+        .manage(network);
     handle_commands(builder).setup(move |app| {
         // Portable mode, or else local, not roaming, app data: history never
         // leaves the machine with a roaming Windows profile.
@@ -1137,7 +1150,9 @@ mod tests {
                 "app_info",
                 "reveal_data_folder",
                 "open_issues_page",
-                "save_backup"
+                "save_backup",
+                "choose_restore",
+                "cancel_restore"
             ]
         );
         // The About commands take no arguments. Opening goes to the test double,
@@ -1178,6 +1193,13 @@ mod tests {
             ),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
+        // Restore's commands take no arguments; on the worker thread the dialog's
+        // test double chooses nothing, so nothing is copied or held.
+        assert_eq!(
+            reply_to(&window, COMMANDS[13]),
+            serde_json::json!({ "kind": "cancelled" })
+        );
+        assert_eq!(invoke(&window, COMMANDS[14], InvokeBody::default()), Ok(()));
         assert_eq!(
             invoke(&window, COMMANDS[8], InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
@@ -1477,6 +1499,39 @@ mod tests {
             let error = invoke(&window, command, raw(cache(&["synthetic"])));
             assert!(error.unwrap_err().contains("state not managed"));
         }
+    }
+
+    #[test]
+    fn restore_fails_over_ipc_without_a_data_folder_or_its_state() {
+        let backup = || backup::Backup {
+            folder: None,
+            dialogs: backup::Dialogs::System,
+        };
+        let builders = [
+            mock_builder().manage(backup()),
+            mock_builder()
+                .manage(backup())
+                .manage(restore::Restore::default()),
+            mock_builder()
+                .manage(backup())
+                .manage(restore::Restore::default())
+                .manage(Database::new(None)),
+        ];
+        let replies: Vec<_> = builders
+            .into_iter()
+            .map(|builder| {
+                let app = handle_commands(builder)
+                    .build(mock_context(noop_assets()))
+                    .unwrap();
+                let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+                    .build()
+                    .unwrap();
+                invoke(&window, "choose_restore", InvokeBody::default()).unwrap_err()
+            })
+            .collect();
+        assert!(replies[0].contains("state not managed"));
+        assert!(replies[1].contains("state not managed"));
+        assert_eq!(replies[2], r#"{"kind":"restore_failed"}"#);
     }
 
     #[test]

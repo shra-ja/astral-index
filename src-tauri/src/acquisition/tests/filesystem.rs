@@ -3,7 +3,7 @@ use std::{
     cell::RefCell,
     collections::BTreeMap,
     ffi::OsString,
-    io::{self, Cursor, Read},
+    io::{self, Cursor, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -29,6 +29,10 @@ pub struct Fixture {
     /// Files flushed to disk, in order; `sync_failure` makes flushing fail.
     pub synced: Vec<PathBuf>,
     pub sync_failure: bool,
+    /// Writing to an open file fails.
+    pub write_failure: bool,
+    /// Reading from an open file fails.
+    pub read_failure: bool,
 }
 thread_local! { static FIXTURE: RefCell<Fixture> = RefCell::default(); }
 pub fn install(fixture: Fixture) {
@@ -282,8 +286,28 @@ impl File {
         metadata(&self.path)
     }
 }
+/// Appends to the file's contents, failing when the fixture says so.
+impl Write for File {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        FIXTURE.with(|state| {
+            let mut state = state.borrow_mut();
+            if state.write_failure {
+                return Err(missing());
+            }
+            let contents = state.files.get_mut(&self.path).ok_or_else(missing)?;
+            contents.extend_from_slice(bytes);
+            Ok(bytes.len())
+        })
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 impl Read for File {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        if FIXTURE.with(|state| state.borrow().read_failure) {
+            return Err(missing());
+        }
         let count = self.reader.read(bytes)?;
         FIXTURE.with(|state| state.borrow_mut().reads += count);
         Ok(count)

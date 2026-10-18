@@ -1,12 +1,14 @@
-//! Test double for the dialog plugin's save dialog. Unit tests never open a dialog:
+//! Test double for the dialog plugin's save and open dialogs. Unit tests never open a dialog:
 //! what it would show is recorded, and the fixture's answer returned once.
 use std::cell::RefCell;
 use tauri::{AppHandle, Runtime};
 pub use tauri_plugin_dialog::FilePath;
 
-/// What a save dialog was asked to show.
+/// What a dialog was asked to show.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Asked {
+    /// An open dialog, choosing an existing file, rather than a save dialog.
+    pub opening: bool,
     pub file_name: String,
     pub filter: String,
     pub extensions: Vec<String>,
@@ -60,6 +62,13 @@ impl FileDialogBuilder {
         self
     }
     pub fn blocking_save_file(self) -> Option<FilePath> {
+        self.answer()
+    }
+    pub fn blocking_pick_file(mut self) -> Option<FilePath> {
+        self.0.opening = true;
+        self.answer()
+    }
+    fn answer(self) -> Option<FilePath> {
         FIXTURE.with(|state| {
             let mut state = state.borrow_mut();
             assert!(!state.crash, "synthetic dialog fault");
