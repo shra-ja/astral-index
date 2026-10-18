@@ -300,7 +300,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         portable: true,
         fresh_webview: false,
         opener: about::Opener::System,
-        saver: backup::Saver::System,
+        dialogs: backup::Dialogs::System,
     };
     register_with(
         builder.plugin(tauri_plugin_dialog::init()),
@@ -320,7 +320,7 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         portable: false,
         fresh_webview: true,
         opener: about::Opener::Recording,
-        saver: backup::Saver::Answering,
+        dialogs: backup::Dialogs::Answering,
     };
     register_with(builder, Network::Mock(scenario), settings)
 }
@@ -333,7 +333,7 @@ struct Settings {
     /// Whether the webview's profile is cleared at each start.
     fresh_webview: bool,
     opener: about::Opener,
-    saver: backup::Saver,
+    dialogs: backup::Dialogs,
 }
 
 fn register_with<R: Runtime>(
@@ -362,7 +362,7 @@ fn register_with<R: Runtime>(
         });
         app.manage(backup::Backup {
             folder: folder.clone(),
-            saver: settings.saver,
+            dialogs: settings.dialogs,
         });
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
@@ -1321,7 +1321,7 @@ mod tests {
         // Backups are saved where the user chooses in the system's dialog.
         let backup = app.state::<backup::Backup>();
         assert_eq!(backup.folder.as_ref(), about.folder.as_ref());
-        assert!(matches!(backup.saver, backup::Saver::System));
+        assert!(matches!(backup.dialogs, backup::Dialogs::System));
         assert!(app.get_webview_window("main").is_some());
         // The app keeps its webview profile.
         filesystem::inspect(|state| assert!(state.removed.is_empty()));
@@ -1355,7 +1355,7 @@ mod tests {
         // Its tests answer the save dialog from its data folder.
         let backup = app.state::<backup::Backup>();
         assert_eq!(backup.folder.as_deref(), Some(folder.as_path()));
-        assert!(matches!(backup.saver, backup::Saver::Answering));
+        assert!(matches!(backup.dialogs, backup::Dialogs::Answering));
         assert!(app.get_webview_window("main").is_some());
         // The mock starts each run with a fresh webview profile.
         filesystem::inspect(|state| {
