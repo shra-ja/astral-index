@@ -16,9 +16,10 @@ rearranged without rewriting the flows behind them.
   `features.ts` lists from the build-time feature toggles
   ([decision 0026](decisions/0026-feature-toggles.md)); release builds hide
   Genshin Impact, and its addresses redirect. The app opens on Star Rail's history. The
-  shell creates the retrieval and restore flows and provides them to the
-  screens, so a running retrieval and its review, and a checked backup and its
-  confirmation, survive switching screens. It also shows the About
+  shell creates the retrieval flow and provides it to the screens, so a running
+  retrieval and its review survive switching screens. A restore, by contrast,
+  belongs to the Backup & Restore screen: leaving its confirmation asks first,
+  then cancels it. It also shows the About
   dialog, a native modal `<dialog>` with no route, over whichever screen is open,
   and returns focus to the sidebar's About button when it closes.
 - **Flows (composables):** `useRetrieval` owns retrieval, review and saving;

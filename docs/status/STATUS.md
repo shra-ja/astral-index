@@ -47,7 +47,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Restore, checking and preview (2026-10-18)
 
-`feat/restore-preview`: 0037's restore up to its confirmation: the shared `ActionCard`, the hardened check with distinct refusals, `Store::contents`, `choose_restore`/`cancel_restore` holding a checked copy in the data folder, and the Restore card and confirmation, its Restore button unavailable until replacing. Each layer red first; decisions 0031 (amended) and 0033 (app-wide screens) and the safety-copy task recorded.
+`feat/restore-preview`: 0037's restore up to its confirmation: the shared `ActionCard`, the hardened check with distinct refusals, `Store::contents`, `choose_restore`/`cancel_restore` holding a checked copy in the data folder, and the Restore card and confirmation, its Restore button unavailable until replacing. Each layer red first. Two reviewer agents' findings fixed: leaving the confirmation cancels it after a prompt, the held copy keeps one name and is removed at startup, one shared status line. Decisions 0031 (amended) and 0033 recorded.
 
 ## Known limitations
 

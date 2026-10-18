@@ -528,6 +528,20 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
     expect(await app.execute(`return document.activeElement.textContent.trim()`)).toBe(
       'Restore from backup…',
     )
+    // Leaving a held backup's confirmation asks first; Leave cancels the restore.
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(existsSync(held)).toBe(true)
+    await app.execute(`document.querySelector('nav a[aria-label="Import"]').click()`)
+    await expect
+      .poll(() => textOf(app, 'dialog.leave-restore h2'), { timeout: 5000 })
+      .toBe('Leave Without Restoring?')
+    expect(await app.execute(`return document.activeElement.textContent.trim()`)).toBe('Stay')
+    await click(app, 'dialog.leave-restore', 'Leave')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    await expect.poll(() => existsSync(held), { timeout: 5000 }).toBe(false)
+    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
     // A file that isn't a backup is refused, and nothing is left in the data folder.
     const notes = resolve(results, 'e2e-not-a-backup.sqlite')
     writeFileSync(notes, 'not a database, just some text that is long enough')

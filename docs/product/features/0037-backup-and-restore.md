@@ -44,7 +44,9 @@ Backup and restore stay local and never make a network request.
   will be kept as a safety copy. On confirming, the current database is copied
   to `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder and the
   checked copy replaces it; the screens then show the restored history. Cancel
-  or any failure leaves the current history untouched.
+  or any failure leaves the current history untouched. Leaving the
+  confirmation asks first, and leaving cancels the restore, so a checked copy
+  is never left held.
 - **Migration recovery:** before upgrading an older database on opening, the app
   copies it to `history-v<N>.sqlite` in the data folder; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
@@ -128,20 +130,26 @@ Backup and restore stay local and never make a network request.
     unavailable until Restore, replacing. Each layer's tests failed first; the
     end-to-end test checks a real backup through the mock, the held copy in the
     data folder, Cancel removing it and focus returning, and a refusal.
+  - Two reviewer agents found a held copy outlived a normal quit, and eight
+    used up backup's temporary names, blocking every later restore. Fixed as
+    the user chose: leaving the confirmation cancels it after a prompt, the
+    held copy keeps one name of its own, and startup removes it. Also fixed:
+    the cards share one status line, and the restore flow keeps no state twice.
   - [x] Storage reads a checked file's summary for the confirmation: its
     accounts with their servers and roll counts, and its last import.
   - [x] A `choose_restore` command opens the open dialog from Rust, refuses a
-    source inside the data folder, copies the file into the data folder under a
-    temporary name claimed new, checks and migrates the copy, and holds it in
-    the session; it returns the backup's summary and the current history's,
+    source inside the data folder, copies the file into the data folder under
+    the one name only the held copy uses, `restore.sqlite.partial`, replacing an
+    earlier run's copy, checks and migrates it, and holds it in the session; it returns the backup's summary and the current history's,
     never a path. A `cancel_restore` command removes the held copy. The mock
     debug binary answers the dialog from a file its tests write.
   - [x] The Restore card on Backup & Restore, and its confirmation, which
     replaces the screen's content, as the Import review does: both summaries
     side by side, Restore and Cancel, and its refusals and failures, by
-    keyboard. Leaving the screen keeps the checked copy, so the confirmation is
-    still shown on return, until it is confirmed, cancelled or another backup
-    chosen. The confirmation is designed on the canvas first.
+    keyboard. Leaving the confirmation asks first, in a modal with Stay and
+    Leave, and leaving cancels the restore; a copy left when the app closes is
+    removed at the next start. The confirmation is designed on the canvas
+    first.
 - [ ] **App-wide screen** (one PR). Move Backup & Restore out of the selected
   game's screens (decision 0033):
   - [ ] The route becomes `/backup`, with no game. `/:game/backup` was never
@@ -155,7 +163,14 @@ Backup and restore stay local and never make a network request.
     new address.
 - [ ] **Restore, replacing** (one PR). Replacing the history with the checked
   copy:
-  - [ ] Restore is refused while a retrieval or import is under way.
+  - [ ] Restore is refused while a retrieval or import is under way: choosing
+    a backup and confirming one.
+  - [ ] Confirming reads the current history again, so the confirmation never
+    acts on counts that changed since it was shown.
+  - [ ] Closing the app drops the held copy through the same clean-up as
+    cancelling, rather than waiting for the next start. This needs a small
+    hook in `main.rs`, a coverage-exempt file, so it is added only with the
+    user's explicit approval.
   - [ ] Confirming closes the store, copies the current database to
     `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, named
     from the local time the webview sends, checked strictly as a real date and

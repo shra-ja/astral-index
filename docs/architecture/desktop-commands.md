@@ -52,8 +52,10 @@ later the preview.
   uses it up whatever the outcome; without one, commit fails with `no_preview`.
 - A commit is atomic and quick, so it is not cancellable.
 - Apart from the acquisition, the restore state holds at most one checked copy
-  of a backup, in the data folder, until it is cancelled or another backup is
-  chosen; the copy outlives leaving the screen.
+  of a backup, in the data folder under the one name `restore.sqlite.partial`,
+  until it is cancelled or another backup is chosen; the webview cancels it
+  when the user leaves its confirmation. A copy an earlier run left, as the app
+  closed or crashed, is replaced by the next one and removed at startup.
 
 ## IPC rules
 
