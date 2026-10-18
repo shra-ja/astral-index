@@ -54,9 +54,13 @@ impl Restore {
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Chosen {
-    /// Checked and held: what the backup holds, and what the current history holds,
-    /// for the confirmation. No path is sent.
-    Checked { backup: Contents, current: Contents },
+    /// Checked and held: the backup's file name, what it holds and what the current
+    /// history holds, for the confirmation. Its folder is not sent.
+    Checked {
+        name: String,
+        backup: Contents,
+        current: Contents,
+    },
     /// The dialog was closed without choosing a file.
     Cancelled,
 }
@@ -145,6 +149,10 @@ async fn choose_into<R: Runtime>(
     let Some(source) = chosen else {
         return Ok(Chosen::Cancelled);
     };
+    let name = source
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .ok_or(Failure::RestoreFailed)?;
     if in_data_folder(Some(&folder), &source) {
         return Err(Failure::RestoreInDataFolder);
     }
@@ -157,6 +165,7 @@ async fn choose_into<R: Runtime>(
         Ok(Ok(current)) => {
             restore.hold(Some(copy));
             Ok(Chosen::Checked {
+                name,
                 backup: contents,
                 current,
             })
@@ -281,6 +290,7 @@ mod tests {
     }
     fn checked() -> Chosen {
         Chosen::Checked {
+            name: "Astral-Index-backup-2026-10-16.sqlite".into(),
             backup: contents(1),
             current: contents(0),
         }
@@ -444,6 +454,11 @@ mod tests {
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         assert_eq!(chooser::inspect(|state| state.asked.len()), 0);
+        // A choice without a file name is refused before anything is read.
+        filesystem::install(files(&[]));
+        answering(Some(PathBuf::from("/")));
+        assert_eq!(choose_now(&Restore::default()), Err(Failure::RestoreFailed));
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
     }
 
     #[test]
@@ -606,6 +621,7 @@ mod tests {
             serde_json::to_value(checked()).unwrap(),
             serde_json::json!({
                 "kind": "checked",
+                "name": "Astral-Index-backup-2026-10-16.sqlite",
                 "backup": {
                     "accounts": [{ "uid": UID, "server": SERVER, "timezone": 8, "rolls": 15 }],
                     "last_import": {
