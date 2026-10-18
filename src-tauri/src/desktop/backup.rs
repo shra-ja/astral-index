@@ -104,17 +104,24 @@ pub(super) fn in_data_folder(folder: Option<&Path>, target: &Path) -> bool {
         .is_some_and(|(folder, parent)| real(parent).starts_with(real(folder)))
 }
 
-/// Claim an unused temporary file beside `target` by creating it empty, so a file
-/// the user already has is never touched: `<target>.partial`, else `.1.partial`
-/// and on. Returns the name claimed and the file, open for writing.
-pub(super) fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
-    for attempt in 0..PARTIAL_NAMES {
+/// The temporary names beside `target`, in the order they are tried:
+/// `<target>.partial`, then `<target>.1.partial` and on.
+pub(super) fn partial_names(target: &Path) -> impl Iterator<Item = PathBuf> + '_ {
+    (0..PARTIAL_NAMES).map(move |attempt| {
         let mut name = target.as_os_str().to_owned();
         if attempt > 0 {
             name.push(format!(".{attempt}"));
         }
         name.push(".partial");
-        let partial = PathBuf::from(name);
+        PathBuf::from(name)
+    })
+}
+
+/// Claim an unused temporary file beside `target` by creating it empty, so a file
+/// the user already has is never touched: `<target>.partial`, else `.1.partial`
+/// and on. Returns the name claimed and the file, open for writing.
+pub(super) fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
+    for partial in partial_names(target) {
         match fs::File::create_new(&partial) {
             Ok(file) => return Ok((partial, file)),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}

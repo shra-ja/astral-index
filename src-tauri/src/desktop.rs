@@ -377,6 +377,7 @@ fn register_with<R: Runtime>(
             folder: folder.clone(),
             dialogs: settings.dialogs,
         });
+        restore::remove_leftovers(folder.as_deref());
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
     })
@@ -1322,6 +1323,15 @@ mod tests {
         let mut app = register(mock_builder())
             .build(mock_context(noop_assets()))
             .unwrap();
+        // A restore's copy left when the app last closed is removed as it starts.
+        let local = app.path().local_data_dir().unwrap();
+        let leftover = local
+            .join(database::FOLDER_NAME)
+            .join("restore.sqlite.partial");
+        filesystem::install(filesystem::Fixture {
+            files: [(leftover.clone(), b"a held copy".to_vec())].into(),
+            ..Default::default()
+        });
         // Tauri runs setup hooks on the event loop's first event; with the mock
         // runtime, only this deprecated call runs them. It is called once here.
         #[allow(deprecated)]
@@ -1345,8 +1355,12 @@ mod tests {
         assert_eq!(backup.folder.as_ref(), about.folder.as_ref());
         assert!(matches!(backup.dialogs, backup::Dialogs::System));
         assert!(app.get_webview_window("main").is_some());
-        // The app keeps its webview profile.
-        filesystem::inspect(|state| assert!(state.removed.is_empty()));
+        // The app keeps its webview profile, and only the leftover copy is removed.
+        filesystem::inspect(|state| {
+            assert!(state.removed.is_empty());
+            assert!(state.files.is_empty());
+            assert!(state.removed_files.contains(&leftover));
+        });
     }
 
     #[test]

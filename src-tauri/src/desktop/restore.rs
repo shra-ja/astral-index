@@ -7,7 +7,7 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure,
-    backup::{Backup, Dialogs, answer, claim_partial, in_data_folder},
+    backup::{Backup, Dialogs, answer, claim_partial, in_data_folder, partial_names},
     database::Database,
 };
 #[cfg(test)]
@@ -46,6 +46,17 @@ impl Restore {
         let mut held = self.held.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(earlier) = std::mem::replace(&mut *held, copy) {
             let _ = fs::remove_file(earlier);
+        }
+    }
+}
+
+/// Remove copies an earlier run held when the app closed or crashed, so they neither
+/// take space nor use up the temporary names. Only the names a held copy can take are
+/// removed; nothing else in the data folder is looked at.
+pub fn remove_leftovers(folder: Option<&Path>) {
+    if let Some(folder) = folder {
+        for leftover in partial_names(&folder.join(HELD)) {
+            let _ = fs::remove_file(leftover);
         }
     }
 }
@@ -530,6 +541,30 @@ mod tests {
         answering(Some(source()));
         assert_eq!(choose_now(&Restore::default()), Err(Failure::RestoreFailed));
         filesystem::inspect(|state| assert!(state.removed_files.is_empty()));
+    }
+
+    #[test]
+    fn copies_left_by_an_earlier_run_are_removed_and_nothing_else() {
+        let history = folder().join("history.sqlite");
+        let beyond = folder().join(format!("{HELD}.{PARTIAL_NAMES}.partial"));
+        filesystem::install(files(&[
+            (held(0), b"left by a quit"),
+            (held(PARTIAL_NAMES - 1), b"left by a crash"),
+            (history.clone(), b"the history"),
+            (beyond.clone(), b"not a name a copy takes"),
+        ]));
+        remove_leftovers(Some(&folder()));
+        filesystem::inspect(|state| {
+            let names: Vec<PathBuf> = (0..PARTIAL_NAMES).map(held).collect();
+            assert_eq!(state.removed_files, names);
+            let mut kept = vec![source(), history.clone(), beyond.clone()];
+            kept.sort();
+            assert_eq!(state.files.keys().cloned().collect::<Vec<_>>(), kept);
+        });
+        // Without a data folder there is nothing to remove.
+        filesystem::install(Files::default());
+        remove_leftovers(None);
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
     }
 
     #[test]
