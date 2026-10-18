@@ -2,12 +2,12 @@
 // Presentational: the Restore card. Asks for a backup to restore with an event; the
 // caller chooses and checks it, and reports a refusal, which a status region
 // announces.
-import { CircleAlert, RotateCcwClock } from '@lucide/vue'
+import { RotateCcwClock } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
-import type { RestoreState } from '../../composables/useRestore'
 import ActionCard from '../shared/ActionCard.vue'
+import StatusLine from '../shared/StatusLine.vue'
 
-defineProps<{ state: RestoreState; message?: string | null }>()
+defineProps<{ checking: boolean; message?: string | null }>()
 const emit = defineEmits<{ choose: [] }>()
 const button = useTemplateRef('button')
 
@@ -33,38 +33,14 @@ defineExpose({
         ref="button"
         type="button"
         class="secondary"
-        :disabled="state === 'checking'"
+        :disabled="checking"
         @click="emit('choose')"
       >
-        {{ state === 'checking' ? 'Checking backup…' : 'Restore from backup…' }}
+        {{ checking ? 'Checking backup…' : 'Restore from backup…' }}
       </button>
-      <div class="status" role="status">
-        <p v-if="message" class="failed">
-          <CircleAlert :size="16" :stroke-width="1.75" />
-          <span>{{ message }}</span>
-        </p>
-      </div>
+    </template>
+    <template #status>
+      <StatusLine v-if="message" tone="failed">{{ message }}</StatusLine>
     </template>
   </ActionCard>
 </template>
-
-<style scoped>
-.status {
-  min-height: 20px;
-}
-.status p {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.status svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-.failed {
-  color: var(--error);
-}
-</style>

@@ -2,25 +2,25 @@
 // The Backup & Restore screen: saving a backup of everything saved, choosing one to
 // restore, and where history is stored. A backup holds every game's history, so the
 // screen names no game (decision 0031). A checked backup's confirmation replaces the
-// screen's content until it is cancelled, and is still shown on return.
-import { computed, inject, onMounted, useTemplateRef, watch } from 'vue'
+// screen's content; leaving it, after the user agrees, cancels the restore.
+import { onMounted, shallowRef, useTemplateRef, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import BackupCard from '../components/backup/BackupCard.vue'
+import LeaveRestoreDialog from '../components/backup/LeaveRestoreDialog.vue'
 import RestoreCard from '../components/backup/RestoreCard.vue'
 import RestoreConfirm from '../components/backup/RestoreConfirm.vue'
 import DataFolder from '../components/shared/DataFolder.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { useDataFolder } from '../composables/useDataFolder'
 import { useBackup } from '../composables/useBackup'
-import { restoreKey } from '../composables/restore'
+import { useRestore } from '../composables/useRestore'
 
 const { state, name, message, save } = useBackup()
 const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
 
-const restore = inject(restoreKey)!
-const checked = computed(() =>
-  restore.state.value === 'confirming' ? restore.checked.value : null,
-)
+const restore = useRestore()
+const { checked } = restore
 // Closing the confirmation returns focus to the button that chose the backup.
 const restoreCard = useTemplateRef('restoreCard')
 watch(
@@ -30,6 +30,18 @@ watch(
   },
   { flush: 'post' },
 )
+
+// Leaving while a backup is held asks first; leaving cancels the restore.
+const asking = shallowRef<((leave: boolean) => void) | null>(null)
+onBeforeRouteLeave(() =>
+  checked.value ? new Promise<boolean>((resolve) => (asking.value = resolve)) : true,
+)
+async function answer(leave: boolean) {
+  const resolve = asking.value!
+  asking.value = null
+  if (leave) await restore.cancel()
+  resolve(leave)
+}
 </script>
 
 <template>
@@ -49,7 +61,7 @@ watch(
         <BackupCard :state :name :message @save="save" />
         <RestoreCard
           ref="restoreCard"
-          :state="restore.state.value"
+          :checking="restore.checking.value"
           :message="restore.message.value"
           @choose="restore.choose"
         />
@@ -59,6 +71,7 @@ watch(
         <DataFolder :path="info?.file ?? null" :read :failed="revealFailed" @reveal="reveal" />
       </section>
     </div>
+    <LeaveRestoreDialog v-if="asking" @stay="answer(false)" @leave="answer(true)" />
   </main>
 </template>
 

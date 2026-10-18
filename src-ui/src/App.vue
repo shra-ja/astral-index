@@ -1,16 +1,14 @@
 <script setup lang="ts">
 // The app shell: the sidebar beside the current screen, and the About dialog over
-// it. It owns the retrieval and restore flows, so a retrieval keeps running and a
-// checked backup stays held while another screen is shown.
+// it. It owns the retrieval flow, so a retrieval keeps running while another screen
+// is shown.
 import { computed, provide, shallowRef } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import AboutDialog from './components/about/AboutDialog.vue'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import { useAbout } from './composables/useAbout'
 import SizeOverlay from './components/layout/SizeOverlay.vue'
-import { restoreKey } from './composables/restore'
 import { retrievalKey } from './composables/retrieval'
-import { useRestore } from './composables/useRestore'
 import { useRetrieval } from './composables/useRetrieval'
 import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
@@ -18,7 +16,6 @@ import { games } from './features'
 import type { Game, Screen } from './format'
 
 provide(retrievalKey, useRetrieval())
-provide(restoreKey, useRestore())
 const route = useRoute()
 const game = computed(() => route.params.game as Game)
 const screen = computed(() => route.name as Screen)

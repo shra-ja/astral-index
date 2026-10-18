@@ -1323,14 +1323,26 @@ test('Restore checks a chosen backup, then compares it with the history until ca
     'Restoring replaces 2,295 rolls in 2 accounts with 2,030 rolls in 1 account.',
   )
   expect(main().querySelector('h2')?.textContent).not.toBe('Keep Your History Safe')
-  // Leaving the screen keeps the checked backup: the confirmation is shown on return.
+  // Leaving asks first. Staying keeps the confirmation, and nothing is cancelled.
+  const prompt = () => document.querySelector<HTMLDialogElement>('dialog.leave-restore')
   await follow(named(sidebar(), 'Warp History'))
-  await follow(named(sidebar(), 'Backup & Restore'))
+  expect(prompt()?.open).toBe(true)
+  expect(prompt()?.querySelector('h2')?.textContent).toBe('Leave Without Restoring?')
+  await click(button(prompt()!, 'Stay'))
+  await settle()
+  expect(prompt()).toBeNull()
+  expect(location.hash).toBe('#/honkai-star-rail/backup')
   expect(heading()).toBe('Restore Backup')
+  expect(calls).not.toContain('cancel_restore')
   // Cancelling drops the held copy and returns focus to the button that chose it.
   await click(button(main(), 'Cancel'))
   expect(heading()).toBe('Backup & Restore')
   expect(document.activeElement).toBe(button(main(), 'Restore from backup…'))
+  // With nothing held, leaving asks nothing.
+  await follow(named(sidebar(), 'Warp History'))
+  expect(prompt()).toBeNull()
+  expect(heading()).toBe('Warp History')
+  await follow(named(sidebar(), 'Backup & Restore'))
   // A refused backup says why on the card.
   serve({ choose_restore: () => reject({ kind: 'restore_refused', code: 'other_app' }) })
   await click(button(main(), 'Restore from backup…'))
@@ -1346,5 +1358,30 @@ test('Restore checks a chosen backup, then compares it with the history until ca
   // Only the app's details, the choice and the cancel; nothing is fetched.
   expect(
     calls.filter((call) => !['history_page', 'saved_accounts', 'last_import'].includes(call)),
-  ).toEqual(['app_info', 'choose_restore', 'app_info', 'cancel_restore'])
+  ).toEqual(['app_info', 'choose_restore', 'cancel_restore', 'app_info'])
+})
+
+test('leaving a restore’s confirmation, once agreed, cancels the restore', async () => {
+  const calls = serve({
+    choose_restore: () => ({
+      kind: 'checked',
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: { accounts: [], last_import: null },
+      current: { accounts: [], last_import: null },
+    }),
+    cancel_restore: () => null,
+  })
+  await follow(named(sidebar(), 'Backup & Restore'))
+  await click(button(document.querySelector('main')!, 'Restore from backup…'))
+  await settle()
+  expect(heading()).toBe('Restore Backup')
+  await follow(named(sidebar(), 'Import'))
+  await click(button(document.querySelector('dialog.leave-restore')!, 'Leave'))
+  await settle()
+  expect(location.hash).toBe('#/honkai-star-rail/import')
+  expect(heading()).toBe('Import')
+  expect(calls).toContain('cancel_restore')
+  // Coming back shows the screen afresh, with no backup held.
+  await follow(named(sidebar(), 'Backup & Restore'))
+  expect(heading()).toBe('Backup & Restore')
 })

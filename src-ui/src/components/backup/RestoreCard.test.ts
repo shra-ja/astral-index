@@ -5,7 +5,7 @@ import RestoreCard from './RestoreCard.vue'
 const status = (wrapper: ReturnType<typeof mount>) => wrapper.get('[role="status"]').text()
 
 test('offers restoring a backup, and asks for one with an event', async () => {
-  const wrapper = mount(RestoreCard, { props: { state: 'idle' } })
+  const wrapper = mount(RestoreCard, { props: { checking: false } })
   expect(wrapper.get('h3').text()).toBe('Restore')
   expect(wrapper.get('h3 + p').text()).toBe(
     'Replace your saved history with a backup’s. Your current history is kept as a safety copy first.',
@@ -24,11 +24,11 @@ test('offers restoring a backup, and asks for one with an event', async () => {
 })
 
 test('while checking the button waits; a refusal says why', async () => {
-  const wrapper = mount(RestoreCard, { props: { state: 'checking' } })
+  const wrapper = mount(RestoreCard, { props: { checking: true } })
   expect(wrapper.get('button').text()).toBe('Checking backup…')
   expect(wrapper.get('button').attributes('disabled')).toBeDefined()
   await wrapper.setProps({
-    state: 'idle',
+    checking: false,
     message: 'This backup is damaged and can’t be restored.',
   })
   expect(wrapper.get('button').text()).toBe('Restore from backup…')
@@ -37,7 +37,7 @@ test('while checking the button waits; a refusal says why', async () => {
 })
 
 test('its button can take focus again, once the confirmation closes', () => {
-  const wrapper = mount(RestoreCard, { props: { state: 'idle' }, attachTo: document.body })
+  const wrapper = mount(RestoreCard, { props: { checking: false }, attachTo: document.body })
   ;(wrapper.vm as unknown as { focus: () => void }).focus()
   expect(document.activeElement).toBe(wrapper.get('button').element)
   wrapper.unmount()
