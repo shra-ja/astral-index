@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-18
+Updated: 2026-10-19
 
 ## Current state
 
@@ -38,16 +38,18 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   keeps saved history.
 - **Backup:** the Backup & Restore screen saves a checked snapshot of the whole
   history where the user chooses, never inside the data folder, and shows where
-  history is stored, as the About dialog does.
+  history is stored, as the About dialog does. Restore checks a chosen backup
+  as untrusted input and shows its accounts beside the current history's; it
+  cannot yet replace the history.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-### Restore, checking and preview (2026-10-18)
+### App-wide screen (2026-10-19)
 
-`feat/restore-preview`: 0037's restore up to its confirmation: the shared `ActionCard`, the hardened check with distinct refusals, `Store::contents`, `choose_restore`/`cancel_restore` holding a checked copy in the data folder, and the Restore card and confirmation, its Restore button unavailable until replacing. Each layer red first. Two reviewer agents' findings fixed: leaving the confirmation cancels it after a prompt, the held copy keeps one name and is removed at startup, one shared status line. Decisions 0031 (amended) and 0033 recorded.
+`feat/app-wide-backup`: moving Backup & Restore to `/backup` (decision 0033), in progress.
 
 ## Known limitations
 
@@ -66,7 +68,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Restore, checking and preview, starting with the shared card component.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s App-wide screen, then Restore, replacing.
 
 ## Keeping this file current
 
@@ -171,3 +173,6 @@ research, under a "From" heading.
   fixture, the milestone 11 requirements and backups.
 - [2026-10-17: restore breakdown](history/2026-10-17-restore-breakdown.md):
   0037's restore, migration recovery and verification steps.
+- [2026-10-18: restore preview](history/2026-10-18-restore-preview.md):
+  the shared action card, the hardened check, the Restore card and its
+  confirmation.
