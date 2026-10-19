@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-19
+Updated: 2026-10-20
 
 ## Current state
 
@@ -47,9 +47,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### App-wide screen (2026-10-19)
+### Restore, replacing (2026-10-20)
 
-`feat/app-wide-backup`: Backup & Restore is app-wide at `/backup`, in a sidebar "Data" group below View, designed on the canvas first; no game is current there, and the View group keeps the game shown last. Sidebar and app tests red first on the old address; the end-to-end test checks the new one. Two reviewer agents: correctness found nothing; quality's two points fixed, red first: app-wide screens named in one place (`isGameScreen`), and the shell follows the first game even when the route resolves before mounting.
+`feat/restore-replace`: in progress.
 
 ## Known limitations
 
@@ -176,3 +176,5 @@ research, under a "From" heading.
 - [2026-10-18: restore preview](history/2026-10-18-restore-preview.md):
   the shared action card, the hardened check, the Restore card and its
   confirmation.
+- [2026-10-19: app-wide screen](history/2026-10-19-app-wide-screen.md):
+  Backup & Restore at `/backup`, in the sidebar's Data group.
