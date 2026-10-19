@@ -49,7 +49,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### App-wide screen (2026-10-19)
 
-`feat/app-wide-backup`: Backup & Restore is app-wide at `/backup`, in a sidebar "Data" group below View, designed on the canvas first; no game is current there, and the View group keeps the game shown last. Sidebar and app tests red first on the old address; the end-to-end test checks the new one.
+`feat/app-wide-backup`: Backup & Restore is app-wide at `/backup`, in a sidebar "Data" group below View, designed on the canvas first; no game is current there, and the View group keeps the game shown last. Sidebar and app tests red first on the old address; the end-to-end test checks the new one. Two reviewer agents: correctness found nothing; quality's two points fixed, red first: app-wide screens named in one place (`isGameScreen`), and the shell follows the first game even when the route resolves before mounting.
 
 ## Known limitations
 
