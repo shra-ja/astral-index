@@ -150,17 +150,24 @@ Backup and restore stay local and never make a network request.
     Leave, and leaving cancels the restore; a copy left when the app closes is
     removed at the next start. The confirmation is designed on the canvas
     first.
-- [ ] **App-wide screen** (one PR). Move Backup & Restore out of the selected
+- [x] **App-wide screen** (one PR). Move Backup & Restore out of the selected
   game's screens (decision 0033):
-  - [ ] The route becomes `/backup`, with no game. `/:game/backup` was never
+  - [x] The route becomes `/backup`, with no game. `/:game/backup` was never
     released, as 1.0.0 predates backups, so it is removed without a redirect.
-  - [ ] The sidebar gives it its own group above About. While it is open, the
+  - [x] The sidebar gives it its own group above About. While it is open, the
     game switcher marks no game as current, choosing a game opens its History,
     and the View group's links keep pointing to the game shown last.
-  - [ ] The sidebar's new group is designed on the canvas first, without the
+  - [x] The sidebar's new group is designed on the canvas first, without the
     Export card that moves to its own screen
     ([0055](0055-uigf-export.md)); the end-to-end tests reach the screen at its
     new address.
+  - The user chose a "Data" group directly below View. The sidebar's and the
+    app's tests failed first on the old per-game address; the old address
+    returns to Star Rail's history, as any unknown one does. Opened on
+    `/backup` before any game is shown, the View group offers the opening
+    game's screens. At the 560px minimum height the expanded sidebar keeps
+    50px clear above About with one game, enough for a development build's
+    second.
 - [ ] **Restore, replacing** (one PR). Replacing the history with the checked
   copy:
   - [ ] Restore is refused while a retrieval or import is under way: choosing

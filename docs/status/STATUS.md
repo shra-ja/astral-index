@@ -36,7 +36,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   On Windows, CI also runs the Rust unit tests and smoke-tests the release
   executable (decision 0029). A frozen 1.0.0 database shows each schema change
   keeps saved history.
-- **Backup:** the Backup & Restore screen saves a checked snapshot of the whole
+- **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of the whole
   history where the user chooses, never inside the data folder, and shows where
   history is stored, as the About dialog does. Restore checks a chosen backup
   as untrusted input and shows its accounts beside the current history's; it
@@ -49,7 +49,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### App-wide screen (2026-10-19)
 
-`feat/app-wide-backup`: moving Backup & Restore to `/backup` (decision 0033), in progress.
+`feat/app-wide-backup`: Backup & Restore is app-wide at `/backup`, in a sidebar "Data" group below View, designed on the canvas first; no game is current there, and the View group keeps the game shown last. Sidebar and app tests red first on the old address; the end-to-end test checks the new one.
 
 ## Known limitations
 
@@ -68,7 +68,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s App-wide screen, then Restore, replacing.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Restore, replacing.
 
 ## Keeping this file current
 
