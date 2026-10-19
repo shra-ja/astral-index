@@ -14,11 +14,11 @@ import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
 import { games } from './features'
 import { openingGame } from './router'
-import type { AppScreen, Game, Screen } from './format'
+import type { Game, Screen } from './format'
 
 provide(retrievalKey, useRetrieval())
 const route = useRoute()
-const screen = computed(() => route.name as Screen | AppScreen)
+const screen = computed(() => route.name as Screen)
 // The game shown last: an app-wide screen names none, and the sidebar's View group
 // keeps pointing to that game's screens, or the opening game's before any is shown.
 const game = shallowRef<Game>(openingGame)

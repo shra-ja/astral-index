@@ -13,18 +13,18 @@ import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
 import { computed } from 'vue'
 import {
   games as names,
+  isGameScreen,
   monograms,
   terms,
-  type AppScreen,
   type Game,
   type Screen,
 } from '../../format'
 
 // `game` is the game shown last; `games` lists the games this build shows, in order.
-const props = defineProps<{ game: Game; screen: Screen | AppScreen; games: readonly Game[] }>()
+const props = defineProps<{ game: Game; screen: Screen; games: readonly Game[] }>()
 const emit = defineEmits<{ about: [] }>()
 // The game screen shown, if any.
-const gameScreen = computed(() => (props.screen === 'backup' ? null : props.screen))
+const gameScreen = computed(() => (isGameScreen(props.screen) ? props.screen : null))
 </script>
 
 <template>

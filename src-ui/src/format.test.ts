@@ -5,6 +5,7 @@ import {
   dateRangeLabel,
   localDate,
   initials,
+  isGameScreen,
   localDateTime,
   pityBand,
   quickRanges,
@@ -16,6 +17,12 @@ import {
   storedPeriod,
   utcOffset,
 } from './format'
+
+test('Backup & Restore is the one screen that covers every game', () => {
+  expect(isGameScreen('history')).toBe(true)
+  expect(isGameScreen('import')).toBe(true)
+  expect(isGameScreen('backup')).toBe(false)
+})
 
 test('server times read as written, in the server’s own time', () => {
   expect(serverDate('2026-04-02 10:00:00')).toBe('2 Apr 2026')

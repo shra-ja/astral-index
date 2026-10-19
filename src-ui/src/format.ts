@@ -23,9 +23,15 @@ export const games = {
 export type Game = keyof typeof games
 
 /** The screens each game has. */
-export type Screen = 'history' | 'import'
+export type GameScreen = 'history' | 'import'
 /** The screens covering every game, outside the selected game's (decision 0033). */
-export type AppScreen = 'backup'
+const appScreens = ['backup'] as const
+export type Screen = GameScreen | (typeof appScreens)[number]
+
+/** Whether a screen belongs to the selected game, rather than covering every game. */
+export function isGameScreen(screen: Screen): screen is GameScreen {
+  return !(appScreens as readonly Screen[]).includes(screen)
+}
 
 /** What each game calls a roll, as in "Warp History". */
 export const terms: Record<Game, 'Wish' | 'Warp'> = {
