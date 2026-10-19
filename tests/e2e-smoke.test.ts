@@ -481,6 +481,12 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
     await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
     await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    // The screen is app-wide (decision 0033): its address and the sidebar name no game.
+    expect(await app.execute('return location.hash')).toBe('#/backup')
+    expect(
+      await app.execute(`return [...document.querySelectorAll('nav [aria-current]')]
+        .map((link) => link.getAttribute('aria-label'))`),
+    ).toEqual(['Backup & Restore'])
     await expect
       .poll(() => textOf(app, 'main .path'), { timeout: 5000 })
       .toBe(resolve(folder, 'history.sqlite'))
