@@ -27,6 +27,7 @@ watch(
   (shown) => {
     if (shown) game.value = shown
   },
+  { immediate: true },
 )
 // A debug build opened with ASTRAL_INDEX_SIZE_OVERLAY=1 shows the window's size.
 const size = sizeOverlayRequested() ? useWindowSize() : null

@@ -1303,6 +1303,17 @@ test('opened on Backup & Restore, the View group offers Star Rail’s screens', 
   expect(current(sidebar())).toEqual([['Backup & Restore', 'page']])
 })
 
+test('opened on another game’s screen, even with the route resolved before mounting, the View group follows it', async () => {
+  document.body.innerHTML = '<div id="app"></div>'
+  vi.resetModules()
+  const { default: router } = await import('../src/router')
+  await router.push('/genshin-impact/import')
+  await import('../src/main')
+  await settle()
+  await follow(named(sidebar(), 'Backup & Restore'))
+  expect(named(sidebar(), 'Wish History').getAttribute('href')).toBe('#/genshin-impact/history')
+})
+
 test('Restore checks a chosen backup, then compares it with the history until cancelled', async () => {
   const checking = pending()
   const asia = (uid: string, rolls: number) => ({
