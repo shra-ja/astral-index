@@ -196,9 +196,7 @@ test('opens on Star Rail’s warp history, with the games and screens in a sideb
   ])
   expect(named(sidebar(), 'Genshin Impact').getAttribute('href')).toBe('#/genshin-impact/history')
   expect(named(sidebar(), 'Import').getAttribute('href')).toBe('#/honkai-star-rail/import')
-  expect(named(sidebar(), 'Backup & Restore').getAttribute('href')).toBe(
-    '#/honkai-star-rail/backup',
-  )
+  expect(named(sidebar(), 'Backup & Restore').getAttribute('href')).toBe('#/backup')
   expect(sidebar().textContent).toContain('Stored on this device')
   expect(document.querySelector('[role="status"]')?.textContent).toContain('No Warp History Yet')
   expect(document.querySelector('.retrieval')).toBeNull()
@@ -680,6 +678,10 @@ test('Genshin Impact’s history reads nothing until it has an adapter', async (
 test('an unknown address returns to Star Rail’s history', async () => {
   const { default: router } = await import('../src/router')
   await router.push('/somewhere/else')
+  await settle()
+  expect(location.hash).toBe('#/honkai-star-rail/history')
+  // Backup & Restore is app-wide; its unreleased per-game address is gone (decision 0033).
+  await router.push('/genshin-impact/backup')
   await settle()
   expect(location.hash).toBe('#/honkai-star-rail/history')
 })
@@ -1242,14 +1244,11 @@ test('Backup & Restore saves a backup where the user chooses, and shows where hi
     reveal_data_folder: () => reject({ kind: 'open_failed' }),
   })
   await follow(named(sidebar(), 'Backup & Restore'))
-  expect(location.hash).toBe('#/honkai-star-rail/backup')
+  expect(location.hash).toBe('#/backup')
   expect(heading()).toBe('Backup & Restore')
-  // Backups hold every game's history, so the header names none.
+  // Backups hold every game's history, so the header and the sidebar name no game.
   expect(document.querySelector('header .game')).toBeNull()
-  expect(current(sidebar())).toEqual([
-    ['Honkai: Star Rail', 'true'],
-    ['Backup & Restore', 'page'],
-  ])
+  expect(current(sidebar())).toEqual([['Backup & Restore', 'page']])
   const main = document.querySelector('main')!
   expect(main.querySelector('h2')?.textContent).toBe('Keep Your History Safe')
   expect(main.querySelector('.path')?.textContent).toBe('/local/astral-index/history.sqlite')
@@ -1269,14 +1268,39 @@ test('Backup & Restore saves a backup where the user chooses, and shows where hi
   expect(main.querySelector('[role="alert"]')?.textContent).toBe(
     'The folder couldn’t be opened. Its path is shown above.',
   )
-  // The screen stays when the game changes, as backups cover every game.
+  // Choosing a game opens its history.
   await follow(named(sidebar(), 'Genshin Impact'))
-  expect(location.hash).toBe('#/genshin-impact/backup')
-  expect(heading()).toBe('Backup & Restore')
+  expect(location.hash).toBe('#/genshin-impact/history')
+  expect(heading()).toBe('Wish History')
   // Only the app's details, the backup and the opening; nothing is fetched.
   expect(
     calls.filter((call) => !['history_page', 'saved_accounts', 'last_import'].includes(call)),
   ).toEqual(['app_info', 'save_backup', 'reveal_data_folder'])
+})
+
+test('Backup & Restore keeps the View group on the game shown last', async () => {
+  await follow(named(sidebar(), 'Genshin Impact'))
+  await openImport()
+  await follow(named(sidebar(), 'Backup & Restore'))
+  expect(location.hash).toBe('#/backup')
+  expect(named(sidebar(), 'Wish History').getAttribute('href')).toBe('#/genshin-impact/history')
+  await follow(named(sidebar(), 'Import'))
+  expect(location.hash).toBe('#/genshin-impact/import')
+  expect(current(sidebar())).toEqual([
+    ['Genshin Impact', 'true'],
+    ['Import', 'page'],
+  ])
+})
+
+test('opened on Backup & Restore, the View group offers Star Rail’s screens', async () => {
+  document.body.innerHTML = '<div id="app"></div>'
+  history.replaceState(null, '', '/#/backup')
+  vi.resetModules()
+  await import('../src/main')
+  await settle()
+  expect(heading()).toBe('Backup & Restore')
+  expect(named(sidebar(), 'Warp History').getAttribute('href')).toBe('#/honkai-star-rail/history')
+  expect(current(sidebar())).toEqual([['Backup & Restore', 'page']])
 })
 
 test('Restore checks a chosen backup, then compares it with the history until cancelled', async () => {
@@ -1331,7 +1355,7 @@ test('Restore checks a chosen backup, then compares it with the history until ca
   await click(button(prompt()!, 'Stay'))
   await settle()
   expect(prompt()).toBeNull()
-  expect(location.hash).toBe('#/honkai-star-rail/backup')
+  expect(location.hash).toBe('#/backup')
   expect(heading()).toBe('Restore Backup')
   expect(calls).not.toContain('cancel_restore')
   // Cancelling drops the held copy and returns focus to the button that chose it.

@@ -23,7 +23,9 @@ export const games = {
 export type Game = keyof typeof games
 
 /** The screens each game has. */
-export type Screen = 'history' | 'import' | 'backup'
+export type Screen = 'history' | 'import'
+/** The screens covering every game, outside the selected game's (decision 0033). */
+export type AppScreen = 'backup'
 
 /** What each game calls a roll, as in "Warp History". */
 export const terms: Record<Game, 'Wish' | 'Warp'> = {
