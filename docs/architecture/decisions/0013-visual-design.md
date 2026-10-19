@@ -62,7 +62,9 @@ repository; this record holds what the implementation must follow.
 
 - **Shell:** a sidebar with the game switcher (Genshin Impact, Honkai: Star Rail),
   the two screens (Warp/Wish History and Import), and a "stored on this device"
-  note. Each game has its own history and import screens.
+  note. Each game has its own history and import screens. (Amended 2026-10-19,
+  [decision 0033](0033-app-wide-and-per-game-screens.md):) a Data group below
+  the screens holds the app-wide Backup & Restore.
 - **History:** a header with the account switcher (UID and server); banner
   category tabs with counts; a summary strip (rolls stored, 5★ and 4★ counts with
   rates, stored period); and the rolls panel. The panel's toolbar holds rarity

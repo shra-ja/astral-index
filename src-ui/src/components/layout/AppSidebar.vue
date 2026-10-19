@@ -1,18 +1,30 @@
 <script setup lang="ts">
-// Presentational: the app's navigation. Game links keep the current screen; screen
-// links stay within the game. The router does the rest. The About button asks for the
-// About dialog. Below 1100px the sidebar collapses to icons, so every link and button
+// Presentational: the app's navigation. Game links keep the current game screen;
+// screen links stay within the game. On an app-wide screen no game is current, game
+// links open a game's history and screen links stay with the game shown last
+// (decision 0033). The router does the rest. The About button asks for the About
+// dialog. Below 1100px the sidebar collapses to icons, so every link and button
 // carries its name as a label and in a tooltip.
 import { DatabaseBackup, Download, Info, Lock, TextAlignStart } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
 import AstralEmblem from '../shared/AstralEmblem.vue'
 import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
-import { games as names, monograms, terms, type Game, type Screen } from '../../format'
+import { computed } from 'vue'
+import {
+  games as names,
+  isGameScreen,
+  monograms,
+  terms,
+  type Game,
+  type Screen,
+} from '../../format'
 
-// `games` lists the games this build shows, in order.
-defineProps<{ game: Game; screen: Screen; games: readonly Game[] }>()
+// `game` is the game shown last; `games` lists the games this build shows, in order.
+const props = defineProps<{ game: Game; screen: Screen; games: readonly Game[] }>()
 const emit = defineEmits<{ about: [] }>()
+// The game screen shown, if any.
+const gameScreen = computed(() => (isGameScreen(props.screen) ? props.screen : null))
 </script>
 
 <template>
@@ -29,9 +41,9 @@ const emit = defineEmits<{ about: [] }>()
           <AppTooltip :text="names[id]" placement="right">
             <RouterLink
               class="link"
-              :to="{ name: screen, params: { game: id } }"
+              :to="{ name: gameScreen ?? 'history', params: { game: id } }"
               :aria-label="names[id]"
-              :aria-current="id === game ? 'true' : undefined"
+              :aria-current="gameScreen && id === game ? 'true' : undefined"
             >
               <span class="monogram" :class="id" aria-hidden="true">{{ monograms[id] }}</span>
               <span class="text">{{ names[id] }}</span>
@@ -70,11 +82,17 @@ const emit = defineEmits<{ about: [] }>()
             </RouterLink>
           </AppTooltip>
         </li>
+      </ul>
+    </div>
+
+    <div class="group">
+      <h2 id="sidebar-data" class="text">Data</h2>
+      <ul aria-labelledby="sidebar-data">
         <li>
           <AppTooltip text="Backup &amp; Restore" placement="right">
             <RouterLink
               class="link screen"
-              :to="{ name: 'backup', params: { game } }"
+              :to="{ name: 'backup' }"
               aria-label="Backup &amp; Restore"
               :aria-current="screen === 'backup' ? 'page' : undefined"
             >

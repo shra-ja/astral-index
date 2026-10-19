@@ -21,7 +21,9 @@ hold several games.
 - **Screens about all history are app-wide.** Backup & Restore moves to its own
   group in the sidebar, above About, at `/backup`, with no game in its route.
   While it is open, the game switcher marks no game as current, and choosing a
-  game opens that game's History.
+  game opens that game's History. (Amended 2026-10-19, as the user chose on the
+  design canvas:) the group is headed "Data" and sits directly below View,
+  keeping the screens together above the foot's About and device note.
 - **Export gets its own screen per game.** UIGF export is a View-group screen,
   after Import, at `/:game/export`, listing that game's accounts only.
 

@@ -10,12 +10,16 @@ rearranged without rewriting the flows behind them.
 ## Layers
 
 - **Shell and routes:** `App.vue` places the sidebar beside the current screen.
-  Hash routes give each game a History, an Import and a Backup & Restore screen
-  (`/:game/history`, `/:game/import`, `/:game/backup`) for each game the build
+  Hash routes give each game a History and an Import screen
+  (`/:game/history`, `/:game/import`) for each game the build
   shows, which
   `features.ts` lists from the build-time feature toggles
   ([decision 0026](decisions/0026-feature-toggles.md)); release builds hide
-  Genshin Impact, and its addresses redirect. The app opens on Star Rail's history. The
+  Genshin Impact, and its addresses redirect. Backup & Restore covers every
+  game, so it is app-wide at `/backup`, in the sidebar's Data group; while it is
+  open no game is current, and the shell keeps the game shown last for the View
+  group's links ([decision 0033](decisions/0033-app-wide-and-per-game-screens.md)).
+  The app opens on Star Rail's history. The
   shell creates the retrieval flow and provides it to the screens, so a running
   retrieval and its review survive switching screens. A restore, by contrast,
   belongs to the Backup & Restore screen: leaving its confirmation asks first,

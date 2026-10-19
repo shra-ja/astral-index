@@ -4,8 +4,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
 [decision 0011](../docs/architecture/decisions/0011-vue-frontend.md) for the conventions.
 
 - `src/main.ts` mounts `App.vue`, the shell with the sidebar beside the current
-  screen and the About dialog over it; `src/router/` maps each game's History, Import and Backup & Restore
-  routes to views, with hash history.
+  screen and the About dialog over it; `src/router/` maps each game's History and Import
+  routes, and the app-wide Backup & Restore route, to views, with hash history.
 - `src/views/` holds screens: `HistoryView.vue` shows saved history,
   `ImportView.vue` the retrieval flow and `BackupView.vue` Backup & Restore. Views wire composables to components and
   move focus.

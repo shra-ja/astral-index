@@ -29,8 +29,10 @@ test('lists the games and screens as links, marking the current ones', () => {
   expect(links(wrapper, 'sidebar-screens')).toEqual([
     ['Warp History', '#/honkai-star-rail/history', 'page'],
     ['Import', '#/honkai-star-rail/import', undefined],
-    ['Backup & Restore', '#/honkai-star-rail/backup', undefined],
   ])
+  // Backup & Restore covers every game, in a group of its own (decision 0033).
+  expect(wrapper.get('#sidebar-data').text()).toBe('Data')
+  expect(links(wrapper, 'sidebar-data')).toEqual([['Backup & Restore', '#/backup', undefined]])
   expect(wrapper.text()).toContain('Stored on this device')
   expect(wrapper.text()).toContain('No account, no cloud sync')
 })
@@ -44,19 +46,21 @@ test('switching games keeps the current screen, and each game names its history'
   expect(links(wrapper, 'sidebar-screens')).toEqual([
     ['Wish History', '#/genshin-impact/history', undefined],
     ['Import', '#/genshin-impact/import', 'page'],
-    ['Backup & Restore', '#/genshin-impact/backup', undefined],
   ])
-  // Backup & Restore covers every game, and stays shown when the game changes.
-  const backup = sidebar('genshin-impact', 'backup')
-  expect(links(backup, 'sidebar-games')).toEqual([
-    ['Genshin Impact', '#/genshin-impact/backup', 'true'],
-    ['Honkai: Star Rail', '#/honkai-star-rail/backup', undefined],
+})
+
+test('on Backup & Restore no game is current, and the game shown last keeps its screens', () => {
+  const wrapper = sidebar('genshin-impact', 'backup')
+  // Choosing a game opens its history.
+  expect(links(wrapper, 'sidebar-games')).toEqual([
+    ['Genshin Impact', '#/genshin-impact/history', undefined],
+    ['Honkai: Star Rail', '#/honkai-star-rail/history', undefined],
   ])
-  expect(links(backup, 'sidebar-screens')[2]).toEqual([
-    'Backup & Restore',
-    '#/genshin-impact/backup',
-    'page',
+  expect(links(wrapper, 'sidebar-screens')).toEqual([
+    ['Wish History', '#/genshin-impact/history', undefined],
+    ['Import', '#/genshin-impact/import', undefined],
   ])
+  expect(links(wrapper, 'sidebar-data')).toEqual([['Backup & Restore', '#/backup', 'page']])
 })
 
 test('lists only the games the build shows', () => {

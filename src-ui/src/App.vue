@@ -2,7 +2,7 @@
 // The app shell: the sidebar beside the current screen, and the About dialog over
 // it. It owns the retrieval flow, so a retrieval keeps running while another screen
 // is shown.
-import { computed, provide, shallowRef } from 'vue'
+import { computed, provide, shallowRef, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import AboutDialog from './components/about/AboutDialog.vue'
 import AppSidebar from './components/layout/AppSidebar.vue'
@@ -13,12 +13,22 @@ import { useRetrieval } from './composables/useRetrieval'
 import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
 import { games } from './features'
+import { openingGame } from './router'
 import type { Game, Screen } from './format'
 
 provide(retrievalKey, useRetrieval())
 const route = useRoute()
-const game = computed(() => route.params.game as Game)
 const screen = computed(() => route.name as Screen)
+// The game shown last: an app-wide screen names none, and the sidebar's View group
+// keeps pointing to that game's screens, or the opening game's before any is shown.
+const game = shallowRef<Game>(openingGame)
+watch(
+  () => route.params.game as Game | undefined,
+  (shown) => {
+    if (shown) game.value = shown
+  },
+  { immediate: true },
+)
 // A debug build opened with ASTRAL_INDEX_SIZE_OVERLAY=1 shows the window's size.
 const size = sizeOverlayRequested() ? useWindowSize() : null
 
