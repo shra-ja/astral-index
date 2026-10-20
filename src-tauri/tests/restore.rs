@@ -1,7 +1,10 @@
 //! Restore checks a copy of the chosen backup in the data folder, as untrusted
 //! input, before anything changes
 //! ([decision 0031](../../docs/architecture/decisions/0031-sqlite-snapshot-backups.md)).
-use astral_index::desktop::{Failure, restore::hold_copy};
+use astral_index::desktop::{
+    Failure,
+    restore::{hold_copy, put_in_place},
+};
 use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Store};
 use std::{
     path::{Path, PathBuf},
@@ -91,4 +94,47 @@ fn a_refused_backup_leaves_nothing_in_the_data_folder() {
         Err(Failure::RestoreRefused(Refusal::Unreadable))
     );
     assert_eq!(names(&folder.data()), Vec::<String>::new());
+}
+
+#[test]
+fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
+    let folder = Folder::new();
+    let history = folder.data().join("history.sqlite");
+    // The backup holds one import; the history, made later, holds nothing.
+    let backup = folder.path("backup.sqlite");
+    {
+        let mut store = Store::open(&folder.path("source.sqlite")).unwrap();
+        let preview = store
+            .preview("100000002", "synthetic-server", &[PAGE])
+            .unwrap();
+        store.commit(preview, 1234).unwrap();
+        store.write_snapshot(&backup).unwrap();
+    }
+    let current = Store::open(&history).unwrap().contents().unwrap();
+    let before = std::fs::read(&history).unwrap();
+    let (copy, contents) = hold_copy(&folder.data(), &backup).unwrap();
+    let restored = put_in_place(
+        &history,
+        &copy,
+        Some("history-before-restore-20261020-143000.sqlite".into()),
+    )
+    .unwrap();
+    assert_eq!(
+        restored.safety_copy.as_deref(),
+        Some("history-before-restore-20261020-143000.sqlite")
+    );
+    // The history now holds the backup's rolls, the safety copy the history's.
+    assert_eq!(
+        names(&folder.data()),
+        [
+            "history-before-restore-20261020-143000.sqlite",
+            "history.sqlite"
+        ]
+    );
+    assert_eq!(Store::open(&history).unwrap().contents().unwrap(), contents);
+    let kept = folder
+        .data()
+        .join("history-before-restore-20261020-143000.sqlite");
+    assert_eq!(std::fs::read(&kept).unwrap(), before);
+    assert_eq!(Store::open(&kept).unwrap().contents().unwrap(), current);
 }

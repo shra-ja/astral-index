@@ -2,7 +2,8 @@
 // The Backup & Restore screen: saving a backup of everything saved, choosing one to
 // restore, and where history is stored. A backup holds every game's history, so the
 // screen names no game (decision 0031). A checked backup's confirmation replaces the
-// screen's content; leaving it, after the user agrees, cancels the restore.
+// screen's content; leaving it, after the user agrees, cancels the restore, and
+// leaving waits while it restores.
 import { onMounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import BackupCard from '../components/backup/BackupCard.vue'
@@ -20,7 +21,7 @@ const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
 
 const restore = useRestore()
-const { checked } = restore
+const { checked, restoring } = restore
 // Closing the confirmation returns focus to the button that chose the backup.
 const restoreCard = useTemplateRef('restoreCard')
 watch(
@@ -31,11 +32,13 @@ watch(
   { flush: 'post' },
 )
 
-// Leaving while a backup is held asks first; leaving cancels the restore.
+// Leaving while a backup is held asks first; leaving cancels the restore. A restore
+// under way is quick and can't be stopped, so leaving waits for it.
 const asking = shallowRef<((leave: boolean) => void) | null>(null)
-onBeforeRouteLeave(() =>
-  checked.value ? new Promise<boolean>((resolve) => (asking.value = resolve)) : true,
-)
+onBeforeRouteLeave(() => {
+  if (restoring.value) return false
+  return checked.value ? new Promise<boolean>((resolve) => (asking.value = resolve)) : true
+})
 async function answer(leave: boolean) {
   const resolve = asking.value!
   asking.value = null
@@ -51,7 +54,13 @@ async function answer(leave: boolean) {
         >Restoring from <span class="name">{{ checked.name }}</span></span
       >
     </ScreenHeader>
-    <RestoreConfirm v-if="checked" :checked @cancel="restore.cancel" />
+    <RestoreConfirm
+      v-if="checked"
+      :checked
+      :restoring
+      @cancel="restore.cancel"
+      @restore="restore.confirm"
+    />
     <div v-else class="backup">
       <div class="intro">
         <h2>Keep Your History Safe</h2>
@@ -62,7 +71,7 @@ async function answer(leave: boolean) {
         <RestoreCard
           ref="restoreCard"
           :checking="restore.checking.value"
-          :message="restore.message.value"
+          :outcome="restore.outcome.value"
           @choose="restore.choose"
         />
       </div>

@@ -29,11 +29,37 @@ test('while checking the button waits; a refusal says why', async () => {
   expect(wrapper.get('button').attributes('disabled')).toBeDefined()
   await wrapper.setProps({
     checking: false,
-    message: 'This backup is damaged and can’t be restored.',
+    outcome: { kind: 'failed', message: 'This backup is damaged and can’t be restored.' },
   })
   expect(wrapper.get('button').text()).toBe('Restore from backup…')
   expect(status(wrapper)).toBe('This backup is damaged and can’t be restored.')
   expect(wrapper.find('[role="status"] .failed').exists()).toBe(true)
+})
+
+test('a restore names the backup, and the safety copy when the history was kept', async () => {
+  const wrapper = mount(RestoreCard, {
+    props: {
+      checking: false,
+      outcome: {
+        kind: 'restored',
+        name: 'Astral-Index-backup-2026-10-16.sqlite',
+        safetyCopy: 'history-before-restore-20261020-143005.sqlite',
+      },
+    },
+  })
+  expect(status(wrapper)).toBe(
+    'Restored Astral-Index-backup-2026-10-16.sqlite. Your previous history is kept in the data folder as history-before-restore-20261020-143005.sqlite.',
+  )
+  expect(wrapper.find('[role="status"] .done').exists()).toBe(true)
+  expect(wrapper.findAll('[role="status"] .name').map((name) => name.text())).toEqual([
+    'Astral-Index-backup-2026-10-16.sqlite',
+    'history-before-restore-20261020-143005.sqlite',
+  ])
+  // With no history before, nothing was kept.
+  await wrapper.setProps({
+    outcome: { kind: 'restored', name: 'Astral-Index-backup-2026-10-16.sqlite', safetyCopy: null },
+  })
+  expect(status(wrapper)).toBe('Restored Astral-Index-backup-2026-10-16.sqlite.')
 })
 
 test('its button can take focus again, once the confirmation closes', () => {

@@ -168,28 +168,58 @@ Backup and restore stay local and never make a network request.
     game's screens. At the 560px minimum height the expanded sidebar keeps
     50px clear above About with one game, enough for a development build's
     second.
-- [ ] **Restore, replacing** (one PR). Replacing the history with the checked
+- [x] **Restore, replacing** (one PR). Replacing the history with the checked
   copy:
-  - [ ] Restore is refused while a retrieval or import is under way: choosing
-    a backup and confirming one.
-  - [ ] Confirming reads the current history again, so the confirmation never
-    acts on counts that changed since it was shown.
-  - [ ] Closing the app drops the held copy through the same clean-up as
-    cancelling, rather than waiting for the next start. This needs a small
-    hook in `main.rs`, a coverage-exempt file, so it is added only with the
-    user's explicit approval.
-  - [ ] Confirming closes the store, copies the current database to
+  - [x] Restore is refused while an import is under way or held: a link being
+    validated, a retrieval running, or a link or review awaiting the user.
+    Choosing a backup and confirming one are both refused, as the user chose
+    over discarding the import, so a review is never saved into a history it
+    was not counted against. The rule lives on the native side alone, as the
+    user chose: the card's button stays available, and a refusal, before any
+    dialog opens, says to finish or discard the import first.
+  - [x] Confirming reads the current history again; if it changed since the
+    confirmation was shown, nothing is replaced, the held copy is dropped and
+    the card says to choose the backup again (the user chose this over showing
+    fresh counts, as the screen leaves no way to change history meanwhile).
+  - [x] Closing the app drops the held copy through the same clean-up as
+    cancelling, rather than waiting for the next start, through a small plugin
+    registered with the app's other state, so `main.rs` stays unchanged.
+    Startup still removes a copy a crash left.
+  - [x] Confirming closes the store, copies the current database to
     `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, named
     from the local time the webview sends, checked strictly as a real date and
     time as the backup's date is, renames
     the checked copy over `history.sqlite` and reopens it; any failure before the
-    rename leaves the history as it was, and the copy is removed.
-  - [ ] The screens refresh from the restored history: the History screen, the
+    rename leaves the history as it was, and the copy is removed. A current
+    history with no accounts gets no safety copy, as the user chose.
+  - [x] The screens refresh from the restored history: the History screen, the
     account switcher and the last import.
-  - [ ] The confirmation's outcome: restored, naming the safety copy, or why
-    not.
-  - [ ] An end-to-end test restores through the mock, checks the safety copy
+  - [x] The outcome shows back on the cards, in the Restore card's status line:
+    restored, naming the safety copy, or why not. It is designed on the canvas
+    first.
+  - [x] An end-to-end test restores through the mock, checks the safety copy
     and the restored history, and covers a refusal and a cancellation.
+  - Each layer's tests failed first: the session's under-way count against a
+    stub, `Database::replace`, the confirmation's outcomes and failures, the
+    IPC command, the exit clean-up (through the app's own registration, and
+    failing with the plugin removed), then the command client, messages, local
+    time, account choices, the flow, both components and the screen. A
+    real-file test puts a checked copy in place of a real history and reads both
+    with SQLite. The end-to-end test restores a backup missing ten rolls per
+    category over the saved history, finds the History screen showing the
+    restored count, the safety copy holding the old history and nothing else
+    left, and is refused while a review awaits saving. A commit racing a
+    confirmation is safe: the store's lock orders them, and either the restore
+    finds the history changed or the commit finds its preview stale.
+  - Two reviewer agents found that Windows refuses to flush a file opened for
+    reading only, so every backup and restore failed there; backup has done so
+    since it shipped. Fixed: both flush through a writable handle, the test
+    filesystem refuses a read-only flush, which failed six tests first, and the
+    Windows CI job runs backup's and restore's real-file tests. Also fixed: a
+    choice made while a confirm puts its copy in place is refused, as it would
+    copy to the same name (its test fails with the check removed), and the
+    checked copy is removed in one place. Restore counting Star Rail alone is
+    noted for the second game ([0031](0031-second-game-adapter.md)).
 - [ ] **Restoring a safety copy** (one PR). Relax the source's data-folder
   guard to protect only the history itself:
   - [ ] `choose_restore` refuses `history.sqlite`, compared by its real path,

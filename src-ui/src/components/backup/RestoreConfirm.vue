@@ -1,17 +1,17 @@
 <script setup lang="ts">
 // Presentational: the restore confirmation, in place of the Backup & Restore screen's
 // content, as the Import review is. It sets the checked backup beside the current
-// history and reports the user's choice; the caller makes the native calls.
+// history and reports the user's choice; the caller makes the native calls, and both
+// buttons wait while it restores.
 import { ShieldCheck } from '@lucide/vue'
 import { computed, onMounted, useTemplateRef, type DeepReadonly } from 'vue'
 import type { CheckedBackup } from '../../commands'
 import { holdsAccount } from '../../format'
 import { restoreSummary } from '../../messages'
-import AppTooltip from '../shared/AppTooltip.vue'
 import ContentsPanel from './ContentsPanel.vue'
 
-const props = defineProps<{ checked: DeepReadonly<CheckedBackup> }>()
-const emit = defineEmits<{ cancel: [] }>()
+const props = defineProps<{ checked: DeepReadonly<CheckedBackup>; restoring: boolean }>()
+const emit = defineEmits<{ cancel: []; restore: [] }>()
 
 const replacing = computed(() => props.checked.current.accounts.length > 0)
 const missing = computed(() =>
@@ -61,12 +61,12 @@ onMounted(() => intro.value!.focus())
     <footer class="actions">
       <span class="footnote">{{ restoreSummary(checked.current, checked.backup) }}</span>
       <div class="buttons">
-        <button type="button" class="secondary" @click="emit('cancel')">Cancel</button>
-        <AppTooltip v-slot="{ tooltipId }" text="Restoring isn’t available yet.">
-          <button type="button" aria-disabled="true" :aria-describedby="tooltipId">
-            Restore backup
-          </button>
-        </AppTooltip>
+        <button type="button" class="secondary" :disabled="restoring" @click="emit('cancel')">
+          Cancel
+        </button>
+        <button type="button" :disabled="restoring" @click="emit('restore')">
+          {{ restoring ? 'Restoring…' : 'Restore backup' }}
+        </button>
       </div>
     </footer>
   </div>

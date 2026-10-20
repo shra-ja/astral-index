@@ -260,7 +260,7 @@ progress, but every run on `main` finishes, since only `main` saves caches:
 | **Format, lint, docs and Rust lints** | `ubuntu-24.04` | `npm run check:static` |
 | **Tests and 100% coverage** | `ubuntu-24.04` | `npm run check:gates`, uploading reports and screenshots even on failure |
 | **Mutation probes** | `ubuntu-24.04` | `npm run check:probes`, uploading any failure snapshot |
-| **Windows unit tests** | `windows-2025` | The frontend bundle, the Rust unit tests, then Clippy for Windows |
+| **Windows unit tests** | `windows-2025` | The frontend bundle, the Rust unit tests, backup's and restore's real-file tests, then Clippy for Windows |
 | **Windows release build** | `windows-2025` | The release executable, smoke-tested, then kept for a day as `windows-build-unverified-<commit>` |
 | **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build |
 

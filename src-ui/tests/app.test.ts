@@ -1396,6 +1396,78 @@ test('Restore checks a chosen backup, then compares it with the history until ca
   ).toEqual(['app_info', 'choose_restore', 'cancel_restore', 'app_info'])
 })
 
+test('Restore replaces the history, then names the safety copy on the card', async () => {
+  const restoring = pending()
+  const times: unknown[] = []
+  const asia = (uid: string, rolls: number) => ({
+    uid,
+    server: 'prod_official_asia',
+    timezone: 8,
+    rolls,
+  })
+  const calls = serve({
+    choose_restore: () => ({
+      kind: 'checked',
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: { accounts: [asia('800000117', 2030)], last_import: null },
+      current: { accounts: [asia('800000117', 2244)], last_import: null },
+    }),
+    confirm_restore: (args) => {
+      times.push(args.time)
+      return restoring.handler()
+    },
+  })
+  await follow(named(sidebar(), 'Backup & Restore'))
+  const main = () => document.querySelector('main')!
+  await click(button(main(), 'Restore from backup…'))
+  await settle()
+  await click(button(main(), 'Restore backup'))
+  // The local time names the safety copy; both buttons wait meanwhile.
+  expect(times).toHaveLength(1)
+  expect(times[0]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
+  expect(button(main(), 'Restoring…').disabled).toBe(true)
+  expect(button(main(), 'Cancel').disabled).toBe(true)
+  // Leaving waits for the restore, without asking.
+  await follow(named(sidebar(), 'Warp History'))
+  expect(document.querySelector('dialog.leave-restore')).toBeNull()
+  expect(heading()).toBe('Restore Backup')
+  restoring.resolve({ safety_copy: 'history-before-restore-20261020-143005.sqlite' })
+  await settle()
+  // Back on the cards, the Restore card says what happened, with focus on its button.
+  expect(heading()).toBe('Backup & Restore')
+  expect(
+    main()
+      .querySelector('#restore-title')
+      ?.closest('section')
+      ?.querySelector('[role="status"]')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim(),
+  ).toBe(
+    'Restored Astral-Index-backup-2026-10-16.sqlite. Your previous history is kept in the data folder as history-before-restore-20261020-143005.sqlite.',
+  )
+  expect(document.activeElement).toBe(button(main(), 'Restore from backup…'))
+  // The History screen reads the restored history afresh.
+  calls.length = 0
+  await follow(named(sidebar(), 'Warp History'))
+  expect(heading()).toBe('Warp History')
+  expect(calls).toContain('history_page')
+  expect(calls).not.toContain('cancel_restore')
+})
+
+test('a restore refused while an import is held says so on the card', async () => {
+  serve({ choose_restore: () => reject({ kind: 'import_under_way' }) })
+  await follow(named(sidebar(), 'Backup & Restore'))
+  await click(button(document.querySelector('main')!, 'Restore from backup…'))
+  await settle()
+  expect(
+    document
+      .querySelector('#restore-title')
+      ?.closest('section')
+      ?.querySelector('[role="status"]')
+      ?.textContent?.trim(),
+  ).toBe('Finish or discard the import first, then restore the backup.')
+})
+
 test('leaving a restore’s confirmation, once agreed, cancels the restore', async () => {
   const calls = serve({
     choose_restore: () => ({

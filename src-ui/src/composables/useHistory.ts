@@ -35,6 +35,11 @@ export function forgetAccountChoice(game: Game) {
   delete chosen[game]
 }
 
+/** Show every game's account imported into last again, as after a restore. */
+export function forgetAccountChoices() {
+  for (const game of Object.keys(chosen) as Game[]) delete chosen[game]
+}
+
 /** Saved history of `game`, which may change while the screen stays open. */
 export function useHistory(game: MaybeRefOrGetter<Game>) {
   const category = ref<string>(categoryTabs[0].gacha_type)

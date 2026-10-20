@@ -19,6 +19,7 @@
     "allow-open-issues-page",
     "allow-save-backup",
     "allow-choose-restore",
-    "allow-cancel-restore"
+    "allow-cancel-restore",
+    "allow-confirm-restore"
   ]
 }

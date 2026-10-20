@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-19
+Updated: 2026-10-20
 
 ## Current state
 
@@ -33,23 +33,24 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
   app version.
-  On Windows, CI also runs the Rust unit tests and smoke-tests the release
+  On Windows, CI also runs the Rust unit tests and backup's and restore's
+  real-file tests, and smoke-tests the release
   executable (decision 0029). A frozen 1.0.0 database shows each schema change
   keeps saved history.
 - **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of the whole
   history where the user chooses, never inside the data folder, and shows where
   history is stored, as the About dialog does. Restore checks a chosen backup
-  as untrusted input and shows its accounts beside the current history's; it
-  cannot yet replace the history.
+  as untrusted input, shows its accounts beside the current history's, and
+  replaces the history with it, keeping the old one as a safety copy.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-### App-wide screen (2026-10-19)
+### Restore, replacing (2026-10-20)
 
-`feat/app-wide-backup`: Backup & Restore is app-wide at `/backup`, in a sidebar "Data" group below View, designed on the canvas first; no game is current there, and the View group keeps the game shown last. Sidebar and app tests red first on the old address; the end-to-end test checks the new one. Two reviewer agents: correctness found nothing; quality's two points fixed, red first: app-wide screens named in one place (`isGameScreen`), and the shell follows the first game even when the route resolves before mounting.
+`feat/restore-replace`: 0037's Restore, replacing. Confirming re-reads the history, keeps it as a dated safety copy (none when empty) and renames the flushed checked copy over it under the store's lock; a changed history or any failure leaves it as it was. Restore is refused while an import runs or awaits the user; closing the app drops a held copy through a plugin, leaving `main.rs` unchanged. The outcome shows on the Restore card, designed on the canvas first. Each layer red first; an end-to-end test restores through the mock. Reviewer agents found Windows refused every backup's and restore's flush (read-only handle); fixed red first, and Windows CI now runs their real-file tests.
 
 ## Known limitations
 
@@ -68,7 +69,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Restore, replacing.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Restoring a safety copy.
 
 ## Keeping this file current
 
@@ -176,3 +177,5 @@ research, under a "From" heading.
 - [2026-10-18: restore preview](history/2026-10-18-restore-preview.md):
   the shared action card, the hardened check, the Restore card and its
   confirmation.
+- [2026-10-19: app-wide screen](history/2026-10-19-app-wide-screen.md):
+  Backup & Restore at `/backup`, in the sidebar's Data group.

@@ -198,20 +198,29 @@ pub fn metadata(path: &Path) -> io::Result<Metadata> {
 pub struct File {
     path: PathBuf,
     reader: Cursor<Vec<u8>>,
+    /// Whether the file was opened for writing, which Windows needs to flush it.
+    writable: bool,
 }
+/// Opens cache files for reading without blocking, or a file for writing.
 pub struct OpenOptions {
     read: bool,
+    write: bool,
     flags: i32,
 }
 impl OpenOptions {
     pub fn new() -> Self {
         Self {
             read: false,
+            write: false,
             flags: 0,
         }
     }
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.read = read;
+        self
+    }
+    pub fn write(&mut self, write: bool) -> &mut Self {
+        self.write = write;
         self
     }
     #[cfg(unix)]
@@ -220,6 +229,16 @@ impl OpenOptions {
         self
     }
     pub fn open(&self, path: &Path) -> io::Result<File> {
+        if self.write {
+            assert!(
+                !self.read && self.flags == 0,
+                "a file is opened to write it only"
+            );
+            return File::open(path).map(|file| File {
+                writable: true,
+                ..file
+            });
+        }
         assert!(self.read, "cache files must be opened for reading");
         #[cfg(unix)]
         assert_eq!(
@@ -250,11 +269,16 @@ impl File {
             Ok(Self {
                 path: path.to_owned(),
                 reader: Cursor::new(Vec::new()),
+                writable: true,
             })
         })
     }
-    /// Records the flush, failing when the fixture says so.
+    /// Records the flush, failing when the fixture says so, or, as Windows does,
+    /// when the file was opened for reading only.
     pub fn sync_all(&self) -> io::Result<()> {
+        if !self.writable {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read only"));
+        }
         FIXTURE.with(|state| {
             let mut state = state.borrow_mut();
             state.synced.push(self.path.clone());
@@ -279,6 +303,7 @@ impl File {
             Ok(Self {
                 path: path.to_owned(),
                 reader: Cursor::new(bytes),
+                writable: false,
             })
         })
     }

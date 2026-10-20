@@ -223,6 +223,12 @@ export const localDate = (date: Date) =>
     .map((part) => String(part).padStart(2, '0'))
     .join('-')
 
+/** The time on this device, as `YYYY-MM-DDTHH:MM:SS`, which names a restore's safety copy. */
+export const localTime = (date: Date) =>
+  `${localDate(date)}T${[date.getHours(), date.getMinutes(), date.getSeconds()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':')}`
+
 /** Whether a history holds the account: its UID on the same server. */
 export const holdsAccount = (
   history: { accounts: readonly { uid: string; server: string }[] },

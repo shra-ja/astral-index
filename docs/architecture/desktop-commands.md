@@ -36,6 +36,7 @@ refused commands, so the webview must not use them.
 | `save_backup` | Ask where to save in the system's save dialog, suggesting `Astral-Index-backup-<date>.sqlite` from the `date` sent (`YYYY-MM-DD`), then write a checked snapshot there; returns the file's name or a cancellation. A place inside the data folder is refused (`backup_in_data_folder`), and a snapshot that fails its check is `history_damaged`. The mock debug binary answers from `save-as.txt` in its data folder | No |
 | `choose_restore` | Ask which backup to restore in the system's open dialog, copy it into the data folder under a temporary name claimed new, check the copy as untrusted input and hold it; returns the backup's file name, what it holds and what the current history holds (accounts with roll totals, and the last import), or a cancellation. Choosing a file drops any copy held before. A backup inside the data folder is refused (`restore_in_data_folder`), one that fails its check is `restore_refused` with the reason (`too_large`, `not_database`, `other_app`, `newer`, `damaged`, `unreadable`), and a copy that cannot be made or read is `restore_failed`. The mock debug binary answers from `restore-from.txt` in its data folder | No |
 | `cancel_restore` | Drop the held copy of the backup; the history is unchanged | No |
+| `confirm_restore` | Replace the history with the held copy, given the webview's local `time` as `YYYY-MM-DDTHH:MM:SS`: read the history again under the store's lock, copy it to `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder (a name claimed new; no copy for a history without accounts), flush the held copy and rename it over `history.sqlite`; the store reopens it when next used. Returns the safety copy's name, or none. The held copy is used up whatever the outcome. A history that changed since the confirmation is `restore_changed`; an unreal time is `invalid_request`; a history that cannot be read is `storage`; a copy that cannot be made or put in place, or no held copy, is `restore_failed`; each leaves the history as it was and removes any safety copy it made | No |
 
 ## Session
 
@@ -53,16 +54,28 @@ later the preview.
 - A commit is atomic and quick, so it is not cancellable.
 - Apart from the acquisition, the restore state holds at most one checked copy
   of a backup, in the data folder under the one name `restore.sqlite.partial`,
-  until it is cancelled or another backup is chosen; the webview cancels it
-  when the user leaves its confirmation. A copy an earlier run left, as the app
-  closed or crashed, is replaced by the next one and removed at startup.
+  with the summary of the history it was compared with, until it is restored,
+  cancelled or another backup is chosen; the webview cancels it when the user
+  leaves its confirmation, and a small plugin drops it as the app exits. A copy
+  a crash left is replaced by the next one and removed at startup.
+- An import is under way from the start of validating a link to the end of
+  retrieval, counted by a guard each holds, and awaits the user while a link
+  or review is held. Meanwhile `choose_restore`, before any dialog, and
+  `confirm_restore` are refused with `import_under_way`, so a review is never
+  saved into a history it was not counted against. The check comes before
+  `confirm_restore` waits for the store's lock, so a retrieval started in that
+  moment could read the old history and save into the restored one; the UI
+  rules this out, as the confirmation fills the screen and leaving waits while
+  it restores. A choice made while a confirm puts its copy in place is refused,
+  as it would copy to the same name.
 
 ## IPC rules
 
 - Paths never cross IPC, except the data folder and history file that `app_info`
   returns for the About dialog and the Backup & Restore screen to show; the
   webview never builds a path itself. `save_backup` returns only
-  the saved file's name, and `choose_restore` only the chosen file's. The file command takes a raw IPC body holding the file's
+  the saved file's name, `choose_restore` only the chosen file's, and
+  `confirm_restore` only the safety copy's. The file command takes a raw IPC body holding the file's
   bytes (the webview rejects files over 16 MiB before reading); the CSP allows
   only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never

@@ -1,25 +1,35 @@
 // Restoring a backup: the native side asks which file, copies it into the data
 // folder and checks it there, then holds it while the confirmation compares it with
-// the current history (decision 0031). Nothing of the history changes, and nothing
-// is fetched. The Backup & Restore screen owns it: leaving the screen ends the restore.
+// the current history (decision 0031). Confirming replaces the history, keeping it
+// as a safety copy first; only the local time leaves the webview, to name that
+// copy, and nothing is fetched. The Backup & Restore screen owns it: leaving the
+// screen ends the restore.
 import { getCurrentScope, onScopeDispose, readonly, shallowRef } from 'vue'
-import { cancelRestore, chooseRestore, type CheckedBackup } from '../commands'
-import { restoreFailure } from '../messages'
+import { cancelRestore, chooseRestore, confirmRestore, type CheckedBackup } from '../commands'
+import { localTime } from '../format'
+import { replaceFailure, restoreFailure } from '../messages'
+import { forgetAccountChoices } from './useHistory'
 
-export function useRestore() {
+/** How the last choice or restore ended, for the Restore card's status line. */
+export type RestoreOutcome =
+  | { kind: 'restored'; name: string; safetyCopy: string | null }
+  | { kind: 'failed'; message: string }
+
+export function useRestore(now = () => new Date()) {
   // While a backup is being chosen and checked.
   const checking = shallowRef(false)
   // The checked backup the confirmation shows, while it is held.
   const checked = shallowRef<CheckedBackup | null>(null)
-  // Why the last backup was refused.
-  const message = shallowRef<string | null>(null)
+  // While the held backup replaces the history.
+  const restoring = shallowRef(false)
+  const outcome = shallowRef<RestoreOutcome | null>(null)
   let closed = false
   if (getCurrentScope()) onScopeDispose(() => (closed = true))
 
   async function choose() {
     if (checking.value) return
     checking.value = true
-    message.value = null
+    outcome.value = null
     const result = await chooseRestore()
     checking.value = false
     if ('checked' in result) {
@@ -27,7 +37,7 @@ export function useRestore() {
       if (closed) await cancelRestore()
       else checked.value = result.checked
     } else if ('failure' in result) {
-      message.value = restoreFailure(result.failure)
+      outcome.value = { kind: 'failed', message: restoreFailure(result.failure) }
     }
   }
 
@@ -38,11 +48,31 @@ export function useRestore() {
     await cancelRestore()
   }
 
+  /** Replace the history with the held backup. The native side uses up its copy
+   * whatever the outcome, so the confirmation closes either way. */
+  async function confirm() {
+    const held = checked.value
+    if (!held || restoring.value) return
+    restoring.value = true
+    const result = await confirmRestore(localTime(now()))
+    restoring.value = false
+    checked.value = null
+    if ('failure' in result) {
+      outcome.value = { kind: 'failed', message: replaceFailure(result.failure) }
+    } else {
+      outcome.value = { kind: 'restored', name: held.name, safetyCopy: result.safetyCopy }
+      // The restored history may lack the accounts chosen in the switchers.
+      forgetAccountChoices()
+    }
+  }
+
   return {
     checking: readonly(checking),
     checked: readonly(checked),
-    message: readonly(message),
+    restoring: readonly(restoring),
+    outcome: readonly(outcome),
     choose,
     cancel,
+    confirm,
   }
 }
