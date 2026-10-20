@@ -527,7 +527,7 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
       true,
     )
     expect(existsSync(held)).toBe(true)
-    // Restoring isn't available yet; Cancel drops the held copy, and focus returns.
+    // Cancel drops the held copy, and focus returns.
     await click(app, 'main footer', 'Cancel')
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
     await expect.poll(() => existsSync(held), { timeout: 5000 }).toBe(false)
@@ -571,6 +571,97 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
   } finally {
     copy.close()
   }
+}, 120000)
+
+test('Restore replaces the history with a backup, keeping the history as a safety copy', async () => {
+  const backups = resolve(results, 'e2e-restore')
+  rmSync(backups, { recursive: true, force: true })
+  mkdirSync(backups, { recursive: true })
+  const backup = resolve(backups, 'smaller.sqlite')
+  const folder = resolve(mockData, 'astral-index-mock')
+  const restoreStatus = "#restore-title ~ .actions [role='status']"
+  const firstTab = "[aria-label='Category summary'] .tile .value"
+  const toBackup = async (app: AppSession) => {
+    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+  }
+  let removed = 0
+  await withMock('history', {}, async (app) => {
+    // While a review awaits saving, restoring is refused before any dialog opens.
+    await retrieveFromFile(app)
+    await expect.poll(() => textOf(app, '.review h2'), { timeout: 30000 }).toMatch(/^Ready to save/)
+    await toBackup(app)
+    writeFileSync(resolve(folder, 'restore-from.txt'), `${backup}\n`)
+    await click(app, 'main', 'Restore from backup…')
+    await expect
+      .poll(() => textOf(app, restoreStatus), { timeout: 10000 })
+      .toContain('Finish or discard the import first, then restore the backup.')
+    await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
+    await expect.poll(() => textOf(app, '.review h2'), { timeout: 5000 }).toMatch(/^Ready to save/)
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+    // A backup of that history, with the first ten rolls of each category removed.
+    await toBackup(app)
+    writeFileSync(resolve(folder, 'save-as.txt'), `${backup}\n`)
+    await click(app, 'main', 'Save backup…')
+    await expect
+      .poll(() => textOf(app, "main [role='status']"), { timeout: 10000 })
+      .toContain('Saved smaller.sqlite')
+    const smaller = new DatabaseSync(backup)
+    try {
+      removed = Number(
+        smaller
+          .prepare(
+            `DELETE FROM rolls WHERE rowid IN (SELECT rowid FROM (SELECT rowid, row_number() OVER (PARTITION BY json_extract(payload, '$.gacha_type') ORDER BY id) AS n FROM rolls) WHERE n <= 10)`,
+          )
+          .run().changes,
+      )
+    } finally {
+      smaller.close()
+    }
+    await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
+    await expect.poll(() => textOf(app, firstTab), { timeout: 10000 }).toMatch(/\d/)
+    const before = Number((await textOf(app, firstTab))!.replace(/,/g, ''))
+    // Restoring it: the confirmation compares, then Restore backup replaces the history.
+    await toBackup(app)
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(await textOf(app, 'main .footnote')).toBe(
+      `Restoring replaces 2,060 rolls in 1 account with ${(2060 - removed).toLocaleString('en')} rolls in 1 account.`,
+    )
+    await click(app, 'main footer', 'Restore backup')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Backup & Restore')
+    const restored = (await textOf(app, restoreStatus))!.replace(/\s+/g, ' ').trim()
+    expect(restored).toMatch(
+      /^Restored smaller\.sqlite\. Your previous history is kept in the data folder as history-before-restore-\d{8}-\d{6}\.sqlite\.$/,
+    )
+    expect(await app.execute(`return document.activeElement.textContent.trim()`)).toBe(
+      'Restore from backup…',
+    )
+    await app.screenshot('e2e-restored')
+    // The History screen reads the restored history.
+    await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
+    await expect
+      .poll(() => textOf(app, firstTab), { timeout: 10000 })
+      .toBe((before - 10).toLocaleString('en'))
+  })
+  // The data folder holds the restored history and the safety copy, and nothing else.
+  const saved = readdirSync(folder).filter(
+    (name) => name.endsWith('.sqlite') || name.endsWith('.partial'),
+  )
+  const safety = saved.find((name) => name.startsWith('history-before-restore-'))!
+  expect(saved.toSorted()).toEqual([safety, 'history.sqlite'])
+  const count = (path: string) => {
+    const database = new DatabaseSync(path, { readOnly: true })
+    try {
+      return Object.values(database.prepare('SELECT count(*) FROM rolls').get()!)[0]
+    } finally {
+      database.close()
+    }
+  }
+  expect(count(resolve(folder, 'history.sqlite'))).toBe(2060 - removed)
+  expect(count(resolve(folder, safety))).toBe(2060)
+  rmSync(backups, { recursive: true, force: true })
 }, 120000)
 
 test('the About dialog opens from the keyboard, opens what it offers and closes back to its button', async () => {
