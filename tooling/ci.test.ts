@@ -207,6 +207,13 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
   expect(build).toBeLessThan(
     tests.indexOf('run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked'),
   )
+  // Backups and restores write, flush and rename real files, which Windows treats
+  // differently from Linux, so their real-file tests run there too.
+  expect(
+    tests.indexOf(
+      'run: cargo test --manifest-path src-tauri/Cargo.toml --locked --test backup --test restore',
+    ),
+  ).toBeGreaterThan(build)
   // Clippy lints the Windows-only code too, which the Linux static checks never compile.
   const clippy = tests.indexOf(
     'run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',

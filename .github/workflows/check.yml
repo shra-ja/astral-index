@@ -137,6 +137,10 @@ jobs:
         run: npm run build --workspace src-ui
       - name: Rust unit tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
+      # Backups and restores write, flush and rename real files, which Windows
+      # treats differently from Linux.
+      - name: Rust file tests for backup and restore
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --test backup --test restore
       # The Linux static checks never compile the Windows-only code.
       - name: Rust lints for Windows
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
