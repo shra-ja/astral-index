@@ -48,9 +48,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Restore, replacing (2026-10-20)
+### Restoring a safety copy (2026-10-20)
 
-`feat/restore-replace`: 0037's Restore, replacing. Confirming re-reads the history, keeps it as a dated safety copy (none when empty) and renames the flushed checked copy over it under the store's lock; a changed history or any failure leaves it as it was. Restore is refused while an import runs or awaits the user; closing the app drops a held copy through a plugin, leaving `main.rs` unchanged. The outcome shows on the Restore card, designed on the canvas first. Each layer red first; an end-to-end test restores through the mock. Reviewer agents found Windows refused every backup's and restore's flush (read-only handle); fixed red first, and Windows CI now runs their real-file tests.
+`feat/restore-safety-copy`: 0037's Restoring a safety copy, under way.
 
 ## Known limitations
 
@@ -179,3 +179,6 @@ research, under a "From" heading.
   confirmation.
 - [2026-10-19: app-wide screen](history/2026-10-19-app-wide-screen.md):
   Backup & Restore at `/backup`, in the sidebar's Data group.
+- [2026-10-20: restore, replacing](history/2026-10-20-restore-replacing.md):
+  confirming a restore, its safety copy, the exit clean-up and the Windows
+  flush fix.
