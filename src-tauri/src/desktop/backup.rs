@@ -145,9 +145,13 @@ async fn write_checked(database: &Database, written: &Path) -> Result<(), Failur
         .map_err(|_| Failure::Storage)?
 }
 
-/// Flush the checked snapshot to disk, then give it the target's name.
-fn publish(written: &Path, target: &Path) -> std::io::Result<()> {
-    fs::File::open(written).and_then(|file| file.sync_all())?;
+/// Flush a written file to disk, then give it the target's name, replacing any file
+/// there. Flushing needs the file open for writing, as Windows refuses otherwise.
+pub(super) fn publish(written: &Path, target: &Path) -> std::io::Result<()> {
+    fs::OpenOptions::new()
+        .write(true)
+        .open(written)
+        .and_then(|file| file.sync_all())?;
     fs::rename(written, target)
 }
 

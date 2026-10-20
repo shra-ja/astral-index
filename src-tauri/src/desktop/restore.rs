@@ -7,7 +7,7 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
-    backup::{Backup, Dialogs, answer, in_data_folder},
+    backup::{Backup, Dialogs, answer, in_data_folder, publish},
     database::Database,
 };
 #[cfg(test)]
@@ -302,10 +302,7 @@ pub fn put_in_place(
     if let Some(kept) = &kept {
         keep(history, kept)?;
     }
-    let placed = fs::File::open(copy)
-        .and_then(|file| file.sync_all())
-        .and_then(|()| fs::rename(copy, history));
-    if placed.is_err() {
+    if publish(copy, history).is_err() {
         if let Some(kept) = &kept {
             let _ = fs::remove_file(kept);
         }
