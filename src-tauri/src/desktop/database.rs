@@ -116,7 +116,9 @@ impl Database {
     }
     /// Hand `f` the store and the path of its file while nothing else can use the
     /// store, so that `f` can close it and replace the file; the next `run` opens
-    /// the file again. A panic in `f` is reported as a database error.
+    /// the file again. `f` must drop the store before it touches the file, as
+    /// Windows cannot replace a file that is open. A panic in `f` is reported as a
+    /// database error.
     pub async fn replace<T: Send + 'static>(
         &self,
         f: impl FnOnce(Store, &Path) -> T + Send + 'static,

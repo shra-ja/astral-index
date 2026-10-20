@@ -42,26 +42,60 @@ const HELD: &str = "restore.sqlite.partial";
 /// restored, cancelled or another backup is chosen.
 #[derive(Default)]
 pub struct Restore {
-    held: Mutex<Option<Held>>,
+    state: Mutex<Holding>,
+}
+#[derive(Default)]
+struct Holding {
+    held: Option<Held>,
+    /// Whether a confirmed restore is putting its copy in place, under the one name
+    /// a new choice would copy to.
+    confirming: bool,
 }
 /// A checked copy and what the history held when the confirmation was shown.
 struct Held {
     copy: PathBuf,
     current: Contents,
 }
+/// Marks a confirmed restore as putting its copy in place until dropped.
+struct Confirming<'a>(&'a Restore);
+impl Drop for Confirming<'_> {
+    fn drop(&mut self) {
+        self.0.state().confirming = false;
+    }
+}
 impl Restore {
-    fn held(&self) -> std::sync::MutexGuard<'_, Option<Held>> {
-        self.held.lock().unwrap_or_else(PoisonError::into_inner)
+    fn state(&self) -> std::sync::MutexGuard<'_, Holding> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
     /// Hold `copy` in place of any earlier copy, which is removed.
     fn hold(&self, copy: Option<Held>) {
-        if let Some(earlier) = std::mem::replace(&mut *self.held(), copy) {
+        if let Some(earlier) = std::mem::replace(&mut self.state().held, copy) {
             let _ = fs::remove_file(earlier.copy);
         }
     }
-    /// Take the held copy for restoring; nothing is held from then on.
-    fn take(&self) -> Option<Held> {
-        self.held().take()
+    /// Make way for a newly chosen backup: drop the copy held earlier, unless a
+    /// confirmed restore is putting its copy in place, which the new copy would
+    /// replace.
+    fn release(&self) -> Result<(), Failure> {
+        let earlier = {
+            let mut state = self.state();
+            if state.confirming {
+                return Err(Failure::RestoreFailed);
+            }
+            state.held.take()
+        };
+        if let Some(earlier) = earlier {
+            let _ = fs::remove_file(earlier.copy);
+        }
+        Ok(())
+    }
+    /// Take the held copy for restoring, marking the restore as confirming until
+    /// the guard is dropped; nothing is held from then on.
+    fn take(&self) -> Option<(Held, Confirming<'_>)> {
+        let mut state = self.state();
+        let held = state.held.take()?;
+        state.confirming = true;
+        Some((held, Confirming(self)))
     }
 }
 
@@ -200,7 +234,7 @@ async fn choose_into<R: Runtime>(
         return Err(Failure::RestoreInDataFolder);
     }
     // Another backup was chosen, so the one held earlier is no longer shown.
-    restore.hold(None);
+    restore.release()?;
     let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source))
         .await
         .map_err(|_| Failure::RestoreFailed)??;
@@ -320,9 +354,9 @@ fn read_and_close(store: Store) -> Result<Contents, crate::storage::Error> {
 
 /// With the store handed over, read the history once more and, if it is what the
 /// confirmation showed, close it and put the checked copy in its place, keeping a
-/// safety copy of any history first. Any failure removes the checked copy.
+/// safety copy of any history first.
 fn replace(store: Store, history: &Path, held: Held, safety: String) -> Result<Restored, Failure> {
-    let replaced = match read_and_close(store) {
+    match read_and_close(store) {
         Err(_) => Err(Failure::Storage),
         Ok(current) if current != held.current => Err(Failure::RestoreChanged),
         Ok(current) => put_in_place(
@@ -330,11 +364,7 @@ fn replace(store: Store, history: &Path, held: Held, safety: String) -> Result<R
             &held.copy,
             (!current.accounts.is_empty()).then_some(safety),
         ),
-    };
-    if replaced.is_err() {
-        let _ = fs::remove_file(&held.copy);
     }
-    replaced
 }
 
 /// Replace the history with the held copy at `time`, which names the safety copy.
@@ -346,30 +376,25 @@ async fn restore_into(
     database: &Database,
     time: &str,
 ) -> Result<Restored, Failure> {
-    let held = restore.take().ok_or(Failure::RestoreFailed)?;
+    let (held, _confirming) = restore.take().ok_or(Failure::RestoreFailed)?;
+    let copy = held.copy.clone();
     let refused = if session.importing() {
         Err(Failure::ImportUnderWay)
     } else {
         safety_name(time)
     };
-    let safety = match refused {
-        Ok(safety) => safety,
-        Err(failure) => {
-            let _ = fs::remove_file(&held.copy);
-            return Err(failure);
-        }
+    let restored = match refused {
+        Ok(safety) => database
+            .replace(move |store, history| replace(store, history, held, safety))
+            .await
+            .unwrap_or(Err(Failure::Storage)),
+        Err(failure) => Err(failure),
     };
-    let copy = held.copy.clone();
-    match database
-        .replace(move |store, history| replace(store, history, held, safety))
-        .await
-    {
-        Ok(restored) => restored,
-        Err(_) => {
-            let _ = fs::remove_file(copy);
-            Err(Failure::Storage)
-        }
+    // Whatever went wrong, the checked copy is not kept.
+    if restored.is_err() {
+        let _ = fs::remove_file(&copy);
     }
+    restored
 }
 
 #[cfg(test)]
@@ -497,11 +522,11 @@ mod tests {
         filesystem::inspect(|state| state.files.contains_key(path))
     }
     fn holding(restore: &Restore) -> Option<PathBuf> {
-        restore.held().as_ref().map(|held| held.copy.clone())
+        restore.state().held.as_ref().map(|held| held.copy.clone())
     }
     /// Hold the copy, as choosing it leaves it, compared with `current`.
     fn holding_copy(restore: &Restore, current: Contents) {
-        *restore.held() = Some(Held {
+        restore.state().held = Some(Held {
             copy: held(),
             current,
         });
@@ -850,7 +875,9 @@ mod tests {
         filesystem::install(files(&[]));
         answering(Some(source()));
         let session = Session::default();
-        session.state().preview = Some(crate::storage::tests::preview());
+        session
+            .keep_preview(&session.begin(), crate::storage::tests::preview())
+            .unwrap();
         let restore = Restore::default();
         holding_copy(&restore, contents(0));
         assert_eq!(
@@ -867,6 +894,27 @@ mod tests {
         assert_eq!(chooser::inspect(|state| state.asked.len()), 0);
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         assert_eq!(holding(&restore), Some(held()));
+    }
+
+    #[test]
+    fn nothing_is_chosen_while_a_confirmed_restore_puts_its_copy_in_place() {
+        filesystem::install(files(&[(held(), b"being put in place")]));
+        answering(Some(source()));
+        let restore = Restore::default();
+        holding_copy(&restore, contents(0));
+        let confirming = restore.take().unwrap();
+        // The new choice would copy to the same name, so it is refused untouched.
+        assert_eq!(choose_now(&restore), Err(Failure::RestoreFailed));
+        filesystem::inspect(|state| {
+            assert_eq!(state.files[&held()], b"being put in place");
+            assert!(state.removed_files.is_empty());
+        });
+        // Once the restore is over, a backup can be chosen again.
+        drop(confirming);
+        answering(Some(source()));
+        sql::expect(choosing(&held()));
+        assert_eq!(choose_now(&restore), Ok(checked()));
+        sql::finish();
     }
 
     fn history() -> PathBuf {
@@ -1061,7 +1109,9 @@ mod tests {
         filesystem::install(data(&[]));
         sql::expect(vec![]);
         let session = Session::default();
-        session.state().preview = Some(crate::storage::tests::preview());
+        session
+            .keep_preview(&session.begin(), crate::storage::tests::preview())
+            .unwrap();
         let restore = Restore::default();
         holding_copy(&restore, contents(1));
         assert_eq!(
