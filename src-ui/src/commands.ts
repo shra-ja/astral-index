@@ -39,6 +39,8 @@ const nativeKinds = [
   'restore_refused',
   'restore_in_data_folder',
   'restore_failed',
+  'restore_changed',
+  'import_under_way',
 ] as const
 /** Why a backup was refused for restoring. */
 const refusals = [
@@ -400,4 +402,17 @@ export async function chooseRestore(): Promise<
 /** Drop the held copy of the backup; the history is unchanged. */
 export function cancelRestore(): Promise<Failure | undefined> {
   return run(() => invoke('cancel_restore'))
+}
+
+/** Replace the history with the held backup. Only the local time is sent, which names
+ * the safety copy; the copy's name comes back, or none when there was no history. */
+export async function confirmRestore(
+  time: string,
+): Promise<{ safetyCopy: string | null } | { failure: Failure }> {
+  try {
+    const result = await invoke<{ safety_copy: string | null }>('confirm_restore', { time })
+    return { safetyCopy: result.safety_copy }
+  } catch (error) {
+    return { failure: parse(error) }
+  }
 }

@@ -1,9 +1,11 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 import { effectScope } from 'vue'
-import { cancelRestore, chooseRestore, type CheckedBackup } from '../commands'
+import { cancelRestore, chooseRestore, confirmRestore, type CheckedBackup } from '../commands'
+import { forgetAccountChoices } from './useHistory'
 import { useRestore } from './useRestore'
 
 vi.mock('../commands')
+vi.mock('./useHistory')
 beforeEach(() => {
   vi.resetAllMocks()
 })
@@ -36,7 +38,7 @@ test('choosing a backup checks it, then holds it for the confirmation', async ()
   await choosing
   expect(restore.checking.value).toBe(false)
   expect(restore.checked.value).toEqual(CHECKED)
-  expect(restore.message.value).toBeNull()
+  expect(restore.outcome.value).toBeNull()
 })
 
 test('closing the dialog leaves nothing to report', async () => {
@@ -45,7 +47,7 @@ test('closing the dialog leaves nothing to report', async () => {
   await restore.choose()
   expect(restore.checking.value).toBe(false)
   expect(restore.checked.value).toBeNull()
-  expect(restore.message.value).toBeNull()
+  expect(restore.outcome.value).toBeNull()
 })
 
 test('a refused backup says why, until the next choice', async () => {
@@ -55,13 +57,69 @@ test('a refused backup says why, until the next choice', async () => {
   const restore = useRestore()
   await restore.choose()
   expect(restore.checked.value).toBeNull()
-  expect(restore.message.value).toBe(
-    'This backup was made by a newer version of Astral Index. Update the app, then restore it.',
-  )
+  expect(restore.outcome.value).toEqual({
+    kind: 'failed',
+    message:
+      'This backup was made by a newer version of Astral Index. Update the app, then restore it.',
+  })
   vi.mocked(chooseRestore).mockResolvedValue({ cancelled: true })
   const choosing = restore.choose()
-  expect(restore.message.value).toBeNull()
+  expect(restore.outcome.value).toBeNull()
   await choosing
+})
+
+const NOW = new Date(2026, 9, 20, 14, 30, 5)
+const confirmedLater = () => {
+  let finish!: (value: Awaited<ReturnType<typeof confirmRestore>>) => void
+  vi.mocked(confirmRestore).mockReturnValue(new Promise((resolve) => (finish = resolve)))
+  return finish
+}
+
+test('restoring replaces the history, then names the backup and the safety copy', async () => {
+  vi.mocked(chooseRestore).mockResolvedValue({ checked: CHECKED })
+  const restore = useRestore(() => NOW)
+  await restore.choose()
+  const finish = confirmedLater()
+  const confirming = restore.confirm()
+  expect(restore.restoring.value).toBe(true)
+  // A second press while restoring sends nothing more; the confirmation stays meanwhile.
+  void restore.confirm()
+  expect(confirmRestore).toHaveBeenCalledTimes(1)
+  expect(confirmRestore).toHaveBeenCalledWith('2026-10-20T14:30:05')
+  expect(restore.checked.value).toEqual(CHECKED)
+  finish({ safetyCopy: 'history-before-restore-20261020-143005.sqlite' })
+  await confirming
+  expect(restore.restoring.value).toBe(false)
+  expect(restore.checked.value).toBeNull()
+  expect(restore.outcome.value).toEqual({
+    kind: 'restored',
+    name: 'Astral-Index-backup-2026-10-16.sqlite',
+    safetyCopy: 'history-before-restore-20261020-143005.sqlite',
+  })
+  // The History screen shows each game's account imported into last again.
+  expect(forgetAccountChoices).toHaveBeenCalledTimes(1)
+  // Choosing again clears the outcome.
+  vi.mocked(chooseRestore).mockResolvedValue({ cancelled: true })
+  await restore.choose()
+  expect(restore.outcome.value).toBeNull()
+  // With nothing held, there is nothing to confirm.
+  await restore.confirm()
+  expect(confirmRestore).toHaveBeenCalledTimes(1)
+})
+
+test('a restore that replaced nothing closes the confirmation and says why', async () => {
+  vi.mocked(chooseRestore).mockResolvedValue({ checked: CHECKED })
+  vi.mocked(confirmRestore).mockResolvedValue({ failure: { kind: 'restore_changed' } })
+  const restore = useRestore(() => NOW)
+  await restore.choose()
+  await restore.confirm()
+  expect(restore.checked.value).toBeNull()
+  expect(restore.outcome.value).toEqual({
+    kind: 'failed',
+    message:
+      'Your history changed after the backup was checked, so nothing was replaced. Choose the backup again.',
+  })
+  expect(forgetAccountChoices).not.toHaveBeenCalled()
 })
 
 test('cancelling drops the held copy and closes the confirmation', async () => {

@@ -9,6 +9,7 @@ import {
   historyFailure,
   lastImportParts,
   progressText,
+  replaceFailure,
   restoreFailure,
   restoreSummary,
   retrievalFailure,
@@ -246,8 +247,29 @@ test('a refused or failed restore says why, and that nothing was changed', () =>
     'Your current history couldn’t be read to compare with the backup. Nothing was changed.',
   )
   expect(restoreFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
+  // An import held or running refuses the restore before any dialog opens.
+  const finishImport = 'Finish or discard the import first, then restore the backup.'
+  expect(restoreFailure({ kind: 'import_under_way' })).toBe(finishImport)
   // Every native kind has a heading, these included.
   expect(titleOf({ kind: 'restore_failed' })).toBe('Something Went Wrong')
+  expect(titleOf({ kind: 'restore_changed' })).toBe('Something Went Wrong')
+  expect(titleOf({ kind: 'import_under_way' })).toBe('Something Went Wrong')
+})
+
+test('a confirmed restore that replaced nothing says why, and that the history is unchanged', () => {
+  expect(replaceFailure({ kind: 'restore_changed' })).toBe(
+    'Your history changed after the backup was checked, so nothing was replaced. Choose the backup again.',
+  )
+  expect(replaceFailure({ kind: 'restore_failed' })).toBe(
+    'The backup couldn’t be restored. Your history is unchanged.',
+  )
+  expect(replaceFailure({ kind: 'storage' })).toBe(
+    'Your current history couldn’t be read, so nothing was replaced.',
+  )
+  expect(replaceFailure({ kind: 'import_under_way' })).toBe(
+    'Finish or discard the import first, then restore the backup.',
+  )
+  expect(replaceFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
 })
 
 test('the restore confirmation sums up what replaces what', () => {

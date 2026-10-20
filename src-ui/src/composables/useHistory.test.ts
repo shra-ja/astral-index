@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { ref } from 'vue'
 import { historyPage, savedAccounts, type StoredHistory } from '../commands'
 import type { Game } from '../format'
-import { forgetAccountChoice, useHistory } from './useHistory'
+import { forgetAccountChoice, forgetAccountChoices, useHistory } from './useHistory'
 
 vi.mock('../commands')
 beforeEach(() => {
@@ -293,6 +293,23 @@ test('each game keeps its own chosen account, and a save forgets only its gameâ€
   await history.start()
   expect(reads().at(-1)).toEqual(['1', 1, 20, saved[0]])
   forgetAccountChoice('honkai-star-rail')
+  await history.start()
+  expect(reads().at(-1)).toEqual(['1', 1, 20])
+})
+
+test('a restore forgets every gameâ€™s chosen account', async () => {
+  serveAccounts()
+  const game = ref<Game>('honkai-star-rail')
+  const history = useHistory(() => game.value)
+  await history.start()
+  await history.switchAccount(saved[0])
+  game.value = 'genshin-impact'
+  await history.start()
+  await history.switchAccount(saved[0])
+  forgetAccountChoices()
+  await history.start()
+  expect(reads().at(-1)).toEqual(['1', 1, 20])
+  game.value = 'honkai-star-rail'
   await history.start()
   expect(reads().at(-1)).toEqual(['1', 1, 20])
 })

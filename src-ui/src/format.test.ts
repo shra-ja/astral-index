@@ -6,6 +6,7 @@ import {
   localDate,
   initials,
   isGameScreen,
+  localTime,
   localDateTime,
   pityBand,
   quickRanges,
@@ -157,6 +158,11 @@ test('5★ pity is early, near or in soft pity by the category’s thresholds', 
 test('the local date is the calendar day on this device, as YYYY-MM-DD', () => {
   expect(localDate(new Date(2026, 9, 16, 23, 59))).toBe('2026-10-16')
   expect(localDate(new Date(2026, 0, 5, 0, 0))).toBe('2026-01-05')
+})
+
+test('the local time is the time on this device, as YYYY-MM-DDTHH:MM:SS', () => {
+  expect(localTime(new Date(2026, 9, 20, 14, 30, 5))).toBe('2026-10-20T14:30:05')
+  expect(localTime(new Date(2026, 0, 5, 0, 0, 0))).toBe('2026-01-05T00:00:00')
 })
 
 test('an account is held when a history has its UID on the same server', () => {

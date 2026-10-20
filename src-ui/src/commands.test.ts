@@ -18,6 +18,7 @@ import {
   savedAccounts,
   chooseRestore,
   cancelRestore,
+  confirmRestore,
 } from './commands'
 
 // Tauri rejects a command with the native failure as plain data, not an Error.
@@ -65,6 +66,8 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'history_damaged',
     'restore_in_data_folder',
     'restore_failed',
+    'restore_changed',
+    'import_under_way',
   ]) {
     mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })
@@ -422,4 +425,23 @@ test('choosing a backup to restore returns its name and both histories, or a can
   })
   expect(await cancelRestore()).toBeUndefined()
   expect(calls).toEqual(['cancel_restore'])
+})
+
+test('confirming a restore sends the local time and names the safety copy, if any', async () => {
+  const calls: unknown[] = []
+  mockIPC((cmd, args) => {
+    calls.push([cmd, args])
+    return { safety_copy: 'history-before-restore-20261020-143000.sqlite' }
+  })
+  expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({
+    safetyCopy: 'history-before-restore-20261020-143000.sqlite',
+  })
+  expect(calls).toEqual([['confirm_restore', { time: '2026-10-20T14:30:00' }]])
+  // An empty history keeps no safety copy.
+  mockIPC(() => ({ safety_copy: null }))
+  expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({ safetyCopy: null })
+  mockIPC(() => reject({ kind: 'restore_changed' }))
+  expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({
+    failure: { kind: 'restore_changed' },
+  })
 })

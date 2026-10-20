@@ -99,6 +99,8 @@ const titles: Record<Kind, string> = {
   restore_refused: 'Something Went Wrong',
   restore_in_data_folder: 'Something Went Wrong',
   restore_failed: 'Something Went Wrong',
+  restore_changed: 'Something Went Wrong',
+  import_under_way: 'Something Went Wrong',
   unavailable: 'Something Went Wrong',
 }
 
@@ -135,6 +137,9 @@ const refusals: Record<Refusal, string> = {
   unreadable: 'The file couldn’t be read. Check that it’s still there and try again.',
 }
 
+/** A restore refused while an import runs or awaits the user, choosing or confirming. */
+const importUnderWay = 'Finish or discard the import first, then restore the backup.'
+
 /** Why a backup can’t be restored; nothing of the history was changed. */
 export const restoreFailure = (failure: Failure) =>
   failure.kind === 'restore_refused'
@@ -145,7 +150,18 @@ export const restoreFailure = (failure: Failure) =>
         restore_failed: 'The backup couldn’t be checked. Try again.',
         storage:
           'Your current history couldn’t be read to compare with the backup. Nothing was changed.',
+        import_under_way: importUnderWay,
       })
+
+/** Why a confirmed restore replaced nothing; the history is as it was. */
+export const replaceFailure = (failure: Failure) =>
+  describe(failure, {
+    restore_changed:
+      'Your history changed after the backup was checked, so nothing was replaced. Choose the backup again.',
+    restore_failed: 'The backup couldn’t be restored. Your history is unchanged.',
+    storage: 'Your current history couldn’t be read, so nothing was replaced.',
+    import_under_way: importUnderWay,
+  })
 
 /** What a history holds, as far as the summary needs it. */
 type Holding = { accounts: readonly { rolls: number }[] }

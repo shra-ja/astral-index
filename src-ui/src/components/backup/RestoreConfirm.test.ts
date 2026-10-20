@@ -15,7 +15,7 @@ const CHECKED: CheckedBackup = {
   current: { accounts: [account('800000117', 2244), account('800009999', 51)], last_import: null },
 }
 const confirm = (checked = CHECKED) =>
-  mount(RestoreConfirm, { props: { checked }, attachTo: document.body })
+  mount(RestoreConfirm, { props: { checked, restoring: false }, attachTo: document.body })
 const note = (wrapper: ReturnType<typeof mount>) => wrapper.find('.safety')
 
 test('compares the backup with the current history, marking what the backup lacks', () => {
@@ -47,18 +47,19 @@ test('takes focus as it appears, so screen readers announce it', () => {
   wrapper.unmount()
 })
 
-test('Cancel asks to close; Restore is not available yet', async () => {
+test('Cancel asks to close and Restore to restore; while restoring, both wait', async () => {
   const wrapper = confirm()
   const [cancel, restore] = wrapper.findAll('footer button')
   expect(cancel.text()).toBe('Cancel')
   await cancel.trigger('click')
   expect(wrapper.emitted('cancel')).toHaveLength(1)
   expect(restore.text()).toBe('Restore backup')
-  expect(restore.attributes('aria-disabled')).toBe('true')
-  const tip = document.getElementById(restore.attributes('aria-describedby')!)
-  expect(tip?.textContent).toBe('Restoring isn’t available yet.')
+  expect(restore.attributes('disabled')).toBeUndefined()
   await restore.trigger('click')
-  expect(Object.keys(wrapper.emitted())).not.toContain('restore')
+  expect(wrapper.emitted('restore')).toHaveLength(1)
+  await wrapper.setProps({ restoring: true })
+  expect(restore.text()).toBe('Restoring…')
+  expect([cancel, restore].map((button) => button.attributes('disabled'))).toEqual(['', ''])
   wrapper.unmount()
 })
 
