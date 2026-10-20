@@ -31,9 +31,10 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   notices, and `useHistory.ts` reads the saved accounts and saved history a
   page at a time, keeping each game's account chosen in the switcher until the
   app restarts or a save into that game. `useBackup.ts` saves a backup and
-  tracks how it went, and `useRestore.ts` chooses a backup to restore and holds
-  it for its confirmation, which the Backup & Restore screen owns: leaving it,
-  once agreed, cancels the restore. `useWindowSize.ts` follows the window's size for the
+  tracks how it went, and `useRestore.ts` chooses a backup to restore, holds
+  it for its confirmation, which the Backup & Restore screen owns, and restores
+  it: leaving the confirmation, once agreed, cancels the restore, and leaving
+  waits while it restores. `useWindowSize.ts` follows the window's size for the
   size overlay.
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep

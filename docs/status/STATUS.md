@@ -39,8 +39,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of the whole
   history where the user chooses, never inside the data folder, and shows where
   history is stored, as the About dialog does. Restore checks a chosen backup
-  as untrusted input and shows its accounts beside the current history's; it
-  cannot yet replace the history.
+  as untrusted input, shows its accounts beside the current history's, and
+  replaces the history with it, keeping the old one as a safety copy.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
@@ -49,7 +49,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Restore, replacing (2026-10-20)
 
-`feat/restore-replace`: in progress.
+`feat/restore-replace`: 0037's Restore, replacing. Confirming re-reads the history, keeps it as a dated safety copy (none when empty) and renames the flushed checked copy over it under the store's lock; a changed history or any failure leaves it as it was. Restore is refused while an import runs or awaits the user; closing the app drops a held copy through a plugin, leaving `main.rs` unchanged. The outcome shows on the Restore card, designed on the canvas first. Each layer red first; an end-to-end test restores through the mock.
 
 ## Known limitations
 
@@ -68,7 +68,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Restore, replacing.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Restoring a safety copy.
 
 ## Keeping this file current
 

@@ -29,7 +29,8 @@ rearranged without rewriting the flows behind them.
 - **Flows (composables):** `useRetrieval` owns retrieval, review and saving;
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
   last import; `useBackup` saves a backup; `useRestore` chooses a backup to
-  restore and holds it while its confirmation is shown; `useAbout` reads the About dialog's details, asks the native
+  restore, holds it while its confirmation is shown and restores it, forgetting
+  each game's chosen account; `useAbout` reads the About dialog's details, asks the native
   side to open the data folder or issues page, and loads the third-party
   notices once, when first shown. They are the only callers of the native commands, through the
   typed client in `commands.ts`. They expose read-only state and actions.

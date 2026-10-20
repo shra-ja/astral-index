@@ -19,7 +19,8 @@ for how the parts fit together; run commands from the repository root.
   which chooses where to save in the dialog plugin's save dialog, or takes the
   mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its
   restore commands, which choose a backup in the open dialog, then copy, check
-  and hold it in the data folder.
+  and hold it in the data folder, and replace the history with it, keeping a
+  safety copy.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its

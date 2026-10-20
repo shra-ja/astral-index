@@ -108,12 +108,15 @@ another app's, newer, damaged or unreadable. `Store::contents` summarizes a
 history for restore's confirmation: its accounts with their roll totals and its
 last import. `save_backup` refuses a target inside the data folder,
 writes the snapshot to a temporary file it creates new beside the chosen one,
-checks and flushes it, then renames it into place.
+checks and flushes it, then renames it into place. Restore replaces the
+database with a checked, migrated copy: `Database::replace` hands the open store
+and its file over under the store's lock, the store closes, the history is
+copied to a safety copy and the checked copy renamed over it, and the next use
+reopens the file.
 
 ## Planned
 
-Restore replaces the database after a checked copy is migrated, with the current
-database kept as a safety copy; migrations keep a copy of the database they upgrade (decision 0031). Once a
+Migrations keep a copy of the database they upgrade (decision 0031). Once a
 migration exists, each version's expected schema is the one its migrations
 produce from the first release's schema, not a fresh creation
 ([0037](../product/features/0037-backup-and-restore.md)). Imports will
