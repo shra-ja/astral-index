@@ -114,6 +114,30 @@ impl Database {
             .await
             .unwrap_or(Err(Error::Database))
     }
+    /// Hand `f` the store and the path of its file while nothing else can use the
+    /// store, so that `f` can close it and replace the file; the next `run` opens
+    /// the file again. A panic in `f` is reported as a database error.
+    pub async fn replace<T: Send + 'static>(
+        &self,
+        f: impl FnOnce(Store, &Path) -> T + Send + 'static,
+    ) -> Result<T, Error> {
+        let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
+        spawn_blocking(move || with_file(folder.as_deref(), &store, Box::new(f)))
+            .await
+            .unwrap_or(Err(Error::Database))
+    }
+}
+
+/// The open store, or else the store opened from the database file in `folder`.
+fn take_or_open(folder: Option<&Path>, open: Option<Store>) -> Result<Store, Error> {
+    match open {
+        Some(open) => Ok(open),
+        None => {
+            let folder = folder.ok_or(Error::Database)?;
+            fs::create_dir_all(folder).map_err(|_| Error::Database)?;
+            Store::open(&folder.join(FILE_NAME))
+        }
+    }
 }
 
 /// Open the store if needed, then run `f` with it. A panic in `f` drops the store,
@@ -125,17 +149,26 @@ fn with_store<T>(
     f: Box<dyn FnOnce(&mut Store) -> T + '_>,
 ) -> Result<T, Error> {
     let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
-    let mut open = match guard.take() {
-        Some(open) => open,
-        None => {
-            let folder = folder.ok_or(Error::Database)?;
-            fs::create_dir_all(folder).map_err(|_| Error::Database)?;
-            Store::open(&folder.join(FILE_NAME))?
-        }
-    };
+    let mut open = take_or_open(folder, guard.take())?;
     let result = f(&mut open);
     *guard = Some(open);
     Ok(result)
+}
+
+/// Work given the store and the path of its file, which may replace the file.
+type Replacement<'a, T> = Box<dyn FnOnce(Store, &Path) -> T + 'a>;
+
+/// Open the store if needed, then hand it and its file to `f`, holding the lock so
+/// nothing else uses the store meanwhile. The store is not kept.
+fn with_file<T>(
+    folder: Option<&Path>,
+    store: &Mutex<Option<Store>>,
+    f: Replacement<'_, T>,
+) -> Result<T, Error> {
+    let file = folder.ok_or(Error::Database)?.join(FILE_NAME);
+    let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
+    let open = take_or_open(folder, guard.take())?;
+    Ok(f(open, &file))
 }
 
 #[cfg(test)]
@@ -275,6 +308,37 @@ mod tests {
         sql::expect(vec![failing]);
         assert_eq!(
             with_store(Some(&folder()), &store, Box::new(|_| 0)),
+            Err(Error::Database)
+        );
+        sql::finish();
+    }
+
+    #[test]
+    fn replacing_hands_over_the_store_and_its_file_and_the_next_use_reopens_it() {
+        filesystem::install(Fixture::default());
+        let path = folder().join(FILE_NAME);
+        let mut script = opening(&path);
+        script.extend(opening(&path));
+        sql::expect(script);
+        let database = Database::new(Some(folder()));
+        assert_eq!(
+            run(database.replace(|_store, file| file.to_owned())),
+            Ok(path.clone())
+        );
+        // Nothing holds the store now, so the next use opens the file again.
+        assert!(database.store.lock().unwrap().is_none());
+        assert_eq!(run(database.run(|_| 1)), Ok(1));
+        sql::finish();
+        // An open store is handed over as it is.
+        assert_eq!(run(database.replace(|_, _| 2)), Ok(2));
+        // Without a folder there is no file to hand over; a panic is a database error.
+        assert_eq!(
+            run(Database::new(None).replace(|_, _| ())),
+            Err(Error::Database)
+        );
+        sql::expect(opening(&path));
+        assert_eq!(
+            run(database.replace::<()>(|_, _| panic!("synthetic failure"))),
             Err(Error::Database)
         );
         sql::finish();

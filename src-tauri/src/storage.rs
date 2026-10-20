@@ -153,7 +153,7 @@ pub struct Account {
 
 /// A saved account of the game, for the account switcher. Holds a player identifier:
 /// never log it.
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct SavedAccount {
     pub uid: String,
     pub server: String,
@@ -165,7 +165,7 @@ pub struct SavedAccount {
 
 /// The newest import's summary, for the Import screen. Holds a player identifier:
 /// never log it.
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct LastImport {
     /// When it was saved, in Unix seconds by this device's clock.
     pub imported_at: i64,
@@ -179,14 +179,14 @@ pub struct LastImport {
 /// What a history holds, for comparing a backup with the current history before
 /// restoring it: the game's accounts with their roll totals, and its newest import.
 /// Holds player identifiers: never log it.
-#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Contents {
     pub accounts: Vec<SavedAccount>,
     pub last_import: Option<LastImport>,
 }
 
 /// Where an import came from, without exposing internal adapter names.
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
     /// Retrieved from HoYoverse's history API.

@@ -92,8 +92,14 @@ pub enum Failure {
     /// The backup chosen for restoring is inside the data folder.
     RestoreInDataFolder,
     /// The backup chosen for restoring could not be copied into the data folder
-    /// and read there, or the open dialog failed.
+    /// and read there, the open dialog failed, or the history could not be
+    /// replaced; the history is as it was.
     RestoreFailed,
+    /// The history changed after the restore's confirmation was shown, so nothing
+    /// was replaced; choose the backup again.
+    RestoreChanged,
+    /// An import is under way or awaits the user, so nothing is restored.
+    ImportUnderWay,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -181,6 +187,17 @@ struct Operation {
     acquisition: Option<(RequestContext, RetryBudget)>,
     /// The preview awaiting commit or discard. It holds no auth key.
     preview: Option<Preview>,
+    /// How many validations and retrievals are running; a cancelled one counts
+    /// until it has stopped.
+    running: usize,
+}
+
+/// Counts an import as running until dropped, however it ends.
+struct Running<'a>(&'a Session);
+impl Drop for Running<'_> {
+    fn drop(&mut self) {
+        self.0.state().running -= 1;
+    }
 }
 impl Session {
     fn state(&self) -> MutexGuard<'_, Operation> {
@@ -237,6 +254,17 @@ impl Session {
     /// Drop the held preview, if any.
     fn discard(&self) {
         self.state().preview = None;
+    }
+    /// Mark an import as running until the returned guard is dropped.
+    fn running(&self) -> Running<'_> {
+        self.state().running += 1;
+        Running(self)
+    }
+    /// Whether an import is under way or awaits the user: a link being validated
+    /// or held, history being retrieved, or a review held.
+    fn importing(&self) -> bool {
+        let state = self.state();
+        state.running > 0 || state.acquisition.is_some() || state.preview.is_some()
     }
     /// Stop the running operation and drop the held context.
     fn cancel(&self) {
@@ -297,7 +325,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         about::open_issues_page,
         backup::save_backup,
         restore::choose_restore,
-        restore::cancel_restore
+        restore::cancel_restore,
+        restore::confirm_restore
     ])
 }
 
@@ -354,6 +383,7 @@ fn register_with<R: Runtime>(
     let builder = builder
         .manage(Session::default())
         .manage(restore::Restore::default())
+        .plugin(restore::clean_up_on_exit())
         .manage(network);
     handle_commands(builder).setup(move |app| {
         // Portable mode, or else local, not roaming, app data: history never
@@ -562,6 +592,7 @@ async fn validate_into(
     token: &CancellationToken,
     requests: Vec<CachedRequest>,
 ) -> Result<(), Failure> {
+    let _running = session.running();
     let budget = RetryBudget::default();
     // Progress reaches the webview with the acquisition controls.
     let retrying = Retrying::new(transport, &budget, &|_| {});
@@ -629,6 +660,7 @@ async fn retrieve_into(
         "full" => false,
         _ => return Err(Failure::InvalidRequest.into()),
     };
+    let _running = session.running();
     let (token, context, budget) = session.take_validated()?;
     let transport = transport?;
     // Read before fetching, since the account is only known from the responses.
@@ -964,7 +996,7 @@ async fn extract_from_file(
 mod tests {
     pub(crate) mod blocking;
     pub(crate) mod chooser;
-    mod events;
+    pub(crate) mod events;
     pub(crate) mod launcher;
     use super::*;
     use crate::acquisition::TransportError;
@@ -1153,7 +1185,8 @@ mod tests {
                 "open_issues_page",
                 "save_backup",
                 "choose_restore",
-                "cancel_restore"
+                "cancel_restore",
+                "confirm_restore"
             ]
         );
         // The About commands take no arguments. Opening goes to the test double,
@@ -1201,6 +1234,22 @@ mod tests {
             serde_json::json!({ "kind": "cancelled" })
         );
         assert_eq!(invoke(&window, COMMANDS[14], InvokeBody::default()), Ok(()));
+        // Confirming needs the local time, and with no backup held restores nothing.
+        for body in [
+            serde_json::json!({}),
+            serde_json::json!({ "time": 20261020 }),
+        ] {
+            let malformed = invoke(&window, COMMANDS[15], InvokeBody::Json(body));
+            assert!(malformed.unwrap_err().contains("time"));
+        }
+        assert_eq!(
+            invoke(
+                &window,
+                COMMANDS[15],
+                InvokeBody::Json(serde_json::json!({ "time": "2026-10-20T14:30:00" }))
+            ),
+            Err(r#"{"kind":"restore_failed"}"#.into())
+        );
         assert_eq!(
             invoke(&window, COMMANDS[8], InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
@@ -1521,31 +1570,43 @@ mod tests {
             folder: None,
             dialogs: backup::Dialogs::System,
         };
-        let builders = [
-            mock_builder().manage(backup()),
-            mock_builder()
-                .manage(backup())
-                .manage(restore::Restore::default()),
-            mock_builder()
-                .manage(backup())
-                .manage(restore::Restore::default())
-                .manage(Database::new(None)),
-        ];
-        let replies: Vec<_> = builders
-            .into_iter()
-            .map(|builder| {
-                let app = handle_commands(builder)
-                    .build(mock_context(noop_assets()))
-                    .unwrap();
-                let window = WebviewWindowBuilder::new(&app, "main", Default::default())
-                    .build()
-                    .unwrap();
-                invoke(&window, "choose_restore", InvokeBody::default()).unwrap_err()
-            })
-            .collect();
-        assert!(replies[0].contains("state not managed"));
-        assert!(replies[1].contains("state not managed"));
-        assert_eq!(replies[2], r#"{"kind":"restore_failed"}"#);
+        let builders = || {
+            [
+                mock_builder().manage(backup()),
+                mock_builder().manage(backup()).manage(Session::default()),
+                mock_builder()
+                    .manage(backup())
+                    .manage(Session::default())
+                    .manage(restore::Restore::default()),
+                mock_builder()
+                    .manage(backup())
+                    .manage(Session::default())
+                    .manage(restore::Restore::default())
+                    .manage(Database::new(None)),
+            ]
+        };
+        let time = || InvokeBody::Json(serde_json::json!({ "time": "2026-10-20T14:30:00" }));
+        for (command, body) in [
+            ("choose_restore", InvokeBody::default as fn() -> InvokeBody),
+            ("confirm_restore", time),
+        ] {
+            let replies: Vec<_> = builders()
+                .into_iter()
+                .map(|builder| {
+                    let app = handle_commands(builder)
+                        .build(mock_context(noop_assets()))
+                        .unwrap();
+                    let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+                        .build()
+                        .unwrap();
+                    invoke(&window, command, body()).unwrap_err()
+                })
+                .collect();
+            for reply in &replies[..3] {
+                assert!(reply.contains("state not managed"), "{command}: {reply}");
+            }
+            assert_eq!(replies[3], r#"{"kind":"restore_failed"}"#, "{command}");
+        }
     }
 
     #[test]
@@ -2139,18 +2200,31 @@ mod tests {
     }
 
     /// Serves scripted responses; with a count, cancels the session as it serves
-    /// that many. One transport type keeps each tested function to one
+    /// that many; watching a session, notes at each request whether it says an
+    /// import is under way. One transport type keeps each tested function to one
     /// instantiation, which coverage scores as a whole.
     struct Serving<'a> {
         scripted: Scripted,
         cancel: Option<(&'a Session, std::sync::Mutex<usize>)>,
+        watch: Option<(&'a Session, std::sync::Mutex<Vec<bool>>)>,
     }
     impl<'a> Serving<'a> {
         fn new(responses: Vec<Result<Vec<u8>, TransportError>>) -> Self {
             Self {
                 scripted: Scripted::new(responses),
                 cancel: None,
+                watch: None,
             }
+        }
+        fn watching(session: &'a Session, responses: Vec<Result<Vec<u8>, TransportError>>) -> Self {
+            Self {
+                watch: Some((session, Vec::new().into())),
+                ..Self::new(responses)
+            }
+        }
+        /// Whether the watched session said an import was under way, at each request.
+        fn seen(&self) -> Vec<bool> {
+            self.watch.as_ref().unwrap().1.lock().unwrap().clone()
         }
         fn cancelling(
             session: &'a Session,
@@ -2158,8 +2232,8 @@ mod tests {
             responses: Vec<Result<Vec<u8>, TransportError>>,
         ) -> Self {
             Self {
-                scripted: Scripted::new(responses),
                 cancel: Some((session, after.into())),
+                ..Self::new(responses)
             }
         }
         fn requested(&self) -> Vec<String> {
@@ -2168,6 +2242,9 @@ mod tests {
     }
     impl Transport for Serving<'_> {
         async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
+            if let Some((session, seen)) = &self.watch {
+                seen.lock().unwrap().push(session.importing());
+            }
             let response = self.scripted.get(url).await;
             if let Some((session, left)) = &self.cancel {
                 let mut left = left.lock().unwrap();
@@ -2200,6 +2277,51 @@ mod tests {
         sql::finish();
         assert_eq!(failure.err().unwrap(), Failure::Cancelled.into());
         assert_eq!(holds(&session), (false, false));
+    }
+
+    #[test]
+    fn an_import_is_under_way_while_it_runs_and_while_the_user_holds_it() {
+        let session = Session::default();
+        assert!(!session.importing());
+        // Validating a link is under way, and the validated link is then held.
+        let transport = Serving::watching(&session, vec![Ok(PAGE.to_vec())]);
+        let requests = extract_request_contexts(&cache(&["valid"])).unwrap();
+        let token = session.begin();
+        assert_eq!(
+            run(validate_into(&session, &transport, &token, requests)),
+            Ok(())
+        );
+        assert_eq!(transport.seen(), [true]);
+        assert!(session.importing());
+        // Retrieving is under way though the link is taken, and the review is held.
+        let database = database();
+        let mut script = opening();
+        script.extend(preview_script());
+        sql::expect(script);
+        let transport = Serving::watching(&session, pages());
+        assert!(
+            run(retrieve_into(
+                &session,
+                &database,
+                Ok(&transport),
+                "full",
+                &ignore
+            ))
+            .is_ok()
+        );
+        sql::finish();
+        assert_eq!(transport.seen(), vec![true; 7]);
+        assert!(session.importing());
+        // Discarding the review ends the import.
+        session.discard();
+        assert!(!session.importing());
+        // A failed validation leaves nothing under way.
+        let transport = Serving::watching(&session, vec![Ok(EXPIRED.to_vec())]);
+        let requests = extract_request_contexts(&cache(&["expired"])).unwrap();
+        let token = session.begin();
+        assert!(run(validate_into(&session, &transport, &token, requests)).is_err());
+        assert_eq!(transport.seen(), [true]);
+        assert!(!session.importing());
     }
 
     #[test]
