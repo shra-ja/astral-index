@@ -33,7 +33,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
   app version.
-  On Windows, CI also runs the Rust unit tests and smoke-tests the release
+  On Windows, CI also runs the Rust unit tests and backup's and restore's
+  real-file tests, and smoke-tests the release
   executable (decision 0029). A frozen 1.0.0 database shows each schema change
   keeps saved history.
 - **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of the whole
@@ -49,7 +50,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Restore, replacing (2026-10-20)
 
-`feat/restore-replace`: 0037's Restore, replacing. Confirming re-reads the history, keeps it as a dated safety copy (none when empty) and renames the flushed checked copy over it under the store's lock; a changed history or any failure leaves it as it was. Restore is refused while an import runs or awaits the user; closing the app drops a held copy through a plugin, leaving `main.rs` unchanged. The outcome shows on the Restore card, designed on the canvas first. Each layer red first; an end-to-end test restores through the mock.
+`feat/restore-replace`: 0037's Restore, replacing. Confirming re-reads the history, keeps it as a dated safety copy (none when empty) and renames the flushed checked copy over it under the store's lock; a changed history or any failure leaves it as it was. Restore is refused while an import runs or awaits the user; closing the app drops a held copy through a plugin, leaving `main.rs` unchanged. The outcome shows on the Restore card, designed on the canvas first. Each layer red first; an end-to-end test restores through the mock. Reviewer agents found Windows refused every backup's and restore's flush (read-only handle); fixed red first, and Windows CI now runs their real-file tests.
 
 ## Known limitations
 

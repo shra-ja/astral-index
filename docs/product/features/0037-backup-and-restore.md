@@ -211,6 +211,15 @@ Backup and restore stay local and never make a network request.
     left, and is refused while a review awaits saving. A commit racing a
     confirmation is safe: the store's lock orders them, and either the restore
     finds the history changed or the commit finds its preview stale.
+  - Two reviewer agents found that Windows refuses to flush a file opened for
+    reading only, so every backup and restore failed there; backup has done so
+    since it shipped. Fixed: both flush through a writable handle, the test
+    filesystem refuses a read-only flush, which failed six tests first, and the
+    Windows CI job runs backup's and restore's real-file tests. Also fixed: a
+    choice made while a confirm puts its copy in place is refused, as it would
+    copy to the same name (its test fails with the check removed), and the
+    checked copy is removed in one place. Restore counting Star Rail alone is
+    noted for the second game ([0031](0031-second-game-adapter.md)).
 - [ ] **Restoring a safety copy** (one PR). Relax the source's data-folder
   guard to protect only the history itself:
   - [ ] `choose_restore` refuses `history.sqlite`, compared by its real path,

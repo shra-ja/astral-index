@@ -62,7 +62,12 @@ later the preview.
   retrieval, counted by a guard each holds, and awaits the user while a link
   or review is held. Meanwhile `choose_restore`, before any dialog, and
   `confirm_restore` are refused with `import_under_way`, so a review is never
-  saved into a history it was not counted against.
+  saved into a history it was not counted against. The check comes before
+  `confirm_restore` waits for the store's lock, so a retrieval started in that
+  moment could read the old history and save into the restored one; the UI
+  rules this out, as the confirmation fills the screen and leaving waits while
+  it restores. A choice made while a confirm puts its copy in place is refused,
+  as it would copy to the same name.
 
 ## IPC rules
 
