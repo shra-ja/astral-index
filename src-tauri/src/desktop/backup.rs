@@ -136,7 +136,7 @@ async fn write_checked(database: &Database, written: &Path) -> Result<(), Failur
             check_database(&snapshot).map_err(|_| Failure::HistoryDamaged)
         })
         .await
-        .map_err(|_| Failure::Storage)?
+        .map_err(Failure::from)?
 }
 
 /// Flush a written file to disk, then give it the target's name, replacing any file
@@ -285,6 +285,15 @@ mod tests {
     }
     fn save(database: &Database) -> Result<Saved, Failure> {
         run(save_to(database, &target()))
+    }
+    #[test]
+    fn a_history_that_could_not_be_upgraded_is_named_as_such() {
+        filesystem::install(Files::default());
+        let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
+        let database = Database::not_upgraded(folder(), copy.clone());
+        assert_eq!(save(&database), Err(Failure::HistoryNotUpgraded(copy)));
+        // Nothing is left beside the target.
+        assert_eq!(removed_files(), [partial(0)]);
     }
     fn removed_files() -> Vec<PathBuf> {
         filesystem::inspect(|state| state.removed_files.clone())

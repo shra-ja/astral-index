@@ -146,6 +146,17 @@ impl Database {
     }
 }
 
+#[cfg(test)]
+impl Database {
+    /// A database in `folder` whose upgrade has failed, keeping `copy`.
+    pub(crate) fn not_upgraded(folder: PathBuf, copy: Option<String>) -> Self {
+        Self {
+            folder: Some(folder),
+            store: Arc::new(Mutex::new(State::NotUpgraded(copy))),
+        }
+    }
+}
+
 /// The database file in `folder`.
 fn history_file(folder: &Path) -> PathBuf {
     folder.join(FILE_NAME)
