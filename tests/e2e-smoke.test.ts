@@ -573,7 +573,7 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
   }
 }, 120000)
 
-test('Restore replaces the history with a backup, keeping the history as a safety copy', async () => {
+test('Restore replaces the history with a backup, keeping the history as a safety copy, which can be restored', async () => {
   const backups = resolve(results, 'e2e-restore')
   rmSync(backups, { recursive: true, force: true })
   mkdirSync(backups, { recursive: true })
@@ -586,6 +586,7 @@ test('Restore replaces the history with a backup, keeping the history as a safet
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
   }
   let removed = 0
+  let safety = ''
   await withMock('history', {}, async (app) => {
     // While a review awaits saving, restoring is refused before any dialog opens.
     await retrieveFromFile(app)
@@ -644,13 +645,44 @@ test('Restore replaces the history with a backup, keeping the history as a safet
     await expect
       .poll(() => textOf(app, firstTab), { timeout: 10000 })
       .toBe((before - 10).toLocaleString('en'))
+    // The history itself can't be restored, but the safety copy beside it can.
+    await toBackup(app)
+    writeFileSync(resolve(folder, 'restore-from.txt'), `${resolve(folder, 'history.sqlite')}\n`)
+    await click(app, 'main', 'Restore from backup…')
+    await expect
+      .poll(() => textOf(app, restoreStatus), { timeout: 10000 })
+      .toContain('This is your current history, not a backup.')
+    expect(await heading(app)).toBe('Backup & Restore')
+    safety = readdirSync(folder).find((name) => name.startsWith('history-before-restore-'))!
+    writeFileSync(resolve(folder, 'restore-from.txt'), `${resolve(folder, safety)}\n`)
+    // Safety copies are named to the second, so this restore's gets a name of its own.
+    await new Promise((done) => setTimeout(done, 1000))
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(await textOf(app, 'main .footnote')).toBe(
+      `Restoring replaces ${(2060 - removed).toLocaleString('en')} rolls in 1 account with 2,060 rolls in 1 account.`,
+    )
+    await click(app, 'main footer', 'Restore backup')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Backup & Restore')
+    expect((await textOf(app, restoreStatus))!.replace(/\s+/g, ' ').trim()).toMatch(
+      new RegExp(
+        `^Restored ${safety.replace(/\./g, '\\.')}\\. Your previous history is kept in the data folder as history-before-restore-\\d{8}-\\d{6}\\.sqlite\\.$`,
+      ),
+    )
+    await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
+    await expect
+      .poll(() => textOf(app, firstTab), { timeout: 10000 })
+      .toBe(before.toLocaleString('en'))
   })
-  // The data folder holds the restored history and the safety copy, and nothing else.
+  // The data folder holds the history restored from the first safety copy, that copy
+  // unchanged, and the second restore's safety copy, and nothing else.
   const saved = readdirSync(folder).filter(
     (name) => name.endsWith('.sqlite') || name.endsWith('.partial'),
   )
-  const safety = saved.find((name) => name.startsWith('history-before-restore-'))!
-  expect(saved.toSorted()).toEqual([safety, 'history.sqlite'])
+  const second = saved.find(
+    (name) => name.startsWith('history-before-restore-') && name !== safety,
+  )!
+  expect(saved.toSorted()).toEqual([safety, second, 'history.sqlite'].toSorted())
   const count = (path: string) => {
     const database = new DatabaseSync(path, { readOnly: true })
     try {
@@ -659,8 +691,9 @@ test('Restore replaces the history with a backup, keeping the history as a safet
       database.close()
     }
   }
-  expect(count(resolve(folder, 'history.sqlite'))).toBe(2060 - removed)
+  expect(count(resolve(folder, 'history.sqlite'))).toBe(2060)
   expect(count(resolve(folder, safety))).toBe(2060)
+  expect(count(resolve(folder, second))).toBe(2060 - removed)
   rmSync(backups, { recursive: true, force: true })
 }, 120000)
 
