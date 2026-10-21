@@ -51,7 +51,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Data folder (2026-10-21)
 
-`refactor/data-folder`: one source for the data folder, under way.
+`refactor/data-folder`: the data folder is held once, by `Database`; About keeps its mode and opener, the dialogs setting is managed alone, and `choose_restore` no longer pairs two copies (a reviewer finding from #133). No behaviour change: the existing tests pass unchanged in what they check, and a new IPC case covers the About commands without a database.
 
 ## Known limitations
 
