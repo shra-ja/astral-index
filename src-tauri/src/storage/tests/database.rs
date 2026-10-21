@@ -26,6 +26,10 @@ pub fn expect(steps: Vec<Step>) {
         *script.borrow_mut() = steps.into();
     });
 }
+/// The SQL of the next expected call, if any, so a test can tell what has run.
+pub fn upcoming() -> Option<String> {
+    SCRIPT.with(|script| script.borrow().front().map(|step| step.sql.clone()))
+}
 pub fn finish() {
     SCRIPT.with(|script| assert!(script.borrow().is_empty(), "unconsumed SQL expectations"));
 }

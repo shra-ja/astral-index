@@ -91,6 +91,30 @@ account, import, roll and pity count
 migration's tests open the same fixtures, and each release that changes the
 schema adds its own.
 
+## Migrations
+
+A `Schema` is the first release's SQL, `migrations/001_initial.sql` at version
+2, then its migrations in order, each raising the schema version by one; the
+app's is `Schema::CURRENT`, with none yet. Every version from the first
+release's to the newest is a released one, and a new database is built by the
+same steps as an upgraded one, so their schemas never differ. `Store::open_with`
+upgrades an older version by running the pending migrations in the one
+transaction that opens it, so a failure leaves the file as it was. Before the
+first migration writes, an optional `keep` is given the old version; the
+desktop's `Database` copies the history there to
+`history-v<N>-YYYYMMDD-HHMMSS.sqlite` beside it, named from the local time,
+claimed new and flushed, and a copy that fails stops the upgrade. References
+are enforced only once the opening transaction commits, as SQLite's procedure
+for schema changes requires, since SQLite can't stop enforcing them inside a
+transaction; a migration can then rebuild a table others refer to, and an
+upgrade checks every reference with `foreign_key_check` before committing.
+`Store::open`
+keeps nothing, as for a restore's held copy, itself a copy. A failed upgrade
+or copy is remembered until the app restarts, so each failure keeps one copy,
+and every use of the history refuses with `NotUpgraded`, naming the copy.
+Migrations are fast: at 100,000 rolls, a 35 MB file, rebuilding the rolls
+table took 380 ms and the copy 41 ms in a measurement on 2026-10-21.
+
 ## Backups
 
 A backup is a snapshot of the database
@@ -101,9 +125,9 @@ over `MAX_DATABASE_BYTES` (256 MiB) before opening it, then opens it read-only i
 SQLite's defensive mode, with `trusted_schema` off, no memory mapping, checked
 cell sizes and lowered limits. The file must be a non-empty database with this
 app's application ID and a released schema version no newer than the app's,
-with exactly the schema its version's SQL creates, compared against a fresh
-in-memory database built from that SQL before the integrity check runs the
-file's schema. Each refusal is a distinct `Refusal`: too large, not a database,
+with exactly the schema its version's steps build, compared against a fresh
+in-memory database built by them before the integrity check runs the file's
+schema. Each refusal is a distinct `Refusal`: too large, not a database,
 another app's, newer, damaged or unreadable. `Store::contents` summarizes a
 history for restore's confirmation: its accounts with their roll totals and its
 last import. `save_backup` refuses a target inside the data folder,
@@ -116,9 +140,7 @@ reopens the file.
 
 ## Planned
 
-Migrations keep a copy of the database they upgrade (decision 0031). Once a
-migration exists, each version's expected schema is the one its migrations
-produce from the first release's schema, not a fresh creation
+A history that can't be upgraded will get one app-wide screen naming the copy
 ([0037](../product/features/0037-backup-and-restore.md)). Imports will
 compare a roll's facts rather than its whole record
 ([decision 0032](decisions/0032-history-file-import-rules.md)).

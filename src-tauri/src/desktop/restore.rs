@@ -8,7 +8,7 @@ use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
     backup::{Dialogs, answer, publish, real},
-    database::Database,
+    database::{self, Database},
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -258,8 +258,12 @@ async fn choose_into<R: Runtime>(
     let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source))
         .await
         .map_err(|_| Failure::RestoreFailed)??;
-    match database.run(|store| store.contents()).await {
-        Ok(Ok(current)) => {
+    match database
+        .run(|store| store.contents())
+        .await
+        .and_then(|read| read)
+    {
+        Ok(current) => {
             restore.hold(Some(Held {
                 copy,
                 current: current.clone(),
@@ -270,9 +274,9 @@ async fn choose_into<R: Runtime>(
                 current,
             })
         }
-        _ => {
+        Err(error) => {
             let _ = fs::remove_file(&copy);
-            Err(Failure::Storage)
+            Err(error.into())
         }
     }
 }
@@ -331,20 +335,6 @@ fn safety_name(time: &str) -> Result<String, Failure> {
         .ok_or(Failure::InvalidRequest)
 }
 
-/// Copy the history to `safety` beside it, a name claimed new so that no file is
-/// ever replaced, and flush it to disk. A failure removes what was written.
-fn keep(history: &Path, safety: &Path) -> Result<(), Failure> {
-    let mut to = fs::File::create_new(safety).map_err(|_| Failure::RestoreFailed)?;
-    let copied = fs::File::open(history)
-        .and_then(|mut from| std::io::copy(&mut from, &mut to))
-        .and_then(|_| to.sync_all());
-    if copied.is_err() {
-        let _ = fs::remove_file(safety);
-        return Err(Failure::RestoreFailed);
-    }
-    Ok(())
-}
-
 /// Keep the history under `safety`, when given, then flush the checked copy and
 /// give it the history's name. A failure removes the safety copy again.
 pub fn put_in_place(
@@ -354,7 +344,7 @@ pub fn put_in_place(
 ) -> Result<Restored, Failure> {
     let kept = safety.map(|name| history.with_file_name(name));
     if let Some(kept) = &kept {
-        keep(history, kept)?;
+        database::copy_new(history, kept).map_err(|_| Failure::RestoreFailed)?;
     }
     if publish(copy, history).is_err() {
         if let Some(kept) = &kept {
@@ -407,7 +397,7 @@ async fn restore_into(
         Ok(safety) => database
             .replace(move |store, history| replace(store, history, held, safety))
             .await
-            .unwrap_or(Err(Failure::Storage)),
+            .unwrap_or_else(|error| Err(error.into())),
         Err(failure) => Err(failure),
     };
     // Whatever went wrong, the checked copy is not kept.
@@ -1001,6 +991,40 @@ mod tests {
     /// The SQL for reading the history once more, finding `accounts` accounts.
     fn rereading(accounts: usize) -> Vec<Step> {
         reading(&history(), vec![accounts_row(); accounts])
+    }
+    #[test]
+    fn a_history_that_could_not_be_upgraded_is_named_as_such_and_nothing_is_held() {
+        let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
+        let failed = Err(Failure::HistoryNotUpgraded(copy.clone()));
+        // Choosing checks the backup, then can't read the history to compare.
+        filesystem::install(files(&[]));
+        answering(Some(source()));
+        let mut steps = check_script(&held().to_string_lossy());
+        steps.extend(reading(&held(), vec![accounts_row()]));
+        sql::expect(steps);
+        let restore = Restore::default();
+        let chosen = run(choose_into(
+            app(),
+            &Session::default(),
+            Dialogs::System,
+            &restore,
+            &Database::not_upgraded(folder(), copy.clone()),
+        ));
+        sql::finish();
+        assert_eq!(chosen.map(|_| ()), failed.clone());
+        assert_eq!(holding(&restore), None);
+        assert!(!has(&held()));
+        // Confirming a copy held before can't replace it either.
+        filesystem::install(files(&[(held(), BYTES)]));
+        holding_copy(&restore, contents(0));
+        let restored = run(restore_into(
+            &Session::default(),
+            &restore,
+            &Database::not_upgraded(folder(), copy),
+            TIME,
+        ));
+        assert_eq!(restored.map(|_| ()), failed);
+        assert!(!has(&held()));
     }
     fn restore_now(session: &Session, restore: &Restore) -> Result<Restored, Failure> {
         run(restore_into(session, restore, &database(), TIME))

@@ -49,9 +49,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Data folder (2026-10-21)
+### Migration recovery (2026-10-21)
 
-`refactor/data-folder`: the data folder is held once, by `Database`; About keeps its mode and opener, the dialogs setting is managed alone, and `choose_restore` no longer pairs two copies (a reviewer finding from #133). No behaviour change: the existing tests pass unchanged in what they check, and a new IPC case covers the About commands without a database.
+`feat/migration-recovery`: 0037's Migration recovery, native part. Opening an older release's history runs its pending migrations in one transaction after copying it to `history-v<N>-YYYYMMDD-HHMMSS.sqlite`; a failed upgrade is remembered and every use refuses with `history_not_upgraded`, naming the copy. The check builds each version's schema from the same steps. No real migration yet: a test-only one upgrades the 1.0.0 fixture. Each rule's test fails with it broken. From the reviews: references are enforced only after the upgrade commits and checked before, so a migration can rebuild a referenced table (red first on the 1.0.0 fixture), and backup and restore pass the failure on. The screen follows in its own PR, then native times for backup and restore.
 
 ## Known limitations
 
@@ -183,3 +183,5 @@ research, under a "From" heading.
 - [2026-10-20: restore, replacing](history/2026-10-20-restore-replacing.md):
   confirming a restore, its safety copy, the exit clean-up, the Windows
   flush fix and restoring a safety copy.
+- [2026-10-21: data folder](history/2026-10-21-data-folder.md): one owner
+  for the data folder, and end-to-end failure snapshots.

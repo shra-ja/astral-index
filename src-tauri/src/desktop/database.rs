@@ -4,7 +4,7 @@
 use super::tests::blocking::spawn_blocking;
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
-use crate::storage::{Error, Store};
+use crate::storage::{Error, Schema, Store};
 #[cfg(not(test))]
 use std::fs;
 use std::{
@@ -89,7 +89,18 @@ pub fn location(executable: Option<&Path>, local: Option<PathBuf>) -> Option<Pat
 /// Nothing is created or opened until the first `run`.
 pub struct Database {
     folder: Option<PathBuf>,
-    store: Arc<Mutex<Option<Store>>>,
+    store: Arc<Mutex<State>>,
+}
+/// The history as the app last found it.
+#[derive(Default)]
+enum State {
+    /// Not opened yet, or handed over to be replaced.
+    #[default]
+    Closed,
+    Open(Store),
+    /// From an older release, and its upgrade failed; it is not tried again until
+    /// the app restarts, so each failure keeps only one copy.
+    NotUpgraded(Option<String>),
 }
 impl Database {
     /// `folder` is the app's folder, or `None` if the platform gave none.
@@ -115,7 +126,7 @@ impl Database {
         f: impl FnOnce(&mut Store) -> T + Send + 'static,
     ) -> Result<T, Error> {
         let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
-        spawn_blocking(move || with_store(folder.as_deref(), &store, Box::new(f)))
+        spawn_blocking(move || with_store(folder.as_deref(), Schema::CURRENT, &store, Box::new(f)))
             .await
             .unwrap_or(Err(Error::Database))
     }
@@ -129,9 +140,20 @@ impl Database {
         f: impl FnOnce(Store, &Path) -> T + Send + 'static,
     ) -> Result<T, Error> {
         let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
-        spawn_blocking(move || with_file(folder.as_deref(), &store, Box::new(f)))
+        spawn_blocking(move || with_file(folder.as_deref(), Schema::CURRENT, &store, Box::new(f)))
             .await
             .unwrap_or(Err(Error::Database))
+    }
+}
+
+#[cfg(test)]
+impl Database {
+    /// A database in `folder` whose upgrade has failed, keeping `copy`.
+    pub(crate) fn not_upgraded(folder: PathBuf, copy: Option<String>) -> Self {
+        Self {
+            folder: Some(folder),
+            store: Arc::new(Mutex::new(State::NotUpgraded(copy))),
+        }
     }
 }
 
@@ -140,14 +162,64 @@ fn history_file(folder: &Path) -> PathBuf {
     folder.join(FILE_NAME)
 }
 
-/// The open store, or else the store opened from the database file in `folder`.
-fn take_or_open(folder: Option<&Path>, open: Option<Store>) -> Result<Store, Error> {
-    match open {
-        Some(open) => Ok(open),
-        None => {
+/// Copy `from` to `to`, a name claimed new so that no file is ever replaced, and
+/// flush it to disk through the handle it was written with, as Windows refuses to
+/// flush one opened for reading. A failure removes what was written.
+pub(super) fn copy_new(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut written = fs::File::create_new(to)?;
+    let copied = fs::File::open(from)
+        .and_then(|mut source| std::io::copy(&mut source, &mut written))
+        .and_then(|_| written.sync_all());
+    if copied.is_err() {
+        let _ = fs::remove_file(to);
+    }
+    copied
+}
+
+/// Copy the history in `file`, at schema `version`, beside it before it is
+/// upgraded, named from the local time; returns the copy's name.
+fn keep_before_upgrade(file: &Path, version: i32) -> std::io::Result<String> {
+    let time = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let name = format!("history-v{version}-{time}.sqlite");
+    copy_new(file, &file.with_file_name(&name))?;
+    Ok(name)
+}
+
+/// The open store, or else the store opened from the database file in `folder`,
+/// which an older release's history is upgraded to `schema` in, after a copy of
+/// it is kept beside it. A failed upgrade is remembered in `state`.
+fn take_or_open(folder: Option<&Path>, schema: Schema, state: &mut State) -> Result<Store, Error> {
+    match std::mem::take(state) {
+        State::Open(open) => Ok(open),
+        State::NotUpgraded(copy) => {
+            *state = State::NotUpgraded(copy.clone());
+            Err(Error::NotUpgraded(copy))
+        }
+        State::Closed => {
             let folder = folder.ok_or(Error::Database)?;
             fs::create_dir_all(folder).map_err(|_| Error::Database)?;
-            Store::open(&history_file(folder))
+            let file = history_file(folder);
+            // Set once an upgrade is due: the copy's name, or none if it couldn't
+            // be kept.
+            let mut kept = None;
+            let mut keep = |version| match keep_before_upgrade(&file, version) {
+                Ok(copy) => {
+                    kept = Some(Some(copy));
+                    Ok(())
+                }
+                Err(_) => {
+                    kept = Some(None);
+                    Err(Error::Database)
+                }
+            };
+            let opened = Store::open_with(&file, schema, Some(&mut keep));
+            match (opened, kept) {
+                (Err(_), Some(copy)) => {
+                    *state = State::NotUpgraded(copy.clone());
+                    Err(Error::NotUpgraded(copy))
+                }
+                (opened, _) => opened,
+            }
         }
     }
 }
@@ -157,13 +229,14 @@ fn take_or_open(folder: Option<&Path>, open: Option<Store>) -> Result<Store, Err
 /// result type, not by closure.
 fn with_store<T>(
     folder: Option<&Path>,
-    store: &Mutex<Option<Store>>,
+    schema: Schema,
+    store: &Mutex<State>,
     f: Box<dyn FnOnce(&mut Store) -> T + '_>,
 ) -> Result<T, Error> {
     let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
-    let mut open = take_or_open(folder, guard.take())?;
+    let mut open = take_or_open(folder, schema, &mut guard)?;
     let result = f(&mut open);
-    *guard = Some(open);
+    *guard = State::Open(open);
     Ok(result)
 }
 
@@ -174,12 +247,13 @@ type Replacement<'a, T> = Box<dyn FnOnce(Store, &Path) -> T + 'a>;
 /// nothing else uses the store meanwhile. The store is not kept.
 fn with_file<T>(
     folder: Option<&Path>,
-    store: &Mutex<Option<Store>>,
+    schema: Schema,
+    store: &Mutex<State>,
     f: Replacement<'_, T>,
 ) -> Result<T, Error> {
     let file = history_file(folder.ok_or(Error::Database)?);
     let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
-    let open = take_or_open(folder, guard.take())?;
+    let open = take_or_open(folder, schema, &mut guard)?;
     Ok(f(open, &file))
 }
 
@@ -200,7 +274,9 @@ mod tests {
             assert_ne!(state.removed[0], folder);
         });
     }
-    use crate::storage::tests::{setup, step, text};
+    use crate::storage::tests::{
+        BANNER, UPGRADED, failing_at, setup, step, stopping_before, text, upgrading,
+    };
     use std::future::Future;
 
     fn run<T>(future: impl Future<Output = T>) -> T {
@@ -287,11 +363,17 @@ mod tests {
         let path = folder().join(FILE_NAME);
         sql::expect(opening(&path));
         let store = Mutex::default();
-        assert_eq!(with_store(Some(&folder()), &store, Box::new(|_| 1)), Ok(1));
+        assert_eq!(
+            with_store(Some(&folder()), Schema::CURRENT, &store, Box::new(|_| 1)),
+            Ok(1)
+        );
         sql::finish();
         // Already open: no further SQL or filesystem access.
         filesystem::install(Fixture::default());
-        assert_eq!(with_store(Some(&folder()), &store, Box::new(|_| 2)), Ok(2));
+        assert_eq!(
+            with_store(Some(&folder()), Schema::CURRENT, &store, Box::new(|_| 2)),
+            Ok(2)
+        );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         assert_eq!(Database::new(Some(folder())).path(), Some(path));
     }
@@ -300,7 +382,7 @@ mod tests {
     fn a_missing_or_unusable_folder_or_database_is_a_database_error() {
         let store = Mutex::default();
         assert_eq!(
-            with_store(None, &store, Box::new(|_| 0)),
+            with_store(None, Schema::CURRENT, &store, Box::new(|_| 0)),
             Err(Error::Database)
         );
         assert_eq!(Database::new(None).path(), None);
@@ -310,7 +392,7 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(
-            with_store(Some(&folder()), &store, Box::new(|_| 0)),
+            with_store(Some(&folder()), Schema::CURRENT, &store, Box::new(|_| 0)),
             Err(Error::Database)
         );
         // The database cannot be opened.
@@ -319,7 +401,7 @@ mod tests {
         failing.reply = Err(rusqlite::Error::InvalidQuery);
         sql::expect(vec![failing]);
         assert_eq!(
-            with_store(Some(&folder()), &store, Box::new(|_| 0)),
+            with_store(Some(&folder()), Schema::CURRENT, &store, Box::new(|_| 0)),
             Err(Error::Database)
         );
         sql::finish();
@@ -338,7 +420,7 @@ mod tests {
             Ok(path.clone())
         );
         // Nothing holds the store now, so the next use opens the file again.
-        assert!(database.store.lock().unwrap().is_none());
+        assert!(matches!(*database.store.lock().unwrap(), State::Closed));
         assert_eq!(run(database.run(|_| 1)), Ok(1));
         sql::finish();
         // An open store is handed over as it is.
@@ -368,12 +450,108 @@ mod tests {
             run(database.run::<i32>(|_| panic!("synthetic failure"))),
             Err(Error::Database)
         );
-        assert!(
-            database
+        assert!(matches!(
+            *database
                 .store
                 .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .is_none()
+                .unwrap_or_else(PoisonError::into_inner),
+            State::Closed
+        ));
+    }
+
+    /// The one file named `history-v2-YYYYMMDD-HHMMSS.sqlite` in the data folder, with
+    /// its contents.
+    fn kept() -> Vec<(String, Vec<u8>)> {
+        filesystem::inspect(|state| {
+            state
+                .files
+                .iter()
+                .filter(|(path, _)| path.parent() == Some(&folder()))
+                .map(|(path, bytes)| {
+                    (
+                        path.file_name().unwrap().to_string_lossy().into_owned(),
+                        bytes.clone(),
+                    )
+                })
+                .filter(|(name, _)| name != FILE_NAME)
+                .collect()
+        })
+    }
+    fn is_copy_name(name: &str) -> bool {
+        let stamp = name
+            .strip_prefix("history-v2-")
+            .and_then(|rest| rest.strip_suffix(".sqlite"));
+        stamp.is_some_and(|stamp| {
+            chrono::NaiveDateTime::parse_from_str(stamp, "%Y%m%d-%H%M%S").is_ok()
+        })
+    }
+    /// The data folder holding an older release's history.
+    fn older_history() -> Fixture {
+        Fixture {
+            files: [(folder().join(FILE_NAME), b"1.0.0 history".to_vec())].into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn an_older_history_is_copied_beside_it_before_it_is_upgraded() {
+        filesystem::install(older_history());
+        let mut script = vec![open(&folder().join(FILE_NAME))];
+        script.extend(upgrading());
+        sql::expect(script);
+        let store = Mutex::default();
+        assert_eq!(
+            with_store(Some(&folder()), UPGRADED, &store, Box::new(|_| 1)),
+            Ok(1)
         );
+        sql::finish();
+        let kept = kept();
+        assert_eq!(kept.len(), 1);
+        assert!(is_copy_name(&kept[0].0), "{}", kept[0].0);
+        assert_eq!(kept[0].1, b"1.0.0 history");
+        // Flushed to disk before the upgrade went on.
+        filesystem::inspect(|state| assert_eq!(state.synced, [folder().join(&kept[0].0)]));
+    }
+
+    #[test]
+    fn a_failed_upgrade_names_its_copy_and_is_not_tried_again() {
+        filesystem::install(older_history());
+        let mut script = vec![open(&folder().join(FILE_NAME))];
+        script.extend(failing_at(upgrading(), BANNER));
+        sql::expect(script);
+        let store = Mutex::default();
+        let failed = with_store(Some(&folder()), UPGRADED, &store, Box::new(|_| 1));
+        sql::finish();
+        let kept = kept();
+        assert_eq!(failed, Err(Error::NotUpgraded(Some(kept[0].0.clone()))));
+        // The next use reports the same failure without opening, copying or reading.
+        filesystem::install(Fixture::default());
+        assert_eq!(
+            with_file(Some(&folder()), UPGRADED, &store, Box::new(|_, _| 1)),
+            failed
+        );
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
+    }
+
+    #[test]
+    fn a_copy_that_cannot_be_kept_stops_the_upgrade_and_leaves_nothing() {
+        let unwritable = Fixture {
+            write_failure: true,
+            ..older_history()
+        };
+        filesystem::install(unwritable);
+        let mut script = vec![open(&folder().join(FILE_NAME))];
+        script.extend(stopping_before(upgrading(), BANNER));
+        sql::expect(script);
+        let store = Mutex::default();
+        assert_eq!(
+            with_store(Some(&folder()), UPGRADED, &store, Box::new(|_| 1)),
+            Err(Error::NotUpgraded(None))
+        );
+        sql::finish();
+        assert!(kept().is_empty());
+        filesystem::inspect(|state| {
+            assert_eq!(state.files[&folder().join(FILE_NAME)], b"1.0.0 history")
+        });
     }
 }
