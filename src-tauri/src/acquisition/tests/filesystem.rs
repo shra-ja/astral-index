@@ -14,6 +14,8 @@ pub struct Fixture {
     pub listings: BTreeMap<PathBuf, Vec<PathBuf>>,
     pub files: BTreeMap<PathBuf, Vec<u8>>,
     pub directories: Vec<PathBuf>,
+    /// Links to folders, each with the real folder it leads to.
+    pub links: BTreeMap<PathBuf, PathBuf>,
     pub metadata_failure: bool,
     /// Lengths that metadata reports in place of a file's contents' length, so a
     /// large file needs no contents.
@@ -144,16 +146,19 @@ pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
         Ok(())
     })
 }
-/// A folder's real path: itself if it exists here, else a failure. A lookup, so it
-/// is not recorded as an access.
+/// A file's or folder's real path, with a link in it resolved, if it exists here;
+/// else a failure. A lookup, so it is not recorded as an access.
 pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
     let path = path.as_ref();
     FIXTURE.with(|state| {
         let state = state.borrow();
-        state
-            .directories
-            .contains(&path.to_owned())
-            .then(|| path.to_owned())
+        let real = state
+            .links
+            .iter()
+            .find_map(|(link, real)| Some(real.join(path.strip_prefix(link).ok()?)))
+            .unwrap_or_else(|| path.to_owned());
+        (state.directories.contains(&real) || state.files.contains_key(&real))
+            .then_some(real)
             .ok_or_else(missing)
     })
 }

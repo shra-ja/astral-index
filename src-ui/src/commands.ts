@@ -37,7 +37,7 @@ const nativeKinds = [
   'backup_in_data_folder',
   'history_damaged',
   'restore_refused',
-  'restore_in_data_folder',
+  'restore_is_history',
   'restore_failed',
   'restore_changed',
   'import_under_way',

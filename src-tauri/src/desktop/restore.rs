@@ -7,7 +7,7 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
-    backup::{Backup, Dialogs, answer, in_data_folder, publish},
+    backup::{Backup, Dialogs, answer, publish, real},
     database::Database,
 };
 #[cfg(test)]
@@ -204,6 +204,14 @@ pub fn hold_copy(folder: &Path, source: &Path) -> Result<(PathBuf, Contents), Fa
     }
 }
 
+/// Whether `chosen` is the history file itself, compared by their real paths, so no
+/// other form of its path passes for another file. Anything else in the data
+/// folder, such as a safety copy, may be restored, as it is checked as any backup
+/// is.
+pub fn is_history(history: &Path, chosen: &Path) -> bool {
+    real(history) == real(chosen)
+}
+
 /// Ask which backup to restore, off the async workers as the dialog blocks, then
 /// copy, check and hold it, and read the current history to compare.
 async fn choose_into<R: Runtime>(
@@ -230,8 +238,11 @@ async fn choose_into<R: Runtime>(
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .ok_or(Failure::RestoreFailed)?;
-    if in_data_folder(Some(&folder), &source) {
-        return Err(Failure::RestoreInDataFolder);
+    if database
+        .path()
+        .is_some_and(|history| is_history(&history, &source))
+    {
+        return Err(Failure::RestoreIsHistory);
     }
     // Another backup was chosen, so the one held earlier is no longer shown.
     restore.release()?;
@@ -635,19 +646,55 @@ mod tests {
     }
 
     #[test]
-    fn a_backup_in_the_data_folder_is_refused_before_it_is_read() {
-        for chosen in [
-            folder().join("history.sqlite"),
-            folder().join("history-before-restore-20261016-120000.sqlite"),
+    fn the_history_itself_is_refused_before_it_is_read() {
+        // However its folder is written, the history is found by its real path.
+        let through_link = PathBuf::from("/home/player/history-link");
+        for (chosen, resolved) in [
+            (folder().join("history.sqlite"), None),
+            (through_link.join("history.sqlite"), Some(&through_link)),
         ] {
-            filesystem::install(Files::default());
+            filesystem::install(Files {
+                links: resolved
+                    .map(|link| (link.clone(), folder()))
+                    .into_iter()
+                    .collect(),
+                ..files(&[(folder().join("history.sqlite"), BYTES)])
+            });
             answering(Some(chosen));
             assert_eq!(
                 choose_now(&Restore::default()),
-                Err(Failure::RestoreInDataFolder)
+                Err(Failure::RestoreIsHistory)
             );
             filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         }
+    }
+
+    #[test]
+    fn a_safety_copy_in_the_data_folder_can_be_restored() {
+        let safety = folder().join("history-before-restore-20261016-120000.sqlite");
+        filesystem::install(files(&[(safety.clone(), BYTES)]));
+        answering(Some(safety.clone()));
+        sql::expect(choosing(&held()));
+        let restore = Restore::default();
+        assert_eq!(
+            choose_now(&restore),
+            Ok(Chosen::Checked {
+                name: "history-before-restore-20261016-120000.sqlite".into(),
+                backup: contents(1),
+                current: contents(0),
+            })
+        );
+        sql::finish();
+        // It is copied and checked as any backup is, and kept as it was.
+        filesystem::inspect(|state| {
+            assert_eq!(state.files[&held()], BYTES);
+            assert_eq!(state.files[&safety], BYTES);
+        });
+        assert_eq!(holding(&restore), Some(held()));
+    }
+
+    #[test]
+    fn a_restore_needs_a_data_folder_and_a_file_name() {
         // Without a data folder there is nowhere to check a copy, so no dialog opens.
         filesystem::install(files(&[]));
         answering(Some(source()));

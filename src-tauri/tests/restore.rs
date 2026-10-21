@@ -3,7 +3,7 @@
 //! ([decision 0031](../../docs/architecture/decisions/0031-sqlite-snapshot-backups.md)).
 use astral_index::desktop::{
     Failure,
-    restore::{hold_copy, put_in_place},
+    restore::{hold_copy, is_history, put_in_place},
 };
 use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Store};
 use std::{
@@ -137,4 +137,33 @@ fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
         .join("history-before-restore-20261020-143000.sqlite");
     assert_eq!(std::fs::read(&kept).unwrap(), before);
     assert_eq!(Store::open(&kept).unwrap().contents().unwrap(), current);
+}
+
+#[test]
+fn only_the_history_itself_is_refused_in_any_form_of_its_path() {
+    let folder = Folder::new();
+    let history = folder.data().join("history.sqlite");
+    drop(Store::open(&history).unwrap());
+    let safety = folder
+        .data()
+        .join("history-before-restore-20261020-143000.sqlite");
+    std::fs::copy(&history, &safety).unwrap();
+    let elsewhere = folder.path("history.sqlite");
+    std::fs::copy(&history, &elsewhere).unwrap();
+    assert!(is_history(&history, &history));
+    assert!(is_history(
+        &history,
+        &folder.data().join("..").join("data").join("history.sqlite")
+    ));
+    // Windows compares names without regard to case.
+    #[cfg(windows)]
+    assert!(is_history(&history, &folder.data().join("HISTORY.SQLITE")));
+    #[cfg(unix)]
+    {
+        let link = folder.path("link");
+        std::os::unix::fs::symlink(folder.data(), &link).unwrap();
+        assert!(is_history(&history, &link.join("history.sqlite")));
+    }
+    assert!(!is_history(&history, &safety));
+    assert!(!is_history(&history, &elsewhere));
 }

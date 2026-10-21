@@ -97,7 +97,7 @@ const titles: Record<Kind, string> = {
   history_damaged: 'Something Went Wrong',
   // Restore's failures, too, are told on its own screen.
   restore_refused: 'Something Went Wrong',
-  restore_in_data_folder: 'Something Went Wrong',
+  restore_is_history: 'Something Went Wrong',
   restore_failed: 'Something Went Wrong',
   restore_changed: 'Something Went Wrong',
   import_under_way: 'Something Went Wrong',
@@ -145,7 +145,7 @@ export const restoreFailure = (failure: Failure) =>
   failure.kind === 'restore_refused'
     ? refusals[failure.refusal!]
     : describe(failure, {
-        restore_in_data_folder:
+        restore_is_history:
           'This file is inside the data folder. Copy it somewhere else, then restore it from there.',
         restore_failed: 'The backup couldn’t be checked. Try again.',
         storage:
