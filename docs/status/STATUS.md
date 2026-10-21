@@ -41,16 +41,17 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   history where the user chooses, never inside the data folder, and shows where
   history is stored, as the About dialog does. Restore checks a chosen backup
   as untrusted input, shows its accounts beside the current history's, and
-  replaces the history with it, keeping the old one as a safety copy.
+  replaces the history with it, keeping the old one as a safety copy, which can
+  itself be restored from the data folder.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-### Restore, replacing (2026-10-20)
+### Restoring a safety copy (2026-10-20)
 
-`feat/restore-replace`: 0037's Restore, replacing. Confirming re-reads the history, keeps it as a dated safety copy (none when empty) and renames the flushed checked copy over it under the store's lock; a changed history or any failure leaves it as it was. Restore is refused while an import runs or awaits the user; closing the app drops a held copy through a plugin, leaving `main.rs` unchanged. The outcome shows on the Restore card, designed on the canvas first. Each layer red first; an end-to-end test restores through the mock. Reviewer agents found Windows refused every backup's and restore's flush (read-only handle); fixed red first, and Windows CI now runs their real-file tests.
+`feat/restore-safety-copy`: 0037's Restoring a safety copy. `choose_restore` refuses only the history itself, by real path, with “This is your current history, not a backup.”; a safety copy restores from the data folder, and the held copy itself is refused (a reviewer finding). Each layer red first; a real-file test covers path forms, and an end-to-end test restores a safety copy.
 
 ## Known limitations
 
@@ -69,7 +70,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Restoring a safety copy.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery.
 
 ## Keeping this file current
 
@@ -179,3 +180,6 @@ research, under a "From" heading.
   confirmation.
 - [2026-10-19: app-wide screen](history/2026-10-19-app-wide-screen.md):
   Backup & Restore at `/backup`, in the sidebar's Data group.
+- [2026-10-20: restore, replacing](history/2026-10-20-restore-replacing.md):
+  confirming a restore, its safety copy, the exit clean-up and the Windows
+  flush fix.

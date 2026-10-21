@@ -220,16 +220,30 @@ Backup and restore stay local and never make a network request.
     copy to the same name (its test fails with the check removed), and the
     checked copy is removed in one place. Restore counting Star Rail alone is
     noted for the second game ([0031](0031-second-game-adapter.md)).
-- [ ] **Restoring a safety copy** (one PR). Relax the source's data-folder
+- [x] **Restoring a safety copy** (one PR). Relax the source's data-folder
   guard to protect only the history itself:
-  - [ ] `choose_restore` refuses `history.sqlite`, compared by its real path,
+  - [x] `choose_restore` refuses `history.sqlite`, compared by its real path,
     and accepts any other file in the data folder, such as a
     `history-before-restore-*.sqlite` safety copy or a migration's
     `history-v<N>.sqlite`. A journal needs no rule, as it fails the check as
     not a database. Backups and safety copies keep the full guard.
-  - [ ] The refusal's message names the history rather than the data folder.
-  - [ ] An end-to-end test restores a safety copy from the data folder through
+  - [x] The refusal's message names the history rather than the data folder:
+    “This is your current history, not a backup.”; its failure is now
+    `restore_is_history`.
+  - [x] An end-to-end test restores a safety copy from the data folder through
     the mock and is refused the history itself.
+  - Each layer's tests failed first: the choice refusing the history, also
+    through a link to its folder, and accepting a safety copy beside it; the
+    message; and the end-to-end test, which restores the first restore's safety
+    copy, finds the History screen back at the full count and both safety copies
+    kept, and failed against the old guard. A real-file test, which the Windows
+    CI job also runs, finds the history through `..`, a link (Unix) and another
+    case (Windows), and fails when paths are compared as written. Safety copies
+    are named to the second and claimed new, so two restores within one second
+    fail the second rather than replace the first.
+  - Two reviewer agents found that choosing the held copy itself,
+    `restore.sqlite.partial`, emptied it and dropped the confirmation; it is
+    now refused as not a backup and stays held (its test failed first).
 - [ ] **Migration recovery** (one PR). Ready for the first schema change:
   - [ ] A migration runner: migrations in order, each in one transaction,
     upgrading an older released version on opening; tested with a test-only

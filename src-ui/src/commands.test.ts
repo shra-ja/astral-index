@@ -64,7 +64,7 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'backup_failed',
     'backup_in_data_folder',
     'history_damaged',
-    'restore_in_data_folder',
+    'restore_is_history',
     'restore_failed',
     'restore_changed',
     'import_under_way',

@@ -90,9 +90,9 @@ pub(super) fn answer(folder: Option<&Path>, file: &str) -> Option<PathBuf> {
         .map(|answer| PathBuf::from(answer.trim_end()))
 }
 
-/// A folder's real path where it can be found, so links and differing forms of
-/// the same folder compare equal.
-fn real(path: &Path) -> PathBuf {
+/// A file's or folder's real path where it can be found, so links and differing
+/// forms of the same path compare equal.
+pub(super) fn real(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_owned())
 }
 

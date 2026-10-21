@@ -89,8 +89,8 @@ pub enum Failure {
     HistoryDamaged,
     /// The backup chosen for restoring failed its check, for the reason given.
     RestoreRefused(crate::storage::Refusal),
-    /// The backup chosen for restoring is inside the data folder.
-    RestoreInDataFolder,
+    /// The file chosen for restoring is the history itself.
+    RestoreIsHistory,
     /// The backup chosen for restoring could not be copied into the data folder
     /// and read there, the open dialog failed, or the history could not be
     /// replaced; the history is as it was.
