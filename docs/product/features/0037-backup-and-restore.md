@@ -228,8 +228,8 @@ Backup and restore stay local and never make a network request.
     `history-v<N>.sqlite`. A journal needs no rule, as it fails the check as
     not a database. Backups and safety copies keep the full guard.
   - [x] The refusal's message names the history rather than the data folder:
-    “This is your current history, not a backup.”, as the user chose; its
-    failure is now `restore_is_history`.
+    “This is your current history, not a backup.”; its failure is now
+    `restore_is_history`.
   - [x] An end-to-end test restores a safety copy from the data folder through
     the mock and is refused the history itself.
   - Each layer's tests failed first: the choice refusing the history, also
@@ -241,6 +241,9 @@ Backup and restore stay local and never make a network request.
     case (Windows), and fails when paths are compared as written. Safety copies
     are named to the second and claimed new, so two restores within one second
     fail the second rather than replace the first.
+  - Two reviewer agents found that choosing the held copy itself,
+    `restore.sqlite.partial`, emptied it and dropped the confirmation; it is
+    now refused as not a backup and stays held (its test failed first).
 - [ ] **Migration recovery** (one PR). Ready for the first schema change:
   - [ ] A migration runner: migrations in order, each in one transaction,
     upgrading an older released version on opening; tested with a test-only

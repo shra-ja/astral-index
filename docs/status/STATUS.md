@@ -51,7 +51,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Restoring a safety copy (2026-10-20)
 
-`feat/restore-safety-copy`: 0037's Restoring a safety copy. `choose_restore` refuses only the history itself, by real path, with “This is your current history, not a backup.”; a safety copy restores from the data folder. Each layer red first; a real-file test covers path forms, and an end-to-end test restores a safety copy.
+`feat/restore-safety-copy`: 0037's Restoring a safety copy. `choose_restore` refuses only the history itself, by real path, with “This is your current history, not a backup.”; a safety copy restores from the data folder, and the held copy itself is refused (a reviewer finding). Each layer red first; a real-file test covers path forms, and an end-to-end test restores a safety copy.
 
 ## Known limitations
 
