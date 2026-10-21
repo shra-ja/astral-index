@@ -41,7 +41,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   history where the user chooses, never inside the data folder, and shows where
   history is stored, as the About dialog does. Restore checks a chosen backup
   as untrusted input, shows its accounts beside the current history's, and
-  replaces the history with it, keeping the old one as a safety copy.
+  replaces the history with it, keeping the old one as a safety copy, which can
+  itself be restored from the data folder.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
@@ -50,7 +51,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Restoring a safety copy (2026-10-20)
 
-`feat/restore-safety-copy`: 0037's Restoring a safety copy, under way.
+`feat/restore-safety-copy`: 0037's Restoring a safety copy. `choose_restore` refuses only the history itself, by real path, with “This is your current history, not a backup.”; a safety copy restores from the data folder. Each layer red first; a real-file test covers path forms, and an end-to-end test restores a safety copy.
 
 ## Known limitations
 
@@ -69,7 +70,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Restoring a safety copy.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery.
 
 ## Keeping this file current
 
