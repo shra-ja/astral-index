@@ -93,6 +93,10 @@ pub enum Error {
     Conflict,
     StalePreview,
     InvalidStoredData,
+    /// The history is from an older release and couldn't be upgraded, so it is as
+    /// it was. Names the copy kept before the upgrade, if one was made. Only the
+    /// desktop's database, which keeps the copy, reports it.
+    NotUpgraded(Option<String>),
 }
 impl From<rusqlite::Error> for Error {
     // Keep SQL details and stored values out of errors exposed to callers.
@@ -1294,9 +1298,10 @@ pub(crate) mod tests {
     }
 
     /// A schema one test-only migration newer than the app's.
-    const UPGRADED: Schema = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
+    pub(crate) const UPGRADED: Schema =
+        Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
     /// The SQL for upgrading a database at the first release's version to `UPGRADED`.
-    fn upgrading() -> Vec<Step> {
+    pub(crate) fn upgrading() -> Vec<Step> {
         let mut steps = setup(true);
         let end = steps.split_off(4);
         steps.extend([

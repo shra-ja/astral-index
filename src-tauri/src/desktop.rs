@@ -98,6 +98,10 @@ pub enum Failure {
     /// The history changed after the restore's confirmation was shown, so nothing
     /// was replaced; choose the backup again.
     RestoreChanged,
+    /// The history is from an older release and couldn't be upgraded, so it is as
+    /// it was and can't be used; names the copy kept in the data folder before the
+    /// upgrade, if one was made.
+    HistoryNotUpgraded(Option<String>),
     /// An import is under way or awaits the user, so nothing is restored.
     ImportUnderWay,
 }
@@ -559,6 +563,7 @@ impl From<storage::Error> for Failure {
             storage::Error::Parse(_) => Self::InvalidResponse,
             storage::Error::Conflict => Self::Conflict,
             storage::Error::StalePreview => Self::StalePreview,
+            storage::Error::NotUpgraded(copy) => Self::HistoryNotUpgraded(copy),
             // Retrieval previews only when records exist, so this is a defect.
             storage::Error::Empty => Self::Internal,
         }
@@ -2100,9 +2105,28 @@ mod tests {
             (storage::Error::Conflict, Failure::Conflict),
             (storage::Error::StalePreview, Failure::StalePreview),
             (storage::Error::Empty, Failure::Internal),
+            (
+                storage::Error::NotUpgraded(Some("history-v2-20261021-143000.sqlite".into())),
+                Failure::HistoryNotUpgraded(Some("history-v2-20261021-143000.sqlite".into())),
+            ),
         ] {
             assert_eq!(Failure::from(error), failure);
         }
+        // The copy's name crosses as the failure's code, and only its name.
+        assert_eq!(
+            serde_json::to_value(Failure::HistoryNotUpgraded(Some(
+                "history-v2-20261021-143000.sqlite".into()
+            )))
+            .unwrap(),
+            serde_json::json!({
+                "kind": "history_not_upgraded",
+                "code": "history-v2-20261021-143000.sqlite"
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(Failure::HistoryNotUpgraded(None)).unwrap(),
+            serde_json::json!({ "kind": "history_not_upgraded", "code": null })
+        );
     }
 
     /// Hold a preview of one new record, as retrieval leaves it.

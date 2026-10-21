@@ -8,7 +8,7 @@ use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
     backup::{Dialogs, answer, publish, real},
-    database::Database,
+    database::{self, Database},
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -331,20 +331,6 @@ fn safety_name(time: &str) -> Result<String, Failure> {
         .ok_or(Failure::InvalidRequest)
 }
 
-/// Copy the history to `safety` beside it, a name claimed new so that no file is
-/// ever replaced, and flush it to disk. A failure removes what was written.
-fn keep(history: &Path, safety: &Path) -> Result<(), Failure> {
-    let mut to = fs::File::create_new(safety).map_err(|_| Failure::RestoreFailed)?;
-    let copied = fs::File::open(history)
-        .and_then(|mut from| std::io::copy(&mut from, &mut to))
-        .and_then(|_| to.sync_all());
-    if copied.is_err() {
-        let _ = fs::remove_file(safety);
-        return Err(Failure::RestoreFailed);
-    }
-    Ok(())
-}
-
 /// Keep the history under `safety`, when given, then flush the checked copy and
 /// give it the history's name. A failure removes the safety copy again.
 pub fn put_in_place(
@@ -354,7 +340,7 @@ pub fn put_in_place(
 ) -> Result<Restored, Failure> {
     let kept = safety.map(|name| history.with_file_name(name));
     if let Some(kept) = &kept {
-        keep(history, kept)?;
+        database::copy_new(history, kept).map_err(|_| Failure::RestoreFailed)?;
     }
     if publish(copy, history).is_err() {
         if let Some(kept) = &kept {
