@@ -238,7 +238,7 @@ test('a refused or failed restore says why, and that nothing was changed', () =>
     expect(restoreFailure({ kind: 'restore_refused', refusal })).toBe(message)
   }
   expect(restoreFailure({ kind: 'restore_is_history' })).toBe(
-    'This file is inside the data folder. Copy it somewhere else, then restore it from there.',
+    'This is your current history, not a backup.',
   )
   expect(restoreFailure({ kind: 'restore_failed' })).toBe(
     'The backup couldn’t be checked. Try again.',

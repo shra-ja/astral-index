@@ -145,8 +145,7 @@ export const restoreFailure = (failure: Failure) =>
   failure.kind === 'restore_refused'
     ? refusals[failure.refusal!]
     : describe(failure, {
-        restore_is_history:
-          'This file is inside the data folder. Copy it somewhere else, then restore it from there.',
+        restore_is_history: 'This is your current history, not a backup.',
         restore_failed: 'The backup couldn’t be checked. Try again.',
         storage:
           'Your current history couldn’t be read to compare with the backup. Nothing was changed.',
