@@ -1011,7 +1011,7 @@ mod tests {
             &Database::not_upgraded(folder(), copy.clone()),
         ));
         sql::finish();
-        assert_eq!(chosen.map(|_| ()), failed.clone().map(|()| ()));
+        assert_eq!(chosen.map(|_| ()), failed.clone());
         assert_eq!(holding(&restore), None);
         assert!(!has(&held()));
         // Confirming a copy held before can't replace it either.
