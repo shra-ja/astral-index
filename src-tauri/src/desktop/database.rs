@@ -101,7 +101,7 @@ impl Database {
     }
     /// Where the database file is, or would be, kept.
     pub fn path(&self) -> Option<PathBuf> {
-        self.folder.as_ref().map(|folder| folder.join(FILE_NAME))
+        self.folder.as_deref().map(history_file)
     }
     /// Run `f` with the store on a blocking thread, opening the store first if it
     /// is not open yet. A panic in `f` is reported as a database error.
@@ -130,6 +130,11 @@ impl Database {
     }
 }
 
+/// The database file in `folder`.
+fn history_file(folder: &Path) -> PathBuf {
+    folder.join(FILE_NAME)
+}
+
 /// The open store, or else the store opened from the database file in `folder`.
 fn take_or_open(folder: Option<&Path>, open: Option<Store>) -> Result<Store, Error> {
     match open {
@@ -137,7 +142,7 @@ fn take_or_open(folder: Option<&Path>, open: Option<Store>) -> Result<Store, Err
         None => {
             let folder = folder.ok_or(Error::Database)?;
             fs::create_dir_all(folder).map_err(|_| Error::Database)?;
-            Store::open(&folder.join(FILE_NAME))
+            Store::open(&history_file(folder))
         }
     }
 }
@@ -167,7 +172,7 @@ fn with_file<T>(
     store: &Mutex<Option<Store>>,
     f: Replacement<'_, T>,
 ) -> Result<T, Error> {
-    let file = folder.ok_or(Error::Database)?.join(FILE_NAME);
+    let file = history_file(folder.ok_or(Error::Database)?);
     let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
     let open = take_or_open(folder, guard.take())?;
     Ok(f(open, &file))
