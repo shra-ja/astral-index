@@ -48,12 +48,18 @@ Backup and restore stay local and never make a network request.
   confirmation asks first, and leaving cancels the restore, so a checked copy
   is never left held.
 - **Migration recovery:** before upgrading an older database on opening, the app
-  copies it to `history-v<N>.sqlite` in the data folder; a migration runs in one
+  copies it to `history-v<N>-YYYYMMDD-HHMMSS.sqlite` in the data folder, where N
+  is its schema version and the time is local; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
-  Each released version's expected schema, which the check compares against,
-  is the one its migrations produce from the first release's schema, run in
-  memory, not a fresh creation: an upgraded database's schema text differs from
-  a newly created one's.
+  Until the history can be upgraded, the app refuses to use it: one app-wide
+  screen says so and names the copy, the game screens are unavailable, and
+  Backup & Restore and About stay open. Each released version's expected
+  schema, which the check compares against, is the one its migrations produce
+  from the first release's schema, run in memory, not a fresh creation: an
+  upgraded database's schema text differs from a newly created one's. New
+  databases are created the same way, so the two never differ. Migrations take
+  well under a second: at 100,000 rolls, a 35 MB file, rebuilding the rolls
+  table took 380 ms and the copy 41 ms in a measurement on 2026-10-21.
 - Restore is unavailable while a retrieval or import is under way; a backup can
   be made at any time, as storage runs one operation at a time, so a snapshot is
   always consistent. In portable mode, safety copies go to the portable data
@@ -244,18 +250,31 @@ Backup and restore stay local and never make a network request.
   - Two reviewer agents found that choosing the held copy itself,
     `restore.sqlite.partial`, emptied it and dropped the confirmation; it is
     now refused as not a backup and stays held (its test failed first).
-- [ ] **Migration recovery** (one PR). Ready for the first schema change:
-  - [ ] A migration runner: migrations in order, each in one transaction,
-    upgrading an older released version on opening; tested with a test-only
-    migration against the 1.0.0 fixture.
-  - [ ] Each released version's expected schema comes from its migrations run
-    in memory from the first release's schema, for the check and restore.
-  - [ ] Before upgrading, the database is copied to `history-v<N>.sqlite`; a
-    failed migration leaves the original unchanged, and the screens say so and
-    name the copy.
+- [ ] **Migration recovery, native** (one PR). Ready for the first schema
+  change:
+  - [ ] A migration runner: `Store::open` upgrades an older released version
+    through its migrations in order, each in one transaction that also raises
+    the version. The migrations are a list, empty beyond the first release's
+    schema until a schema changes, so its tests use a test-only migration
+    against the 1.0.0 fixture; a failing migration leaves the history as it
+    was, and unrelated or newer databases are refused unchanged, as now. A
+    new database is created by the same steps.
+  - [ ] Each released version's expected schema comes from the first release's
+    schema and its migrations, run in memory, for the check and restore.
+  - [ ] Before the first migration writes, the history is copied to
+    `history-v<N>-YYYYMMDD-HHMMSS.sqlite` in the data folder, named from the
+    native local clock, claimed new and flushed; a copy that fails stops the
+    upgrade. A restored backup upgrades in its held copy and needs none.
+  - [ ] A failed upgrade is a failure that names the copy, and every command
+    that uses the history refuses with it until the history opens.
   - [ ] CONTRIBUTING's database-schema rules gain the steps for a schema
     change: the migration, its tests against every released fixture, and the
     new release's frozen fixture.
+- [ ] **Migration recovery, screen** (one PR):
+  - [ ] An app-wide screen for a history that can't be upgraded, designed on the
+    canvas first: it says the history couldn't be upgraded and names the copy;
+    the game screens in the sidebar are greyed out and unavailable; Backup &
+    Restore and About stay open.
 - [ ] **Verification** (one PR, with the user's Windows check):
   - [ ] A round trip through a fresh profile: back up, restore into a new data
     folder, and find the same accounts, rolls and imports.

@@ -51,7 +51,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Migration recovery (2026-10-21)
 
-`feat/migration-recovery`: 0037's Migration recovery, under way.
+`feat/migration-recovery`: 0037's Migration recovery, native part (the screen follows in its own PR), under way.
 
 ## Known limitations
 
