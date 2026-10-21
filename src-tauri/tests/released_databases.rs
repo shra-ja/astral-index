@@ -3,8 +3,8 @@
 //! it is committed; each migration's tests open it.
 use astral_index::acquisition::Category;
 use astral_index::storage::{
-    Account, CategorySummary, CategoryTotal, Filter, LastImport, SavedAccount, Source, Store,
-    StoredRoll, Summary,
+    Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
+    Source, Store, StoredRoll, Summary, check_against,
 };
 use rusqlite::Connection;
 use serde_json::json;
@@ -25,6 +25,11 @@ const OTHER_UID: &str = "100000003";
 const ASIA: &str = "prod_official_asia";
 const AMERICA: &str = "prod_official_usa";
 static NEXT: AtomicU64 = AtomicU64::new(0);
+/// A test-only migration after 1.0.0's schema, as the first real one will be.
+const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
+const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
+/// The app's schema, and one migration newer, which must keep every history too.
+const SCHEMAS: [Schema; 2] = [Schema::CURRENT, UPGRADED];
 
 /// A copy of a fixture in its own folder, one per test, so opening it never touches
 /// the committed file.
@@ -101,197 +106,274 @@ fn the_1_0_0_fixture_is_the_one_committed() {
 
 #[test]
 fn a_1_0_0_database_opens_with_its_accounts_and_imports() {
-    let copy = Copy::of(RELEASE_1_0_0);
-    let store = Store::open(&copy.0).unwrap();
-    // The account imported into last comes first.
-    assert_eq!(
-        store.accounts().unwrap(),
-        [
-            SavedAccount {
+    for schema in SCHEMAS {
+        let copy = Copy::of(RELEASE_1_0_0);
+        let store = Store::open_with(&copy.0, schema, None).unwrap();
+        // The account imported into last comes first.
+        assert_eq!(
+            store.accounts().unwrap(),
+            [
+                SavedAccount {
+                    uid: OTHER_UID.to_owned(),
+                    server: ASIA.to_owned(),
+                    timezone: None,
+                    rolls: 2,
+                },
+                SavedAccount {
+                    uid: UID.to_owned(),
+                    server: ASIA.to_owned(),
+                    timezone: Some(8),
+                    rolls: 17,
+                },
+                SavedAccount {
+                    uid: UID.to_owned(),
+                    server: AMERICA.to_owned(),
+                    timezone: Some(-5),
+                    rolls: 3,
+                },
+            ]
+        );
+        assert_eq!(
+            store.latest_account().unwrap(),
+            Some(Account {
                 uid: OTHER_UID.to_owned(),
                 server: ASIA.to_owned(),
                 timezone: None,
-                rolls: 2,
-            },
-            SavedAccount {
-                uid: UID.to_owned(),
+            })
+        );
+        assert_eq!(
+            store.last_import().unwrap(),
+            Some(LastImport {
+                imported_at: 1_790_000_900,
+                source: Source::Hoyoverse,
+                uid: OTHER_UID.to_owned(),
                 server: ASIA.to_owned(),
-                timezone: Some(8),
-                rolls: 17,
-            },
-            SavedAccount {
-                uid: UID.to_owned(),
-                server: AMERICA.to_owned(),
-                timezone: Some(-5),
-                rolls: 3,
-            },
-        ]
-    );
-    assert_eq!(
-        store.latest_account().unwrap(),
-        Some(Account {
-            uid: OTHER_UID.to_owned(),
-            server: ASIA.to_owned(),
-            timezone: None,
-        })
-    );
-    assert_eq!(
-        store.last_import().unwrap(),
-        Some(LastImport {
-            imported_at: 1_790_000_900,
-            source: Source::Hoyoverse,
-            uid: OTHER_UID.to_owned(),
-            server: ASIA.to_owned(),
-            inserted: 2,
-        })
-    );
-    drop(store);
-    // Every import's counts, the repeated one's duplicates included.
-    let connection = Connection::open(&copy.0).unwrap();
-    let mut batches = connection
-        .prepare("SELECT uid,server,imported_at,inserted,duplicates FROM batches ORDER BY id")
-        .unwrap();
-    let batches: Vec<(String, String, i64, i64, i64)> = batches
-        .query_map([], |row| {
-            Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get(3)?,
-                row.get(4)?,
-            ))
-        })
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert_eq!(
-        batches,
-        [
-            (UID.to_owned(), ASIA.to_owned(), 1_790_000_000, 13, 0),
-            (UID.to_owned(), AMERICA.to_owned(), 1_790_000_300, 3, 0),
-            (UID.to_owned(), ASIA.to_owned(), 1_790_000_600, 4, 10),
-            (OTHER_UID.to_owned(), ASIA.to_owned(), 1_790_000_900, 2, 0),
-        ]
-    );
+                inserted: 2,
+            })
+        );
+        drop(store);
+        // Every import's counts, the repeated one's duplicates included.
+        let connection = Connection::open(&copy.0).unwrap();
+        let mut batches = connection
+            .prepare("SELECT uid,server,imported_at,inserted,duplicates FROM batches ORDER BY id")
+            .unwrap();
+        let batches: Vec<(String, String, i64, i64, i64)> = batches
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            batches,
+            [
+                (UID.to_owned(), ASIA.to_owned(), 1_790_000_000, 13, 0),
+                (UID.to_owned(), AMERICA.to_owned(), 1_790_000_300, 3, 0),
+                (UID.to_owned(), ASIA.to_owned(), 1_790_000_600, 4, 10),
+                (OTHER_UID.to_owned(), ASIA.to_owned(), 1_790_000_900, 2, 0),
+            ]
+        );
+    }
 }
 
 #[test]
 fn a_1_0_0_database_keeps_each_accounts_rolls_and_pity() {
-    let copy = Copy::of(RELEASE_1_0_0);
-    let store = Store::open(&copy.0).unwrap();
-    let page = store
-        .page(
-            UID,
-            ASIA,
-            Category::CharacterEvent,
-            &Filter::default(),
-            0,
-            20,
-        )
-        .unwrap();
-    assert_eq!(page.total, 12);
-    assert_eq!(page.matched, 12);
-    assert_eq!(
-        page.categories,
-        totals([
-            (Category::Stellar, 2),
-            (Category::Departure, 0),
-            (Category::CharacterEvent, 12),
-            (Category::LightConeEvent, 3),
-            (Category::CharacterCollaboration, 0),
-            (Category::LightConeCollaboration, 0),
-        ])
-    );
-    assert_eq!(
-        page.summary,
-        CategorySummary {
-            five_star: 1,
-            four_star: 1,
-            first: Some("2026-09-01 10:01:00".to_owned()),
-            last: Some("2026-09-01 10:12:00".to_owned()),
-        }
-    );
-    assert_eq!(
-        page.rolls,
-        (1..=12).rev().map(character_event).collect::<Vec<_>>()
-    );
-    // The same UID on another server is a separate account.
-    let america = store
-        .page(UID, AMERICA, Category::Departure, &Filter::default(), 0, 20)
-        .unwrap();
-    assert_eq!(
-        america.categories,
-        totals([
-            (Category::Stellar, 0),
-            (Category::Departure, 3),
-            (Category::CharacterEvent, 0),
-            (Category::LightConeEvent, 0),
-            (Category::CharacterCollaboration, 0),
-            (Category::LightConeCollaboration, 0),
-        ])
-    );
-    let other = store
-        .page(
-            OTHER_UID,
-            ASIA,
-            Category::CharacterCollaboration,
-            &Filter::default(),
-            0,
-            20,
-        )
-        .unwrap();
-    assert_eq!(other.total, 2);
-    // A field HoYoverse added and the app does not know is kept with its roll.
-    let stellar = store
-        .history(UID, ASIA)
-        .unwrap()
-        .into_iter()
-        .filter(|roll| roll.gacha_type == Category::Stellar.code())
-        .map(|roll| json!(roll))
-        .collect::<Vec<_>>();
-    assert_eq!(stellar.len(), 2);
-    assert_eq!(stellar[0]["synthetic_extension"], json!({ "kept": true }));
+    for schema in SCHEMAS {
+        let copy = Copy::of(RELEASE_1_0_0);
+        let store = Store::open_with(&copy.0, schema, None).unwrap();
+        let page = store
+            .page(
+                UID,
+                ASIA,
+                Category::CharacterEvent,
+                &Filter::default(),
+                0,
+                20,
+            )
+            .unwrap();
+        assert_eq!(page.total, 12);
+        assert_eq!(page.matched, 12);
+        assert_eq!(
+            page.categories,
+            totals([
+                (Category::Stellar, 2),
+                (Category::Departure, 0),
+                (Category::CharacterEvent, 12),
+                (Category::LightConeEvent, 3),
+                (Category::CharacterCollaboration, 0),
+                (Category::LightConeCollaboration, 0),
+            ])
+        );
+        assert_eq!(
+            page.summary,
+            CategorySummary {
+                five_star: 1,
+                four_star: 1,
+                first: Some("2026-09-01 10:01:00".to_owned()),
+                last: Some("2026-09-01 10:12:00".to_owned()),
+            }
+        );
+        assert_eq!(
+            page.rolls,
+            (1..=12).rev().map(character_event).collect::<Vec<_>>()
+        );
+        // The same UID on another server is a separate account.
+        let america = store
+            .page(UID, AMERICA, Category::Departure, &Filter::default(), 0, 20)
+            .unwrap();
+        assert_eq!(
+            america.categories,
+            totals([
+                (Category::Stellar, 0),
+                (Category::Departure, 3),
+                (Category::CharacterEvent, 0),
+                (Category::LightConeEvent, 0),
+                (Category::CharacterCollaboration, 0),
+                (Category::LightConeCollaboration, 0),
+            ])
+        );
+        let other = store
+            .page(
+                OTHER_UID,
+                ASIA,
+                Category::CharacterCollaboration,
+                &Filter::default(),
+                0,
+                20,
+            )
+            .unwrap();
+        assert_eq!(other.total, 2);
+        // A field HoYoverse added and the app does not know is kept with its roll.
+        let stellar = store
+            .history(UID, ASIA)
+            .unwrap()
+            .into_iter()
+            .filter(|roll| roll.gacha_type == Category::Stellar.code())
+            .map(|roll| json!(roll))
+            .collect::<Vec<_>>();
+        assert_eq!(stellar.len(), 2);
+        assert_eq!(stellar[0]["synthetic_extension"], json!({ "kept": true }));
+    }
 }
 
 #[test]
 fn a_1_0_0_database_takes_new_imports_and_skips_saved_rolls() {
-    let copy = Copy::of(RELEASE_1_0_0);
-    let mut store = Store::open(&copy.0).unwrap();
-    let list: Vec<_> = (1..=13)
-        .map(|n| {
-            let roll = character_event(n);
-            json!({
-                "uid": UID, "id": roll.id, "gacha_id": "2001", "gacha_type": "11",
-                "item_id": "synthetic-item", "count": "1", "time": roll.time,
-                "name": roll.name, "lang": "en", "item_type": roll.item_type,
-                "rank_type": roll.rank_type,
+    for schema in SCHEMAS {
+        let copy = Copy::of(RELEASE_1_0_0);
+        let mut store = Store::open_with(&copy.0, schema, None).unwrap();
+        let list: Vec<_> = (1..=13)
+            .map(|n| {
+                let roll = character_event(n);
+                json!({
+                    "uid": UID, "id": roll.id, "gacha_id": "2001", "gacha_type": "11",
+                    "item_id": "synthetic-item", "count": "1", "time": roll.time,
+                    "name": roll.name, "lang": "en", "item_type": roll.item_type,
+                    "rank_type": roll.rank_type,
+                })
             })
-        })
-        .collect();
-    let page = json!({
-        "retcode": 0, "message": "OK",
-        "data": { "page": "1", "size": "20", "region": ASIA, "region_time_zone": 8, "list": list },
-    });
-    let bytes = serde_json::to_vec(&page).unwrap();
-    let preview = store.preview(UID, ASIA, &[&bytes]).unwrap();
-    assert_eq!(
-        store.commit(preview, 1_790_001_200).unwrap(),
-        Summary {
-            inserted: 1,
-            duplicates: 12,
-            conflicts: 0,
-        }
-    );
-    let page = store
-        .page(
-            UID,
-            ASIA,
-            Category::CharacterEvent,
-            &Filter::default(),
-            0,
-            1,
-        )
+            .collect();
+        let page = json!({
+            "retcode": 0, "message": "OK",
+            "data": { "page": "1", "size": "20", "region": ASIA, "region_time_zone": 8, "list": list },
+        });
+        let bytes = serde_json::to_vec(&page).unwrap();
+        let preview = store.preview(UID, ASIA, &[&bytes]).unwrap();
+        assert_eq!(
+            store.commit(preview, 1_790_001_200).unwrap(),
+            Summary {
+                inserted: 1,
+                duplicates: 12,
+                conflicts: 0,
+            }
+        );
+        let page = store
+            .page(
+                UID,
+                ASIA,
+                Category::CharacterEvent,
+                &Filter::default(),
+                0,
+                1,
+            )
+            .unwrap();
+        assert_eq!(page.total, 13);
+        assert_eq!(page.rolls, [character_event(13)]);
+    }
+}
+
+#[test]
+fn upgrading_a_1_0_0_database_lets_the_caller_keep_it_unchanged_first() {
+    let copy = Copy::of(RELEASE_1_0_0);
+    let fixture = std::fs::read(fixture_path(RELEASE_1_0_0)).unwrap();
+    let mut kept = None;
+    Store::open_with(
+        &copy.0,
+        UPGRADED,
+        Some(&mut |version| {
+            kept = Some((version, std::fs::read(&copy.0).unwrap()));
+            Ok(())
+        }),
+    )
+    .unwrap();
+    assert_eq!(kept, Some((2, fixture)));
+    let version: i32 = Connection::open(&copy.0)
+        .unwrap()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(page.total, 13);
-    assert_eq!(page.rolls, [character_event(13)]);
+    assert_eq!(version, 3);
+    // Once upgraded, it opens as it is, with nothing more to keep.
+    Store::open_with(&copy.0, UPGRADED, Some(&mut |_| panic!("nothing to keep"))).unwrap();
+}
+
+#[test]
+fn a_failed_migration_or_keep_leaves_a_1_0_0_database_unchanged() {
+    let fixture = std::fs::read(fixture_path(RELEASE_1_0_0)).unwrap();
+    let failing = Schema::with_migrations(&[BANNER, "ALTER TABLE missing ADD COLUMN x TEXT"]);
+    let copy = Copy::of(RELEASE_1_0_0);
+    assert!(Store::open_with(&copy.0, failing, None).is_err());
+    assert_eq!(std::fs::read(&copy.0).unwrap(), fixture);
+    let refused = Store::open_with(
+        &copy.0,
+        UPGRADED,
+        Some(&mut |_| Err(astral_index::storage::Error::Database)),
+    );
+    assert!(refused.is_err());
+    assert_eq!(std::fs::read(&copy.0).unwrap(), fixture);
+}
+
+#[test]
+fn the_check_expects_each_version_s_schema_as_its_migrations_build_it() {
+    let copy = Copy::of(RELEASE_1_0_0);
+    // The release's own version, before and after upgrading.
+    assert_eq!(check_against(&copy.0, UPGRADED), Ok(()));
+    drop(Store::open_with(&copy.0, UPGRADED, None).unwrap());
+    assert_eq!(check_against(&copy.0, UPGRADED), Ok(()));
+    // The app's schema doesn't know the newer version.
+    assert_eq!(check_against(&copy.0, Schema::CURRENT), Err(Refusal::Newer));
+    // A new database at that version has exactly the upgraded one's schema.
+    let fresh = Copy::of(RELEASE_1_0_0);
+    std::fs::remove_file(&fresh.0).unwrap();
+    let new = Store::open_with(
+        &fresh.0,
+        UPGRADED,
+        Some(&mut |_| panic!("a new database has nothing to keep")),
+    );
+    drop(new.unwrap());
+    assert_eq!(check_against(&fresh.0, UPGRADED), Ok(()));
+    // A file at the newer version whose schema lacks the migration is damaged.
+    let unmigrated = Copy::of(RELEASE_1_0_0);
+    Connection::open(&unmigrated.0)
+        .unwrap()
+        .execute_batch("PRAGMA user_version=3")
+        .unwrap();
+    assert_eq!(
+        check_against(&unmigrated.0, UPGRADED),
+        Err(Refusal::Damaged)
+    );
 }

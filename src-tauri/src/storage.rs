@@ -18,13 +18,68 @@ use std::{
 
 const GAME: &str = "honkai-star-rail";
 const APPLICATION_ID: i32 = 1381257795;
-/// The schema versions released versions wrote, each with the SQL that creates it
+/// The schema version the first release wrote, which `001_initial.sql` creates
 /// ([decision 0029](../../docs/architecture/decisions/0029-automated-release-verification.md)).
 /// Version 1 was a pre-release layout and is refused.
-const RELEASED: [(i32, &str); 1] = [(2, include_str!("../migrations/001_initial.sql"))];
+const FIRST_RELEASED: i32 = 2;
+const FIRST_SQL: &str = include_str!("../migrations/001_initial.sql");
+/// The migrations after the first release, in order, each upgrading the schema
+/// version before it by one. None yet: the schema has not changed since 1.0.0.
+const MIGRATIONS: &[&str] = &[];
 /// A database's schema objects, as compared between a file and its version's SQL.
 const SCHEMA: &str =
     "SELECT json_array(type,name,tbl_name,sql) FROM sqlite_schema ORDER BY type,name";
+
+/// A schema: the first release's, then its migrations in order. Each version from
+/// the first release's to the newest is released, and its expected schema is the
+/// one these steps produce, so a new database is built by the same steps as an
+/// upgraded one.
+#[derive(Clone, Copy)]
+pub struct Schema {
+    migrations: &'static [&'static str],
+}
+impl Schema {
+    /// This app's schema.
+    pub const CURRENT: Self = Self {
+        migrations: MIGRATIONS,
+    };
+    /// The schema these migrations produce from the first release's. Only tests
+    /// use any other than `CURRENT`.
+    pub const fn with_migrations(migrations: &'static [&'static str]) -> Self {
+        Self { migrations }
+    }
+    /// The newest schema version.
+    fn version(self) -> i32 {
+        FIRST_RELEASED + self.migrations.len() as i32
+    }
+    /// This schema as it was at `version`, a released one.
+    fn at(self, version: i32) -> Self {
+        Self {
+            migrations: &self.migrations[..(version - FIRST_RELEASED) as usize],
+        }
+    }
+    /// Bring a database at `from`, a released version, or a new one, to this
+    /// schema, raising its version after each migration.
+    fn build(self, connection: &Connection, from: Option<i32>) -> rusqlite::Result<()> {
+        let from = match from {
+            Some(from) => from,
+            None => {
+                connection.execute_batch(FIRST_SQL)?;
+                FIRST_RELEASED
+            }
+        };
+        let pending = (FIRST_RELEASED + 1..).zip(self.migrations);
+        for (version, migration) in pending.skip((from - FIRST_RELEASED) as usize) {
+            connection.execute_batch(migration)?;
+            connection.execute_batch(&format!("PRAGMA user_version={version}"))?;
+        }
+        Ok(())
+    }
+}
+
+/// What a caller does with an older release's database before it is upgraded,
+/// given its schema version.
+pub type Keep<'a> = &'a mut dyn FnMut(i32) -> Result<(), Error>;
 
 /// Safe categories only: SQLite, JSON and source messages never cross the boundary.
 #[derive(Debug, PartialEq, Eq)]
@@ -351,12 +406,28 @@ pub struct Store {
 }
 impl Store {
     /// Only the native caller selects a database path; never expose this as a UI command.
+    /// A database from an older release is upgraded without keeping it first, as
+    /// for a copy.
     pub fn open(path: &Path) -> Result<Self, Error> {
-        Self::initialize(Connection::open(path)?)
+        Self::open_with(path, Schema::CURRENT, None)
     }
 
-    /// Establish a usable store atomically, refusing to repurpose an incompatible database.
-    fn initialize(mut connection: Connection) -> Result<Self, Error> {
+    /// Open the database at `path` with `schema`. A database from an older release
+    /// is upgraded, after `keep`, if given, is given its version while nothing of
+    /// it has changed, so the caller can copy the file first; a `keep` that fails
+    /// stops the upgrade.
+    pub fn open_with(path: &Path, schema: Schema, keep: Option<Keep<'_>>) -> Result<Self, Error> {
+        Self::initialize(Connection::open(path)?, schema, keep)
+    }
+
+    /// Establish a usable store atomically, refusing to repurpose an incompatible
+    /// database. Creating or upgrading runs in the one transaction, so a failure
+    /// leaves the database as it was.
+    fn initialize(
+        mut connection: Connection,
+        schema: Schema,
+        keep: Option<Keep<'_>>,
+    ) -> Result<Self, Error> {
         connection.execute_batch("PRAGMA busy_timeout=250; PRAGMA foreign_keys=ON;")?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let version: i32 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -370,8 +441,13 @@ impl Store {
             if objects != 0 {
                 return Err(Error::Schema);
             }
-            tx.execute_batch(include_str!("../migrations/001_initial.sql"))?;
-        } else if (version, app) != (2, APPLICATION_ID) {
+            schema.build(&tx, None)?;
+        } else if app == APPLICATION_ID && (FIRST_RELEASED..schema.version()).contains(&version) {
+            if let Some(keep) = keep {
+                keep(version)?;
+            }
+            schema.build(&tx, Some(version))?;
+        } else if (version, app) != (schema.version(), APPLICATION_ID) {
             return Err(Error::Schema);
         }
         snapshot(&tx)?;
@@ -897,12 +973,17 @@ fn open_untrusted(path: &Path) -> Result<Connection, Refusal> {
     Ok(connection)
 }
 
-/// Check a database file as restore will, treating it as untrusted: at most
-/// `MAX_DATABASE_BYTES`, checked before it is opened; then a non-empty database
-/// with this app's application ID and a released schema version no newer than the
-/// app's, with exactly the schema its version's SQL creates, compared before the
-/// integrity check runs the file's schema, and a passing integrity check.
+/// Check a database file as restore will, against the app's schema.
 pub fn check_database(path: &Path) -> Result<(), Refusal> {
+    check_against(path, Schema::CURRENT)
+}
+
+/// Check a database file, treating it as untrusted: at most `MAX_DATABASE_BYTES`,
+/// checked before it is opened; then a non-empty database with this app's
+/// application ID and a released version of `schema`, with exactly the schema
+/// that version's steps build, compared before the integrity check runs the
+/// file's schema, and a passing integrity check.
+pub fn check_against(path: &Path, schema: Schema) -> Result<(), Refusal> {
     let size = fs::metadata(path).map_err(|_| Refusal::Unreadable)?.len();
     if size > MAX_DATABASE_BYTES {
         return Err(Refusal::TooLarge);
@@ -917,18 +998,15 @@ pub fn check_database(path: &Path) -> Result<(), Refusal> {
         return Err(Refusal::OtherApp);
     }
     let version: i32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    let newest = RELEASED.iter().map(|(released, _)| *released).max();
-    if newest.is_some_and(|newest| version > newest) {
+    if version > schema.version() {
         return Err(Refusal::Newer);
     }
-    let creation = RELEASED
-        .iter()
-        .find(|(released, _)| *released == version)
-        .map(|(_, sql)| *sql)
-        .ok_or(Refusal::Damaged)?;
+    if version < FIRST_RELEASED {
+        return Err(Refusal::Damaged);
+    }
     let actual = texts(&connection, SCHEMA)?;
     let fresh = Connection::open_in_memory()?;
-    fresh.execute_batch(creation)?;
+    schema.at(version).build(&fresh, None)?;
     if texts(&fresh, SCHEMA)? != actual {
         return Err(Refusal::Damaged);
     }
@@ -1215,10 +1293,102 @@ pub(crate) mod tests {
         steps
     }
 
+    /// A schema one test-only migration newer than the app's.
+    const UPGRADED: Schema = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
+    /// The SQL for upgrading a database at the first release's version to `UPGRADED`.
+    fn upgrading() -> Vec<Step> {
+        let mut steps = setup(true);
+        let end = steps.split_off(4);
+        steps.extend([
+            done("ALTER TABLE rolls ADD COLUMN banner TEXT"),
+            done("PRAGMA user_version=3"),
+        ]);
+        steps.extend(end);
+        steps
+    }
+    #[test]
+    fn an_older_release_s_database_is_upgraded_after_it_is_kept() {
+        database::expect(upgrading());
+        let mut kept = vec![];
+        let store = Store::initialize(
+            Connection,
+            UPGRADED,
+            Some(&mut |version| {
+                // Nothing has been migrated yet.
+                kept.push((version, database::upcoming()));
+                Ok(())
+            }),
+        );
+        assert!(store.is_ok());
+        database::finish();
+        assert_eq!(
+            kept,
+            [(2, Some("ALTER TABLE rolls ADD COLUMN banner TEXT".into()))]
+        );
+        // Each failure rolls the whole upgrade back, kept first or not.
+        fail_each(&upgrading, Some(1), &mut || {
+            Store::initialize(Connection, UPGRADED, None).map(|_| ())
+        });
+    }
+    #[test]
+    fn a_database_part_way_up_runs_only_the_migrations_after_its_version() {
+        let schema = Schema::with_migrations(&["SECOND", "THIRD"]);
+        let mut steps = setup(true);
+        let end = steps.split_off(4);
+        steps[2] = rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(3)]]);
+        steps.extend([done("THIRD"), done("PRAGMA user_version=4")]);
+        steps.extend(end);
+        database::expect(steps);
+        let mut kept = vec![];
+        let store = Store::initialize(
+            Connection,
+            schema,
+            Some(&mut |version| {
+                kept.push(version);
+                Ok(())
+            }),
+        );
+        assert!(store.is_ok());
+        database::finish();
+        assert_eq!(kept, [3]);
+    }
+    #[test]
+    fn a_failed_keep_stops_the_upgrade_before_anything_changes() {
+        let mut steps = upgrading();
+        steps.truncate(4);
+        steps.push(done("ROLLBACK"));
+        database::expect(steps);
+        let store = Store::initialize(Connection, UPGRADED, Some(&mut |_| Err(Error::Database)));
+        assert!(matches!(store, Err(Error::Database)));
+        database::finish();
+    }
+    #[test]
+    fn a_new_or_current_database_is_built_or_opened_by_the_same_steps() {
+        let mut steps = setup(false);
+        let end = steps.split_off(6);
+        steps.extend([
+            done("ALTER TABLE rolls ADD COLUMN banner TEXT"),
+            done("PRAGMA user_version=3"),
+        ]);
+        steps.extend(end);
+        database::expect(steps);
+        let store = Store::initialize(Connection, UPGRADED, None);
+        assert!(store.is_ok());
+        database::finish();
+        // A current database is opened as it is.
+        let mut steps = upgrading();
+        steps.drain(4..6);
+        steps[2] = rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(3)]]);
+        database::expect(steps);
+        let store = Store::initialize(Connection, UPGRADED, None);
+        assert!(store.is_ok());
+        database::finish();
+    }
+
     #[test]
     fn initialization_errors_are_safe_and_rollback_after_begin() {
         fail_each(&|| setup(false), Some(1), &mut || {
-            Store::initialize(Connection).map(|_| ())
+            Store::initialize(Connection, Schema::CURRENT, None).map(|_| ())
         });
         database::expect(vec![Step {
             sql: "OPEN".into(),
@@ -1248,7 +1418,10 @@ pub(crate) mod tests {
             );
             steps.push(done("ROLLBACK"));
             database::expect(steps);
-            assert!(matches!(Store::initialize(Connection), Err(Error::Schema)));
+            assert!(matches!(
+                Store::initialize(Connection, Schema::CURRENT, None),
+                Err(Error::Schema)
+            ));
             database::finish();
         }
         let mut steps = setup(false);
@@ -1260,7 +1433,10 @@ pub(crate) mod tests {
         );
         steps.push(done("ROLLBACK"));
         database::expect(steps);
-        assert!(matches!(Store::initialize(Connection), Err(Error::Schema)));
+        assert!(matches!(
+            Store::initialize(Connection, Schema::CURRENT, None),
+            Err(Error::Schema)
+        ));
         database::finish();
     }
     #[test]
