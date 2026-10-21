@@ -96,11 +96,18 @@ A schema change takes these steps:
 
 1. Add the migration's SQL to `MIGRATIONS` in `src-tauri/src/storage.rs`, after
    the last; it upgrades the version before it by one, which the runner raises.
-   Never edit a released migration or `001_initial.sql`.
-2. In `src-tauri/tests/released_databases.rs`, which opens every released
-   fixture with `Schema::CURRENT` and with a test-only migration on top, add
-   tests that what the migration changes keeps each fixture's history; its
-   tests already show that a failing migration leaves a fixture unchanged.
+   Never edit a released migration or `001_initial.sql`. A change `ALTER TABLE`
+   can't make uses SQLite's procedure: create the new table under a new name,
+   copy the rows, drop the old table, then rename the new one into its place.
+   The runner holds references unenforced during the upgrade and checks them
+   all before committing, so never set `PRAGMA foreign_keys` in a migration.
+2. Update the tests that stand in for a migration. Their test-only schemas
+   (`UPGRADED` and `REBUILT` in `src-tauri/tests/released_databases.rs`,
+   `UPGRADED` in `src-tauri/src/storage.rs`) replace `MIGRATIONS` rather than
+   add to it, so add the new migration before their own, and raise the versions
+   the unit tests' opening scripts read. The released fixtures' tests then show
+   the real migration keeps each fixture's history; add tests for what it
+   changes.
 3. Update the queries and their tests for the new schema.
 4. When the release ships, add its database to
    `src-tauri/tests/fixtures/storage/`, written by that release from synthetic

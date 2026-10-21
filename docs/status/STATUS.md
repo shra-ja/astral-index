@@ -51,7 +51,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Migration recovery (2026-10-21)
 
-`feat/migration-recovery`: 0037's Migration recovery, native part. Opening an older release's history runs its pending migrations in one transaction after copying it to `history-v<N>-YYYYMMDD-HHMMSS.sqlite`; a failed upgrade is remembered and every use refuses with `history_not_upgraded`, naming the copy. The check builds each version's schema from the same steps. No real migration yet: a test-only one upgrades the 1.0.0 fixture. Each rule's test fails with it broken. The screen follows in its own PR.
+`feat/migration-recovery`: 0037's Migration recovery, native part. Opening an older release's history runs its pending migrations in one transaction after copying it to `history-v<N>-YYYYMMDD-HHMMSS.sqlite`; a failed upgrade is remembered and every use refuses with `history_not_upgraded`, naming the copy. The check builds each version's schema from the same steps. No real migration yet: a test-only one upgrades the 1.0.0 fixture. Each rule's test fails with it broken. From the reviews: references are enforced only after the upgrade commits and checked before, so a migration can rebuild a referenced table (red first on the 1.0.0 fixture), and backup and restore pass the failure on. The screen follows in its own PR, then native times for backup and restore.
 
 ## Known limitations
 

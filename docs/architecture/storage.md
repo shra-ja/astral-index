@@ -103,7 +103,12 @@ transaction that opens it, so a failure leaves the file as it was. Before the
 first migration writes, an optional `keep` is given the old version; the
 desktop's `Database` copies the history there to
 `history-v<N>-YYYYMMDD-HHMMSS.sqlite` beside it, named from the local time,
-claimed new and flushed, and a copy that fails stops the upgrade. `Store::open`
+claimed new and flushed, and a copy that fails stops the upgrade. References
+are enforced only once the opening transaction commits, as SQLite's procedure
+for schema changes requires, since SQLite can't stop enforcing them inside a
+transaction; a migration can then rebuild a table others refer to, and an
+upgrade checks every reference with `foreign_key_check` before committing.
+`Store::open`
 keeps nothing, as for a restore's held copy, itself a copy. A failed upgrade
 or copy is remembered until the app restarts, so each failure keeps one copy,
 and every use of the history refuses with `NotUpgraded`, naming the copy.

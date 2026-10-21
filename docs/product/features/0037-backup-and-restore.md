@@ -91,8 +91,9 @@ Backup and restore stay local and never make a network request.
     stubs; the screen's against the missing modules and sidebar link. A real
     damaged page fails the check as unreadable before its integrity report,
     which unit tests cover. A backup can be made at any time, as storage runs
-    one operation at a time. The webview sends the date, as `chrono` here has no
-    clock; the screen sits under the current game, so the sidebar needs no
+    one operation at a time. The webview sends the date, as `chrono` here had no
+    clock then (it gained one with Migration recovery, and taking backup's and
+    restore's times natively is a follow-up); the screen sits under the current game, so the sidebar needs no
     special case.
   - A read-only reviewer agent found a backup could replace the live database
     and every failure asked for another folder. Fixed: the data-folder guard,
@@ -282,6 +283,18 @@ Backup and restore stay local and never make a network request.
     unchanged, and checks each version's schema as its migrations build it.
     chrono gained its clock feature for the copy's local time; the lockfile is
     unchanged.
+  - Two reviewer agents found that a migration rebuilding a table others refer
+    to could never commit, as SQLite can't stop enforcing references inside a
+    transaction; the runner now enforces them only after the opening
+    transaction commits and checks them all before, as SQLite's procedure for
+    schema changes and other projects' migration runners do. A test-only
+    rebuild of `accounts` failed first against the 1.0.0 fixture and now keeps
+    its history; one that orphans rolls fails with the file unchanged. They
+    also found that Save backup, choosing a restore and confirming one reported
+    `storage` rather than `history_not_upgraded` (fixed red first), and that
+    CONTRIBUTING's step for the tests would stop being true with the first real
+    migration. The opening scripts are now built from named steps, and one
+    checked helper turns a version into the migrations it has.
 - [ ] **Migration recovery, screen** (one PR):
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;
@@ -289,6 +302,10 @@ Backup and restore stay local and never make a network request.
     Restore and About stay open.
   - [ ] Restoring another backup over a history that can't be upgraded, which
     can't be read for the confirmation's comparison and is copied as it is.
+- [ ] **Native times** (one PR): backup's suggested name and restore's safety
+  copy take the local time natively, as the upgrade's copy does, with one
+  shared time stamp; `save_backup` and `confirm_restore` lose their date and
+  time arguments, their checks and their `invalid_request` failure.
 - [ ] **Verification** (one PR, with the user's Windows check):
   - [ ] A round trip through a fresh profile: back up, restore into a new data
     folder, and find the same accounts, rolls and imports.
