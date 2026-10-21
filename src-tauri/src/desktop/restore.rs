@@ -652,16 +652,10 @@ mod tests {
     #[test]
     fn the_history_itself_is_refused_before_it_is_read() {
         // However its folder is written, the history is found by its real path.
-        let through_link = PathBuf::from("/home/player/history-link");
-        for (chosen, resolved) in [
-            (folder().join("history.sqlite"), None),
-            (through_link.join("history.sqlite"), Some(&through_link)),
-        ] {
+        let link = PathBuf::from("/home/player/history-link");
+        for chosen in [folder(), link.clone()].map(|folder| folder.join("history.sqlite")) {
             filesystem::install(Files {
-                links: resolved
-                    .map(|link| (link.clone(), folder()))
-                    .into_iter()
-                    .collect(),
+                links: [(link.clone(), folder())].into(),
                 ..files(&[(folder().join("history.sqlite"), BYTES)])
             });
             answering(Some(chosen));
