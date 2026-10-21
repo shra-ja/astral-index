@@ -250,31 +250,45 @@ Backup and restore stay local and never make a network request.
   - Two reviewer agents found that choosing the held copy itself,
     `restore.sqlite.partial`, emptied it and dropped the confirmation; it is
     now refused as not a backup and stays held (its test failed first).
-- [ ] **Migration recovery, native** (one PR). Ready for the first schema
+- [x] **Migration recovery, native** (one PR). Ready for the first schema
   change:
-  - [ ] A migration runner: `Store::open` upgrades an older released version
-    through its migrations in order, each in one transaction that also raises
-    the version. The migrations are a list, empty beyond the first release's
+  - [x] A migration runner: `Store::open` upgrades an older released version
+    through its migrations in order, all in the one transaction that opens it,
+    each raising the version. The migrations are a list, empty beyond the first release's
     schema until a schema changes, so its tests use a test-only migration
     against the 1.0.0 fixture; a failing migration leaves the history as it
     was, and unrelated or newer databases are refused unchanged, as now. A
     new database is created by the same steps.
-  - [ ] Each released version's expected schema comes from the first release's
+  - [x] Each released version's expected schema comes from the first release's
     schema and its migrations, run in memory, for the check and restore.
-  - [ ] Before the first migration writes, the history is copied to
+  - [x] Before the first migration writes, the history is copied to
     `history-v<N>-YYYYMMDD-HHMMSS.sqlite` in the data folder, named from the
     native local clock, claimed new and flushed; a copy that fails stops the
     upgrade. A restored backup upgrades in its held copy and needs none.
-  - [ ] A failed upgrade is a failure that names the copy, and every command
-    that uses the history refuses with it until the history opens.
-  - [ ] CONTRIBUTING's database-schema rules gain the steps for a schema
+  - [x] A failed upgrade is a failure that names the copy, and every command
+    that uses the history refuses with it until the app restarts, so each
+    failure keeps one copy.
+  - [x] CONTRIBUTING's database-schema rules gain the steps for a schema
     change: the migration, its tests against every released fixture, and the
     new release's frozen fixture.
+  - The tests came with the code, so each rule was broken on purpose to show
+    its test fails: keeping after migrating or not at all, re-running
+    migrations a database already has (a two-migration case added for it),
+    never raising the version, a check ignoring the file's version, forgetting
+    a failed upgrade, an unflushed copy, a failed copy left behind and a
+    failure not naming the copy. The 1.0.0 fixture's history tests run under
+    the app's schema and one test-only migration newer, which also upgrades a
+    real copy, fails a second migration and a refused keep with the file
+    unchanged, and checks each version's schema as its migrations build it.
+    chrono gained its clock feature for the copy's local time; the lockfile is
+    unchanged.
 - [ ] **Migration recovery, screen** (one PR):
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;
     the game screens in the sidebar are greyed out and unavailable; Backup &
     Restore and About stay open.
+  - [ ] Restoring another backup over a history that can't be upgraded, which
+    can't be read for the confirmation's comparison and is copied as it is.
 - [ ] **Verification** (one PR, with the user's Windows check):
   - [ ] A round trip through a fresh profile: back up, restore into a new data
     folder, and find the same accounts, rolls and imports.

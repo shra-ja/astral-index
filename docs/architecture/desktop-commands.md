@@ -80,7 +80,7 @@ later the preview.
   only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never
   reach the webview. Results and failures are small typed values; failures are
-  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, and the failing
+  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, the copy's file name (or `null` when none was kept) for `history_not_upgraded`, which any command that uses the history returns once an older release's history failed to upgrade, and the failing
   category and page for retrieval failures. The full list lives with the
   messages that describe them in `src-ui/src/messages.ts`.
 - The webview's `src-ui/src/commands.ts` treats any rejection that is not exactly

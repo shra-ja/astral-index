@@ -92,6 +92,20 @@ unrelated, future and incompatible databases without modifying them, and keep
 the initialization, persistence, constraint and rollback tests. Before 1.0.0,
 one initial schema was kept without migrations.
 
+A schema change takes these steps:
+
+1. Add the migration's SQL to `MIGRATIONS` in `src-tauri/src/storage.rs`, after
+   the last; it upgrades the version before it by one, which the runner raises.
+   Never edit a released migration or `001_initial.sql`.
+2. In `src-tauri/tests/released_databases.rs`, which opens every released
+   fixture with `Schema::CURRENT` and with a test-only migration on top, add
+   tests that what the migration changes keeps each fixture's history; its
+   tests already show that a failing migration leaves a fixture unchanged.
+3. Update the queries and their tests for the new schema.
+4. When the release ships, add its database to
+   `src-tauri/tests/fixtures/storage/`, written by that release from synthetic
+   history, with its digest, as the 1.0.0 fixture is.
+
 ## Coverage is a blocking gate
 
 Rust backend source must meet 100% coverage from `cargo test --lib` **alone**.
