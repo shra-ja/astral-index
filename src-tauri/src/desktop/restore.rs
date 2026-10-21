@@ -244,6 +244,10 @@ async fn choose_into<R: Runtime>(
     {
         return Err(Failure::RestoreIsHistory);
     }
+    // The held copy is the app's own working file, which choosing it would empty.
+    if real(&folder.join(HELD)) == real(&source) {
+        return Err(Failure::RestoreRefused(Refusal::NotDatabase));
+    }
     // Another backup was chosen, so the one held earlier is no longer shown.
     restore.release()?;
     let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source))
@@ -667,6 +671,23 @@ mod tests {
             );
             filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         }
+    }
+
+    #[test]
+    fn the_held_copy_itself_is_refused_and_kept_for_its_confirmation() {
+        filesystem::install(files(&[(held(), BYTES)]));
+        answering(Some(held()));
+        let restore = Restore::default();
+        holding_copy(&restore, contents(0));
+        assert_eq!(
+            choose_now(&restore),
+            Err(Failure::RestoreRefused(Refusal::NotDatabase))
+        );
+        filesystem::inspect(|state| {
+            assert!(state.accessed.is_empty());
+            assert_eq!(state.files[&held()], BYTES);
+        });
+        assert_eq!(holding(&restore), Some(held()));
     }
 
     #[test]
