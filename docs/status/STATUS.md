@@ -28,7 +28,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   app's icon is the emblem in its tile. About shows the app's details and its notices.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
-  or overlapping imports add only new rolls.
+  or overlapping imports add only new rolls. A history from an older release is
+  upgraded in one transaction after a dated copy is kept beside it; no
+  migration exists yet.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
@@ -49,9 +51,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Migration recovery (2026-10-21)
+### History that can't be upgraded (2026-10-22)
 
-`feat/migration-recovery`: 0037's Migration recovery, native part. Opening an older release's history runs its pending migrations in one transaction after copying it to `history-v<N>-YYYYMMDD-HHMMSS.sqlite`; a failed upgrade is remembered and every use refuses with `history_not_upgraded`, naming the copy. The check builds each version's schema from the same steps. No real migration yet: a test-only one upgrades the 1.0.0 fixture. Each rule's test fails with it broken. From the reviews: references are enforced only after the upgrade commits and checked before, so a migration can rebuild a referenced table (red first on the 1.0.0 fixture), and backup and restore pass the failure on. The screen follows in its own PR, then native times for backup and restore.
+`feat/not-upgraded-screen`: 0037's Migration recovery, screen, under way.
 
 ## Known limitations
 
@@ -70,7 +72,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery, screen, then Native times.
 
 ## Keeping this file current
 
@@ -184,4 +186,5 @@ research, under a "From" heading.
   confirming a restore, its safety copy, the exit clean-up, the Windows
   flush fix and restoring a safety copy.
 - [2026-10-21: data folder](history/2026-10-21-data-folder.md): one owner
-  for the data folder, and end-to-end failure snapshots.
+  for the data folder, end-to-end failure snapshots and migration recovery's
+  native part.
