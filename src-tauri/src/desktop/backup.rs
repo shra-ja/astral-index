@@ -36,13 +36,6 @@ pub enum Dialogs {
     Answering,
 }
 
-/// The data folder, where the mock's answer is kept, and how files are chosen.
-#[derive(Clone)]
-pub struct Backup {
-    pub folder: Option<PathBuf>,
-    pub dialogs: Dialogs,
-}
-
 /// What became of a backup.
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -67,10 +60,11 @@ fn suggested_name(date: &str) -> Result<String, Failure> {
 /// answer; none when the dialog is closed. A choice that is not a local file fails.
 fn choose<R: Runtime>(
     app: &AppHandle<R>,
-    backup: &Backup,
+    dialogs: Dialogs,
+    folder: Option<&Path>,
     name: &str,
 ) -> Result<Option<PathBuf>, Failure> {
-    match backup.dialogs {
+    match dialogs {
         Dialogs::System => app
             .dialog()
             .file()
@@ -79,7 +73,7 @@ fn choose<R: Runtime>(
             .blocking_save_file()
             .map(|chosen| chosen.into_path().map_err(|_| Failure::BackupFailed))
             .transpose(),
-        Dialogs::Answering => Ok(answer(backup.folder.as_deref(), ANSWER)),
+        Dialogs::Answering => Ok(answer(folder, ANSWER)),
     }
 }
 
@@ -158,17 +152,13 @@ pub(super) fn publish(written: &Path, target: &Path) -> std::io::Result<()> {
 /// Write a checked backup to `target`: a snapshot goes to a temporary file beside
 /// it, is checked and flushed, then takes the target's name. Any failure removes
 /// the temporary file, and only that file, so nothing is left half-written. A
-/// target in the data folder is refused.
-pub async fn save_to(
-    database: &Database,
-    folder: Option<&Path>,
-    target: &Path,
-) -> Result<Saved, Failure> {
+/// target in the database's data folder is refused.
+pub async fn save_to(database: &Database, target: &Path) -> Result<Saved, Failure> {
     let name = target
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .ok_or(Failure::BackupFailed)?;
-    if in_data_folder(folder, target) {
+    if in_data_folder(database.folder(), target) {
         return Err(Failure::BackupInDataFolder);
     }
     let (written, _) = claim_partial(target)?;
@@ -186,17 +176,17 @@ pub async fn save_to(
 /// checked backup there.
 async fn save_into<R: Runtime>(
     app: AppHandle<R>,
-    backup: &Backup,
+    dialogs: Dialogs,
     database: &Database,
     date: &str,
 ) -> Result<Saved, Failure> {
     let name = suggested_name(date)?;
-    let asking = backup.clone();
-    let chosen = spawn_blocking(move || choose(&app, &asking, &name))
+    let folder = database.folder().map(Path::to_owned);
+    let chosen = spawn_blocking(move || choose(&app, dialogs, folder.as_deref(), &name))
         .await
         .map_err(|_| Failure::BackupFailed)??;
     match chosen {
-        Some(target) => save_to(database, backup.folder.as_deref(), &target).await,
+        Some(target) => save_to(database, &target).await,
         None => Ok(Saved::Cancelled),
     }
 }
@@ -205,11 +195,11 @@ async fn save_into<R: Runtime>(
 #[tauri::command]
 pub async fn save_backup<R: Runtime>(
     app: AppHandle<R>,
-    backup: State<'_, Backup>,
+    dialogs: State<'_, Dialogs>,
     database: State<'_, Database>,
     date: String,
 ) -> Result<Saved, Failure> {
-    save_into(app, &backup, &database, &date).await
+    save_into(app, *dialogs, &database, &date).await
 }
 
 #[cfg(test)]
@@ -255,12 +245,6 @@ mod tests {
         name.push(".partial");
         PathBuf::from(name)
     }
-    fn system() -> Backup {
-        Backup {
-            folder: Some(folder()),
-            dialogs: Dialogs::System,
-        }
-    }
     fn database() -> Database {
         Database::new(Some(folder()))
     }
@@ -300,7 +284,7 @@ mod tests {
         }
     }
     fn save(database: &Database) -> Result<Saved, Failure> {
-        run(save_to(database, Some(&folder()), &target()))
+        run(save_to(database, &target()))
     }
     fn removed_files() -> Vec<PathBuf> {
         filesystem::inspect(|state| state.removed_files.clone())
@@ -336,7 +320,10 @@ mod tests {
             answer: Some(FilePath::Path(target())),
             ..Default::default()
         });
-        assert_eq!(choose(&app(), &system(), NAME), Ok(Some(target())));
+        assert_eq!(
+            choose(&app(), Dialogs::System, Some(&folder()), NAME),
+            Ok(Some(target()))
+        );
         assert_eq!(
             asked(),
             [Asked {
@@ -348,34 +335,37 @@ mod tests {
         );
         // Closing the dialog chooses nothing; a choice that is not a local file fails.
         chooser::install(Answers::default());
-        assert_eq!(choose(&app(), &system(), NAME), Ok(None));
+        assert_eq!(
+            choose(&app(), Dialogs::System, Some(&folder()), NAME),
+            Ok(None)
+        );
         chooser::install(Answers {
             answer: Some(FilePath::Url(
                 "https://example.com/backup.sqlite".parse().unwrap(),
             )),
             ..Default::default()
         });
-        assert_eq!(choose(&app(), &system(), NAME), Err(Failure::BackupFailed));
+        assert_eq!(
+            choose(&app(), Dialogs::System, Some(&folder()), NAME),
+            Err(Failure::BackupFailed)
+        );
     }
 
     #[test]
     fn the_mock_answers_from_its_data_folder_and_otherwise_cancels() {
-        let answering = |folder: Option<PathBuf>| Backup {
-            folder,
-            dialogs: Dialogs::Answering,
-        };
+        let answering = Dialogs::Answering;
         let answer = format!("{}\n", target().display());
         filesystem::install(files(&[(folder().join(ANSWER), answer.as_bytes())]));
         chooser::install(Answers::default());
         assert_eq!(
-            choose(&app(), &answering(Some(folder())), NAME),
+            choose(&app(), answering, Some(&folder()), NAME),
             Ok(Some(target()))
         );
         // It never opens the real dialog.
         assert_eq!(asked(), []);
         filesystem::install(Files::default());
-        assert_eq!(choose(&app(), &answering(Some(folder())), NAME), Ok(None));
-        assert_eq!(choose(&app(), &answering(None), NAME), Ok(None));
+        assert_eq!(choose(&app(), answering, Some(&folder()), NAME), Ok(None));
+        assert_eq!(choose(&app(), answering, None, NAME), Ok(None));
     }
 
     #[test]
@@ -472,7 +462,7 @@ mod tests {
                     ..Default::default()
                 });
                 assert_eq!(
-                    run(save_to(&database(), Some(&folder()), &target)),
+                    run(save_to(&database(), &target)),
                     Err(Failure::BackupInDataFolder),
                     "{}",
                     target.display()
@@ -487,7 +477,7 @@ mod tests {
         // A target without a file name is refused before anything is written.
         filesystem::install(Files::default());
         assert_eq!(
-            run(save_to(&database(), Some(&folder()), Path::new("/"))),
+            run(save_to(&database(), Path::new("/"))),
             Err(Failure::BackupFailed)
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
@@ -498,14 +488,14 @@ mod tests {
         // A malformed date is refused before any dialog.
         chooser::install(Answers::default());
         assert_eq!(
-            run(save_into(app(), &system(), &database(), "16/10/2026")),
+            run(save_into(app(), Dialogs::System, &database(), "16/10/2026")),
             Err(Failure::InvalidRequest)
         );
         assert_eq!(asked(), []);
         // Cancelling writes nothing.
         filesystem::install(Files::default());
         assert_eq!(
-            run(save_into(app(), &system(), &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
             Ok(Saved::Cancelled)
         );
         assert_eq!(asked().len(), 1);
@@ -516,7 +506,7 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(
-            run(save_into(app(), &system(), &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
             Err(Failure::BackupFailed)
         );
         // So does a choice that is not a local file, before anything is written.
@@ -528,7 +518,7 @@ mod tests {
         });
         filesystem::install(Files::default());
         assert_eq!(
-            run(save_into(app(), &system(), &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
             Err(Failure::BackupFailed)
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
@@ -539,7 +529,7 @@ mod tests {
         });
         sql::expect(saving(&partial(0)));
         assert_eq!(
-            run(save_into(app(), &system(), &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
             Ok(Saved::Saved { name: NAME.into() })
         );
         sql::finish();

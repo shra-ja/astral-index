@@ -167,7 +167,7 @@ fn save(data: &Path, target: &Path) -> Result<Saved, Failure> {
     tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap()
-        .block_on(save_to(&database, Some(data), target))
+        .block_on(save_to(&database, target))
 }
 /// A data folder holding the synthetic page's history, closed again.
 fn data_with_history(folder: &Folder) -> PathBuf {

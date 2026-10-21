@@ -400,13 +400,9 @@ fn register_with<R: Runtime>(
         let opened = open_window(app.handle(), folder.as_deref());
         app.manage(about::About {
             portable: database::portable(executable.as_deref(), folder.as_deref()),
-            folder: folder.clone(),
             opener: settings.opener,
         });
-        app.manage(backup::Backup {
-            folder: folder.clone(),
-            dialogs: settings.dialogs,
-        });
+        app.manage(settings.dialogs);
         restore::remove_leftovers(folder.as_deref());
         app.manage(Database::new(folder));
         opened.map_err(Into::into)
@@ -1390,19 +1386,19 @@ mod tests {
             .local_data_dir()
             .unwrap()
             .join(database::FOLDER_NAME);
-        assert_eq!(
-            app.state::<Database>().path(),
-            Some(folder.join(database::FILE_NAME))
-        );
-        // The About dialog's details name the same folder; the system opens things.
+        // The database holds the one data folder, which every command reads.
+        let database = app.state::<Database>();
+        assert_eq!(database.folder(), Some(folder.as_path()));
+        assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
+        // The system opens things.
         let about = app.state::<about::About>();
-        assert_eq!(about.folder, Some(folder));
         assert!(!about.portable);
         assert!(matches!(about.opener, about::Opener::System));
         // Backups are saved where the user chooses in the system's dialog.
-        let backup = app.state::<backup::Backup>();
-        assert_eq!(backup.folder.as_ref(), about.folder.as_ref());
-        assert!(matches!(backup.dialogs, backup::Dialogs::System));
+        assert!(matches!(
+            *app.state::<backup::Dialogs>(),
+            backup::Dialogs::System
+        ));
         assert!(app.get_webview_window("main").is_some());
         // The app keeps its webview profile, and only the leftover copy is removed.
         filesystem::inspect(|state| {
@@ -1424,23 +1420,22 @@ mod tests {
             .local_data_dir()
             .unwrap()
             .join(database::MOCK_FOLDER_NAME);
-        assert_eq!(
-            app.state::<Database>().path(),
-            Some(folder.join(database::FILE_NAME))
-        );
+        let database = app.state::<Database>();
+        assert_eq!(database.folder(), Some(folder.as_path()));
+        assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
         assert!(matches!(
             *app.state::<Network>(),
             Network::Mock(Scenario::History)
         ));
         // It records requests to open rather than launching anything.
         let about = app.state::<about::About>();
-        assert_eq!(about.folder.as_deref(), Some(folder.as_path()));
         assert!(!about.portable);
         assert!(matches!(about.opener, about::Opener::Recording));
         // Its tests answer the save dialog from its data folder.
-        let backup = app.state::<backup::Backup>();
-        assert_eq!(backup.folder.as_deref(), Some(folder.as_path()));
-        assert!(matches!(backup.dialogs, backup::Dialogs::Answering));
+        assert!(matches!(
+            *app.state::<backup::Dialogs>(),
+            backup::Dialogs::Answering
+        ));
         assert!(app.get_webview_window("main").is_some());
         // The mock starts each run with a fresh webview profile.
         filesystem::inspect(|state| {
@@ -1548,6 +1543,24 @@ mod tests {
         assert!(error.unwrap_err().contains("state not managed"));
         let error = invoke(&window, "commit_import", InvokeBody::default());
         assert!(error.unwrap_err().contains("state not managed"));
+        // The About commands read the data folder from the database too.
+        let about = about::About {
+            portable: false,
+            opener: about::Opener::Recording,
+        };
+        let app = handle_commands(mock_builder().manage(about))
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+        for command in ["app_info", "reveal_data_folder", "open_issues_page"] {
+            let error = invoke(&window, command, InvokeBody::default());
+            assert!(
+                error.unwrap_err().contains("state not managed"),
+                "{command}"
+            );
+        }
     }
 
     #[test]
@@ -1566,10 +1579,7 @@ mod tests {
 
     #[test]
     fn restore_fails_over_ipc_without_a_data_folder_or_its_state() {
-        let backup = || backup::Backup {
-            folder: None,
-            dialogs: backup::Dialogs::System,
-        };
+        let backup = || backup::Dialogs::System;
         let builders = || {
             [
                 mock_builder().manage(backup()),

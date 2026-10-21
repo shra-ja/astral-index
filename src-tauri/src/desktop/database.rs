@@ -99,6 +99,11 @@ impl Database {
             store: Arc::default(),
         }
     }
+    /// The app's data folder, which holds the database and the files kept beside
+    /// it, or `None` if the platform gave none.
+    pub fn folder(&self) -> Option<&Path> {
+        self.folder.as_deref()
+    }
     /// Where the database file is, or would be, kept.
     pub fn path(&self) -> Option<PathBuf> {
         self.folder.as_deref().map(history_file)

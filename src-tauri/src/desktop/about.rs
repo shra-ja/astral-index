@@ -3,7 +3,7 @@
 //! The opening commands take no arguments, so the webview can open nothing else.
 #[cfg(test)]
 use super::tests::launcher;
-use super::{Failure, database::FILE_NAME};
+use super::{Failure, database::Database};
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
 use serde::Serialize;
@@ -29,9 +29,9 @@ pub enum Opener {
     Recording,
 }
 
-/// The data folder in use, and how requests to open are carried out.
+/// Whether the data folder is the portable one, and how requests to open are
+/// carried out.
 pub struct About {
-    pub folder: Option<PathBuf>,
     pub portable: bool,
     pub opener: Opener,
 }
@@ -80,18 +80,16 @@ fn build(value: Option<&str>) -> Build {
     }
 }
 
-fn info(version: String, build: Build, about: &About) -> AppInfo {
+fn info(version: String, build: Build, about: &About, database: &Database) -> AppInfo {
     AppInfo {
         version,
         build,
-        folder: about
-            .folder
-            .as_ref()
+        folder: database
+            .folder()
             .map(|folder| folder.to_string_lossy().into_owned()),
-        file: about
-            .folder
-            .as_ref()
-            .map(|folder| folder.join(FILE_NAME).to_string_lossy().into_owned()),
+        file: database
+            .path()
+            .map(|file| file.to_string_lossy().into_owned()),
         portable: about.portable,
     }
 }
@@ -109,9 +107,8 @@ enum Target {
 
 /// The database file selected in its folder, or the folder itself when the file
 /// does not exist yet.
-fn data_target(folder: Option<&Path>) -> Option<Target> {
-    let folder = folder?;
-    let file = folder.join(FILE_NAME);
+fn data_target(database: &Database) -> Option<Target> {
+    let (folder, file) = database.folder().zip(database.path())?;
     Some(
         if fs::metadata(&file).is_ok_and(|metadata| metadata.is_file()) {
             Target::Reveal(file)
@@ -147,29 +144,39 @@ fn open(opener: &Opener, folder: Option<&Path>, target: Target) -> Result<(), Fa
 }
 
 #[tauri::command]
-pub fn app_info<R: Runtime>(app: AppHandle<R>, about: State<'_, About>) -> AppInfo {
+pub fn app_info<R: Runtime>(
+    app: AppHandle<R>,
+    about: State<'_, About>,
+    database: State<'_, Database>,
+) -> AppInfo {
     info(
         app.package_info().version.to_string(),
         build(option_env!("ASTRAL_INDEX_BUILD")),
         &about,
+        &database,
     )
 }
 
 /// Show the data folder, or fail without a folder to show.
-fn reveal(about: &About) -> Result<(), Failure> {
-    let folder = about.folder.as_deref();
-    let target = data_target(folder).ok_or(Failure::OpenFailed)?;
-    open(&about.opener, folder, target)
+fn reveal(about: &About, database: &Database) -> Result<(), Failure> {
+    let target = data_target(database).ok_or(Failure::OpenFailed)?;
+    open(&about.opener, database.folder(), target)
 }
 
 #[tauri::command]
-pub async fn reveal_data_folder(about: State<'_, About>) -> Result<(), Failure> {
-    reveal(&about)
+pub async fn reveal_data_folder(
+    about: State<'_, About>,
+    database: State<'_, Database>,
+) -> Result<(), Failure> {
+    reveal(&about, &database)
 }
 
 #[tauri::command]
-pub async fn open_issues_page(about: State<'_, About>) -> Result<(), Failure> {
-    open(&about.opener, about.folder.as_deref(), Target::Issues)
+pub async fn open_issues_page(
+    about: State<'_, About>,
+    database: State<'_, Database>,
+) -> Result<(), Failure> {
+    open(&about.opener, database.folder(), Target::Issues)
 }
 
 #[cfg(test)]
@@ -181,12 +188,14 @@ mod tests {
     fn folder() -> PathBuf {
         PathBuf::from("/local/astral-index")
     }
-    fn about(folder: Option<PathBuf>, portable: bool) -> About {
+    fn about(portable: bool) -> About {
         About {
-            folder,
             portable,
             opener: Opener::System,
         }
+    }
+    fn database(folder: Option<PathBuf>) -> Database {
+        Database::new(folder)
     }
     fn opened() -> Vec<String> {
         launcher::inspect(|state| state.opened.clone())
@@ -194,7 +203,12 @@ mod tests {
 
     #[test]
     fn app_info_gives_the_version_build_folder_file_and_mode() {
-        let shown = info("1.2.0".into(), Build::Release, &about(Some(folder()), true));
+        let shown = info(
+            "1.2.0".into(),
+            Build::Release,
+            &about(true),
+            &database(Some(folder())),
+        );
         assert_eq!(
             serde_json::to_value(shown).unwrap(),
             serde_json::json!({
@@ -207,7 +221,7 @@ mod tests {
             })
         );
         // Without a folder from the platform, there is none to show.
-        let shown = info("1.2.0".into(), Build::Local, &about(None, false));
+        let shown = info("1.2.0".into(), Build::Local, &about(false), &database(None));
         assert_eq!((shown.folder, shown.file), (None, None));
         assert!(!shown.portable);
     }
@@ -254,43 +268,44 @@ mod tests {
 
     #[test]
     fn the_data_target_is_the_database_file_once_it_exists() {
-        let file = folder().join(FILE_NAME);
+        let file = folder().join("history.sqlite");
+        let data = database(Some(folder()));
         filesystem::install(Fixture {
             files: [(file.clone(), vec![])].into(),
             ..Default::default()
         });
-        assert_eq!(
-            data_target(Some(&folder())),
-            Some(Target::Reveal(file.clone()))
-        );
+        assert_eq!(data_target(&data), Some(Target::Reveal(file.clone())));
         // Before the first save, or if the name is taken by a folder, the folder opens.
         filesystem::install(Fixture::default());
-        assert_eq!(data_target(Some(&folder())), Some(Target::Folder(folder())));
+        assert_eq!(data_target(&data), Some(Target::Folder(folder())));
         filesystem::install(Fixture {
             directories: vec![file],
             ..Default::default()
         });
-        assert_eq!(data_target(Some(&folder())), Some(Target::Folder(folder())));
+        assert_eq!(data_target(&data), Some(Target::Folder(folder())));
         // Without a folder there is nothing to open.
-        assert_eq!(data_target(None), None);
+        assert_eq!(data_target(&database(None)), None);
     }
 
     #[test]
     fn revealing_opens_the_data_folder_or_fails_without_one() {
         launcher::install(Launches::default());
         filesystem::install(Fixture::default());
-        assert_eq!(reveal(&about(Some(folder()), false)), Ok(()));
+        assert_eq!(reveal(&about(false), &database(Some(folder()))), Ok(()));
         assert_eq!(opened(), ["open /local/astral-index"]);
         // The platform gave no folder: nothing is opened.
         launcher::install(Launches::default());
-        assert_eq!(reveal(&about(None, false)), Err(Failure::OpenFailed));
+        assert_eq!(
+            reveal(&about(false), &database(None)),
+            Err(Failure::OpenFailed)
+        );
         assert!(opened().is_empty());
     }
 
     #[test]
     fn the_system_opener_hands_each_target_to_the_plugin() {
         launcher::install(Launches::default());
-        let file = folder().join(FILE_NAME);
+        let file = folder().join("history.sqlite");
         assert_eq!(open(&Opener::System, None, Target::Reveal(file)), Ok(()));
         assert_eq!(
             open(&Opener::System, None, Target::Folder(folder())),
@@ -300,7 +315,7 @@ mod tests {
         assert_eq!(
             opened(),
             [
-                format!("reveal {}", folder().join(FILE_NAME).display()).as_str(),
+                format!("reveal {}", folder().join("history.sqlite").display()).as_str(),
                 "open /local/astral-index",
                 "browse https://github.com/shra-ja/astral-index/issues",
             ]
