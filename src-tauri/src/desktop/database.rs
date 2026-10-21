@@ -188,13 +188,18 @@ fn take_or_open(folder: Option<&Path>, schema: Schema, state: &mut State) -> Res
             let folder = folder.ok_or(Error::Database)?;
             fs::create_dir_all(folder).map_err(|_| Error::Database)?;
             let file = history_file(folder);
-            // Set once an upgrade is due: the copy's name, if it was kept.
+            // Set once an upgrade is due: the copy's name, or none if it couldn't
+            // be kept.
             let mut kept = None;
-            let mut keep = |version| {
-                let copy = keep_before_upgrade(&file, version).ok();
-                let made = copy.is_some();
-                kept = Some(copy);
-                made.then_some(()).ok_or(Error::Database)
+            let mut keep = |version| match keep_before_upgrade(&file, version) {
+                Ok(copy) => {
+                    kept = Some(Some(copy));
+                    Ok(())
+                }
+                Err(_) => {
+                    kept = Some(None);
+                    Err(Error::Database)
+                }
             };
             let opened = Store::open_with(&file, schema, Some(&mut keep));
             match (opened, kept) {
@@ -258,7 +263,9 @@ mod tests {
             assert_ne!(state.removed[0], folder);
         });
     }
-    use crate::storage::tests::{UPGRADED, setup, step, text, upgrading};
+    use crate::storage::tests::{
+        BANNER, UPGRADED, failing_at, setup, step, stopping_before, text, upgrading,
+    };
     use std::future::Future;
 
     fn run<T>(future: impl Future<Output = T>) -> T {
@@ -499,11 +506,7 @@ mod tests {
     fn a_failed_upgrade_names_its_copy_and_is_not_tried_again() {
         filesystem::install(older_history());
         let mut script = vec![open(&folder().join(FILE_NAME))];
-        let mut upgrade = upgrading();
-        upgrade.truncate(5);
-        upgrade[4].reply = Err(rusqlite::Error::InvalidQuery);
-        upgrade.push(step("ROLLBACK", vec![], Reply::Done));
-        script.extend(upgrade);
+        script.extend(failing_at(upgrading(), BANNER));
         sql::expect(script);
         let store = Mutex::default();
         let failed = with_store(Some(&folder()), UPGRADED, &store, Box::new(|_| 1));
@@ -527,10 +530,7 @@ mod tests {
         };
         filesystem::install(unwritable);
         let mut script = vec![open(&folder().join(FILE_NAME))];
-        let mut upgrade = upgrading();
-        upgrade.truncate(4);
-        upgrade.push(step("ROLLBACK", vec![], Reply::Done));
-        script.extend(upgrade);
+        script.extend(stopping_before(upgrading(), BANNER));
         sql::expect(script);
         let store = Mutex::default();
         assert_eq!(

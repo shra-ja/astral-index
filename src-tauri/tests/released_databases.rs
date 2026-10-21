@@ -28,8 +28,24 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 /// A test-only migration after 1.0.0's schema, as the first real one will be.
 const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
 const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
-/// The app's schema, and one migration newer, which must keep every history too.
-const SCHEMAS: [Schema; 2] = [Schema::CURRENT, UPGRADED];
+/// A test-only rebuild of a table others refer to, by SQLite's procedure for schema
+/// changes `ALTER TABLE` can't make: a new table, its rows copied, the old one
+/// dropped and the new one renamed into its place.
+const REBUILD_ACCOUNTS: &str = "CREATE TABLE accounts_new (
+    game TEXT NOT NULL,
+    uid TEXT NOT NULL,
+    server TEXT NOT NULL,
+    timezone INTEGER,
+    label TEXT,
+    PRIMARY KEY(game, uid, server)
+) STRICT;
+INSERT INTO accounts_new(game, uid, server, timezone)
+    SELECT game, uid, server, timezone FROM accounts;
+DROP TABLE accounts;
+ALTER TABLE accounts_new RENAME TO accounts;";
+const REBUILT: Schema = Schema::with_migrations(&[REBUILD_ACCOUNTS]);
+/// The app's schema, and migrations newer, which must keep every history too.
+const SCHEMAS: [Schema; 3] = [Schema::CURRENT, UPGRADED, REBUILT];
 
 /// A copy of a fixture in its own folder, one per test, so opening it never touches
 /// the committed file.
@@ -376,4 +392,36 @@ fn the_check_expects_each_version_s_schema_as_its_migrations_build_it() {
         check_against(&unmigrated.0, UPGRADED),
         Err(Refusal::Damaged)
     );
+}
+
+#[test]
+fn a_migration_that_breaks_a_reference_fails_and_leaves_the_database_unchanged() {
+    let fixture = std::fs::read(fixture_path(RELEASE_1_0_0)).unwrap();
+    // The other account still has rolls and imports.
+    let orphaning = Schema::with_migrations(&["DELETE FROM accounts WHERE uid = '100000003'"]);
+    let copy = Copy::of(RELEASE_1_0_0);
+    assert!(Store::open_with(&copy.0, orphaning, None).is_err());
+    assert_eq!(std::fs::read(&copy.0).unwrap(), fixture);
+}
+
+#[test]
+fn a_rebuilt_1_0_0_database_keeps_every_reference() {
+    let copy = Copy::of(RELEASE_1_0_0);
+    drop(Store::open_with(&copy.0, REBUILT, None).unwrap());
+    let connection = Connection::open(&copy.0).unwrap();
+    let violations: i64 = connection
+        .query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(violations, 0);
+    // The other tables still refer to accounts by its own name.
+    let referring: i64 = connection
+        .query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE sql LIKE '%REFERENCES accounts(%'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(referring, 2);
 }

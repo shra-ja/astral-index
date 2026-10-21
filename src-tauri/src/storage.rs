@@ -26,6 +26,8 @@ const FIRST_SQL: &str = include_str!("../migrations/001_initial.sql");
 /// The migrations after the first release, in order, each upgrading the schema
 /// version before it by one. None yet: the schema has not changed since 1.0.0.
 const MIGRATIONS: &[&str] = &[];
+/// How many references a database holds to rows that don't exist.
+const BROKEN_REFERENCES: &str = "SELECT count(*) FROM pragma_foreign_key_check";
 /// A database's schema objects, as compared between a file and its version's SQL.
 const SCHEMA: &str =
     "SELECT json_array(type,name,tbl_name,sql) FROM sqlite_schema ORDER BY type,name";
@@ -48,28 +50,36 @@ impl Schema {
     pub const fn with_migrations(migrations: &'static [&'static str]) -> Self {
         Self { migrations }
     }
-    /// The newest schema version.
-    fn version(self) -> i32 {
-        FIRST_RELEASED + self.migrations.len() as i32
+    /// How many of these migrations a database at schema `version` already has:
+    /// none unless `version` is one of this schema's released versions, from the
+    /// first release's to the newest.
+    fn applied(self, version: i32) -> Option<usize> {
+        let applied = usize::try_from(version.saturating_sub(FIRST_RELEASED)).ok()?;
+        (applied <= self.migrations.len()).then_some(applied)
     }
-    /// This schema as it was at `version`, a released one.
-    fn at(self, version: i32) -> Self {
+    /// Whether a database with `applied` of these migrations needs none more.
+    fn is_newest(self, applied: usize) -> bool {
+        applied == self.migrations.len()
+    }
+    /// This schema as it was with only its first `applied` migrations, as
+    /// `applied` gives them.
+    fn at(self, applied: usize) -> Self {
         Self {
-            migrations: &self.migrations[..(version - FIRST_RELEASED) as usize],
+            migrations: &self.migrations[..applied],
         }
     }
-    /// Bring a database at `from`, a released version, or a new one, to this
-    /// schema, raising its version after each migration.
-    fn build(self, connection: &Connection, from: Option<i32>) -> rusqlite::Result<()> {
-        let from = match from {
-            Some(from) => from,
+    /// Bring a database that has `applied` of these migrations, or a new one, to
+    /// this schema, raising its version after each migration.
+    fn build(self, connection: &Connection, applied: Option<usize>) -> rusqlite::Result<()> {
+        let applied = match applied {
+            Some(applied) => applied,
             None => {
                 connection.execute_batch(FIRST_SQL)?;
-                FIRST_RELEASED
+                0
             }
         };
         let pending = (FIRST_RELEASED + 1..).zip(self.migrations);
-        for (version, migration) in pending.skip((from - FIRST_RELEASED) as usize) {
+        for (version, migration) in pending.skip(applied) {
             connection.execute_batch(migration)?;
             connection.execute_batch(&format!("PRAGMA user_version={version}"))?;
         }
@@ -426,13 +436,16 @@ impl Store {
 
     /// Establish a usable store atomically, refusing to repurpose an incompatible
     /// database. Creating or upgrading runs in the one transaction, so a failure
-    /// leaves the database as it was.
+    /// leaves the database as it was. References are enforced only once it
+    /// commits, as SQLite's procedure for schema changes requires: a migration may
+    /// rebuild a table others refer to, and SQLite can't stop enforcing them inside
+    /// a transaction. An upgrade checks every reference before it commits instead.
     fn initialize(
         mut connection: Connection,
         schema: Schema,
         keep: Option<Keep<'_>>,
     ) -> Result<Self, Error> {
-        connection.execute_batch("PRAGMA busy_timeout=250; PRAGMA foreign_keys=ON;")?;
+        connection.execute_batch("PRAGMA busy_timeout=250; PRAGMA foreign_keys=OFF;")?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let version: i32 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         let app: i32 = tx.query_row("PRAGMA application_id", [], |row| row.get(0))?;
@@ -446,16 +459,25 @@ impl Store {
                 return Err(Error::Schema);
             }
             schema.build(&tx, None)?;
-        } else if app == APPLICATION_ID && (FIRST_RELEASED..schema.version()).contains(&version) {
-            if let Some(keep) = keep {
-                keep(version)?;
+        } else {
+            let applied = (app == APPLICATION_ID)
+                .then(|| schema.applied(version))
+                .flatten()
+                .ok_or(Error::Schema)?;
+            if !schema.is_newest(applied) {
+                if let Some(keep) = keep {
+                    keep(version)?;
+                }
+                schema.build(&tx, Some(applied))?;
+                let broken: i64 = tx.query_row(BROKEN_REFERENCES, [], |row| row.get(0))?;
+                if broken != 0 {
+                    return Err(Error::Database);
+                }
             }
-            schema.build(&tx, Some(version))?;
-        } else if (version, app) != (schema.version(), APPLICATION_ID) {
-            return Err(Error::Schema);
         }
         snapshot(&tx)?;
         tx.commit()?;
+        connection.execute_batch("PRAGMA foreign_keys=ON")?;
         Ok(Self { connection })
     }
 
@@ -1002,15 +1024,15 @@ pub fn check_against(path: &Path, schema: Schema) -> Result<(), Refusal> {
         return Err(Refusal::OtherApp);
     }
     let version: i32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    if version > schema.version() {
-        return Err(Refusal::Newer);
-    }
-    if version < FIRST_RELEASED {
-        return Err(Refusal::Damaged);
-    }
+    // Past the first release's, an unknown version can only be a newer one.
+    let applied = schema.applied(version).ok_or(if version > FIRST_RELEASED {
+        Refusal::Newer
+    } else {
+        Refusal::Damaged
+    })?;
     let actual = texts(&connection, SCHEMA)?;
     let fresh = Connection::open_in_memory()?;
-    schema.at(version).build(&fresh, None)?;
+    schema.at(applied).build(&fresh, None)?;
     if texts(&fresh, SCHEMA)? != actual {
         return Err(Refusal::Damaged);
     }
@@ -1182,35 +1204,78 @@ pub(crate) mod tests {
             snapshot: ("database".into(), 0),
         }
     }
+    /// The SQL that starts opening a database whose version and application ID
+    /// read as given.
+    fn reading(version: i32, app: i32) -> Vec<Step> {
+        let value = |value: i32| vec![vec![Value::Integer(value.into())]];
+        vec![
+            done("PRAGMA busy_timeout=250; PRAGMA foreign_keys=OFF;"),
+            done("BEGIN Immediate"),
+            rows("PRAGMA user_version", vec![], value(version)),
+            rows("PRAGMA application_id", vec![], value(app)),
+        ]
+    }
+    /// The SQL that creates a new database after reading it: finding it empty, then
+    /// the first release's schema.
+    fn creating() -> Vec<Step> {
+        let mut steps = reading(0, 0);
+        steps.push(rows(
+            "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+            vec![],
+            vec![vec![Value::Integer(0)]],
+        ));
+        steps.push(done(FIRST_SQL));
+        steps
+    }
+    /// The SQL of `migrations` after `from`, each followed by the version it raises.
+    fn migrating(from: i32, migrations: &[&str]) -> Vec<Step> {
+        (FIRST_RELEASED + 1..)
+            .zip(migrations)
+            .skip((from - FIRST_RELEASED) as usize)
+            .flat_map(|(version, sql)| [done(sql), done(&format!("PRAGMA user_version={version}"))])
+            .collect()
+    }
+    /// The SQL that ends opening a database: its identity read, the transaction
+    /// committed, then references enforced.
+    fn finishing() -> [Step; 3] {
+        [identity(), done("COMMIT"), done("PRAGMA foreign_keys=ON")]
+    }
     /// The SQL for initializing a new or existing database after it is opened.
     pub(crate) fn setup(existing: bool) -> Vec<Step> {
-        let mut steps = vec![
-            done("PRAGMA busy_timeout=250; PRAGMA foreign_keys=ON;"),
-            done("BEGIN Immediate"),
-            rows(
-                "PRAGMA user_version",
-                vec![],
-                vec![vec![Value::Integer(if existing { 2 } else { 0 })]],
-            ),
-            rows(
-                "PRAGMA application_id",
-                vec![],
-                vec![vec![Value::Integer(if existing {
-                    APPLICATION_ID.into()
-                } else {
-                    0
-                })]],
-            ),
-        ];
-        if !existing {
-            steps.push(rows(
-                "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
-                vec![],
-                vec![vec![Value::Integer(0)]],
-            ));
-            steps.push(done(include_str!("../migrations/001_initial.sql")));
-        }
-        steps.extend([identity(), done("COMMIT")]);
+        let mut steps = if existing {
+            reading(FIRST_RELEASED, APPLICATION_ID)
+        } else {
+            creating()
+        };
+        steps.extend(finishing());
+        steps
+    }
+    /// The SQL for upgrading a database at `from` through `migrations`, then
+    /// finding no broken references.
+    fn upgrade(from: i32, migrations: &[&str]) -> Vec<Step> {
+        let mut steps = reading(from, APPLICATION_ID);
+        steps.extend(migrating(from, migrations));
+        steps.push(rows(
+            BROKEN_REFERENCES,
+            vec![],
+            vec![vec![Value::Integer(0)]],
+        ));
+        steps.extend(finishing());
+        steps
+    }
+    /// `steps` up to the one running `sql`, which fails, then the rollback.
+    pub(crate) fn failing_at(mut steps: Vec<Step>, sql: &str) -> Vec<Step> {
+        let at = steps.iter().position(|step| step.sql == sql).unwrap();
+        steps.truncate(at + 1);
+        steps[at].reply = Err(rusqlite::Error::InvalidQuery);
+        steps.push(done("ROLLBACK"));
+        steps
+    }
+    /// `steps` up to the one running `sql`, which never runs, then the rollback.
+    pub(crate) fn stopping_before(mut steps: Vec<Step>, sql: &str) -> Vec<Step> {
+        let at = steps.iter().position(|step| step.sql == sql).unwrap();
+        steps.truncate(at);
+        steps.push(done("ROLLBACK"));
         steps
     }
     #[test]
@@ -1235,7 +1300,9 @@ pub(crate) mod tests {
             }
             steps.truncate(index + 1);
             steps[index].reply = Err(rusqlite::Error::InvalidQuery);
-            if begin.is_some_and(|begin| index > begin) {
+            // Only a failure inside the transaction rolls it back.
+            let committed = steps[..index].iter().any(|step| step.sql == "COMMIT");
+            if begin.is_some_and(|begin| index > begin) && !committed {
                 steps.push(done("ROLLBACK"));
             }
             database::expect(steps);
@@ -1297,19 +1364,13 @@ pub(crate) mod tests {
         steps
     }
 
+    /// A test-only migration after the first release's schema.
+    pub(crate) const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
     /// A schema one test-only migration newer than the app's.
-    pub(crate) const UPGRADED: Schema =
-        Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
+    pub(crate) const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
     /// The SQL for upgrading a database at the first release's version to `UPGRADED`.
     pub(crate) fn upgrading() -> Vec<Step> {
-        let mut steps = setup(true);
-        let end = steps.split_off(4);
-        steps.extend([
-            done("ALTER TABLE rolls ADD COLUMN banner TEXT"),
-            done("PRAGMA user_version=3"),
-        ]);
-        steps.extend(end);
-        steps
+        upgrade(FIRST_RELEASED, &[BANNER])
     }
     #[test]
     fn an_older_release_s_database_is_upgraded_after_it_is_kept() {
@@ -1326,28 +1387,33 @@ pub(crate) mod tests {
         );
         assert!(store.is_ok());
         database::finish();
-        assert_eq!(
-            kept,
-            [(2, Some("ALTER TABLE rolls ADD COLUMN banner TEXT".into()))]
-        );
+        assert_eq!(kept, [(2, Some(BANNER.into()))]);
         // Each failure rolls the whole upgrade back, kept first or not.
         fail_each(&upgrading, Some(1), &mut || {
             Store::initialize(Connection, UPGRADED, None).map(|_| ())
         });
     }
     #[test]
-    fn a_database_part_way_up_runs_only_the_migrations_after_its_version() {
-        let schema = Schema::with_migrations(&["SECOND", "THIRD"]);
-        let mut steps = setup(true);
-        let end = steps.split_off(4);
-        steps[2] = rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(3)]]);
-        steps.extend([done("THIRD"), done("PRAGMA user_version=4")]);
-        steps.extend(end);
+    fn an_upgrade_that_breaks_a_reference_is_rolled_back() {
+        let mut steps = reading(FIRST_RELEASED, APPLICATION_ID);
+        steps.extend(migrating(FIRST_RELEASED, &[BANNER]));
+        steps.extend([
+            rows(BROKEN_REFERENCES, vec![], vec![vec![Value::Integer(1)]]),
+            done("ROLLBACK"),
+        ]);
         database::expect(steps);
+        let store = Store::initialize(Connection, UPGRADED, None);
+        assert!(matches!(store, Err(Error::Database)));
+        database::finish();
+    }
+    #[test]
+    fn a_database_part_way_up_runs_only_the_migrations_after_its_version() {
+        let migrations = ["SECOND", "THIRD"];
+        database::expect(upgrade(3, &migrations));
         let mut kept = vec![];
         let store = Store::initialize(
             Connection,
-            schema,
+            Schema::with_migrations(&["SECOND", "THIRD"]),
             Some(&mut |version| {
                 kept.push(version);
                 Ok(())
@@ -1356,34 +1422,34 @@ pub(crate) mod tests {
         assert!(store.is_ok());
         database::finish();
         assert_eq!(kept, [3]);
+        // Only the third migration ran, raising the version to 4.
+        assert_eq!(
+            migrating(3, &migrations)
+                .iter()
+                .map(|step| step.sql.as_str())
+                .collect::<Vec<_>>(),
+            ["THIRD", "PRAGMA user_version=4"]
+        );
     }
     #[test]
     fn a_failed_keep_stops_the_upgrade_before_anything_changes() {
-        let mut steps = upgrading();
-        steps.truncate(4);
-        steps.push(done("ROLLBACK"));
-        database::expect(steps);
+        database::expect(stopping_before(upgrading(), BANNER));
         let store = Store::initialize(Connection, UPGRADED, Some(&mut |_| Err(Error::Database)));
         assert!(matches!(store, Err(Error::Database)));
         database::finish();
     }
     #[test]
     fn a_new_or_current_database_is_built_or_opened_by_the_same_steps() {
-        let mut steps = setup(false);
-        let end = steps.split_off(6);
-        steps.extend([
-            done("ALTER TABLE rolls ADD COLUMN banner TEXT"),
-            done("PRAGMA user_version=3"),
-        ]);
-        steps.extend(end);
+        let mut steps = creating();
+        steps.extend(migrating(FIRST_RELEASED, &[BANNER]));
+        steps.extend(finishing());
         database::expect(steps);
         let store = Store::initialize(Connection, UPGRADED, None);
         assert!(store.is_ok());
         database::finish();
         // A current database is opened as it is.
-        let mut steps = upgrading();
-        steps.drain(4..6);
-        steps[2] = rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(3)]]);
+        let mut steps = reading(3, APPLICATION_ID);
+        steps.extend(finishing());
         database::expect(steps);
         let store = Store::initialize(Connection, UPGRADED, None);
         assert!(store.is_ok());
@@ -1408,19 +1474,13 @@ pub(crate) mod tests {
     }
     #[test]
     fn initialization_rejects_incompatible_or_claimed_databases() {
-        for (version, app) in [(3, APPLICATION_ID), (2, 0), (0, APPLICATION_ID)] {
-            let mut steps = setup(true);
-            steps.truncate(4);
-            steps[2] = rows(
-                "PRAGMA user_version",
-                vec![],
-                vec![vec![Value::Integer(version)]],
-            );
-            steps[3] = rows(
-                "PRAGMA application_id",
-                vec![],
-                vec![vec![Value::Integer(app.into())]],
-            );
+        for (version, app) in [
+            (3, APPLICATION_ID),
+            (2, 0),
+            (0, APPLICATION_ID),
+            (1, APPLICATION_ID),
+        ] {
+            let mut steps = reading(version, app);
             steps.push(done("ROLLBACK"));
             database::expect(steps);
             assert!(matches!(
@@ -1429,14 +1489,16 @@ pub(crate) mod tests {
             ));
             database::finish();
         }
-        let mut steps = setup(false);
-        steps.truncate(5);
-        steps[4] = rows(
-            "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
-            vec![],
-            vec![vec![Value::Integer(1)]],
-        );
-        steps.push(done("ROLLBACK"));
+        // An unclaimed database that already holds something isn't taken over.
+        let mut steps = reading(0, 0);
+        steps.extend([
+            rows(
+                "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+                vec![],
+                vec![vec![Value::Integer(1)]],
+            ),
+            done("ROLLBACK"),
+        ]);
         database::expect(steps);
         assert!(matches!(
             Store::initialize(Connection, Schema::CURRENT, None),
