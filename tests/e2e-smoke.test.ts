@@ -277,6 +277,9 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-smoke')
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }
@@ -305,6 +308,23 @@ async function launchMock(
     staleCache,
   }
 }
+/**
+ * Save what the window shows when a test fails, before the app closes, as CI keeps
+ * `test-results/` but not the window: a screenshot and the text of the screen,
+ * named `failed-` and the test's name.
+ */
+async function snapshotFailure(app: AppSession) {
+  const test = expect.getState().currentTestName ?? 'test'
+  const name = `failed-${test
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, 60)}`
+  await app.screenshot(name).catch(() => undefined)
+  const text = await app
+    .execute<string>(`return (document.querySelector('main') ?? document.body).innerText`)
+    .catch(() => '')
+  writeFileSync(resolve(results, `${name}.txt`), text)
+}
 /** Run `steps` in the mock, then close it as a user would. */
 async function withMock(
   scenario: string,
@@ -315,6 +335,9 @@ async function withMock(
   try {
     await steps(app, database)
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }
@@ -1394,6 +1417,9 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     expect(await skipped(app)).toBe('2,060')
     await click(app, '.review', 'Done')
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }
@@ -1450,6 +1476,9 @@ test('in a very wide window every screen keeps one content width, centred under 
     expect(await content('.rolls')).toEqual({ ...fitted, endAligned: true })
     await app.screenshot('e2e-mock-wide-history')
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }
@@ -1569,6 +1598,9 @@ test('as the window narrows, the sidebar gives way first, no fuller layout comes
     await app.command('/window/rect', 'POST', { width: 1100, height: 760 })
     expect((await layoutAt(1100)).compact['icon rail']).toBe(true)
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }
@@ -1609,6 +1641,9 @@ test('at every width, the review shows each figure whole, its label on one line'
     }
     expect(broken).toEqual([])
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }
@@ -1964,6 +1999,9 @@ test('a development zoom scales the webview, so WSL can match the Windows displa
     await expect.poll(async () => (await overlay()).shown, { timeout: 5000 }).not.toMatch(/^96\d /)
     expect(await matches()).toBe(true)
     await app.close()
+  } catch (error) {
+    await snapshotFailure(app)
+    throw error
   } finally {
     await app.dispose()
   }

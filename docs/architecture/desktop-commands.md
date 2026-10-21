@@ -88,7 +88,9 @@ later the preview.
 
 ## Transports and builds
 
-Commands take their transport from a managed `Network`: HTTPS in the app, or the
+The data folder is held once, by the managed `Database`; the About, backup and
+restore commands read it, and the history file's path, from there. Commands take
+their transport from a managed `Network`: HTTPS in the app, or the
 synthetic HoYoverse of the mock debug binary, which also keeps its history in its
 own `astral-index-mock` folder, never uses portable mode and clears its webview
 profile at start. It never launches a file manager or browser: it records each

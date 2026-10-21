@@ -104,7 +104,9 @@ browses within measured time bounds, and the About dialog's views load nothing
 the CSP blocks ([decision 0028](../architecture/decisions/0028-release-checks.md)).
 Apps close as a user would, and the test waits for that
 process's coverage profile; a killed process never counts as covered.
-Screenshots go to `test-results/`.
+Screenshots go to `test-results/`. A test that fails while an app is open first
+saves `failed-<test name>.png` and `.txt` there, the window and its screen's
+text, as CI keeps `test-results/` but not the window.
 
 Bubblewrap provides the network namespace; only loopback exists, for WebDriver.
 Ubuntu's hosted runners restrict unprivileged user namespaces, so CI loads a

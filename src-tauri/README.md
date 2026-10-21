@@ -11,8 +11,8 @@ for how the parts fit together; run commands from the repository root.
   the guarded coverage exception in
   [CONTRIBUTING](../CONTRIBUTING.md#coverage-is-a-blocking-gate).
 - `src/desktop.rs` holds the commands, the acquisition session and window setup;
-  `src/desktop/database.rs` chooses the database location and runs SQLite work
-  off the async workers; `src/desktop/about.rs` holds the About dialog's
+  `src/desktop/database.rs` chooses the data folder, holds it for every
+  command and runs SQLite work off the async workers; `src/desktop/about.rs` holds the About dialog's
   commands, which open the data folder or the issues page through the opener
   plugin's functions, or record the request in the mock debug binary; and
   `src/desktop/backup.rs` holds the Backup & Restore screen's backup command,

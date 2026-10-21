@@ -49,9 +49,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Restoring a safety copy (2026-10-20)
+### Data folder (2026-10-21)
 
-`feat/restore-safety-copy`: 0037's Restoring a safety copy. `choose_restore` refuses only the history itself, by real path, with “This is your current history, not a backup.”; a safety copy restores from the data folder, and the held copy itself is refused (a reviewer finding). Each layer red first; a real-file test covers path forms, and an end-to-end test restores a safety copy.
+`refactor/data-folder`: the data folder is held once, by `Database`; About keeps its mode and opener, the dialogs setting is managed alone, and `choose_restore` no longer pairs two copies (a reviewer finding from #133). No behaviour change: the existing tests pass unchanged in what they check, and a new IPC case covers the About commands without a database.
 
 ## Known limitations
 
@@ -181,5 +181,5 @@ research, under a "From" heading.
 - [2026-10-19: app-wide screen](history/2026-10-19-app-wide-screen.md):
   Backup & Restore at `/backup`, in the sidebar's Data group.
 - [2026-10-20: restore, replacing](history/2026-10-20-restore-replacing.md):
-  confirming a restore, its safety copy, the exit clean-up and the Windows
-  flush fix.
+  confirming a restore, its safety copy, the exit clean-up, the Windows
+  flush fix and restoring a safety copy.

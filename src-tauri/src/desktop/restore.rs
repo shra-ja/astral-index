@@ -7,7 +7,7 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
-    backup::{Backup, Dialogs, answer, publish, real},
+    backup::{Dialogs, answer, publish, real},
     database::Database,
 };
 #[cfg(test)]
@@ -137,8 +137,12 @@ pub enum Chosen {
 
 /// The backup to restore: the user's choice in the open dialog, or the mock's
 /// answer; none when the dialog is closed. A choice that is not a local file fails.
-fn choose<R: Runtime>(app: &AppHandle<R>, backup: &Backup) -> Result<Option<PathBuf>, Failure> {
-    match backup.dialogs {
+fn choose<R: Runtime>(
+    app: &AppHandle<R>,
+    dialogs: Dialogs,
+    folder: &Path,
+) -> Result<Option<PathBuf>, Failure> {
+    match dialogs {
         Dialogs::System => app
             .dialog()
             .file()
@@ -146,7 +150,7 @@ fn choose<R: Runtime>(app: &AppHandle<R>, backup: &Backup) -> Result<Option<Path
             .blocking_pick_file()
             .map(|chosen| chosen.into_path().map_err(|_| Failure::RestoreFailed))
             .transpose(),
-        Dialogs::Answering => Ok(answer(backup.folder.as_deref(), ANSWER)),
+        Dialogs::Answering => Ok(answer(Some(folder), ANSWER)),
     }
 }
 
@@ -217,7 +221,7 @@ pub fn is_history(history: &Path, chosen: &Path) -> bool {
 async fn choose_into<R: Runtime>(
     app: AppHandle<R>,
     session: &Session,
-    backup: &Backup,
+    dialogs: Dialogs,
     restore: &Restore,
     database: &Database,
 ) -> Result<Chosen, Failure> {
@@ -226,9 +230,13 @@ async fn choose_into<R: Runtime>(
         return Err(Failure::ImportUnderWay);
     }
     // Without a data folder there is nowhere to check a copy, so nothing is asked.
-    let folder = backup.folder.clone().ok_or(Failure::RestoreFailed)?;
-    let asking = backup.clone();
-    let chosen = spawn_blocking(move || choose(&app, &asking))
+    let (folder, history) = database
+        .folder()
+        .map(Path::to_owned)
+        .zip(database.path())
+        .ok_or(Failure::RestoreFailed)?;
+    let asking = folder.clone();
+    let chosen = spawn_blocking(move || choose(&app, dialogs, &asking))
         .await
         .map_err(|_| Failure::RestoreFailed)??;
     let Some(source) = chosen else {
@@ -238,10 +246,7 @@ async fn choose_into<R: Runtime>(
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .ok_or(Failure::RestoreFailed)?;
-    if database
-        .path()
-        .is_some_and(|history| is_history(&history, &source))
-    {
+    if is_history(&history, &source) {
         return Err(Failure::RestoreIsHistory);
     }
     // The held copy is the app's own working file, which choosing it would empty.
@@ -278,11 +283,11 @@ async fn choose_into<R: Runtime>(
 pub async fn choose_restore<R: Runtime>(
     app: AppHandle<R>,
     session: State<'_, Session>,
-    backup: State<'_, Backup>,
+    dialogs: State<'_, Dialogs>,
     restore: State<'_, Restore>,
     database: State<'_, Database>,
 ) -> Result<Chosen, Failure> {
-    choose_into(app, &session, &backup, &restore, &database).await
+    choose_into(app, &session, *dialogs, &restore, &database).await
 }
 
 /// Drops the held copy of the backup, if any; the history is unchanged.
@@ -450,12 +455,6 @@ mod tests {
     fn held() -> PathBuf {
         folder().join("restore.sqlite.partial")
     }
-    fn system() -> Backup {
-        Backup {
-            folder: Some(folder()),
-            dialogs: Dialogs::System,
-        }
-    }
     fn database() -> Database {
         Database::new(Some(folder()))
     }
@@ -528,7 +527,7 @@ mod tests {
         run(choose_into(
             app(),
             &Session::default(),
-            &system(),
+            Dialogs::System,
             restore,
             &database(),
         ))
@@ -550,7 +549,10 @@ mod tests {
     #[test]
     fn the_open_dialog_offers_backups_and_returns_the_chosen_file() {
         answering(Some(source()));
-        assert_eq!(choose(&app(), &system()), Ok(Some(source())));
+        assert_eq!(
+            choose(&app(), Dialogs::System, &folder()),
+            Ok(Some(source()))
+        );
         assert_eq!(
             chooser::inspect(|state| state.asked.clone()),
             [Asked {
@@ -562,31 +564,32 @@ mod tests {
         );
         // Closing the dialog chooses nothing; a choice that is not a local file fails.
         answering(None);
-        assert_eq!(choose(&app(), &system()), Ok(None));
+        assert_eq!(choose(&app(), Dialogs::System, &folder()), Ok(None));
         chooser::install(Answers {
             answer: Some(FilePath::Url(
                 "https://example.com/backup.sqlite".parse().unwrap(),
             )),
             ..Default::default()
         });
-        assert_eq!(choose(&app(), &system()), Err(Failure::RestoreFailed));
+        assert_eq!(
+            choose(&app(), Dialogs::System, &folder()),
+            Err(Failure::RestoreFailed)
+        );
     }
 
     #[test]
     fn the_mock_answers_from_its_data_folder_and_otherwise_cancels() {
-        let mock = |folder: Option<PathBuf>| Backup {
-            folder,
-            dialogs: Dialogs::Answering,
-        };
         let answer = format!("{}\n", source().display());
         filesystem::install(files(&[(folder().join(ANSWER), answer.as_bytes())]));
         answering(None);
-        assert_eq!(choose(&app(), &mock(Some(folder()))), Ok(Some(source())));
+        assert_eq!(
+            choose(&app(), Dialogs::Answering, &folder()),
+            Ok(Some(source()))
+        );
         // It never opens the real dialog.
         assert_eq!(chooser::inspect(|state| state.asked.len()), 0);
         filesystem::install(Files::default());
-        assert_eq!(choose(&app(), &mock(Some(folder()))), Ok(None));
-        assert_eq!(choose(&app(), &mock(None)), Ok(None));
+        assert_eq!(choose(&app(), Dialogs::Answering, &folder()), Ok(None));
     }
 
     #[test]
@@ -713,15 +716,11 @@ mod tests {
         // Without a data folder there is nowhere to check a copy, so no dialog opens.
         filesystem::install(files(&[]));
         answering(Some(source()));
-        let nowhere = Backup {
-            folder: None,
-            dialogs: Dialogs::System,
-        };
         assert_eq!(
             run(choose_into(
                 app(),
                 &Session::default(),
-                &nowhere,
+                Dialogs::System,
                 &Restore::default(),
                 &Database::new(None)
             )),
@@ -946,7 +945,7 @@ mod tests {
             run(choose_into(
                 app(),
                 &session,
-                &system(),
+                Dialogs::System,
                 &restore,
                 &database()
             )),
