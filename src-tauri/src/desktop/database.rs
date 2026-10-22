@@ -149,15 +149,16 @@ impl Database {
             .unwrap_or(Err(Error::Database))
     }
     /// Hand `f` the store and the path of its file while nothing else can use the
-    /// store, so that `f` can close it and replace the file; the next `run` opens
-    /// the file again. A history from an older release that can't be upgraded is
-    /// handed over unopened, with no store. `f` must drop the store before it
+    /// store, so that `f` can close it and replace the file; `f` fails if it
+    /// didn't. The next `run` opens the file again. A history from an older
+    /// release that can't be upgraded is handed over unopened, with no store, and
+    /// is still remembered as such if `f` fails. `f` must drop the store before it
     /// touches the file, as Windows cannot replace a file that is open. A panic in
     /// `f` is reported as a database error.
-    pub async fn replace<T: Send + 'static>(
+    pub async fn replace<T: Send + 'static, E: Send + 'static>(
         &self,
-        f: impl FnOnce(Option<Store>, &Path) -> T + Send + 'static,
-    ) -> Result<T, Error> {
+        f: impl FnOnce(Option<Store>, &Path) -> Result<T, E> + Send + 'static,
+    ) -> Result<Result<T, E>, Error> {
         let (folder, schema, store) = (self.folder.clone(), self.schema, Arc::clone(&self.store));
         spawn_blocking(move || with_file(folder.as_deref(), schema, &store, Box::new(f)))
             .await
@@ -261,28 +262,34 @@ fn with_store<T>(
 }
 
 /// Work given the store, if the history could be opened, and the path of its
-/// file, which may replace the file.
-type Replacement<'a, T> = Box<dyn FnOnce(Option<Store>, &Path) -> T + 'a>;
+/// file, which replaces the file or fails.
+type Replacement<'a, T, E> = Box<dyn FnOnce(Option<Store>, &Path) -> Result<T, E> + 'a>;
 
 /// Open the store if needed, then hand it and its file to `f`, holding the lock so
 /// nothing else uses the store meanwhile. A history that can't be upgraded is
-/// handed over without a store, so it can still be replaced. The store is not
-/// kept, and the next use opens the file afresh.
-fn with_file<T>(
+/// handed over without a store, so it can still be replaced, and stays
+/// remembered if `f` fails. Otherwise the store is not kept, and the next use
+/// opens the file afresh.
+fn with_file<T, E>(
     folder: Option<&Path>,
     schema: Schema,
     store: &Mutex<State>,
-    f: Replacement<'_, T>,
-) -> Result<T, Error> {
+    f: Replacement<'_, T, E>,
+) -> Result<Result<T, E>, Error> {
     let file = history_file(folder.ok_or(Error::Database)?);
     let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
-    let open = match take_or_open(folder, schema, &mut guard) {
-        Ok(open) => Some(open),
-        Err(Error::NotUpgraded(_)) => None,
+    let (open, not_upgraded) = match take_or_open(folder, schema, &mut guard) {
+        Ok(open) => (Some(open), None),
+        Err(Error::NotUpgraded(copy)) => (None, Some(copy)),
         Err(error) => return Err(error),
     };
-    *guard = State::Closed;
-    Ok(f(open, &file))
+    let replaced = f(open, &file);
+    // A history that couldn't be upgraded and wasn't replaced is still that one.
+    *guard = match (&replaced, not_upgraded) {
+        (Err(_), Some(copy)) => State::NotUpgraded(copy),
+        _ => State::Closed,
+    };
+    Ok(replaced)
 }
 
 #[cfg(test)]
@@ -444,23 +451,23 @@ mod tests {
         sql::expect(script);
         let database = Database::new(Some(folder()));
         assert_eq!(
-            run(database.replace(|_store, file| file.to_owned())),
-            Ok(path.clone())
+            run(database.replace(|_store, file| Ok::<_, ()>(file.to_owned()))),
+            Ok(Ok(path.clone()))
         );
         // Nothing holds the store now, so the next use opens the file again.
         assert!(matches!(*database.store.lock().unwrap(), State::Closed));
         assert_eq!(run(database.run(|_| 1)), Ok(1));
         sql::finish();
         // An open store is handed over as it is.
-        assert_eq!(run(database.replace(|_, _| 2)), Ok(2));
+        assert_eq!(run(database.replace(|_, _| Ok::<_, ()>(2))), Ok(Ok(2)));
         // Without a folder there is no file to hand over; a panic is a database error.
         assert_eq!(
-            run(Database::new(None).replace(|_, _| ())),
+            run(Database::new(None).replace(|_, _| Ok::<_, ()>(()))),
             Err(Error::Database)
         );
         sql::expect(opening(&path));
         assert_eq!(
-            run(database.replace::<()>(|_, _| panic!("synthetic failure"))),
+            run(database.replace::<(), ()>(|_, _| panic!("synthetic failure"))),
             Err(Error::Database)
         );
         sql::finish();
@@ -589,8 +596,8 @@ mod tests {
         let path = folder().join(FILE_NAME);
         let database = Database::not_upgraded(folder(), None);
         assert_eq!(
-            run(database.replace(|store, file| (store.is_none(), file.to_owned()))),
-            Ok((true, path.clone()))
+            run(database.replace(|store, file| Ok::<_, ()>((store.is_none(), file.to_owned())))),
+            Ok(Ok((true, path.clone())))
         );
         // The next use opens the file afresh, as it may have been replaced.
         sql::expect(opening(&path));
@@ -606,10 +613,24 @@ mod tests {
             Some(&folder()),
             UPGRADED,
             &store,
-            Box::new(|store, _| store.is_none()),
+            Box::new(|store, _| Ok::<_, ()>(store.is_none())),
         );
         sql::finish();
-        assert_eq!(handed, Ok(true));
+        assert_eq!(handed, Ok(Ok(true)));
         assert!(matches!(*store.lock().unwrap(), State::Closed));
+    }
+
+    #[test]
+    fn a_failed_replacement_of_a_history_that_could_not_be_upgraded_keeps_it_remembered() {
+        filesystem::install(Fixture::default());
+        let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
+        let database = Database::not_upgraded(folder(), copy.clone());
+        assert_eq!(
+            run(database.replace(|_, _| Err::<(), _>("not replaced"))),
+            Ok(Err("not replaced"))
+        );
+        // The file is as it was, so it is neither opened nor copied again.
+        assert_eq!(run(database.run(|_| 1)), Err(Error::NotUpgraded(copy)));
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
     }
 }
