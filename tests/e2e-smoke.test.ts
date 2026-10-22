@@ -477,13 +477,13 @@ async function retrieveFromFile(app: AppSession) {
 }
 /**
  * Choose the synthetic cache file as the mock answers its native dialog, from
- * `cache-from.txt` in its data folder (decision 0034), then press `picker`.
+ * `cache-from.txt` in its data folder (decision 0034).
  */
-async function chooseCache(app: AppSession, picker = '#cache-file') {
+async function chooseCache(app: AppSession) {
   const folder = resolve(mockData, 'astral-index-mock')
   mkdirSync(folder, { recursive: true })
   writeFileSync(resolve(folder, 'cache-from.txt'), `${cachePath}\n`)
-  await app.execute(`document.querySelector(${JSON.stringify(picker)}).click()`)
+  await app.execute(`document.querySelector('#cache-file').click()`)
 }
 const skipped = (app: AppSession) =>
   app.execute<string | undefined>(
