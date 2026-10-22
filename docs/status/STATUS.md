@@ -51,9 +51,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Wide-window stall (2026-10-22)
+### Native cache file picker (2026-10-22)
 
-`test/wide-window-stall`: the wide-window end-to-end test timed out on 3 of 7 CI runs since #133; its snapshot showed the import's first step never answering. It didn't reproduce locally, 3 full runs on two cores included. Failure snapshots now also record whether IPC still answers and each IPC command's send and answer times, and stale snapshots are cleared, so the next CI failure shows which side stalled. Ruled out by simulation: Tauri's fallback to `postMessage` after one failed IPC fetch (it fails the import at once as an unreadable file, a separate bug) and resizing during the import; the native path can't stall, and no CI log shows a panic. What remains is the webview reading the file or its bytes crossing as a raw IPC body, which a native file picker would remove.
+`feat/native-cache-picker`: the Import screen's cache file chosen in a native dialog and read natively, under way.
 
 ## Known limitations
 
@@ -189,5 +189,5 @@ research, under a "From" heading.
   for the data folder, end-to-end failure snapshots and migration recovery's
   native part.
 - [2026-10-22: not-upgraded support](history/2026-10-22-not-upgraded-support.md):
-  the history status, restoring over a history that can't be upgraded and the
-  mock's failing upgrade.
+  the history status, restoring over a history that can't be upgraded, the
+  mock's failing upgrade and the wide-window stall's diagnostics.
