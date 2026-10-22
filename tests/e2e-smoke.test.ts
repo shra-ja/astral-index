@@ -36,6 +36,10 @@ beforeAll(() => {
   // The mock feature also builds the mock debug binary (decision 0014).
   backendCargo(['build', '--locked', '--offline', '--features', 'mock'])
   mkdirSync(results, { recursive: true })
+  // Failure snapshots from an earlier run would pass for this run's.
+  for (const name of readdirSync(results).filter((name) => name.startsWith('failed-'))) {
+    rmSync(resolve(results, name))
+  }
   writeFileSync(
     cachePath,
     `1/0/https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?authkey=${authKey}&authkey_ver=1&sign_type=2&game_biz=hkrpg_global&lang=en\0`,
@@ -310,11 +314,34 @@ async function launchMock(
     'astral-index-mock',
     environment({ XDG_DATA_HOME: mockData, ASTRAL_INDEX_MOCK_SCENARIO: scenario, ...env }),
   )
+  await traceIpc(app)
   return {
     app,
     database: resolve(mockData, 'astral-index-mock/history.sqlite'),
     staleCache,
   }
+}
+/**
+ * Record each IPC command the webview sends, with when it was sent and answered,
+ * for a failure snapshot to show; only names and times, never arguments. Tauri's
+ * `invoke` can't be replaced, but it sends each command with `fetch`.
+ */
+async function traceIpc(app: AppSession) {
+  await app.execute(`
+    const send = window.fetch.bind(window);
+    const now = () => Math.round(performance.now());
+    window.ipcTrace = [];
+    window.fetch = (resource, init) => {
+      const url = String(resource instanceof Request ? resource.url : resource);
+      if (!url.startsWith('ipc:') && !url.includes('ipc.localhost')) return send(resource, init);
+      const call = { command: decodeURIComponent(url.split('/').pop()), sent: now() };
+      window.ipcTrace = [...window.ipcTrace, call].slice(-50);
+      return send(resource, init).then(
+        (response) => ((call.answered = now()), response),
+        (failure) => ((call.failed = now()), Promise.reject(failure)),
+      );
+    };
+  `)
 }
 /**
  * Save what the window shows when a test fails, before the app closes, as CI keeps
@@ -331,7 +358,23 @@ async function snapshotFailure(app: AppSession) {
   const text = await app
     .execute<string>(`return (document.querySelector('main') ?? document.body).innerText`)
     .catch(() => '')
-  writeFileSync(resolve(results, `${name}.txt`), text)
+  // Whether IPC still answers at all, and what the webview sent before.
+  const probe = await app
+    .executeAsync<string>(
+      `const done = arguments[arguments.length - 1];
+      const started = performance.now();
+      const late = new Promise((resolve) => setTimeout(() => resolve('no answer'), 3000));
+      Promise.race([window.__TAURI_INTERNALS__.invoke('app_info').then(() => 'answered', () => 'failed'), late])
+        .then((outcome) => done(outcome + ' after ' + Math.round(performance.now() - started) + ' ms'));`,
+    )
+    .catch((error: unknown) => `not run: ${String(error)}`)
+  const trace = await app
+    .execute<unknown>(`return [window.ipcTrace ?? null, Math.round(performance.now())]`)
+    .catch(() => null)
+  writeFileSync(
+    resolve(results, `${name}.txt`),
+    `${text}\n\n--- IPC probe (app_info, 3 s limit): ${probe}\n--- IPC calls and the time now, in ms since the page loaded:\n${JSON.stringify(trace, null, 1)}\n`,
+  )
 }
 /** Run `steps` in the mock, then close it as a user would. */
 async function withMock(
