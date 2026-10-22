@@ -29,10 +29,6 @@ pub enum Scenario {
     /// `History`, with 20,000 rolls in Character Event Warp, for checking that a
     /// large history stays quick to save and browse.
     LargeHistory,
-    /// `History`, with the saved history opened by a test-only migration that
-    /// fails on a history with two accounts on one server, such as the 1.0.0
-    /// fixture's, so a history the tests place there can't be upgraded.
-    FailingUpgrade,
 }
 
 /// The variable named no known scenario.
@@ -52,7 +48,6 @@ impl Scenario {
             "second-account" => Ok(Self::SecondAccount),
             "mixed-accounts" => Ok(Self::MixedAccounts),
             "large-history" => Ok(Self::LargeHistory),
-            "failing-upgrade" => Ok(Self::FailingUpgrade),
             _ => Err(UnknownScenario),
         }
     }
@@ -384,15 +379,6 @@ mod tests {
     }
 
     #[test]
-    fn a_failing_upgrade_answers_as_history_does() {
-        // Only the saved history differs, which the desktop's registration sets.
-        assert_eq!(
-            rolls_by_id(&fetch(Scenario::FailingUpgrade).unwrap()),
-            rolls_by_id(&fetch(Scenario::History).unwrap())
-        );
-    }
-
-    #[test]
     fn scenarios_are_named_by_the_variable() {
         for (name, scenario) in [
             (None, Scenario::History),
@@ -406,7 +392,6 @@ mod tests {
             (Some("second-account"), Scenario::SecondAccount),
             (Some("mixed-accounts"), Scenario::MixedAccounts),
             (Some("large-history"), Scenario::LargeHistory),
-            (Some("failing-upgrade"), Scenario::FailingUpgrade),
         ] {
             assert_eq!(Scenario::named(name), Ok(scenario));
         }

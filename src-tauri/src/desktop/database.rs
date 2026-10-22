@@ -24,12 +24,6 @@ pub const PORTABLE_FOLDER: &str = "data";
 pub const FOLDER_NAME: &str = "astral-index";
 #[cfg(not(target_os = "linux"))]
 pub const FOLDER_NAME: &str = "Astral-Index";
-/// The mock debug binary's test-only migration for its `failing-upgrade`
-/// scenario: one account per game and server, which a history with two accounts
-/// on one server, such as the 1.0.0 fixture's, fails.
-pub const FAILING_UPGRADE: Schema = Schema::with_migrations(&[
-    "CREATE UNIQUE INDEX one_account_per_server ON accounts(game, server)",
-]);
 /// The mock debug binary's own folder, so synthetic history never mixes with real
 /// history ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 #[cfg(target_os = "linux")]
@@ -110,7 +104,9 @@ enum State {
     NotUpgraded(Option<String>),
 }
 impl Database {
-    /// `folder` is the app's folder, or `None` if the platform gave none.
+    /// A database opened with the app's schema. `folder` is the app's folder, or
+    /// `None` if the platform gave none. The app's registration passes its schema
+    /// through `with_schema`, as the mock's may differ.
     pub fn new(folder: Option<PathBuf>) -> Self {
         Self::with_schema(folder, Schema::CURRENT)
     }

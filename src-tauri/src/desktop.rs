@@ -1,6 +1,6 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
-use crate::acquisition::mock::MockTransport;
-pub use crate::acquisition::mock::Scenario;
+pub use crate::acquisition::mock::UnknownScenario;
+use crate::acquisition::mock::{self, MockTransport};
 use crate::acquisition::{
     AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
     HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, StopCheck, Transport,
@@ -284,7 +284,7 @@ impl Session {
 /// ([decision 0014](../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 pub enum Network {
     Https,
-    Mock(Scenario),
+    Mock(mock::Scenario),
 }
 impl Network {
     /// A transport for one operation; the HTTPS client is built afresh each time.
@@ -366,14 +366,47 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         fresh_webview: true,
         opener: about::Opener::Recording,
         dialogs: backup::Dialogs::Answering,
-        // Its tests place a history that can't be upgraded with this one.
-        schema: if scenario == Scenario::FailingUpgrade {
-            database::FAILING_UPGRADE
-        } else {
-            storage::Schema::CURRENT
-        },
+        schema: scenario.schema,
     };
-    register_with(builder, Network::Mock(scenario), settings)
+    register_with(builder, Network::Mock(scenario.network), settings)
+}
+
+/// The mock debug binary's test-only migration for its `failing-upgrade`
+/// scenario: one account per game and server, which a history with two accounts
+/// on one server, such as the 1.0.0 fixture's, fails.
+const FAILING_UPGRADE: storage::Schema = storage::Schema::with_migrations(&[
+    "CREATE UNIQUE INDEX one_account_per_server ON accounts(game, server)",
+]);
+
+/// What the mock debug binary simulates: how its synthetic HoYoverse answers,
+/// and the schema it opens its history with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Scenario {
+    network: mock::Scenario,
+    schema: storage::Schema,
+}
+impl Scenario {
+    /// The scenario `ASTRAL_INDEX_MOCK_SCENARIO` names: one of the synthetic
+    /// HoYoverse's, with the app's schema, or `failing-upgrade`, `history`'s
+    /// HoYoverse with the history opened by a test-only migration that a history
+    /// the tests place there fails.
+    pub fn named(name: Option<&str>) -> Result<Self, UnknownScenario> {
+        if name == Some("failing-upgrade") {
+            return Ok(Self {
+                network: mock::Scenario::History,
+                schema: FAILING_UPGRADE,
+            });
+        }
+        mock::Scenario::named(name).map(Self::from)
+    }
+}
+impl From<mock::Scenario> for Scenario {
+    fn from(network: mock::Scenario) -> Self {
+        Self {
+            network,
+            schema: storage::Schema::CURRENT,
+        }
+    }
 }
 
 /// How the app and the mock debug binary differ, besides their network.
@@ -1470,21 +1503,30 @@ mod tests {
 
     #[test]
     fn the_mock_s_failing_upgrade_opens_its_history_with_the_failing_migration() {
-        let mut app = register_mock(mock_builder(), Scenario::FailingUpgrade)
+        let scenario = Scenario::named(Some("failing-upgrade")).unwrap();
+        let mut app = register_mock(mock_builder(), scenario)
             .build(mock_context(noop_assets()))
             .unwrap();
         #[allow(deprecated)]
         app.run_iteration(events::ignore);
-        assert_eq!(app.state::<Database>().schema(), database::FAILING_UPGRADE);
+        assert_eq!(app.state::<Database>().schema(), FAILING_UPGRADE);
+        // Its synthetic HoYoverse answers as `history`'s does.
         assert!(matches!(
             *app.state::<Network>(),
-            Network::Mock(Scenario::FailingUpgrade)
+            Network::Mock(mock::Scenario::History)
         ));
+        // Every other name is the synthetic HoYoverse's, with the app's schema,
+        // and an unknown one is refused.
+        assert_eq!(
+            Scenario::named(Some("expired-link")),
+            Ok(Scenario::from(mock::Scenario::ExpiredLink))
+        );
+        assert_eq!(Scenario::named(Some("unknown")), Err(UnknownScenario));
     }
 
     #[test]
     fn the_mock_app_keeps_its_own_data_folder_and_network() {
-        let mut app = register_mock(mock_builder(), Scenario::History)
+        let mut app = register_mock(mock_builder(), mock::Scenario::History.into())
             .build(mock_context(noop_assets()))
             .unwrap();
         #[allow(deprecated)]
@@ -1500,7 +1542,7 @@ mod tests {
         assert_eq!(database.schema(), storage::Schema::CURRENT);
         assert!(matches!(
             *app.state::<Network>(),
-            Network::Mock(Scenario::History)
+            Network::Mock(mock::Scenario::History)
         ));
         // It records requests to open rather than launching anything.
         let about = app.state::<about::About>();
@@ -1522,7 +1564,7 @@ mod tests {
     fn the_mock_network_validates_and_serves_history_without_any_request() {
         http::install(Default::default());
         let session = Session::default();
-        let network = Network::Mock(Scenario::History);
+        let network = Network::Mock(mock::Scenario::History);
         assert_eq!(
             run(extract_file_into(
                 &session,
@@ -1534,7 +1576,7 @@ mod tests {
         let client = network.client().unwrap();
         let history = run(fetch_history(&client, &context("synthetic"), &|_| {}, None)).unwrap();
         assert_eq!(history.account().unwrap().uid(), "100000001");
-        let expired = Network::Mock(Scenario::ExpiredLink);
+        let expired = Network::Mock(mock::Scenario::ExpiredLink);
         assert_eq!(
             run(extract_file_into(
                 &session,

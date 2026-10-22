@@ -33,11 +33,13 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   (Light Cone Event Warp from the second account). Added 2026-10-13 for release
   verification: `large-history` (`history` with 20,000 Character Event Warp
   rolls; [decision 0028](0028-release-checks.md)). Added 2026-10-22 for
-  migration recovery: `failing-upgrade` (`history`'s HoYoverse, with the saved
+  migration recovery: `failing-upgrade`, `history`'s HoYoverse with the saved
   history opened by a test-only migration, one account per game and server,
   which the 1.0.0 fixture's two accounts on one server fail and a one-account
-  backup passes; the only scenario that changes the history's schema). A roll's fields depend only
-  on its ID, so every scenario serves a saved roll identically.
+  backup passes. The desktop's own `Scenario` pairs a HoYoverse scenario with the
+  schema the history is opened with, so the acquisition module knows nothing of
+  storage. A roll's fields depend only on its ID, so every scenario serves a
+  saved roll identically.
 - **Selection by managed state:** commands take their transport from a managed
   `Network`: `Https` in the real app, `Mock(scenario)` only from the mock binary.
 - **Separate history:** the mock binary keeps its database in its own
