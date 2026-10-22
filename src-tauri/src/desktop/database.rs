@@ -459,12 +459,10 @@ mod tests {
         assert_eq!(run(database.run(|_| 1)), Ok(1));
         sql::finish();
         // An open store is handed over as it is.
-        assert_eq!(run(database.replace(|_, _| Ok::<_, ()>(2))), Ok(Ok(2)));
+        let two = |_: Option<Store>, _: &Path| Ok::<_, ()>(2);
+        assert_eq!(run(database.replace(two)), Ok(Ok(2)));
         // Without a folder there is no file to hand over; a panic is a database error.
-        assert_eq!(
-            run(Database::new(None).replace(|_, _| Ok::<_, ()>(()))),
-            Err(Error::Database)
-        );
+        assert_eq!(run(Database::new(None).replace(two)), Err(Error::Database));
         sql::expect(opening(&path));
         assert_eq!(
             run(database.replace::<(), ()>(|_, _| panic!("synthetic failure"))),
