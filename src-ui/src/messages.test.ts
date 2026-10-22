@@ -219,6 +219,9 @@ test('a backup that was not saved says why: the place, or the history itself', (
   expect(backupFailure({ kind: 'storage' })).toBe(
     'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
   )
+  expect(backupFailure({ kind: 'history_not_upgraded', copy: null })).toBe(
+    'Your history couldn’t be upgraded, so it can’t be backed up. Restore a backup instead.',
+  )
   expect(backupFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
 })
 

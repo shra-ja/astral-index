@@ -2,11 +2,12 @@
 // The app shell: the sidebar beside the current screen, and the About dialog over
 // it. It owns the retrieval flow, so a retrieval keeps running while another screen
 // is shown.
-import { computed, provide, shallowRef, watch } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { computed, inject, provide, shallowRef, watch } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import AboutDialog from './components/about/AboutDialog.vue'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import { useAbout } from './composables/useAbout'
+import { availabilityKey } from './composables/useHistoryAvailability'
 import SizeOverlay from './components/layout/SizeOverlay.vue'
 import { retrievalKey } from './composables/retrieval'
 import { useRetrieval } from './composables/useRetrieval'
@@ -14,7 +15,7 @@ import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
 import { games } from './features'
 import { openingGame } from './router'
-import type { Game, Screen } from './format'
+import { isGameScreen, type Game, type Screen } from './format'
 
 provide(retrievalKey, useRetrieval())
 const route = useRoute()
@@ -29,6 +30,13 @@ watch(
   },
   { immediate: true },
 )
+// While the history can't be used, the game screens are locked, and a command that
+// finds it so on a game screen switches to the History Unavailable screen.
+const { unavailable } = inject(availabilityKey)!
+const router = useRouter()
+watch(unavailable, (now) => {
+  if (now && route.name && isGameScreen(screen.value)) void router.replace({ name: 'unavailable' })
+})
 // A debug build opened with ASTRAL_INDEX_SIZE_OVERLAY=1 shows the window's size.
 const size = sizeOverlayRequested() ? useWindowSize() : null
 
@@ -52,7 +60,14 @@ function closeAbout() {
 <template>
   <div class="app">
     <!-- Shown once the router has resolved the first screen. -->
-    <AppSidebar v-if="route.name" :game :screen :games @about="openAbout" />
+    <AppSidebar
+      v-if="route.name"
+      :game
+      :screen
+      :games
+      :locked="unavailable !== null"
+      @about="openAbout"
+    />
     <RouterView />
     <AboutDialog
       v-if="aboutOpen"

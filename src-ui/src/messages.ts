@@ -126,6 +126,8 @@ export const backupFailure = (failure: Failure) =>
     history_damaged:
       'Your saved history failed its check, so no backup was made. Nothing was changed.',
     storage: 'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
+    history_not_upgraded:
+      'Your history couldn’t be upgraded, so it can’t be backed up. Restore a backup instead.',
   })
 
 /** Why a backup was refused for restoring. */
@@ -235,6 +237,13 @@ export const lastImportParts = (last: LastImport, timeZone?: string) => [
   `UID ${last.uid} (${serverName(last.server)})`,
   `${plural(last.inserted, 'new roll')} saved`,
 ]
+
+/** The History Unavailable screen's failed openings; the issues page's address is given. */
+export const unavailableOpeningFailures: Record<Opening, string> = {
+  folder: 'The data folder couldn’t be opened.',
+  issues:
+    'The issues page couldn’t be opened. Its address is github.com/shra-ja/astral-index/issues.',
+}
 
 /** The About dialog's failed openings; the path stays on screen, and the address is given. */
 export const openingFailures: Record<Opening, string> = {

@@ -26,9 +26,13 @@ test('the history is usable until a command finds it couldn’t be upgraded', as
   expect(availability.unavailable.value).toEqual({ copy: 'history-v2-20261021-143000.sqlite' })
   tell(null)
   expect(availability.unavailable.value).toEqual({ copy: null })
-  // A restore that replaced it makes it usable again.
-  availability.restored()
+  // A restore that replaced it makes it usable again, and hands how it went to the
+  // screen shown next, once.
+  const outcome = { kind: 'restored' as const, name: 'backup.sqlite', safetyCopy: null }
+  availability.restored(outcome)
   expect(availability.unavailable.value).toBeNull()
+  expect(availability.takeRestored()).toEqual(outcome)
+  expect(availability.takeRestored()).toBeNull()
   // The shell's end stops the watching.
   scope.stop()
   expect(stop).toHaveBeenCalledTimes(1)

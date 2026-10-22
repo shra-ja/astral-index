@@ -4,7 +4,7 @@
 // screen names no game (decision 0031). A checked backup's confirmation replaces the
 // screen's content; leaving it, after the user agrees, cancels the restore, and
 // leaving waits while it restores.
-import { onMounted, useTemplateRef, watch } from 'vue'
+import { inject, onMounted, useTemplateRef, watch } from 'vue'
 import BackupCard from '../components/backup/BackupCard.vue'
 import LeaveRestoreDialog from '../components/backup/LeaveRestoreDialog.vue'
 import RestoreCard from '../components/backup/RestoreCard.vue'
@@ -14,13 +14,15 @@ import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { useDataFolder } from '../composables/useDataFolder'
 import { useBackup } from '../composables/useBackup'
 import { useRestore } from '../composables/useRestore'
+import { availabilityKey } from '../composables/useHistoryAvailability'
 import { useRestoreLeaving } from '../composables/useRestoreLeaving'
 
 const { state, name, message, save } = useBackup()
 const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
 
-const restore = useRestore()
+// A restore from the History Unavailable screen says how it went here.
+const restore = useRestore(undefined, inject(availabilityKey)?.takeRestored() ?? null)
 const { checked, restoring } = restore
 // Closing the confirmation returns focus to the button that chose the backup.
 const restoreCard = useTemplateRef('restoreCard')

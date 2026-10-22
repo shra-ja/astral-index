@@ -2,7 +2,7 @@
 // Presentational: what one history holds, for the restore confirmation: its roll and
 // account totals, each account with its server and rolls, and its last import. Set
 // beside another history, it marks the accounts that one lacks.
-import { computed, type DeepReadonly } from 'vue'
+import type { DeepReadonly } from 'vue'
 import type { HistoryContents } from '../../commands'
 import { holdsAccount, plural, serverName } from '../../format'
 import { lastImportParts } from '../../messages'
@@ -23,11 +23,9 @@ const props = defineProps<{
   accent?: boolean
 }>()
 
-const total = computed(() =>
-  (props.contents?.accounts ?? [])
-    .reduce((sum, account) => sum + account.rolls, 0)
-    .toLocaleString('en'),
-)
+// The roll total of a history that could be read.
+const total = (contents: DeepReadonly<HistoryContents>) =>
+  contents.accounts.reduce((sum, account) => sum + account.rolls, 0).toLocaleString('en')
 // Accounts are told apart by UID and server together.
 const key = (account: { uid: string; server: string }) => `${account.uid}\n${account.server}`
 const missing = (account: { uid: string; server: string }) =>
@@ -46,7 +44,7 @@ const missing = (account: { uid: string; server: string }) =>
       <div class="figures">
         <div class="figure">
           <span class="label">Rolls</span>
-          <span class="value">{{ total }}</span>
+          <span class="value">{{ total(contents) }}</span>
         </div>
         <div class="figure">
           <span class="label">Accounts</span>

@@ -15,14 +15,15 @@ export type RestoreOutcome =
   | { kind: 'restored'; name: string; safetyCopy: string | null }
   | { kind: 'failed'; message: string }
 
-export function useRestore(now = () => new Date()) {
+/** `initial` is how a restore made elsewhere went, for the Restore card to show. */
+export function useRestore(now = () => new Date(), initial: RestoreOutcome | null = null) {
   // While a backup is being chosen and checked.
   const checking = shallowRef(false)
   // The checked backup the confirmation shows, while it is held.
   const checked = shallowRef<CheckedBackup | null>(null)
   // While the held backup replaces the history.
   const restoring = shallowRef(false)
-  const outcome = shallowRef<RestoreOutcome | null>(null)
+  const outcome = shallowRef<RestoreOutcome | null>(initial)
   let closed = false
   if (getCurrentScope()) onScopeDispose(() => (closed = true))
 
