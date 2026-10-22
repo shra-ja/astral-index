@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Wide-window stall (2026-10-22)
 
-`test/wide-window-stall`: finding why the wide-window end-to-end test's import sometimes never answers on CI, under way.
+`test/wide-window-stall`: the wide-window end-to-end test timed out on 3 of 7 CI runs since #133; its snapshot showed the import's first step never answering. It didn't reproduce locally, 3 full runs on two cores included. Failure snapshots now also record whether IPC still answers and each IPC command's send and answer times, and stale snapshots are cleared, so the next CI failure shows which side stalled.
 
 ## Known limitations
 
