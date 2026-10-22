@@ -101,6 +101,8 @@ const titles: Record<Kind, string> = {
   restore_failed: 'Something Went Wrong',
   restore_changed: 'Something Went Wrong',
   import_under_way: 'Something Went Wrong',
+  // The History Unavailable screen explains it; any failure screen still names it.
+  history_not_upgraded: 'Your History Couldn’t Be Upgraded',
   unavailable: 'Something Went Wrong',
 }
 

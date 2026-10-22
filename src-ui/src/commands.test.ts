@@ -10,6 +10,8 @@ import {
   chooseCacheFile,
   extractFromFile,
   historyPage,
+  historyStatus,
+  watchHistoryUnavailable,
   lastImport,
   openIssuesPage,
   retrieveHistory,
@@ -431,4 +433,39 @@ test('confirming a restore sends the local time and names the safety copy, if an
   expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({
     failure: { kind: 'restore_changed' },
   })
+})
+
+test('the history status is nothing when it can be used, or the failure a use would get', async () => {
+  mockIPC((cmd) => {
+    if (cmd !== 'history_status') throw new Error(cmd)
+  })
+  expect(await historyStatus()).toBeUndefined()
+  mockIPC(() => reject({ kind: 'history_not_upgraded', code: 'history-v2-20261021-143000.sqlite' }))
+  expect(await historyStatus()).toEqual({
+    kind: 'history_not_upgraded',
+    copy: 'history-v2-20261021-143000.sqlite',
+  })
+  // No copy could be kept; any other code shape is unexpected.
+  mockIPC(() => reject({ kind: 'history_not_upgraded', code: null }))
+  expect(await historyStatus()).toEqual({ kind: 'history_not_upgraded', copy: null })
+  for (const code of [7, undefined, { name: 'x' }]) {
+    mockIPC(() => reject({ kind: 'history_not_upgraded', code }))
+    expect(await historyStatus()).toEqual({ kind: 'unavailable' })
+  }
+})
+
+test('any command that finds the history unusable tells whoever watches for it', async () => {
+  const seen: (string | null)[] = []
+  const stop = watchHistoryUnavailable((copy) => seen.push(copy))
+  mockIPC(() => reject({ kind: 'history_not_upgraded', code: 'history-v2-20261021-143000.sqlite' }))
+  expect(await lastImport()).toEqual({
+    failure: { kind: 'history_not_upgraded', copy: 'history-v2-20261021-143000.sqlite' },
+  })
+  // Other failures, and failures after it stops watching, tell nothing.
+  mockIPC(() => reject({ kind: 'storage' }))
+  await lastImport()
+  stop()
+  mockIPC(() => reject({ kind: 'history_not_upgraded', code: null }))
+  await lastImport()
+  expect(seen).toEqual(['history-v2-20261021-143000.sqlite'])
 })

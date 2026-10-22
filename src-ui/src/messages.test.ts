@@ -254,6 +254,10 @@ test('a refused or failed restore says why, and that nothing was changed', () =>
   expect(titleOf({ kind: 'restore_failed' })).toBe('Something Went Wrong')
   expect(titleOf({ kind: 'restore_changed' })).toBe('Something Went Wrong')
   expect(titleOf({ kind: 'import_under_way' })).toBe('Something Went Wrong')
+  // A history that can't be upgraded has its own screen; a failure title still names it.
+  expect(titleOf({ kind: 'history_not_upgraded', copy: null })).toBe(
+    'Your History Couldn’t Be Upgraded',
+  )
 })
 
 test('a confirmed restore that replaced nothing says why, and that the history is unchanged', () => {

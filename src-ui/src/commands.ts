@@ -38,6 +38,7 @@ const nativeKinds = [
   'restore_failed',
   'restore_changed',
   'import_under_way',
+  'history_not_upgraded',
 ] as const
 /** Why a backup was refused for restoring. */
 const refusals = [
@@ -61,12 +62,15 @@ export interface Location {
 }
 /**
  * Only `api_error` carries a code: the first nonzero code HoYoverse returned; only
- * `restore_refused` carries a refusal: why the backup was refused.
+ * `restore_refused` carries a refusal: why the backup was refused; only
+ * `history_not_upgraded` carries a copy: the name of the copy kept in the data folder
+ * before the failed upgrade, or null when none could be kept.
  */
 export interface Failure {
   kind: Kind
   code?: number
   refusal?: Refusal
+  copy?: string | null
   location?: Location
 }
 
@@ -102,9 +106,20 @@ export type Progress =
 /** A quick refresh that stops at saved rolls, or the full history (decision 0015). */
 export type Mode = 'new' | 'full'
 
+// Whoever watches for a history that can't be used, as any command may find it.
+const unavailableWatchers = new Set<(copy: string | null) => void>()
+
+/** Hear of every command that fails because the history couldn't be upgraded, with the
+ * copy's name; returns a function that stops. */
+export function watchHistoryUnavailable(watcher: (copy: string | null) => void): () => void {
+  unavailableWatchers.add(watcher)
+  return () => unavailableWatchers.delete(watcher)
+}
+
 // Accept only the native shape; only API errors carry a code, and it must be an integer,
-// and a refused restore's code must be a known refusal. A location is kept only when
-// both its category and page are valid.
+// a refused restore's code must be a known refusal, and a history that couldn't be
+// upgraded names its copy or none. A location is kept only when both its category and
+// page are valid.
 function parse(error: unknown): Failure {
   const { kind, code, gacha_type, page } = (
     typeof error === 'object' && error !== null ? error : {}
@@ -114,9 +129,15 @@ function parse(error: unknown): Failure {
   if (
     !known ||
     (known === 'api_error') !== Number.isSafeInteger(code) ||
-    (known === 'restore_refused' && !refusal)
+    (known === 'restore_refused' && !refusal) ||
+    (known === 'history_not_upgraded' && code !== null && typeof code !== 'string')
   )
     return { kind: 'unavailable' }
+  if (known === 'history_not_upgraded') {
+    const copy = code as string | null
+    for (const watcher of unavailableWatchers) watcher(copy)
+    return { kind: known, copy }
+  }
   const failure: Failure =
     known === 'api_error'
       ? { kind: known, code: code as number }
@@ -294,6 +315,12 @@ export interface LastImport {
   uid: string
   server: string
   inserted: number
+}
+
+/** Whether the saved history can be used: nothing when it can, else the failure any use
+ * of it would get. Reads this device only. */
+export function historyStatus(): Promise<Failure | undefined> {
+  return run(() => invoke('history_status'))
 }
 
 /** Read the newest import's summary, or null before the first. Reads this device only. */
