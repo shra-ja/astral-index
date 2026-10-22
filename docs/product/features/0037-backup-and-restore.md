@@ -321,6 +321,14 @@ Backup and restore stay local and never make a network request.
     the copy, the history byte for byte as it was and one copy holding it;
     without the failing migration it reports ready. Restoring over such a
     history through the screen is end-to-end tested with the screen.
+  - Two reviewer agents found that a failed restore over a history that can't
+    be upgraded made the next use try the upgrade again and keep another copy;
+    the replacement now reports whether it replaced the file, and only a
+    success forgets the failure (its test failed first). From the reviews too:
+    `history_status` returns the failure any use of the history would get
+    rather than a status of its own, so the shell parses one shape, and the
+    mock's failing upgrade is the desktop's scenario, pairing a HoYoverse
+    scenario with a schema, rather than a HoYoverse one.
 - [ ] **Migration recovery, screen** (one PR):
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;
