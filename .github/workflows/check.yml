@@ -13,8 +13,8 @@ permissions:
 env:
   BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 
-# A newer push supersedes a pull request's run; every run on main finishes, since
-# only main saves the caches.
+# A newer push supersedes a pull request's run. On main, which saves the caches, it
+# waits for the run in progress instead, though it replaces one still waiting.
 concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

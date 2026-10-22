@@ -26,8 +26,8 @@ const step = (text: string, needle: string) => stepsOf(text).find((each) => each
 test('checks run on pull requests and pushes to main, with no merge queue', () => {
   expect(workflow).toMatch(/^on:\n {2}pull_request:\n {2}push:\n {4}branches: \[main\]\n/m)
   expect(workflow).not.toContain('merge_group')
-  // A newer push supersedes a pull request's run, but every run on main finishes,
-  // since only main saves the caches.
+  // A newer push supersedes a pull request's run. On main, which saves the caches,
+  // it waits for the run in progress instead.
   expect(workflow).toContain(
     "concurrency:\n  group: checks-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
   )
