@@ -7,10 +7,10 @@ import {
   commitImport,
   discardImport,
   extractAutomatically,
+  chooseCacheFile,
   extractFromFile,
   historyPage,
   lastImport,
-  MAX_CACHE_BYTES,
   openIssuesPage,
   retrieveHistory,
   revealDataFolder,
@@ -95,42 +95,29 @@ test('known native kinds pass through and anything else becomes unavailable', as
   }
 })
 
-test('file extraction sends the raw bytes, never a path', async () => {
+test('choosing a cache file asks the native side, which sends back only its name', async () => {
+  let received: unknown
+  mockIPC((cmd, payload) => {
+    received = [cmd, payload]
+    return { kind: 'chosen', name: 'data_2' }
+  })
+  expect(await chooseCacheFile()).toEqual({ chosen: 'data_2' })
+  expect(received).toEqual(['choose_cache_file', {}])
+  mockIPC(() => ({ kind: 'cancelled' }))
+  expect(await chooseCacheFile()).toEqual({ cancelled: true })
+  mockIPC(() => reject({ kind: 'invalid_file' }))
+  expect(await chooseCacheFile()).toEqual({ failure: { kind: 'invalid_file' } })
+})
+
+test('file extraction sends nothing: the native side reads the file it holds', async () => {
   let received: unknown
   mockIPC((cmd, payload) => {
     received = [cmd, payload]
   })
-  const file = new File(['synthetic cache'], 'data_2')
-  expect(await extractFromFile(file)).toBeUndefined()
-  const [cmd, payload] = received as [string, Uint8Array]
-  expect(cmd).toBe('extract_from_file')
-  expect(payload).toBeInstanceOf(Uint8Array)
-  expect(new TextDecoder().decode(payload)).toBe('synthetic cache')
-})
-
-test('file extraction rejects oversized files before reading them', async () => {
-  let called = false
-  mockIPC(() => {
-    called = true
-  })
-  const file = new File([], 'data_2')
-  Object.defineProperty(file, 'size', { value: MAX_CACHE_BYTES + 1 })
-  Object.defineProperty(file, 'arrayBuffer', {
-    value: () => {
-      throw new Error('read')
-    },
-  })
-  expect(await extractFromFile(file)).toEqual({ kind: 'file_too_large' })
-  expect(called).toBe(false)
-  mockIPC(() => reject({ kind: 'no_request' }))
-  expect(await extractFromFile(new File(['x'], 'data_2'))).toEqual({ kind: 'no_request' })
-})
-
-test('a file that cannot be read in the webview is reported as invalid', async () => {
-  mockIPC(() => undefined)
-  const file = new File(['x'], 'data_2')
-  Object.defineProperty(file, 'arrayBuffer', { value: () => Promise.reject(new Error('private')) })
-  expect(await extractFromFile(file)).toEqual({ kind: 'invalid_file' })
+  expect(await extractFromFile()).toBeUndefined()
+  expect(received).toEqual(['extract_from_file', {}])
+  mockIPC(() => reject({ kind: 'file_too_large' }))
+  expect(await extractFromFile()).toEqual({ kind: 'file_too_large' })
 })
 
 test('cancelling asks the native side to stop and reports only unexpected failures', async () => {

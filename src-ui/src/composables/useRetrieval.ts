@@ -7,6 +7,7 @@ import {
   commitImport,
   discardImport,
   extractAutomatically,
+  chooseCacheFile,
   extractFromFile,
   retrieveHistory,
   type Counts,
@@ -84,6 +85,8 @@ export function useRetrieval() {
   const outcome = ref<Outcome>()
   // Set while the user has asked to stop the running acquisition.
   const cancelling = ref(false)
+  // Set while the native dialog for the cache file is open, when nothing else starts.
+  const choosing = ref(false)
 
   // Only one acquisition runs at a time: callers offer these only while idle.
   async function acquire(
@@ -170,20 +173,35 @@ export function useRetrieval() {
     review: shallowReadonly(review),
     outcome: shallowReadonly(outcome),
     cancelling: readonly(cancelling),
-    searchDevice: () =>
-      acquire(
+    choosing: readonly(choosing),
+    searchDevice: async () => {
+      if (choosing.value) return
+      await acquire(
         'device',
         'Searching this device, then checking with HoYoverse…',
         extractAutomatically,
         automaticMessages,
-      ),
-    readFile: (file: File) =>
-      acquire(
+      )
+    },
+    // The native side opens the dialog and holds the file; nothing shows until one
+    // is chosen, and a closed dialog changes nothing.
+    chooseFile: async () => {
+      if (choosing.value) return
+      choosing.value = true
+      const choice = await chooseCacheFile()
+      choosing.value = false
+      if ('cancelled' in choice) return
+      if ('failure' in choice) {
+        source.value = 'file'
+        return finish(failed(choice.failure, describe(choice.failure, fileMessages)))
+      }
+      await acquire(
         'file',
         'Reading the file, then checking with HoYoverse…',
-        () => extractFromFile(file),
+        extractFromFile,
         fileMessages,
-      ),
+      )
+    },
     // Progress stops showing once the user asks to cancel; if the request cannot be
     // sent, retrieval carries on and can be cancelled again.
     cancel: async () => {

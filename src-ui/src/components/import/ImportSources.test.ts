@@ -3,7 +3,14 @@ import { expect, test } from 'vitest'
 import type { Mode } from '../../commands'
 import ImportSources from './ImportSources.vue'
 
-type Props = { term: string; game: string; available: boolean; note?: string; mode?: Mode }
+type Props = {
+  term: string
+  game: string
+  available: boolean
+  note?: string
+  mode?: Mode
+  busy?: boolean
+}
 const sources = (props: Props) =>
   mount(ImportSources, { props: { mode: 'new', ...props }, attachTo: document.body })
 const button = (wrapper: ReturnType<typeof sources>, name: string) =>
@@ -34,11 +41,8 @@ test('offers retrieval from HoYoverse, by search or a chosen cache file', async 
   expect(wrapper.text()).toContain('choose its data_2 cache file yourself')
   await retrieve(wrapper).trigger('click')
   expect(wrapper.emitted('search')).toHaveLength(1)
-  const file = new File(['synthetic'], 'data_2')
-  const input = wrapper.get<HTMLInputElement>('#cache-file').element
-  Object.defineProperty(input, 'files', { value: [file], configurable: true })
-  input.dispatchEvent(new Event('change'))
-  expect(wrapper.emitted('choose')).toEqual([[file]])
+  await wrapper.get('#cache-file').trigger('click')
+  expect(wrapper.emitted('choose')).toEqual([[]])
   expect(wrapper.find('.note').exists()).toBe(false)
   wrapper.unmount()
 })
@@ -123,5 +127,18 @@ test('the choice is disabled without retrieval for the game', () => {
     '',
     '',
   ])
+  wrapper.unmount()
+})
+
+test('while the cache file dialog is open, no source can be started', async () => {
+  const wrapper = sources({ term: 'Warp', game: 'Honkai: Star Rail', available: true, busy: true })
+  // Marked unavailable but still focusable, so a keyboard user keeps their place
+  // when the dialog closes; the flow ignores the presses meanwhile.
+  expect(retrieve(wrapper).attributes('aria-disabled')).toBe('true')
+  expect(wrapper.get('#cache-file').attributes('aria-disabled')).toBe('true')
+  expect(wrapper.get('#cache-file').attributes('disabled')).toBeUndefined()
+  await wrapper.setProps({ busy: false })
+  expect(retrieve(wrapper).attributes('aria-disabled')).toBeUndefined()
+  expect(wrapper.get('#cache-file').attributes('aria-disabled')).toBeUndefined()
   wrapper.unmount()
 })

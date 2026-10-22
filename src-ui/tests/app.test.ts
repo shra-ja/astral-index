@@ -90,7 +90,7 @@ const shown = (name: string) => screen(name) !== null
 const button = (container: Element, name: string) =>
   [...container.querySelectorAll('button')].find((each) => each.textContent?.trim() === name)!
 const findButton = () => button(screen('start')!, 'Retrieve history')
-const fileInput = () => screen('start')!.querySelector<HTMLInputElement>('#cache-file')!
+const cachePicker = () => screen('start')!.querySelector<HTMLButtonElement>('#cache-file')!
 const note = () => screen('start')!.querySelector('.note')?.textContent?.trim()
 const progressStatus = () => screen('progress')!.querySelector('[role="status"]')!.textContent
 const steps = () =>
@@ -108,10 +108,10 @@ const rows = () =>
   )
 const failedHeading = () => screen('failed')!.querySelector('h2')!
 // Vue updates the page on the next tick, so each helper waits for it.
-function choose(input: HTMLInputElement, file: File) {
-  Object.defineProperty(input, 'files', { value: [file], configurable: true })
-  input.dispatchEvent(new Event('change'))
-  return nextTick()
+// The native side opens the dialog; the mocked command answers it.
+function choose(picker: HTMLButtonElement) {
+  picker.click()
+  return settle()
 }
 function click(element: HTMLElement) {
   element.click()
@@ -127,6 +127,7 @@ function serve(handlers: Record<string, Handler>) {
     history_page: () => nothingSaved,
     last_import: () => null,
     saved_accounts: () => [],
+    choose_cache_file: () => ({ kind: 'chosen', name: 'data_2' }),
     ...handlers,
   }
   mockIPC((cmd, args) => {
@@ -227,7 +228,7 @@ test('switching games keeps the screen, and each game names its own history', as
   expect(screen('start')!.querySelector('h2')?.textContent).toBe('Add Wish History')
   expect(screen('start')!.textContent).toContain('Retrieval for Genshin Impact is coming soon.')
   expect(findButton().disabled).toBe(true)
-  expect(fileInput().disabled).toBe(true)
+  expect(cachePicker().disabled).toBe(true)
   await follow(named(sidebar(), 'Honkai: Star Rail'))
   expect(location.hash).toBe('#/honkai-star-rail/import')
   expect(findButton().disabled).toBe(false)
@@ -712,10 +713,8 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   expect(screenIcons()).toEqual(['cloud-download', 'file-text'])
   expect(start.textContent).toContain('downloads your roll history from HoYoverse')
   expect(findButton().type).toBe('button')
-  expect(
-    start.querySelector<HTMLLabelElement>('label[for="cache-file"]')?.textContent?.trim(),
-  ).toBe('Choose cache file…')
-  expect(fileInput().type).toBe('file')
+  expect(cachePicker().textContent?.trim()).toBe('Choose cache file…')
+  expect(cachePicker().type).toBe('button')
   const fileImport = button(start, 'Choose file…')
   expect(fileImport.getAttribute('aria-disabled')).toBe('true')
   expect(document.getElementById(fileImport.getAttribute('aria-describedby')!)?.textContent).toBe(
@@ -1107,28 +1106,37 @@ test('when the game files cannot be found, a cache file can be chosen instead', 
   await settle()
   expect(failedHeading().textContent).toBe('Couldn’t Find the Game Files')
   expect(screen('failed')!.textContent).toContain('found the game, but not its web cache')
-  const retryFile = screen('failed')!.querySelector<HTMLInputElement>('input[type="file"]')!
-  await choose(retryFile, new File(['synthetic'], 'data_2'))
+  await choose(screen('failed')!.querySelector<HTMLButtonElement>('#retry-cache-file')!)
   await settle()
-  expect(flow(calls)).toEqual(['extract_automatically', 'extract_from_file', 'retrieve_history'])
+  expect(flow(calls)).toEqual([
+    'extract_automatically',
+    'choose_cache_file',
+    'extract_from_file',
+    'retrieve_history',
+  ])
   expect(reviewHeading().textContent).toBe('Ready to save 6 new rolls')
 })
 
 test('choosing a cache file extracts from it without an automatic search first', async () => {
   await openImport()
-  const calls = serve({ retrieve_history: () => review(7) })
-  fileInput().focus()
-  await choose(fileInput(), new File(['synthetic'], 'data_2'))
+  cachePicker().focus()
+  let extracting: () => void = () => undefined
+  const calls = serve({
+    retrieve_history: () => review(7),
+    extract_from_file: () => new Promise<void>((resolve) => (extracting = resolve)),
+  })
+  await choose(cachePicker())
   expect(progressStatus()).toBe('Reading the file, then checking with HoYoverse…')
   expect(steps()[0]).toEqual(['Find the warp history link in the provided file', 'active'])
+  extracting()
   await settle()
-  expect(flow(calls)).toEqual(['extract_from_file', 'retrieve_history'])
+  expect(flow(calls)).toEqual(['choose_cache_file', 'extract_from_file', 'retrieve_history'])
   expect(reviewHeading().textContent).toBe('Ready to save 7 new rolls')
   reviewButton('Discard').click()
   await settle()
-  expect(document.activeElement).toBe(fileInput())
-  mockIPC(() => reject({ kind: 'invalid_file' }))
-  await choose(fileInput(), new File(['synthetic'], 'data_2'))
+  expect(document.activeElement).toBe(cachePicker())
+  serve({ extract_from_file: () => reject({ kind: 'invalid_file' }) })
+  await choose(cachePicker())
   await settle()
   expect(failedHeading().textContent).toBe('Couldn’t Read That File')
   expect(screen('failed')!.textContent).toContain(
@@ -1138,12 +1146,12 @@ test('choosing a cache file extracts from it without an automatic search first',
   expect(button(screen('failed')!, 'Try again')).toBeUndefined()
   await click(button(screen('failed')!, 'Back'))
   await nextTick()
-  expect(document.activeElement).toBe(fileInput())
-  // A change without a file, such as a cleared selection, starts nothing.
-  Object.defineProperty(fileInput(), 'files', { value: [], configurable: true })
-  fileInput().dispatchEvent(new Event('change'))
-  await nextTick()
+  expect(document.activeElement).toBe(cachePicker())
+  // Closing the dialog without choosing starts nothing.
+  const closed = serve({ choose_cache_file: () => ({ kind: 'cancelled' }) })
+  await choose(cachePicker())
   expect(shown('start')).toBe(true)
+  expect(flow(closed)).toEqual(['choose_cache_file'])
 })
 
 test('the About dialog opens over the current screen with the native details', async () => {

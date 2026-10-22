@@ -22,7 +22,8 @@ refused commands, so the webview must not use them.
 | Command | Does | Contacts HoYoverse |
 | --- | --- | --- |
 | `extract_automatically` | Discover, extract and validate a context for the current user | Yes |
-| `extract_from_file` | Extract and validate from the bytes of a file the user chose | Yes |
+| `choose_cache_file` | Ask which cache file to read in the system's open dialog, with no file-type filter as `data_2` has no extension, and hold its path natively; returns the file's name or a cancellation, and reads nothing. A choice that is not a local file, or a failed dialog, is `invalid_file`. The mock debug binary answers from `cache-from.txt` in its data folder ([decision 0034](decisions/0034-native-cache-file-dialog.md)) | No |
+| `extract_from_file` | Read the held cache file natively within its 16 MiB bound, then extract and validate a context from it, as `extract_automatically` does: too large is `file_too_large`, no request is `no_request`, and nothing chosen or a file that can't be read is `invalid_file` | Yes |
 | `retrieve_history` | Retrieve every category (`mode`: `new` or `full`), streaming progress over a channel, and preview it | Yes |
 | `cancel_acquisition` | Cancel the running operation and drop the context and any preview | No |
 | `commit_import` | Commit the held preview | No |
@@ -76,9 +77,10 @@ later the preview.
   returns for the About dialog and the Backup & Restore screen to show; the
   webview never builds a path itself. `save_backup` returns only
   the saved file's name, `choose_restore` only the chosen file's, and
-  `confirm_restore` only the safety copy's. The file command takes a raw IPC body holding the file's
-  bytes (the webview rejects files over 16 MiB before reading); the CSP allows
-  only Tauri's local `ipc:` origins, so raw bodies use the custom-protocol IPC.
+  `confirm_restore` only the safety copy's, and `choose_cache_file` only the
+  cache file's. No command takes a file's bytes: the native side reads every
+  file the user chooses ([decision 0034](decisions/0034-native-cache-file-dialog.md)).
+  The CSP allows only Tauri's local `ipc:` origins, for the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never
   reach the webview. Results and failures are small typed values; failures are
   `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, the copy's file name (or `null` when none was kept) for `history_not_upgraded`, which any command that uses the history returns once an older release's history failed to upgrade, and the failing

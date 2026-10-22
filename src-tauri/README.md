@@ -20,7 +20,10 @@ for how the parts fit together; run commands from the repository root.
   mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its
   restore commands, which choose a backup in the open dialog, then copy, check
   and hold it in the data folder, and replace the history with it, keeping a
-  safety copy.
+  safety copy; `src/desktop/cache_file.rs` holds the Import screen's cache file
+  command, which chooses the file in the open dialog and holds its path for
+  `extract_from_file` to read; and `src/desktop/dialogs.rs` opens those dialogs,
+  or takes the mock's answer from its data folder.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its

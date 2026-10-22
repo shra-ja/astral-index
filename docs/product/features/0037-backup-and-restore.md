@@ -350,5 +350,7 @@ Backup and restore stay local and never make a network request.
   - [ ] The 1.0.0 fixture restored as a backup.
   - [ ] The user checks the release executable on Windows: the real save and
     open dialogs, a backup to another folder or drive, a restore into a fresh
-    profile, portable mode and the data-folder refusal; the result is recorded
-    here and in STATUS.
+    profile, portable mode and the data-folder refusal, and the Import screen's
+    cache file dialog ([decision 0034](../../architecture/decisions/0034-native-cache-file-dialog.md)):
+    choosing a file, cancelling, and where keyboard focus lands afterwards; the
+    result is recorded here and in STATUS.
