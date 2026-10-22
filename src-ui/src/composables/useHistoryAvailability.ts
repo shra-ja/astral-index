@@ -4,7 +4,7 @@
 // screens (feature 0037). The shell owns it, for the router and that screen.
 import { getCurrentScope, onScopeDispose, readonly, shallowRef, type InjectionKey } from 'vue'
 import { historyStatus, watchHistoryUnavailable } from '../commands'
-import type { RestoreOutcome } from './useRestore'
+import type { Restored } from './useRestore'
 
 /** A history that couldn't be upgraded: the copy kept first, or null if none could be. */
 export interface Unavailable {
@@ -13,8 +13,9 @@ export interface Unavailable {
 
 export function useHistoryAvailability() {
   const unavailable = shallowRef<Unavailable | null>(null)
-  // How the restore that made it usable went, for Backup & Restore to show once.
-  let handed: Extract<RestoreOutcome, { kind: 'restored' }> | null = null
+  // How a restore from the History Unavailable screen went, for Backup & Restore to
+  // show once.
+  let handed: Restored | null = null
   // The status at startup, and any later command, report it the same way.
   const stop = watchHistoryUnavailable((copy) => (unavailable.value = { copy }))
   if (getCurrentScope()) onScopeDispose(stop)
@@ -25,8 +26,11 @@ export function useHistoryAvailability() {
       await historyStatus()
     },
     /** A restore replaced the history, so it can be used again. */
-    restored: (outcome: Extract<RestoreOutcome, { kind: 'restored' }>) => {
+    restored: () => {
       unavailable.value = null
+    },
+    /** Pass how a restore went to Backup & Restore, shown next. */
+    handOver: (outcome: Restored) => {
       handed = outcome
     },
     /** How that restore went, once. */

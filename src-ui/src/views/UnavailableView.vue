@@ -18,7 +18,7 @@ import { unavailableOpeningFailures } from '../messages'
 
 const availability = inject(availabilityKey)!
 const about = useAbout()
-const restore = useRestore()
+const restore = useRestore({ onRestored: availability.restored })
 const { checked, restoring } = restore
 const { asking, answer } = useRestoreLeaving(restore)
 const router = useRouter()
@@ -32,9 +32,10 @@ watch(
   },
   { flush: 'post' },
 )
+// Once restored, Backup & Restore says how it went.
 watch(restore.outcome, (outcome) => {
   if (outcome?.kind !== 'restored') return
-  availability.restored(outcome)
+  availability.handOver(outcome)
   void router.push({ name: 'backup' })
 })
 // The card's status line: why a backup wasn't restored, or which opening failed.

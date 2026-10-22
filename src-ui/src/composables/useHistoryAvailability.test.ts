@@ -28,9 +28,10 @@ test('the history is usable until a command finds it couldn’t be upgraded', as
   expect(availability.unavailable.value).toEqual({ copy: null })
   // A restore that replaced it makes it usable again, and hands how it went to the
   // screen shown next, once.
-  const outcome = { kind: 'restored' as const, name: 'backup.sqlite', safetyCopy: null }
-  availability.restored(outcome)
+  availability.restored()
   expect(availability.unavailable.value).toBeNull()
+  const outcome = { kind: 'restored' as const, name: 'backup.sqlite', safetyCopy: null }
+  availability.handOver(outcome)
   expect(availability.takeRestored()).toEqual(outcome)
   expect(availability.takeRestored()).toBeNull()
   // The shell's end stops the watching.

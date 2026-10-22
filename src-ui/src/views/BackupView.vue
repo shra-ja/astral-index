@@ -21,8 +21,13 @@ const { state, name, message, save } = useBackup()
 const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
 
-// A restore from the History Unavailable screen says how it went here.
-const restore = useRestore(undefined, inject(availabilityKey)?.takeRestored() ?? null)
+// A restore from the History Unavailable screen says how it went here, and any
+// restore makes a history that couldn't be upgraded usable again.
+const availability = inject(availabilityKey)!
+const restore = useRestore({
+  initial: availability.takeRestored(),
+  onRestored: availability.restored,
+})
 const { checked, restoring } = restore
 // Closing the confirmation returns focus to the button that chose the backup.
 const restoreCard = useTemplateRef('restoreCard')

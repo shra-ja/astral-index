@@ -1659,3 +1659,26 @@ test('on the screen, cancelling a checked backup returns to the card, and leavin
   await settle()
   expect(heading()).toBe('Backup & Restore')
 })
+
+test('a backup restored from Backup & Restore makes the history usable again too', async () => {
+  await startUnavailable({
+    choose_restore: () => ({
+      kind: 'checked',
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: { accounts: [], last_import: null },
+      current: null,
+    }),
+    confirm_restore: () => ({ safety_copy: 'history-before-restore-20261022-143005.sqlite' }),
+  })
+  const main = () => document.querySelector('main')!
+  await follow(named(sidebar(), 'Backup & Restore'))
+  await click(button(main(), 'Restore from backup…'))
+  await settle()
+  await click(button(main(), 'Restore backup'))
+  await settle()
+  expect(heading()).toBe('Backup & Restore')
+  // The game screens are open again, and the unavailable screen has nothing to say.
+  expect(named(sidebar(), 'Warp History').getAttribute('aria-disabled')).toBeNull()
+  await follow(named(sidebar(), 'Warp History'))
+  expect(heading()).toBe('Warp History')
+})
