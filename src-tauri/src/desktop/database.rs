@@ -132,12 +132,13 @@ impl Database {
     }
     /// Hand `f` the store and the path of its file while nothing else can use the
     /// store, so that `f` can close it and replace the file; the next `run` opens
-    /// the file again. `f` must drop the store before it touches the file, as
-    /// Windows cannot replace a file that is open. A panic in `f` is reported as a
-    /// database error.
+    /// the file again. A history from an older release that can't be upgraded is
+    /// handed over unopened, with no store. `f` must drop the store before it
+    /// touches the file, as Windows cannot replace a file that is open. A panic in
+    /// `f` is reported as a database error.
     pub async fn replace<T: Send + 'static>(
         &self,
-        f: impl FnOnce(Store, &Path) -> T + Send + 'static,
+        f: impl FnOnce(Option<Store>, &Path) -> T + Send + 'static,
     ) -> Result<T, Error> {
         let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
         spawn_blocking(move || with_file(folder.as_deref(), Schema::CURRENT, &store, Box::new(f)))
@@ -240,11 +241,14 @@ fn with_store<T>(
     Ok(result)
 }
 
-/// Work given the store and the path of its file, which may replace the file.
-type Replacement<'a, T> = Box<dyn FnOnce(Store, &Path) -> T + 'a>;
+/// Work given the store, if the history could be opened, and the path of its
+/// file, which may replace the file.
+type Replacement<'a, T> = Box<dyn FnOnce(Option<Store>, &Path) -> T + 'a>;
 
 /// Open the store if needed, then hand it and its file to `f`, holding the lock so
-/// nothing else uses the store meanwhile. The store is not kept.
+/// nothing else uses the store meanwhile. A history that can't be upgraded is
+/// handed over without a store, so it can still be replaced. The store is not
+/// kept, and the next use opens the file afresh.
 fn with_file<T>(
     folder: Option<&Path>,
     schema: Schema,
@@ -253,7 +257,12 @@ fn with_file<T>(
 ) -> Result<T, Error> {
     let file = history_file(folder.ok_or(Error::Database)?);
     let mut guard = store.lock().unwrap_or_else(PoisonError::into_inner);
-    let open = take_or_open(folder, schema, &mut guard)?;
+    let open = match take_or_open(folder, schema, &mut guard) {
+        Ok(open) => Some(open),
+        Err(Error::NotUpgraded(_)) => None,
+        Err(error) => return Err(error),
+    };
+    *guard = State::Closed;
     Ok(f(open, &file))
 }
 
@@ -527,7 +536,7 @@ mod tests {
         // The next use reports the same failure without opening, copying or reading.
         filesystem::install(Fixture::default());
         assert_eq!(
-            with_file(Some(&folder()), UPGRADED, &store, Box::new(|_, _| 1)),
+            with_store(Some(&folder()), UPGRADED, &store, Box::new(|_| 1)),
             failed
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
@@ -553,5 +562,35 @@ mod tests {
         filesystem::inspect(|state| {
             assert_eq!(state.files[&folder().join(FILE_NAME)], b"1.0.0 history")
         });
+    }
+
+    #[test]
+    fn a_history_that_could_not_be_upgraded_is_handed_over_unopened_to_be_replaced() {
+        filesystem::install(Fixture::default());
+        let path = folder().join(FILE_NAME);
+        let database = Database::not_upgraded(folder(), None);
+        assert_eq!(
+            run(database.replace(|store, file| (store.is_none(), file.to_owned()))),
+            Ok((true, path.clone()))
+        );
+        // The next use opens the file afresh, as it may have been replaced.
+        sql::expect(opening(&path));
+        assert_eq!(run(database.run(|_| 1)), Ok(1));
+        sql::finish();
+        // So is one whose upgrade fails as it is handed over.
+        filesystem::install(older_history());
+        let mut script = vec![open(&path)];
+        script.extend(failing_at(upgrading(), BANNER));
+        sql::expect(script);
+        let store = Mutex::default();
+        let handed = with_file(
+            Some(&folder()),
+            UPGRADED,
+            &store,
+            Box::new(|store, _| store.is_none()),
+        );
+        sql::finish();
+        assert_eq!(handed, Ok(true));
+        assert!(matches!(*store.lock().unwrap(), State::Closed));
     }
 }
