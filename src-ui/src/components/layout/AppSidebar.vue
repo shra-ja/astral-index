@@ -4,9 +4,11 @@
 // links open a game's history and screen links stay with the game shown last
 // (decision 0033). The router does the rest. The About button asks for the About
 // dialog. Below 1100px the sidebar collapses to icons, so every link and button
-// carries its name as a label and in a tooltip.
+// carries its name as a label and in a tooltip. While the history can't be used, the
+// game and screen links are greyed out, with no address, and only Backup & Restore
+// and About stay open.
 import { DatabaseBackup, Download, Info, Lock, TextAlignStart } from '@lucide/vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import AppTooltip from '../shared/AppTooltip.vue'
 import AstralEmblem from '../shared/AstralEmblem.vue'
 import wordmark from '../../assets/brand/astral-index-wordmark-small.svg'
@@ -21,10 +23,21 @@ import {
 } from '../../format'
 
 // `game` is the game shown last; `games` lists the games this build shows, in order.
-const props = defineProps<{ game: Game; screen: Screen; games: readonly Game[] }>()
+const props = defineProps<{
+  game: Game
+  screen: Screen
+  games: readonly Game[]
+  locked?: boolean
+}>()
 const emit = defineEmits<{ about: [] }>()
 // The game screen shown, if any.
 const gameScreen = computed(() => (isGameScreen(props.screen) ? props.screen : null))
+// A game or screen link: a router link, or while locked a greyed-out one with nowhere
+// to go.
+const linkTag = computed(() => (props.locked ? 'a' : RouterLink))
+function target(to: RouteLocationRaw, current: 'true' | 'page' | undefined) {
+  return props.locked ? { 'aria-disabled': 'true' } : { to, 'aria-current': current }
+}
 </script>
 
 <template>
@@ -39,15 +52,20 @@ const gameScreen = computed(() => (isGameScreen(props.screen) ? props.screen : n
       <ul aria-labelledby="sidebar-games">
         <li v-for="id in games" :key="id">
           <AppTooltip :text="names[id]" placement="right">
-            <RouterLink
+            <component
+              :is="linkTag"
               class="link"
-              :to="{ name: gameScreen ?? 'history', params: { game: id } }"
+              v-bind="
+                target(
+                  { name: gameScreen ?? 'history', params: { game: id } },
+                  gameScreen && id === game ? 'true' : undefined,
+                )
+              "
               :aria-label="names[id]"
-              :aria-current="gameScreen && id === game ? 'true' : undefined"
             >
               <span class="monogram" :class="id" aria-hidden="true">{{ monograms[id] }}</span>
               <span class="text">{{ names[id] }}</span>
-            </RouterLink>
+            </component>
           </AppTooltip>
         </li>
       </ul>
@@ -58,28 +76,38 @@ const gameScreen = computed(() => (isGameScreen(props.screen) ? props.screen : n
       <ul aria-labelledby="sidebar-screens">
         <li>
           <AppTooltip :text="`${terms[game]} History`" placement="right">
-            <RouterLink
+            <component
+              :is="linkTag"
               class="link screen"
-              :to="{ name: 'history', params: { game } }"
+              v-bind="
+                target(
+                  { name: 'history', params: { game } },
+                  screen === 'history' ? 'page' : undefined,
+                )
+              "
               :aria-label="`${terms[game]} History`"
-              :aria-current="screen === 'history' ? 'page' : undefined"
             >
               <TextAlignStart :size="18" />
               <span class="text">{{ terms[game] }} History</span>
-            </RouterLink>
+            </component>
           </AppTooltip>
         </li>
         <li>
           <AppTooltip text="Import" placement="right">
-            <RouterLink
+            <component
+              :is="linkTag"
               class="link screen"
-              :to="{ name: 'import', params: { game } }"
+              v-bind="
+                target(
+                  { name: 'import', params: { game } },
+                  screen === 'import' ? 'page' : undefined,
+                )
+              "
               aria-label="Import"
-              :aria-current="screen === 'import' ? 'page' : undefined"
             >
               <Download :size="18" />
               <span class="text">Import</span>
-            </RouterLink>
+            </component>
           </AppTooltip>
         </li>
       </ul>
@@ -191,6 +219,14 @@ ul {
 }
 .link:hover {
   color: var(--text);
+}
+/* A game or screen link while the history can't be used: greyed out, going nowhere. */
+.link[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.link[aria-disabled='true']:hover {
+  color: var(--text-secondary);
 }
 .link[aria-current] {
   color: var(--text);

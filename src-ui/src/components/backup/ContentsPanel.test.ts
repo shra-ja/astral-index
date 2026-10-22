@@ -25,10 +25,11 @@ const BACKUP: HistoryContents = {
   last_import: LAST,
 }
 const panel = (props: {
-  contents: HistoryContents
+  contents: HistoryContents | null
   compared?: HistoryContents
   accent?: boolean
   empty?: string
+  unreadable?: string
 }) =>
   mount(ContentsPanel, {
     props: {
@@ -91,4 +92,10 @@ test('an empty history says so instead of totals', () => {
   expect(wrapper.find('.figure').exists()).toBe(false)
   expect(wrapper.find('ul').exists()).toBe(false)
   expect(wrapper.get('.empty').text()).toBe('Nothing saved yet.')
+})
+
+test('a history that couldn’t be read says so in place of its contents', () => {
+  const wrapper = panel({ contents: null, unreadable: 'It couldn’t be read.' })
+  expect(wrapper.get('.empty').text()).toBe('It couldn’t be read.')
+  expect(wrapper.find('li').exists()).toBe(false)
 })

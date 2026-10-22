@@ -294,6 +294,10 @@ test('the restore confirmation sums up what replaces what', () => {
   )
   // With no saved history, nothing is replaced.
   expect(restoreSummary(holding(), holding(15))).toBe('Restoring saves 15 rolls in 1 account.')
+  // A history that couldn't be upgraded can't be counted.
+  expect(restoreSummary(null, holding(15))).toBe(
+    'Restoring replaces your current history with 15 rolls in 1 account.',
+  )
 })
 
 test('reading saved history explains damage, and anything else asks to try again', () => {

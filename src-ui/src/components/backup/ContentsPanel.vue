@@ -13,7 +13,10 @@ const props = defineProps<{
   tag: string
   /** What the panel says when the history holds nothing. */
   empty: string
-  contents: DeepReadonly<HistoryContents>
+  /** The history, or null when it can't be read. */
+  contents: DeepReadonly<HistoryContents> | null
+  /** What the panel says when the history can't be read. */
+  unreadable?: string
   /** The history to compare with; accounts it lacks are marked. */
   compared?: DeepReadonly<HistoryContents>
   /** The history the restore makes current, drawn in the accent. */
@@ -21,7 +24,9 @@ const props = defineProps<{
 }>()
 
 const total = computed(() =>
-  props.contents.accounts.reduce((sum, account) => sum + account.rolls, 0).toLocaleString('en'),
+  (props.contents?.accounts ?? [])
+    .reduce((sum, account) => sum + account.rolls, 0)
+    .toLocaleString('en'),
 )
 // Accounts are told apart by UID and server together.
 const key = (account: { uid: string; server: string }) => `${account.uid}\n${account.server}`
@@ -35,7 +40,8 @@ const missing = (account: { uid: string; server: string }) =>
       <h2 :id>{{ title }}</h2>
       <span class="tag">{{ tag }}</span>
     </div>
-    <p v-if="contents.accounts.length === 0" class="empty">{{ empty }}</p>
+    <p v-if="!contents" class="empty">{{ unreadable }}</p>
+    <p v-else-if="contents.accounts.length === 0" class="empty">{{ empty }}</p>
     <template v-else>
       <div class="figures">
         <div class="figure">

@@ -13,9 +13,12 @@ import ContentsPanel from './ContentsPanel.vue'
 const props = defineProps<{ checked: DeepReadonly<CheckedBackup>; restoring: boolean }>()
 const emit = defineEmits<{ cancel: []; restore: [] }>()
 
-const replacing = computed(() => props.checked.current.accounts.length > 0)
+// A history that couldn't be upgraded can't be read, but is always kept.
+const replacing = computed(() => (props.checked.current?.accounts.length ?? 1) > 0)
 const missing = computed(() =>
-  props.checked.current.accounts.some((account) => !holdsAccount(props.checked.backup, account)),
+  (props.checked.current?.accounts ?? []).some(
+    (account) => !holdsAccount(props.checked.backup, account),
+  ),
 )
 
 // The confirmation takes focus as it appears, so screen readers announce it.
@@ -44,6 +47,7 @@ onMounted(() => intro.value!.focus())
           title="Your Current History"
           tag="Kept as a safety copy"
           empty="No history is saved on this device yet, so nothing is replaced."
+          unreadable="Your current history couldn’t be upgraded, so it can’t be compared. It’s kept as a safety copy exactly as it is."
           :contents="checked.current"
           :compared="checked.backup"
         />

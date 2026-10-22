@@ -174,10 +174,12 @@ const holding = ({ accounts }: Holding) =>
   )} in ${plural(accounts.length, 'account')}`
 
 /** The restore confirmation's summary of what replaces what. */
-export const restoreSummary = (current: Holding, backup: Holding) =>
-  current.accounts.length === 0
-    ? `Restoring saves ${holding(backup)}.`
-    : `Restoring replaces ${holding(current)} with ${holding(backup)}.`
+export const restoreSummary = (current: Holding | null, backup: Holding) =>
+  current === null
+    ? `Restoring replaces your current history with ${holding(backup)}.`
+    : current.accounts.length === 0
+      ? `Restoring saves ${holding(backup)}.`
+      : `Restoring replaces ${holding(current)} with ${holding(backup)}.`
 
 /** Why saved history couldn’t be shown. */
 export const historyFailure = (failure: Failure) =>

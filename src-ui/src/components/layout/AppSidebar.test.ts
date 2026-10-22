@@ -6,9 +6,10 @@ import AppSidebar from './AppSidebar.vue'
 type Game = 'genshin-impact' | 'honkai-star-rail'
 const sidebar = (
   game: Game,
-  screen: 'history' | 'import' | 'backup',
+  screen: 'history' | 'import' | 'backup' | 'unavailable',
   games: Game[] = ['genshin-impact', 'honkai-star-rail'],
-) => mount(AppSidebar, { props: { game, screen, games }, global: { plugins: [router] } })
+  locked = false,
+) => mount(AppSidebar, { props: { game, screen, games, locked }, global: { plugins: [router] } })
 const links = (wrapper: ReturnType<typeof sidebar>, group: string) =>
   wrapper
     .get(`[aria-labelledby="${group}"]`)
@@ -129,4 +130,21 @@ test('an About button above the device note asks for the About dialog', async ()
   ).toBeTruthy()
   await about.trigger('click')
   expect(wrapper.emitted('about')).toHaveLength(1)
+})
+
+test('while the history can’t be used, the game screens are greyed out and can’t be followed', () => {
+  const wrapper = sidebar('honkai-star-rail', 'unavailable', undefined, true)
+  for (const group of ['sidebar-games', 'sidebar-screens']) {
+    const unavailable = wrapper.get(`[aria-labelledby="${group}"]`).findAll('a')
+    expect(unavailable.length).toBeGreaterThan(0)
+    for (const link of unavailable) {
+      // No address, so it isn't followed or tabbed to.
+      expect(link.attributes('href')).toBeUndefined()
+      expect(link.attributes('aria-disabled')).toBe('true')
+      expect(link.attributes('aria-current')).toBeUndefined()
+    }
+  }
+  // Backup & Restore and About stay open.
+  expect(links(wrapper, 'sidebar-data')).toEqual([['Backup & Restore', '#/backup', undefined]])
+  expect(wrapper.get('button[aria-label="About"]').attributes('aria-disabled')).toBeUndefined()
 })

@@ -408,10 +408,12 @@ export interface HistoryContents {
   last_import: LastImport | null
 }
 /** A checked backup held for restoring: its file name, and what it and the current history hold. */
+/** A checked backup and the current history, which is null when it couldn't be upgraded,
+ * so can't be read. */
 export interface CheckedBackup {
   name: string
   backup: HistoryContents
-  current: HistoryContents
+  current: HistoryContents | null
 }
 
 /** Choose a backup in the native dialog; the native side copies, checks and holds it.
