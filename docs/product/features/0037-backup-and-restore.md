@@ -295,13 +295,28 @@ Backup and restore stay local and never make a network request.
     CONTRIBUTING's step for the tests would stop being true with the first real
     migration. The opening scripts are now built from named steps, and one
     checked helper turns a version into the migrations it has.
+- [ ] **Migration recovery, native support for the screen** (one PR):
+  - [ ] A `history_status` command, which the shell calls once at startup:
+    ready, or not upgraded with the copy's name.
+  - [ ] Restoring another backup over a history that can't be upgraded:
+    choosing returns no current contents to compare, as the user chose;
+    confirming hands the file over without opening it, keeps it as a
+    `history-before-restore-*` safety copy exactly as it is, puts the backup in
+    place, and the next use opens the restored history without a restart.
+  - [ ] The mock debug binary can open its history with a test-only migration
+    that fails, so end-to-end tests drive a real failed upgrade of a 1.0.0
+    history they place in its data folder.
 - [ ] **Migration recovery, screen** (one PR):
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;
     the game screens in the sidebar are greyed out and unavailable; Backup &
-    Restore and About stay open.
-  - [ ] Restoring another backup over a history that can't be upgraded, which
-    can't be read for the confirmation's comparison and is copied as it is.
+    Restore and About stay open. The shell shows it from `history_status`, and
+    when any command fails with `history_not_upgraded`.
+  - [ ] The restore confirmation says the current history couldn't be upgraded,
+    so it can't be compared.
+  - [ ] End-to-end tests through the mock's failed upgrade: the screen, the
+    copy named, the game screens unavailable, and a restore that brings the
+    app back.
 - [ ] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and
