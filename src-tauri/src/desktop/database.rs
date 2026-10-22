@@ -24,6 +24,12 @@ pub const PORTABLE_FOLDER: &str = "data";
 pub const FOLDER_NAME: &str = "astral-index";
 #[cfg(not(target_os = "linux"))]
 pub const FOLDER_NAME: &str = "Astral-Index";
+/// The mock debug binary's test-only migration for its `failing-upgrade`
+/// scenario: one account per game and server, which a history with two accounts
+/// on one server, such as the 1.0.0 fixture's, fails.
+pub const FAILING_UPGRADE: Schema = Schema::with_migrations(&[
+    "CREATE UNIQUE INDEX one_account_per_server ON accounts(game, server)",
+]);
 /// The mock debug binary's own folder, so synthetic history never mixes with real
 /// history ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 #[cfg(target_os = "linux")]
@@ -89,6 +95,7 @@ pub fn location(executable: Option<&Path>, local: Option<PathBuf>) -> Option<Pat
 /// Nothing is created or opened until the first `run`.
 pub struct Database {
     folder: Option<PathBuf>,
+    schema: Schema,
     store: Arc<Mutex<State>>,
 }
 /// The history as the app last found it.
@@ -105,10 +112,21 @@ enum State {
 impl Database {
     /// `folder` is the app's folder, or `None` if the platform gave none.
     pub fn new(folder: Option<PathBuf>) -> Self {
+        Self::with_schema(folder, Schema::CURRENT)
+    }
+    /// A database opened with `schema`: the app's, or for the mock debug binary a
+    /// test-only one.
+    pub fn with_schema(folder: Option<PathBuf>, schema: Schema) -> Self {
         Self {
             folder,
+            schema,
             store: Arc::default(),
         }
+    }
+    /// The schema the history is opened with, which a backup or a restored file
+    /// is checked against.
+    pub fn schema(&self) -> Schema {
+        self.schema
     }
     /// The app's data folder, which holds the database and the files kept beside
     /// it, or `None` if the platform gave none.
@@ -125,8 +143,8 @@ impl Database {
         &self,
         f: impl FnOnce(&mut Store) -> T + Send + 'static,
     ) -> Result<T, Error> {
-        let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
-        spawn_blocking(move || with_store(folder.as_deref(), Schema::CURRENT, &store, Box::new(f)))
+        let (folder, schema, store) = (self.folder.clone(), self.schema, Arc::clone(&self.store));
+        spawn_blocking(move || with_store(folder.as_deref(), schema, &store, Box::new(f)))
             .await
             .unwrap_or(Err(Error::Database))
     }
@@ -140,8 +158,8 @@ impl Database {
         &self,
         f: impl FnOnce(Option<Store>, &Path) -> T + Send + 'static,
     ) -> Result<T, Error> {
-        let (folder, store) = (self.folder.clone(), Arc::clone(&self.store));
-        spawn_blocking(move || with_file(folder.as_deref(), Schema::CURRENT, &store, Box::new(f)))
+        let (folder, schema, store) = (self.folder.clone(), self.schema, Arc::clone(&self.store));
+        spawn_blocking(move || with_file(folder.as_deref(), schema, &store, Box::new(f)))
             .await
             .unwrap_or(Err(Error::Database))
     }
@@ -153,6 +171,7 @@ impl Database {
     pub(crate) fn not_upgraded(folder: PathBuf, copy: Option<String>) -> Self {
         Self {
             folder: Some(folder),
+            schema: Schema::CURRENT,
             store: Arc::new(Mutex::new(State::NotUpgraded(copy))),
         }
     }

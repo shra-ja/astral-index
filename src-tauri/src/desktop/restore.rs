@@ -12,7 +12,7 @@ use super::{
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
-use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Store, check_database};
+use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
 use chooser::DialogExt;
 use serde::Serialize;
 #[cfg(not(test))]
@@ -187,17 +187,21 @@ fn copy_bounded(source: &Path, to: &mut dyn Write, limit: u64) -> Result<(), Fai
 /// Copy `source` into the data folder under the held copy's name, replacing any copy
 /// left there, check it as untrusted input, open it, which brings it to the current
 /// schema, and read what it holds. Any failure removes the copy.
-pub fn hold_copy(folder: &Path, source: &Path) -> Result<(PathBuf, Contents), Failure> {
+pub fn hold_copy(
+    folder: &Path,
+    source: &Path,
+    schema: Schema,
+) -> Result<(PathBuf, Contents), Failure> {
     let copy = folder.join(HELD);
     let _ = fs::remove_file(&copy);
     let mut file = fs::File::create_new(&copy).map_err(|_| Failure::RestoreFailed)?;
     let checked = copy_bounded(source, &mut file, MAX_DATABASE_BYTES)
         .and_then(|()| {
             drop(file);
-            check_database(&copy).map_err(Failure::RestoreRefused)
+            check_database(&copy, schema).map_err(Failure::RestoreRefused)
         })
         .and_then(|()| {
-            Store::open(&copy)
+            Store::open_with(&copy, schema, None)
                 .and_then(|store| store.contents())
                 .map_err(|_| Failure::RestoreFailed)
         });
@@ -257,7 +261,8 @@ async fn choose_into<R: Runtime>(
     }
     // Another backup was chosen, so the one held earlier is no longer shown.
     restore.release()?;
-    let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source))
+    let schema = database.schema();
+    let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source, schema))
         .await
         .map_err(|_| Failure::RestoreFailed)??;
     let current = match database
@@ -426,8 +431,8 @@ mod tests {
     use crate::acquisition::tests::filesystem::{self, Fixture as Files};
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{
-        SERVER, UID, accounts_row, accounts_script, check_script, ending_at, last_import_row,
-        last_import_step, setup, step, text,
+        SERVER, UID, UPGRADED, accounts_row, accounts_script, check_script, ending_at,
+        last_import_row, last_import_step, opened_at, setup, step, text, upgrading,
     };
     use crate::storage::{LastImport, SavedAccount, Source};
     use chooser::{Asked, FilePath, Fixture as Answers};
@@ -463,12 +468,21 @@ mod tests {
     }
     /// The SQL for opening the database at `path` and reading what it holds.
     fn reading(path: &Path, accounts: Vec<Vec<rusqlite::types::Value>>) -> Vec<Step> {
+        opened_then_read(path, setup(true), accounts)
+    }
+    /// The SQL for opening the database at `path` by `opening`, then reading what
+    /// it holds.
+    fn opened_then_read(
+        path: &Path,
+        opening: Vec<Step>,
+        accounts: Vec<Vec<rusqlite::types::Value>>,
+    ) -> Vec<Step> {
         let mut steps = vec![step(
             "OPEN",
             vec![text(&path.to_string_lossy())],
             Reply::Done,
         )];
-        steps.extend(setup(true));
+        steps.extend(opening);
         steps.extend(accounts_script(accounts));
         steps.push(last_import_step(vec![last_import_row()]));
         steps
@@ -1009,6 +1023,28 @@ mod tests {
     fn rereading(accounts: usize) -> Vec<Step> {
         reading(&history(), vec![accounts_row(); accounts])
     }
+    #[test]
+    fn a_backup_is_checked_and_upgraded_with_the_history_s_own_schema() {
+        filesystem::install(files(&[]));
+        answering(Some(source()));
+        // The backup, at the first release's version, is upgraded in its copy;
+        // the history, at the schema's newest, opens as it is.
+        let mut steps = check_script(&held().to_string_lossy());
+        steps.extend(opened_then_read(&held(), upgrading(), vec![accounts_row()]));
+        steps.extend(opened_then_read(&history(), opened_at(3), vec![]));
+        sql::expect(steps);
+        let restore = Restore::default();
+        let chosen = run(choose_into(
+            app(),
+            &Session::default(),
+            Dialogs::System,
+            &restore,
+            &Database::with_schema(Some(folder()), UPGRADED),
+        ));
+        sql::finish();
+        assert_eq!(chosen, Ok(checked()));
+    }
+
     #[test]
     fn a_backup_restores_over_a_history_that_could_not_be_upgraded() {
         let failed =

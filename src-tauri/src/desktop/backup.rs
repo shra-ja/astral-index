@@ -127,13 +127,13 @@ fn claim_partial(target: &Path) -> Result<(PathBuf, fs::File), Failure> {
 
 /// Write a snapshot of the history to `written` and check it as restore would.
 async fn write_checked(database: &Database, written: &Path) -> Result<(), Failure> {
-    let snapshot = written.to_owned();
+    let (snapshot, schema) = (written.to_owned(), database.schema());
     database
         .run(move |store| {
             store
                 .write_snapshot(&snapshot)
                 .map_err(|_| Failure::BackupFailed)?;
-            check_database(&snapshot).map_err(|_| Failure::HistoryDamaged)
+            check_database(&snapshot, schema).map_err(|_| Failure::HistoryDamaged)
         })
         .await
         .map_err(Failure::from)?

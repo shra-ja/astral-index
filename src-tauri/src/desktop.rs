@@ -345,6 +345,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         fresh_webview: false,
         opener: about::Opener::System,
         dialogs: backup::Dialogs::System,
+        schema: storage::Schema::CURRENT,
     };
     register_with(
         builder.plugin(tauri_plugin_dialog::init()),
@@ -365,6 +366,12 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         fresh_webview: true,
         opener: about::Opener::Recording,
         dialogs: backup::Dialogs::Answering,
+        // Its tests place a history that can't be upgraded with this one.
+        schema: if scenario == Scenario::FailingUpgrade {
+            database::FAILING_UPGRADE
+        } else {
+            storage::Schema::CURRENT
+        },
     };
     register_with(builder, Network::Mock(scenario), settings)
 }
@@ -378,6 +385,8 @@ struct Settings {
     fresh_webview: bool,
     opener: about::Opener,
     dialogs: backup::Dialogs,
+    /// The schema the history is opened with.
+    schema: storage::Schema,
 }
 
 fn register_with<R: Runtime>(
@@ -409,7 +418,7 @@ fn register_with<R: Runtime>(
         });
         app.manage(settings.dialogs);
         restore::remove_leftovers(folder.as_deref());
-        app.manage(Database::new(folder));
+        app.manage(Database::with_schema(folder, settings.schema));
         opened.map_err(Into::into)
     })
 }
@@ -1454,6 +1463,7 @@ mod tests {
         let database = app.state::<Database>();
         assert_eq!(database.folder(), Some(folder.as_path()));
         assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
+        assert_eq!(database.schema(), storage::Schema::CURRENT);
         // The system opens things.
         let about = app.state::<about::About>();
         assert!(!about.portable);
@@ -1473,6 +1483,20 @@ mod tests {
     }
 
     #[test]
+    fn the_mock_s_failing_upgrade_opens_its_history_with_the_failing_migration() {
+        let mut app = register_mock(mock_builder(), Scenario::FailingUpgrade)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        #[allow(deprecated)]
+        app.run_iteration(events::ignore);
+        assert_eq!(app.state::<Database>().schema(), database::FAILING_UPGRADE);
+        assert!(matches!(
+            *app.state::<Network>(),
+            Network::Mock(Scenario::FailingUpgrade)
+        ));
+    }
+
+    #[test]
     fn the_mock_app_keeps_its_own_data_folder_and_network() {
         let mut app = register_mock(mock_builder(), Scenario::History)
             .build(mock_context(noop_assets()))
@@ -1487,6 +1511,7 @@ mod tests {
         let database = app.state::<Database>();
         assert_eq!(database.folder(), Some(folder.as_path()));
         assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
+        assert_eq!(database.schema(), storage::Schema::CURRENT);
         assert!(matches!(
             *app.state::<Network>(),
             Network::Mock(Scenario::History)
