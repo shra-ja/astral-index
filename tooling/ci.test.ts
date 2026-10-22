@@ -348,13 +348,22 @@ test('the Windows build carries the last release’s version and its commit', ()
   const identity = step(release, 'name: Name the build')!
   expect(identity).toBeDefined()
   expect(identity).toContain('id: name')
-  expect(identity).toContain("git describe --tags --abbrev=0 --match 'v[0-9]*'")
+  // Release tags only, as the release workflow finds them: a tag such as v1.1.0-rc1
+  // would give every build a version Tauri refuses.
+  expect(identity).toContain(
+    "git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*[!0-9.]*'",
+  )
   expect(identity).toContain('|| echo v0.0.0')
   expect(identity).toContain('>> "$GITHUB_OUTPUT"')
   const build = step(release, 'uses: ./.github/actions/build-windows')!
   expect(build).toContain('version: ${{ steps.name.outputs.version }}')
-  // The commit the artifact is named after.
-  expect(build).toContain('build: ${{ github.event.pull_request.head.sha || github.sha }}')
+  // The commit the artifact is named after: a pull request's head, though its build
+  // is that head merged into main (decision 0030).
+  expect(workflow).toContain(
+    'env:\n  BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}\n',
+  )
+  expect(workflow.split('github.event.pull_request.head.sha')).toHaveLength(2)
+  expect(build).toContain('build: ${{ env.BUILD_COMMIT }}')
   expect(release.indexOf('name: Name the build')).toBeLessThan(
     release.indexOf('uses: ./.github/actions/build-windows'),
   )
@@ -366,40 +375,51 @@ test('a Windows build is published only once every check has passed', () => {
   // Built in parallel with the checks, the executable waits under an unverified name.
   const build = step(job('windows-release'), 'uses: actions/upload-artifact@')
   expect(build).toContain(`if: ${fromThisRepository}`)
-  expect(build).toContain(
-    'name: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
-  )
+  expect(build).toContain('name: windows-build-unverified-${{ env.BUILD_COMMIT }}')
   expect(build).toContain('path: src-tauri/target/release/astral-index.exe')
   expect(build).toContain('retention-days: 1')
   expect(build).toContain('if-no-files-found: error')
   const publish = job('publish')
   expect(publish).toContain('needs: [static, gates, probes, windows-tests, windows-release]')
-  // It runs only once every check has passed, so a failed run skips the job rather
-  // than reporting a publish that never happened.
-  expect(publish).toContain(
-    [
-      '    if: >-',
-      `      always() && (${fromThisRepository}) &&`,
-      "      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&",
-      "      !contains(needs.*.result, 'skipped')",
-    ].join('\n'),
-  )
-  // No job may delete artifacts: a failed run's build simply expires.
+  // GitHub runs a job only once every job it needs has succeeded, unless its
+  // condition names a status function, so this one says only whose builds it keeps.
+  expect(publish).toContain(`\n    if: ${fromThisRepository}\n`)
+  // Least privilege: no job needs to write to the run's artifacts.
   expect(workflow).not.toContain('actions: write')
   // It is republished under its lasting name for 7 days.
   const merge = step(publish, 'uses: actions/upload-artifact/merge@')
   expect(merge).not.toMatch(/^\s+if:/m)
-  expect(merge).toContain(
-    'name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}',
-  )
-  expect(merge).toContain(
-    'pattern: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
-  )
+  expect(merge).toContain('name: astral-index-dev-build-unsigned-${{ env.BUILD_COMMIT }}')
+  expect(merge).toContain('pattern: windows-build-unverified-${{ env.BUILD_COMMIT }}')
   expect(merge).toContain('retention-days: 7')
-  expect(merge).toContain('delete-merged: true')
-  // A failed run's build is never published and expires in a day, so re-running only
-  // the failed jobs can still publish it.
-  expect(publish).not.toContain('gh api -X DELETE')
+  // The unverified build stays until it expires, so a re-run's publish still finds it.
+  expect(merge).not.toContain('delete-merged')
+})
+
+test('only reports and uploads run whatever came before them', () => {
+  // A step or job that names a status function, or reads the results of the jobs it
+  // needs, overrides GitHub's own rule that it runs only after success. Reporting
+  // and saving evidence are the only reasons to.
+  for (const [name, text] of [
+    ['check', workflow],
+    ['release', release],
+    ['setup-linux', linuxSetup],
+    ['setup-windows', windowsSetup],
+    ['build-windows', buildWindows],
+  ]) {
+    expect(text, name).not.toContain('needs.*.result')
+    // Only a step's own one-line condition, never a job's.
+    for (const line of text
+      .split('\n')
+      .filter((one) => /\b(always|success|failure|cancelled)\(\)/.test(one))) {
+      expect(line, name).toMatch(/^ {8}if: /)
+    }
+    for (const each of stepsOf(text).filter((one) =>
+      /\b(always|failure|cancelled)\(\)/.test(one),
+    )) {
+      expect(each, name).toMatch(/uses: actions\/upload-artifact@|run: npm run ci:summary/)
+    }
+  }
 })
 
 test('each Linux job writes its own summary, however its check ended', () => {
