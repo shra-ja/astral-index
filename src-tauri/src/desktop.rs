@@ -4,7 +4,7 @@ use crate::acquisition::mock::{self, MockTransport};
 use crate::acquisition::{
     AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
     HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, StopCheck, Transport,
-    TransportError, extract_request_contexts, fetch_history, validate,
+    TransportError, fetch_history, read_selected_cache, validate,
 };
 use crate::discovery::{
     ExtractionError,
@@ -18,14 +18,14 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{
-    AppHandle, Builder, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder,
-    ipc::{Channel, InvokeBody, Request},
+    AppHandle, Builder, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder, ipc::Channel,
     window::Color,
 };
 use tokio_util::sync::CancellationToken;
 
 pub mod about;
 pub mod backup;
+pub mod cache_file;
 pub mod database;
 pub mod restore;
 pub use database::Database;
@@ -316,6 +316,7 @@ impl Transport for Client {
 fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
         extract_automatically,
+        cache_file::choose_cache_file,
         extract_from_file,
         cancel_acquisition,
         retrieve_history,
@@ -429,6 +430,7 @@ fn register_with<R: Runtime>(
 ) -> Builder<R> {
     let builder = builder
         .manage(Session::default())
+        .manage(cache_file::CacheFile::default())
         .manage(restore::Restore::default())
         .plugin(restore::clean_up_on_exit())
         .manage(network);
@@ -655,21 +657,19 @@ async fn extract_into(session: &Session, network: &Network) -> Result<(), Failur
     .await
 }
 
+// The bounded read of the chosen cache file, too, runs on the async worker.
 async fn extract_file_into(
     session: &Session,
     network: &Network,
-    body: &InvokeBody,
+    cache: &cache_file::CacheFile,
 ) -> Result<(), Failure> {
-    let extracted = match body {
-        InvokeBody::Raw(bytes) => extract_request_contexts(bytes).map_err(|error| {
-            if error == CacheError::TooLarge {
-                Failure::FileTooLarge
-            } else {
-                Failure::NoRequest
-            }
-        }),
-        InvokeBody::Json(_) => Err(Failure::InvalidFile),
-    };
+    let extracted = cache.take().ok_or(Failure::InvalidFile).and_then(|path| {
+        read_selected_cache(&path).map_err(|error| match error {
+            CacheError::TooLarge => Failure::FileTooLarge,
+            CacheError::NoSupportedRequest => Failure::NoRequest,
+            _ => Failure::InvalidFile,
+        })
+    });
     acquire(session, network, extracted).await
 }
 
@@ -1039,15 +1039,16 @@ async fn retrieve_history(
     .await
 }
 
-/// The webview sends the selected file's bytes as a raw body; no path crosses IPC.
+/// Reads the cache file `choose_cache_file` holds; neither its path nor its bytes
+/// cross IPC ([decision 0034](../../docs/architecture/decisions/0034-native-cache-file-dialog.md)).
 /// Contacts HoYoverse to validate the extracted auth keys.
 #[tauri::command]
 async fn extract_from_file(
-    request: Request<'_>,
     session: State<'_, Session>,
     network: State<'_, Network>,
+    cache: State<'_, cache_file::CacheFile>,
 ) -> Result<(), Failure> {
-    extract_file_into(&session, &network, request.body()).await
+    extract_file_into(&session, &network, &cache).await
 }
 
 #[cfg(test)]
@@ -1057,9 +1058,9 @@ mod tests {
     pub(crate) mod events;
     pub(crate) mod launcher;
     use super::*;
-    use crate::acquisition::TransportError;
     use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
     use crate::acquisition::{MAX_CACHE_BYTES, REQUEST_INTERVAL};
+    use crate::acquisition::{TransportError, extract_request_contexts};
     use crate::discovery::system::tests::os;
     use crate::storage::tests::database::{self as sql, Reply};
     use crate::storage::tests::{
@@ -1069,6 +1070,7 @@ mod tests {
     };
     use rusqlite::types::Value;
     use std::path::PathBuf;
+    use tauri::ipc::InvokeBody;
     use tauri::{
         Manager, WebviewWindow, WebviewWindowBuilder,
         ipc::CallbackFn,
@@ -1188,6 +1190,17 @@ mod tests {
     fn raw(bytes: Vec<u8>) -> InvokeBody {
         InvokeBody::Raw(bytes)
     }
+    /// A cache file holding `bytes`, chosen and held for the import.
+    fn chosen_cache(bytes: Vec<u8>) -> cache_file::CacheFile {
+        let path = PathBuf::from("/games/StarRail_Data/data_2");
+        filesystem::install(filesystem::Fixture {
+            files: [(path.clone(), bytes)].into(),
+            ..Default::default()
+        });
+        let cache = cache_file::CacheFile::default();
+        cache.hold(path);
+        cache
+    }
 
     #[test]
     fn the_window_starts_in_the_sidebars_colour() {
@@ -1230,6 +1243,7 @@ mod tests {
             COMMANDS,
             [
                 "extract_automatically",
+                "choose_cache_file",
                 "extract_from_file",
                 "cancel_acquisition",
                 "retrieve_history",
@@ -1428,10 +1442,6 @@ mod tests {
             invoke(&window, "extract_from_file", InvokeBody::default()),
             Err(r#"{"kind":"invalid_file"}"#.into())
         );
-        assert_eq!(
-            invoke(&window, "extract_from_file", raw(b"no request".to_vec())),
-            Err(r#"{"kind":"no_request"}"#.into())
-        );
         // A progress channel is required.
         let no_channel = InvokeBody::Json(serde_json::json!({ "mode": "full" }));
         let missing = invoke(&window, "retrieve_history", no_channel);
@@ -1569,7 +1579,7 @@ mod tests {
             run(extract_file_into(
                 &session,
                 &network,
-                &raw(cache(&["synthetic"]))
+                &chosen_cache(cache(&["synthetic"]))
             )),
             Ok(())
         );
@@ -1581,7 +1591,7 @@ mod tests {
             run(extract_file_into(
                 &session,
                 &expired,
-                &raw(cache(&["synthetic"]))
+                &chosen_cache(cache(&["synthetic"]))
             )),
             Err(Failure::ExpiredKey)
         );
@@ -1695,6 +1705,44 @@ mod tests {
     }
 
     #[test]
+    fn the_cache_file_commands_need_their_state_over_ipc() {
+        let window = |builder: Builder<MockRuntime>| {
+            let app = handle_commands(builder)
+                .build(mock_context(noop_assets()))
+                .unwrap();
+            WebviewWindowBuilder::new(&app, "main", Default::default())
+                .build()
+                .unwrap()
+        };
+        // Choosing needs the dialogs, the database and somewhere to hold the file.
+        for builder in [
+            mock_builder(),
+            mock_builder().manage(backup::Dialogs::System),
+            mock_builder()
+                .manage(backup::Dialogs::System)
+                .manage(Database::new(None)),
+        ] {
+            let missing = invoke(&window(builder), "choose_cache_file", InvokeBody::default());
+            assert!(missing.unwrap_err().contains("state not managed"));
+        }
+        // On the worker thread the dialog's test double chooses nothing.
+        let managed = mock_builder()
+            .manage(backup::Dialogs::System)
+            .manage(Database::new(None))
+            .manage(cache_file::CacheFile::default());
+        assert_eq!(
+            reply_to(&window(managed), "choose_cache_file"),
+            serde_json::json!({ "kind": "cancelled" })
+        );
+        // Extracting needs the held file's state as well as the session's.
+        let session = mock_builder()
+            .manage(Session::default())
+            .manage(Network::Https);
+        let missing = invoke(&window(session), "extract_from_file", InvokeBody::default());
+        assert!(missing.unwrap_err().contains("state not managed"));
+    }
+
+    #[test]
     fn restore_fails_over_ipc_without_a_data_folder_or_its_state() {
         let backup = || backup::Dialogs::System;
         let builders = || {
@@ -1768,7 +1816,7 @@ mod tests {
     fn file_extraction_keeps_only_the_first_validated_context() {
         respond(&[EXPIRED, PAGE]);
         let session = Session::default();
-        let body = raw(cache(&["untried", "valid", "expired"]));
+        let body = chosen_cache(cache(&["untried", "valid", "expired"]));
         assert_eq!(
             run(extract_file_into(&session, &Network::Https, &body)),
             Ok(())
@@ -1796,7 +1844,7 @@ mod tests {
             ..Default::default()
         });
         let session = Session::default();
-        let body = raw(cache(&["valid", "expired"]));
+        let body = chosen_cache(cache(&["valid", "expired"]));
         assert_eq!(
             run(extract_file_into(&session, &Network::Https, &body)),
             Ok(())
@@ -2493,11 +2541,28 @@ mod tests {
                 .finish(&token, context("earlier"), RetryBudget::default())
                 .unwrap();
         };
-        for (body, failure) in [
-            (raw(b"no request".to_vec()), Failure::NoRequest),
-            (raw(vec![0; MAX_CACHE_BYTES + 1]), Failure::FileTooLarge),
-            (InvokeBody::default(), Failure::InvalidFile),
-        ] {
+        // A file without a request, one too large, one gone since it was chosen, and
+        // nothing chosen at all.
+        let gone = || {
+            filesystem::install(filesystem::Fixture::default());
+            let cache = cache_file::CacheFile::default();
+            cache.hold(PathBuf::from("/games/gone/data_2"));
+            cache
+        };
+        let nothing = || {
+            filesystem::install(filesystem::Fixture::default());
+            cache_file::CacheFile::default()
+        };
+        let too_large = || chosen_cache(vec![0; MAX_CACHE_BYTES + 1]);
+        let no_request = || chosen_cache(b"no request".to_vec());
+        let cases: [(&dyn Fn() -> cache_file::CacheFile, Failure); 4] = [
+            (&no_request, Failure::NoRequest),
+            (&too_large, Failure::FileTooLarge),
+            (&gone, Failure::InvalidFile),
+            (&nothing, Failure::InvalidFile),
+        ];
+        for (body, failure) in cases {
+            let body = body();
             http::install(Default::default());
             earlier();
             assert_eq!(
@@ -2513,7 +2578,7 @@ mod tests {
             run(extract_file_into(
                 &session,
                 &Network::Https,
-                &raw(cache(&["synthetic"]))
+                &chosen_cache(cache(&["synthetic"]))
             )),
             Err(Failure::ExpiredKey)
         );
@@ -2527,7 +2592,7 @@ mod tests {
             run(extract_file_into(
                 &session,
                 &Network::Https,
-                &raw(cache(&["synthetic"]))
+                &chosen_cache(cache(&["synthetic"]))
             )),
             Err(Failure::Internal)
         );

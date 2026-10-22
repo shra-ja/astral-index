@@ -1,5 +1,6 @@
 &[
     "extract_automatically",
+    "choose_cache_file",
     "extract_from_file",
     "cancel_acquisition",
     "retrieve_history",

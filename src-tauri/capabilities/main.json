@@ -6,6 +6,7 @@
   "windows": ["main"],
   "permissions": [
     "allow-extract-automatically",
+    "allow-choose-cache-file",
     "allow-extract-from-file",
     "allow-cancel-acquisition",
     "allow-retrieve-history",
