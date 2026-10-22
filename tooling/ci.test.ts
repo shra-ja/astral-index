@@ -374,14 +374,21 @@ test('a Windows build is published only once every check has passed', () => {
   expect(build).toContain('if-no-files-found: error')
   const publish = job('publish')
   expect(publish).toContain('needs: [static, gates, probes, windows-tests, windows-release]')
-  expect(publish).toContain(`if: always() && (${fromThisRepository})`)
+  // It runs only once every check has passed, so a failed run skips the job rather
+  // than reporting a publish that never happened.
+  expect(publish).toContain(
+    [
+      '    if: >-',
+      `      always() && (${fromThisRepository}) &&`,
+      "      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&",
+      "      !contains(needs.*.result, 'skipped')",
+    ].join('\n'),
+  )
   // No job may delete artifacts: a failed run's build simply expires.
   expect(workflow).not.toContain('actions: write')
-  const passed =
-    "!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped')"
-  // Once every check passes, it is republished under its lasting name for 7 days.
+  // It is republished under its lasting name for 7 days.
   const merge = step(publish, 'uses: actions/upload-artifact/merge@')
-  expect(merge).toContain(`if: \${{ ${passed} }}`)
+  expect(merge).not.toMatch(/^\s+if:/m)
   expect(merge).toContain(
     'name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}',
   )
