@@ -965,31 +965,17 @@ async fn last_import(database: State<'_, Database>) -> Result<Option<LastImport>
     last_import_into(&database).await
 }
 
-/// Whether the saved history can be used, so the shell knows before showing a
-/// game screen.
-#[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum HistoryStatus {
-    Ready,
-    /// From an older release and couldn't be upgraded; names the copy kept in the
-    /// data folder before the upgrade, if one was made.
-    NotUpgraded {
-        copy: Option<String>,
-    },
-}
-
-/// Open the history, if it isn't open, and say whether it can be used.
-async fn status_of(database: &Database) -> Result<HistoryStatus, Failure> {
-    match database.run(|_| ()).await {
-        Ok(()) => Ok(HistoryStatus::Ready),
-        Err(storage::Error::NotUpgraded(copy)) => Ok(HistoryStatus::NotUpgraded { copy }),
-        Err(error) => Err(error.into()),
-    }
+/// Open the history, if it isn't open, so the shell knows before showing a game
+/// screen whether it can be used: it fails as any use of it would, with
+/// `HistoryNotUpgraded` naming the copy for an older one that couldn't be
+/// upgraded.
+async fn status_of(database: &Database) -> Result<(), Failure> {
+    database.run(|_| ()).await.map_err(Failure::from)
 }
 
 /// Stored history only: never contacts HoYoverse.
 #[tauri::command]
-async fn history_status(database: State<'_, Database>) -> Result<HistoryStatus, Failure> {
+async fn history_status(database: State<'_, Database>) -> Result<(), Failure> {
     status_of(&database).await
 }
 
@@ -2865,27 +2851,17 @@ mod tests {
         )];
         script.extend(setup(true));
         sql::expect(script);
-        assert_eq!(run(status_of(&database)), Ok(HistoryStatus::Ready));
+        assert_eq!(run(status_of(&database)), Ok(()));
         sql::finish();
-        // An older history that couldn't be upgraded names its copy.
+        // An older history that couldn't be upgraded fails as every other use of
+        // it does, naming its copy.
         let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
         let failed = Database::not_upgraded(PathBuf::from("/data/astral-index"), copy.clone());
         assert_eq!(
             run(status_of(&failed)),
-            Ok(HistoryStatus::NotUpgraded { copy: copy.clone() })
+            Err(Failure::HistoryNotUpgraded(copy))
         );
-        assert_eq!(
-            serde_json::to_value(HistoryStatus::NotUpgraded { copy }).unwrap(),
-            serde_json::json!({
-                "kind": "not_upgraded",
-                "copy": "history-v2-20261021-143000.sqlite"
-            })
-        );
-        assert_eq!(
-            serde_json::to_value(HistoryStatus::Ready).unwrap(),
-            serde_json::json!({ "kind": "ready" })
-        );
-        // Any other failure to open it is a failure.
+        // Any other failure to open it is a failure too.
         assert_eq!(run(status_of(&Database::new(None))), Err(Failure::Storage));
     }
 

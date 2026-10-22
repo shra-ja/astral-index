@@ -740,16 +740,18 @@ test('an older history the mock cannot upgrade is copied first, left as it was a
   )
   copyFileSync(fixture, resolve(folder, 'history.sqlite'))
   const original = readFileSync(fixture)
+  // Ready resolves; a history that can't be used rejects with the failure.
   const status = (app: AppSession) =>
-    app.executeAsync<{ kind: string; copy?: string | null }>(
-      `window.__TAURI_INTERNALS__.invoke('history_status').then(arguments[arguments.length - 1])`,
+    app.executeAsync<{ kind: string; code?: string | null } | null>(
+      `const done = arguments[arguments.length - 1];
+      window.__TAURI_INTERNALS__.invoke('history_status').then(() => done(null), done)`,
     )
   let copy = ''
   await withMock('failing-upgrade', { keep: true }, async (app) => {
     const first = await status(app)
-    expect(first.kind).toBe('not_upgraded')
-    expect(first.copy).toMatch(/^history-v2-\d{8}-\d{6}\.sqlite$/)
-    copy = first.copy!
+    expect(first?.kind).toBe('history_not_upgraded')
+    expect(first?.code).toMatch(/^history-v2-\d{8}-\d{6}\.sqlite$/)
+    copy = first!.code!
     // Asked again, it reports the same copy without trying again.
     expect(await status(app)).toEqual(first)
   })

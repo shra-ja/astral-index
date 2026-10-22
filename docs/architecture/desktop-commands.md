@@ -30,7 +30,7 @@ refused commands, so the webview must not use them.
 | `history_page` | One page of saved history, every category's count and the category's summary, for the `account` named (UID and server) or else the account imported last, showing the `filter` asked for: `rarities` (`5`, `4`, `3`), a `search` of item names (at most 100 characters, ignoring case), and `from` and `to` server days (`YYYY-MM-DD`); each part left out shows everything | No |
 | `last_import` | The newest import's summary | No |
 | `saved_accounts` | The game's saved accounts with their roll totals, the account imported last first | No |
-| `history_status` | Open the history if it isn't open, and say whether it can be used: `ready`, or `not_upgraded` with the copy kept before a failed upgrade (`copy`, a file name, or `null` when none was kept). The shell calls it once at startup, before showing a game screen; any other failure to open is a failure | No |
+| `history_status` | Open the history if it isn't open, and say whether it can be used: nothing when it can, or the failure any use of it would get, such as `history_not_upgraded` with the copy kept before a failed upgrade. The shell calls it once at startup, before showing a game screen | No |
 | `app_info` | The app's version, which build it is (a release, a CI build of a commit, or local), the data folder in use, the history file in it and whether portable mode is on | No |
 | `reveal_data_folder` | Show `history.sqlite` selected in the system file manager, or open the data folder before the file exists | No |
 | `open_issues_page` | Open the repository's issues page in the default browser | No |

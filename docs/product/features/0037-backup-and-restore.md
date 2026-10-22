@@ -297,9 +297,10 @@ Backup and restore stay local and never make a network request.
     checked helper turns a version into the migrations it has.
 - [x] **Migration recovery, native support for the screen** (one PR):
   - [x] A `history_status` command, which the shell calls once at startup:
-    ready, or not upgraded with the copy's name.
+    nothing when the history can be used, or the failure any use of it would
+    get, such as `history_not_upgraded` with the copy's name.
   - [x] Restoring another backup over a history that can't be upgraded:
-    choosing returns no current contents to compare, as the user chose;
+    choosing returns no current contents to compare;
     confirming hands the file over without opening it, keeps it as a
     `history-before-restore-*` safety copy exactly as it is, puts the backup in
     place, and the next use opens the restored history without a restart.
@@ -324,8 +325,8 @@ Backup and restore stay local and never make a network request.
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;
     the game screens in the sidebar are greyed out and unavailable; Backup &
-    Restore and About stay open. The shell shows it from `history_status`, and
-    when any command fails with `history_not_upgraded`.
+    Restore and About stay open. The shell shows it whenever a command, at
+    startup `history_status`, fails with `history_not_upgraded`.
   - [ ] The restore confirmation says the current history couldn't be upgraded,
     so it can't be compared.
   - [ ] End-to-end tests through the mock's failed upgrade: the screen, the
