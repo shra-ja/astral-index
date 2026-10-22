@@ -51,9 +51,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Native cache file picker (2026-10-22)
+### History that can't be upgraded, screen (2026-10-22)
 
-`feat/native-cache-picker`: [decision 0034](../architecture/decisions/0034-native-cache-file-dialog.md). `choose_cache_file` opens the system's dialog from Rust (the mock answers from `cache-from.txt`) and holds the path; `extract_from_file` reads it natively, so no file bytes cross IPC; the picker is a plain button and a closed dialog changes nothing. Red first: the command's choice, the picker, the screens, the client and the flow; the file read's error mapping by breaking it, as its tests' types changed. The end-to-end tests choose through the mock; the bundled app's check refuses reading with nothing chosen. From the reviews: nothing else starts while the dialog is open (red first; the buttons stay focusable), and backup, restore and the cache file share one dialog helper. The real system dialog is tested only through the mock's answer; the Windows check in 0037's Verification covers it. Whether the CI stall goes will show in later runs.
+`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen, under way.
 
 ## Known limitations
 
@@ -72,7 +72,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: the Import screen's cache file chosen in a native dialog and read natively, so no file bytes cross IPC; then [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery, screen, and Native times.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery, screen, then Native times.
 
 ## Keeping this file current
 
@@ -190,4 +190,5 @@ research, under a "From" heading.
   native part.
 - [2026-10-22: not-upgraded support](history/2026-10-22-not-upgraded-support.md):
   the history status, restoring over a history that can't be upgraded, the
-  mock's failing upgrade and the wide-window stall's diagnostics.
+  mock's failing upgrade, the wide-window stall's diagnostics and the native
+  cache file picker.
