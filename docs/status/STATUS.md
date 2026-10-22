@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### History that can't be upgraded, screen (2026-10-22)
 
-`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen, under way.
+`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen (option A on the canvas), under way.
 
 ## Known limitations
 

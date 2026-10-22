@@ -329,17 +329,28 @@ Backup and restore stay local and never make a network request.
     rather than a status of its own, so the shell parses one shape, and the
     mock's failing upgrade is the desktop's scenario, pairing a HoYoverse
     scenario with a schema, rather than a HoYoverse one.
-- [ ] **Migration recovery, screen** (one PR):
-  - [ ] An app-wide screen for a history that can't be upgraded, designed on the
-    canvas first: it says the history couldn't be upgraded and names the copy;
-    the game screens in the sidebar are greyed out and unavailable; Backup &
-    Restore and About stay open. The shell shows it whenever a command, at
-    startup `history_status`, fails with `history_not_upgraded`.
-  - [ ] The restore confirmation says the current history couldn't be upgraded,
-    so it can't be compared.
-  - [ ] End-to-end tests through the mock's failed upgrade: the screen, the
-    copy named, the game screens unavailable, and a restore that brings the
-    app back.
+- [ ] **Migration recovery, screen** (one PR), designed on the canvas as its own
+  screen (option A, which the user chose over a banner on Backup & Restore):
+  - [ ] The webview knows `history_not_upgraded` and its copy's name, and asks
+    `history_status` at startup; any later command that fails with it switches
+    the app to the screen too.
+  - [ ] An app-wide History Unavailable screen, while the history can't be used:
+    the game screens redirect to it and the sidebar greys out their links;
+    Backup & Restore and About stay open.
+  - [ ] Its card says the history failed to upgrade automatically and nothing was
+    changed, names the copy kept before the upgrade (or says none could be),
+    opens the data folder, and advises, in order: reinstall the version used
+    before after an update, as the history is unchanged; report the problem,
+    which opens the issues page; or restore a backup. The guidance is text only:
+    no releases link, as the app opens only the issues page.
+  - [ ] Restoring starts from the card: a refusal shows in its status line, as on
+    the Restore card; a checked backup shows the usual confirmation, which says
+    the current history couldn't be upgraded, so it can't be compared; once
+    restored, the app is usable again and shows Backup & Restore with its
+    restored line.
+  - [ ] End-to-end tests through the mock's failing upgrade of the 1.0.0 history:
+    the screen, the copy named, the game screens unavailable, and a restore that
+    brings the app back.
 - [ ] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and
