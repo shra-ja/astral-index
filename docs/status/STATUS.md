@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Native cache file picker (2026-10-22)
 
-`feat/native-cache-picker`: the Import screen's cache file chosen in a native dialog and read natively, under way.
+`feat/native-cache-picker`: [decision 0034](../architecture/decisions/0034-native-cache-file-dialog.md), under way: `choose_cache_file` (native dialog, mock answer, path held natively), `extract_from_file` reading the held file, the Import screen's picker as a button, and the end-to-end tests choosing through the mock.
 
 ## Known limitations
 
