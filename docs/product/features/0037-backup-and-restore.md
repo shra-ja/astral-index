@@ -363,6 +363,15 @@ Backup and restore stay local and never make a network request.
     with one account per server, finds the History screen working, and leaves
     the restored history, the copy and a safety copy, both byte for byte the
     1.0.0 file.
+  - Two reviewer agents found that a restore made from Backup & Restore, not
+    the card, left the app locked until it restarted; every restore now tells
+    the availability state through `useRestore`'s `onRestored` (its app test
+    failed first). Also fixed: locked sidebar links were unnamed in the icon
+    rail and couldn't take focus for their tooltip, and the card's status line
+    kept an older restore refusal over a newer failed opening (both red first);
+    the redirect rule moved wholly into the router's guard; and the restore
+    chip and the openings are shared. A status card shared by the four
+    screens that repeat one is a follow-up.
 - [ ] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and

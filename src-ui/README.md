@@ -30,15 +30,18 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native
   commands: `useRetrieval.ts` runs retrieval, review and saving,
-  `useDataFolder.ts` reads the app's details and opens the data folder, and
-  `useAbout.ts` builds on it for the About dialog, adding the issues page and
-  notices, and `useHistory.ts` reads the saved accounts and saved history a
+  `useDataFolder.ts` reads the app's details and opens the data folder,
+  `useOpenings.ts` opens the folder or the issues page, saying which failed,
+  `useAbout.ts` builds on both for the About dialog, adding the notices, and `useHistory.ts` reads the saved accounts and saved history a
   page at a time, keeping each game's account chosen in the switcher until the
   app restarts or a save into that game. `useBackup.ts` saves a backup and
   tracks how it went, and `useRestore.ts` chooses a backup to restore, holds
-  it for its confirmation, which the Backup & Restore screen owns, and restores
-  it: leaving the confirmation, once agreed, cancels the restore, and leaving
-  waits while it restores. `useWindowSize.ts` follows the window's size for the
+  it for its confirmation and restores it, telling its screen when it replaced
+  the history; `useRestoreLeaving.ts` makes leaving the confirmation ask first,
+  then cancel the restore, and wait while it restores, on Backup & Restore and
+  History Unavailable alike. `useHistoryAvailability.ts` holds whether the
+  history can be used, from `history_status` or any command that finds it
+  couldn't be upgraded, until a restore replaces it. `useWindowSize.ts` follows the window's size for the
   size overlay.
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep

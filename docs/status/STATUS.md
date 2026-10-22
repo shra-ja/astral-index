@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### History that can't be upgraded, screen (2026-10-22)
 
-`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen. A history that couldn't be upgraded opens History Unavailable (option A on the canvas) before any game screen: the router asks `history_status`, later commands switch to it too, and the sidebar locks the game screens. Its card names the copy, advises reinstalling the previous version, reporting or restoring, and restores a backup through the usual confirmation, after which Backup & Restore says how it went. Each layer red first; an end-to-end test drives the mock's failing upgrade through to a restore.
+`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen. A history that couldn't be upgraded opens History Unavailable (option A on the canvas) before any game screen: the router asks `history_status`, later commands switch to it too, and the sidebar locks the game screens. Its card names the copy, advises reinstalling the previous version, reporting or restoring, and restores a backup through the usual confirmation, after which Backup & Restore says how it went. Each layer red first; an end-to-end test drives the mock's failing upgrade through to a restore. From the reviews: a restore from Backup & Restore now unlocks the app too, locked links stay named and focusable, and the card shows its latest failure (each red first).
 
 ## Known limitations
 
@@ -72,7 +72,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Migration recovery, screen, then Native times.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Native times, then Verification.
 
 ## Keeping this file current
 
