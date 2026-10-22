@@ -19,6 +19,13 @@ rearranged without rewriting the flows behind them.
   game, so it is app-wide at `/backup`, in the sidebar's Data group; while it is
   open no game is current, and the shell keeps the game shown last for the View
   group's links ([decision 0033](decisions/0033-app-wide-and-per-game-screens.md)).
+  A history from an older release that couldn't be upgraded opens the app-wide
+  History Unavailable screen at `/unavailable` instead: the router's guard asks
+  `history_status` before the first screen, any later command that fails with
+  `history_not_upgraded` switches the shell there too, and while it shows, the
+  game screens redirect to it and the sidebar greys out their links. Its card can
+  restore a backup, with the usual confirmation, after which Backup & Restore says
+  how it went ([0037](../product/features/0037-backup-and-restore.md)).
   The app opens on Star Rail's history. The
   shell creates the retrieval flow and provides it to the screens, so a running
   retrieval and its review survive switching screens. A restore, by contrast,
