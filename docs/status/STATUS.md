@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-20
+Updated: 2026-10-22
 
 ## Current state
 
@@ -51,9 +51,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### History that can't be upgraded, screen (2026-10-22)
+### Stalled package downloads in CI (2026-10-22)
 
-`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen, under way.
+`ci/bounded-apt-install`: twice the static job's OS package download crawled from one Azure mirror until the job's 20-minute limit cancelled it, while the run's other jobs fetched the same packages in seconds. The Linux setup now downloads in up to three three-minute attempts, keeping what arrived, then installs offline; the publish job is skipped, not reported as passed, when a check didn't pass. Red first: `tooling/ci.test.ts` runs the setup's package step with a stand-in `sudo` that stalls downloads, and fails when the retry, its limit or the give-up is removed; the publish condition by its job-level `if`. Whether a retry reaches a faster mirror will show in later runs.
 
 ## Known limitations
 

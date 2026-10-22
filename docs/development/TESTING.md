@@ -271,7 +271,10 @@ progress, but every run on `main` finishes, since only `main` saves caches:
 | **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build |
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
-Windows jobs through `.github/actions/setup-windows`. CI's Windows release
+Windows jobs through `.github/actions/setup-windows`. The Linux setup downloads
+its OS packages in up to three attempts of three minutes each, then installs
+them offline, so a slow mirror fails the job early instead of stalling it until
+its time limit. CI's Windows release
 build and the release workflow both build and smoke-test the executable through
 `.github/actions/build-windows`, which takes the version and build identity as
 inputs, so the two builds cannot drift apart; `tooling/ci.test.ts` checks that
@@ -287,8 +290,8 @@ Linux-only. The release build runs in parallel with the checks, so an
 executable exists only once every check has passed: the build waits as
 `windows-build-unverified-<commit>` for a day, and the publish job republishes
 it as `astral-index-dev-build-unsigned-<commit>` for 7 days once all five jobs
-pass. A failed run's build is never published and expires, so re-running only
-the failed jobs can still publish it; the unverified build can be downloaded
+pass; otherwise the publish job is skipped. A failed run's build is never
+published and expires, so re-running only the failed jobs can still publish it; the unverified build can be downloaded
 under that name until then. Only this repository's builds are kept, not those
 of fork pull requests. The published build is a development build, unsigned and
 not a release. Linux, not a release OS, builds no release.
