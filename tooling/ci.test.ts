@@ -152,8 +152,8 @@ test('the Rust cache follows the asdf toolchain, where Cargo installs tools and 
 
 /**
  * Run the setup's OS package step with a stand-in sudo, whose first `failures`
- * downloads time out as a stalled mirror's would. Returns its exit status and each
- * command it ran.
+ * downloads time out as a stalled mirror's would, and a stand-in sleep. Returns its
+ * exit status and each command it ran.
  */
 function installPackages(nativeTests: boolean, failures: number) {
   const packages = step(linuxSetup, 'name: Install the OS packages')!
@@ -173,6 +173,9 @@ function installPackages(nativeTests: boolean, failures: number) {
     ].join('\n'),
     { mode: 0o755 },
   )
+  writeFileSync(join(dir, 'sleep'), '#!/usr/bin/env bash\necho "sleep $*" >> "$STUB/commands"', {
+    mode: 0o755,
+  })
   const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
     env: {
       PATH: `${dir}:${process.env.PATH}`,
@@ -189,14 +192,16 @@ test('OS packages download in bounded, retried attempts, so a slow mirror cannot
   const libraries = installPackages(false, 0)
   expect(libraries.status).toBe(0)
   const [update, download, install] = libraries.commands
-  expect(update).toBe('timeout 180 apt-get update')
+  // Each part of an attempt is killed if it outlasts its limit: at most about 12
+  // minutes in all, inside every job's time limit.
+  expect(update).toBe('timeout -k 10 60 apt-get update')
   expect(download).toMatch(
-    /^timeout 180 apt-get install -y --download-only .*libwebkit2gtk-4\.1-dev/,
+    /^timeout -k 10 180 apt-get install -y --download-only .*libwebkit2gtk-4\.1-dev/,
   )
   expect(download).not.toContain('xvfb')
   // Installing uses only what was downloaded, so it needs no time limit.
   expect(install).toBe(
-    download.replace('timeout 180 ', '').replace('--download-only', '--no-download'),
+    download.replace('timeout -k 10 180 ', '').replace('--download-only', '--no-download'),
   )
   expect(libraries.commands).toHaveLength(3)
   // The gates and probes also get the native test tools.
@@ -204,15 +209,22 @@ test('OS packages download in bounded, retried attempts, so a slow mirror cannot
   for (const tool of ['xvfb', 'webkit2gtk-driver', 'xdotool', 'dbus-x11', 'bubblewrap']) {
     expect(testTools).toContain(tool)
   }
-  // A stalled download is tried again, keeping what already arrived.
+  // A stalled download is tried again after a pause, keeping what already arrived.
   const retried = installPackages(false, 2)
   expect(retried.status).toBe(0)
-  expect(retried.commands.filter((command) => command.includes('--download-only'))).toHaveLength(3)
-  expect(retried.commands.at(-1)).toContain('--no-download')
-  // Three stalls fail the job early, with nothing installed.
+  const attempt: unknown[] = [update, expect.stringContaining('--download-only')]
+  expect(retried.commands).toEqual([
+    ...attempt,
+    'sleep 10',
+    ...attempt,
+    'sleep 10',
+    ...attempt,
+    install,
+  ])
+  // Three stalls fail the job early, with nothing installed and no last pause.
   const stalled = installPackages(false, 3)
   expect(stalled.status).not.toBe(0)
-  expect(stalled.commands.some((command) => command.includes('--no-download'))).toBe(false)
+  expect(stalled.commands).toEqual([...attempt, 'sleep 10', ...attempt, 'sleep 10', ...attempt])
 })
 
 test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {

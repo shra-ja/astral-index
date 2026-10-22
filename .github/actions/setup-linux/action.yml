@@ -29,11 +29,13 @@ runs:
           packages+=(xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3)
         fi
         # A slow mirror once stalled a download until the job's time limit. Each
-        # attempt is bounded, and a retry keeps the packages that already arrived.
+        # attempt is bounded, about 12 minutes at most in all, and a retry after a
+        # pause keeps the packages that already arrived.
         for attempt in 1 2 3; do
-          sudo timeout 180 apt-get update &&
-            sudo timeout 180 apt-get install -y --download-only "${packages[@]}" && break
+          sudo timeout -k 10 60 apt-get update &&
+            sudo timeout -k 10 180 apt-get install -y --download-only "${packages[@]}" && break
           if (( attempt == 3 )); then exit 1; fi
+          sleep 10
         done
         sudo apt-get install -y --no-download "${packages[@]}"
     - name: Allow network namespaces for the CI test sandbox
