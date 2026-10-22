@@ -7,6 +7,7 @@ import {
   commitImport,
   discardImport,
   extractAutomatically,
+  chooseCacheFile,
   extractFromFile,
   retrieveHistory,
   type Counts,
@@ -177,13 +178,22 @@ export function useRetrieval() {
         extractAutomatically,
         automaticMessages,
       ),
-    readFile: (file: File) =>
-      acquire(
+    // The native side opens the dialog and holds the file; nothing shows until one
+    // is chosen, and a closed dialog changes nothing.
+    chooseFile: async () => {
+      const choice = await chooseCacheFile()
+      if ('cancelled' in choice) return
+      if ('failure' in choice) {
+        source.value = 'file'
+        return finish(failed(choice.failure, describe(choice.failure, fileMessages)))
+      }
+      await acquire(
         'file',
         'Reading the file, then checking with HoYoverse…',
-        () => extractFromFile(file),
+        extractFromFile,
         fileMessages,
-      ),
+      )
+    },
     // Progress stops showing once the user asks to cancel; if the request cannot be
     // sent, retrieval carries on and can be cancelled again.
     cancel: async () => {

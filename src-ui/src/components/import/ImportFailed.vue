@@ -8,7 +8,7 @@ import type { Source } from '../../composables/useRetrieval'
 import CachePicker from '../shared/CachePicker.vue'
 
 defineProps<{ title: string; message: string; source: Source }>()
-const emit = defineEmits<{ retry: []; choose: [file: File]; back: [] }>()
+const emit = defineEmits<{ retry: []; choose: []; back: [] }>()
 const heading = useTemplateRef('heading')
 onMounted(() => heading.value!.focus())
 </script>
@@ -26,7 +26,7 @@ onMounted(() => heading.value!.focus())
     </div>
     <div class="buttons">
       <button v-if="source === 'device'" type="button" @click="emit('retry')">Try again</button>
-      <CachePicker id="retry-cache-file" @choose="emit('choose', $event)" />
+      <CachePicker id="retry-cache-file" @choose="emit('choose')" />
       <button type="button" class="back" @click="emit('back')">Back</button>
     </div>
   </section>

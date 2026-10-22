@@ -13,7 +13,7 @@ import AppTooltip from '../shared/AppTooltip.vue'
 import CachePicker from '../shared/CachePicker.vue'
 
 defineProps<{ term: string; game: string; available: boolean; note?: string }>()
-const emit = defineEmits<{ search: []; choose: [file: File] }>()
+const emit = defineEmits<{ search: []; choose: [] }>()
 const mode = defineModel<Mode>('mode', { required: true })
 const searchButton = useTemplateRef('searchButton')
 const picker = useTemplateRef('picker')
@@ -85,7 +85,7 @@ defineExpose({
               id="cache-file"
               ref="picker"
               :disabled="!available"
-              @choose="emit('choose', $event)"
+              @choose="emit('choose')"
             />
           </div>
           <p v-if="available" class="hint">

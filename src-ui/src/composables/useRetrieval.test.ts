@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 import {
   cancelAcquisition,
+  chooseCacheFile,
   commitImport,
   discardImport,
   extractAutomatically,
@@ -19,6 +20,7 @@ vi.mock('./useHistory')
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(extractAutomatically).mockResolvedValue(undefined)
+  vi.mocked(chooseCacheFile).mockResolvedValue({ chosen: 'data_2' })
   vi.mocked(extractFromFile).mockResolvedValue(undefined)
   vi.mocked(cancelAcquisition).mockResolvedValue(undefined)
   vi.mocked(discardImport).mockResolvedValue(undefined)
@@ -142,7 +144,7 @@ test('retrieval asks for new rolls only, unless the full history is chosen', asy
   await flow.searchDevice()
   flow.chooseMode('full')
   expect(flow.mode.value).toBe('full')
-  await flow.readFile(new File(['synthetic'], 'data_2'))
+  await flow.chooseFile()
   expect(vi.mocked(retrieveHistory).mock.calls.map(([mode]) => mode)).toEqual(['new', 'full'])
 })
 
@@ -156,14 +158,17 @@ test('a retry before the first page leaves nothing to show', async () => {
 })
 
 test('a chosen file is read instead of searching, and its failures are explained as a file', async () => {
-  const file = new File(['synthetic'], 'data_2')
   vi.mocked(extractFromFile).mockResolvedValue({ kind: 'no_request' })
   const flow = useRetrieval()
-  void flow.readFile(file)
+  // Nothing shows while the native dialog is open.
+  const choosing = flow.chooseFile()
+  expect(flow.phase.value).toBe('idle')
+  await Promise.resolve()
+  await Promise.resolve()
   expect(flow.source.value).toBe('file')
   expect(flow.status.value).toBe('Reading the file, then checking with HoYoverse…')
-  await settle()
-  expect(extractFromFile).toHaveBeenCalledWith(file)
+  await choosing
+  expect(extractFromFile).toHaveBeenCalledWith()
   expect(extractAutomatically).not.toHaveBeenCalled()
   expect(retrieveHistory).not.toHaveBeenCalled()
   expect(flow.phase.value).toBe('idle')
@@ -339,4 +344,26 @@ test.each([
   expect(flow.phase.value).toBe('idle')
   expect(flow.review.value).toBeUndefined()
   expect(flow.outcome.value).toEqual({ kind: 'note', message })
+})
+
+test('closing the dialog without choosing leaves the screen as it was', async () => {
+  vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
+  const flow = useRetrieval()
+  await flow.chooseFile()
+  expect(flow.phase.value).toBe('idle')
+  expect(flow.outcome.value).toBeUndefined()
+  expect(extractFromFile).not.toHaveBeenCalled()
+})
+
+test('a dialog that fails is explained as the file', async () => {
+  vi.mocked(chooseCacheFile).mockResolvedValue({ failure: { kind: 'invalid_file' } })
+  const flow = useRetrieval()
+  await flow.chooseFile()
+  expect(flow.source.value).toBe('file')
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: expect.any(String),
+    message: expect.stringContaining('That file couldn’t be read.'),
+  })
+  expect(extractFromFile).not.toHaveBeenCalled()
 })

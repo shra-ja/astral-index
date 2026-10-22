@@ -34,11 +34,8 @@ test('offers retrieval from HoYoverse, by search or a chosen cache file', async 
   expect(wrapper.text()).toContain('choose its data_2 cache file yourself')
   await retrieve(wrapper).trigger('click')
   expect(wrapper.emitted('search')).toHaveLength(1)
-  const file = new File(['synthetic'], 'data_2')
-  const input = wrapper.get<HTMLInputElement>('#cache-file').element
-  Object.defineProperty(input, 'files', { value: [file], configurable: true })
-  input.dispatchEvent(new Event('change'))
-  expect(wrapper.emitted('choose')).toEqual([[file]])
+  await wrapper.get('#cache-file').trigger('click')
+  expect(wrapper.emitted('choose')).toEqual([[]])
   expect(wrapper.find('.note').exists()).toBe(false)
   wrapper.unmount()
 })

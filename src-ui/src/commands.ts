@@ -3,9 +3,6 @@
 // folder the About dialog shows.
 import { Channel, invoke } from '@tauri-apps/api/core'
 
-/** Matches the native extractor's `MAX_CACHE_BYTES`. */
-export const MAX_CACHE_BYTES = 16 * 1024 * 1024
-
 const nativeKinds = [
   'unsupported_host',
   'discovery_failed',
@@ -308,16 +305,24 @@ export async function lastImport(): Promise<{ last: LastImport | null } | { fail
   }
 }
 
-/** Check the size before reading, then send the bytes as a raw body for validation. */
-export async function extractFromFile(file: File): Promise<Failure | undefined> {
-  if (file.size > MAX_CACHE_BYTES) return { kind: 'file_too_large' }
-  let bytes: ArrayBuffer
+/** Choose the cache file in the native dialog; the native side holds it, and only its
+ * name comes back, so the webview never reads the file (decision 0034). */
+export async function chooseCacheFile(): Promise<
+  { chosen: string } | { cancelled: true } | { failure: Failure }
+> {
   try {
-    bytes = await file.arrayBuffer()
-  } catch {
-    return { kind: 'invalid_file' }
+    const result = await invoke<{ kind: 'chosen'; name: string } | { kind: 'cancelled' }>(
+      'choose_cache_file',
+    )
+    return result.kind === 'cancelled' ? { cancelled: true } : { chosen: result.name }
+  } catch (error) {
+    return { failure: parse(error) }
   }
-  return run(() => invoke('extract_from_file', new Uint8Array(bytes)))
+}
+
+/** Read the chosen cache file natively, within its size bound, then validate its link. */
+export function extractFromFile(): Promise<Failure | undefined> {
+  return run(() => invoke('extract_from_file'))
 }
 
 /** What the About dialog shows: the app's version and where its history is kept. */

@@ -29,7 +29,7 @@ const {
   outcome,
   cancelling,
   searchDevice,
-  readFile,
+  chooseFile,
   cancel,
   save,
   discard,
@@ -85,7 +85,7 @@ watch(
         :mode
         @update:mode="chooseMode"
         @search="searchDevice"
-        @choose="readFile"
+        @choose="chooseFile"
       >
         <LastImport v-if="available && last" :last />
       </ImportSources>
@@ -118,7 +118,7 @@ watch(
         :message="outcome.message"
         :source
         @retry="searchDevice"
-        @choose="readFile"
+        @choose="chooseFile"
         @back="dismiss"
       />
     </div>

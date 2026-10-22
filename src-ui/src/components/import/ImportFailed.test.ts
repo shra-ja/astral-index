@@ -22,11 +22,8 @@ test('a search can be tried again, or a cache file chosen instead', async () => 
   const wrapper = failed('device')
   await button(wrapper, 'Try again')!.trigger('click')
   expect(wrapper.emitted('retry')).toHaveLength(1)
-  const file = new File(['synthetic'], 'data_2')
-  const input = wrapper.get<HTMLInputElement>('input[type="file"]').element
-  Object.defineProperty(input, 'files', { value: [file], configurable: true })
-  input.dispatchEvent(new Event('change'))
-  expect(wrapper.emitted('choose')).toEqual([[file]])
+  await wrapper.get('#retry-cache-file').trigger('click')
+  expect(wrapper.emitted('choose')).toEqual([[]])
   await button(wrapper, 'Back')!.trigger('click')
   expect(wrapper.emitted('back')).toHaveLength(1)
   wrapper.unmount()
@@ -35,6 +32,6 @@ test('a search can be tried again, or a cache file chosen instead', async () => 
 test('a chosen file cannot be tried again as it was, so only another file is offered', () => {
   const wrapper = failed('file')
   expect(button(wrapper, 'Try again')).toBeUndefined()
-  expect(wrapper.find('input[type="file"]').exists()).toBe(true)
+  expect(wrapper.find('#retry-cache-file').exists()).toBe(true)
   wrapper.unmount()
 })
