@@ -2884,11 +2884,14 @@ mod tests {
     #[test]
     fn the_status_says_whether_the_history_can_be_used() {
         // Opening it is all it takes.
-        let database = Database::new(Some(PathBuf::from("/data/astral-index")));
+        let folder = PathBuf::from("/data/astral-index");
+        let database = Database::new(Some(folder.clone()));
         filesystem::install(filesystem::Fixture::default());
+        // Joined natively, with the platform's own separator.
+        let history = folder.join(database::FILE_NAME);
         let mut script = vec![step(
             "OPEN",
-            vec![text("/data/astral-index/history.sqlite")],
+            vec![text(&history.to_string_lossy())],
             Reply::Done,
         )];
         script.extend(setup(true));
