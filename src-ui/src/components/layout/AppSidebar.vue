@@ -33,10 +33,12 @@ const emit = defineEmits<{ about: [] }>()
 // The game screen shown, if any.
 const gameScreen = computed(() => (isGameScreen(props.screen) ? props.screen : null))
 // A game or screen link: a router link, or while locked a greyed-out one with nowhere
-// to go.
+// to go, still named and focusable so its tooltip shows.
 const linkTag = computed(() => (props.locked ? 'a' : RouterLink))
-function target(to: RouteLocationRaw, current: 'true' | 'page' | undefined) {
-  return props.locked ? { 'aria-disabled': 'true' } : { to, 'aria-current': current }
+function linkAttrs(to: RouteLocationRaw, current: 'true' | 'page' | undefined) {
+  return props.locked
+    ? { role: 'link', tabindex: 0, 'aria-disabled': 'true' }
+    : { to, 'aria-current': current }
 }
 </script>
 
@@ -56,7 +58,7 @@ function target(to: RouteLocationRaw, current: 'true' | 'page' | undefined) {
               :is="linkTag"
               class="link"
               v-bind="
-                target(
+                linkAttrs(
                   { name: gameScreen ?? 'history', params: { game: id } },
                   gameScreen && id === game ? 'true' : undefined,
                 )
@@ -80,7 +82,7 @@ function target(to: RouteLocationRaw, current: 'true' | 'page' | undefined) {
               :is="linkTag"
               class="link screen"
               v-bind="
-                target(
+                linkAttrs(
                   { name: 'history', params: { game } },
                   screen === 'history' ? 'page' : undefined,
                 )
@@ -98,7 +100,7 @@ function target(to: RouteLocationRaw, current: 'true' | 'page' | undefined) {
               :is="linkTag"
               class="link screen"
               v-bind="
-                target(
+                linkAttrs(
                   { name: 'import', params: { game } },
                   screen === 'import' ? 'page' : undefined,
                 )

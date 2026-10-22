@@ -1682,3 +1682,20 @@ test('a backup restored from Backup & Restore makes the history usable again too
   await follow(named(sidebar(), 'Warp History'))
   expect(heading()).toBe('Warp History')
 })
+
+test('the card’s status line says what failed last', async () => {
+  await startUnavailable({
+    choose_restore: () => reject({ kind: 'restore_refused', code: 'damaged' }),
+    reveal_data_folder: () => reject({ kind: 'open_failed' }),
+  })
+  const main = () => document.querySelector('main')!
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(unavailableStatus()).toBe('This backup is damaged and can’t be restored.')
+  await click(button(main(), 'Open folder'))
+  await settle()
+  expect(unavailableStatus()).toBe('The data folder couldn’t be opened.')
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(unavailableStatus()).toBe('This backup is damaged and can’t be restored.')
+})

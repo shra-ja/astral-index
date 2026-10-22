@@ -138,8 +138,12 @@ test('while the history can’t be used, the game screens are greyed out and can
     const unavailable = wrapper.get(`[aria-labelledby="${group}"]`).findAll('a')
     expect(unavailable.length).toBeGreaterThan(0)
     for (const link of unavailable) {
-      // No address, so it isn't followed or tabbed to.
+      // No address, so it isn't followed; still a named link that keyboard users can
+      // reach, so its tooltip names it in the icon rail.
       expect(link.attributes('href')).toBeUndefined()
+      expect(link.attributes('role')).toBe('link')
+      expect(link.attributes('tabindex')).toBe('0')
+      expect(link.attributes('aria-label')).toBeTruthy()
       expect(link.attributes('aria-disabled')).toBe('true')
       expect(link.attributes('aria-current')).toBeUndefined()
     }

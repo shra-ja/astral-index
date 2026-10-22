@@ -4,7 +4,7 @@
 // names the copy kept first and restores a backup: a checked backup's confirmation
 // replaces the card as it does on Backup & Restore, and once restored the history
 // can be used again and Backup & Restore says how it went.
-import { computed, inject, useTemplateRef, watch } from 'vue'
+import { inject, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import LeaveRestoreDialog from '../components/backup/LeaveRestoreDialog.vue'
 import RestoreConfirm from '../components/backup/RestoreConfirm.vue'
@@ -38,11 +38,14 @@ watch(restore.outcome, (outcome) => {
   availability.handOver(outcome)
   void router.push({ name: 'backup' })
 })
-// The card's status line: why a backup wasn't restored, or which opening failed.
-const failure = computed(() => {
-  const outcome = restore.outcome.value
-  if (outcome?.kind === 'failed') return outcome.message
-  return about.failed.value ? unavailableOpeningFailures[about.failed.value] : null
+// The card's status line: why the last backup wasn't restored, or the last opening
+// that failed, whichever happened last.
+const failure = shallowRef<string | null>(null)
+watch(restore.outcome, (outcome) => {
+  failure.value = outcome?.kind === 'failed' ? outcome.message : null
+})
+watch(about.failed, (opening) => {
+  failure.value = opening ? unavailableOpeningFailures[opening] : null
 })
 </script>
 
