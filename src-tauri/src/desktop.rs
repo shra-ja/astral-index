@@ -324,6 +324,7 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         history_page,
         last_import,
         saved_accounts,
+        history_status,
         about::app_info,
         about::reveal_data_folder,
         about::open_issues_page,
@@ -955,6 +956,34 @@ async fn last_import(database: State<'_, Database>) -> Result<Option<LastImport>
     last_import_into(&database).await
 }
 
+/// Whether the saved history can be used, so the shell knows before showing a
+/// game screen.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HistoryStatus {
+    Ready,
+    /// From an older release and couldn't be upgraded; names the copy kept in the
+    /// data folder before the upgrade, if one was made.
+    NotUpgraded {
+        copy: Option<String>,
+    },
+}
+
+/// Open the history, if it isn't open, and say whether it can be used.
+async fn status_of(database: &Database) -> Result<HistoryStatus, Failure> {
+    match database.run(|_| ()).await {
+        Ok(()) => Ok(HistoryStatus::Ready),
+        Err(storage::Error::NotUpgraded(copy)) => Ok(HistoryStatus::NotUpgraded { copy }),
+        Err(error) => Err(error.into()),
+    }
+}
+
+/// Stored history only: never contacts HoYoverse.
+#[tauri::command]
+async fn history_status(database: State<'_, Database>) -> Result<HistoryStatus, Failure> {
+    status_of(&database).await
+}
+
 /// Drop the held preview without writing anything.
 #[tauri::command]
 fn discard_import(session: State<'_, Session>) {
@@ -1181,6 +1210,7 @@ mod tests {
                 "history_page",
                 "last_import",
                 "saved_accounts",
+                "history_status",
                 "app_info",
                 "reveal_data_folder",
                 "open_issues_page",
@@ -1190,9 +1220,15 @@ mod tests {
                 "confirm_restore"
             ]
         );
+        // The history's status takes no arguments; on the worker thread the
+        // database's test double opens nothing, so it can't be read.
+        assert_eq!(
+            invoke(&window, "history_status", InvokeBody::default()),
+            Err(r#"{"kind":"storage"}"#.into())
+        );
         // The About commands take no arguments. Opening goes to the test double,
         // which launches nothing.
-        let info = reply_to(&window, COMMANDS[9]);
+        let info = reply_to(&window, "app_info");
         let folder = window
             .path()
             .local_data_dir()
@@ -1210,20 +1246,26 @@ mod tests {
                 "portable": false,
             })
         );
-        assert_eq!(invoke(&window, COMMANDS[10], InvokeBody::default()), Ok(()));
-        assert_eq!(invoke(&window, COMMANDS[11], InvokeBody::default()), Ok(()));
+        assert_eq!(
+            invoke(&window, "reveal_data_folder", InvokeBody::default()),
+            Ok(())
+        );
+        assert_eq!(
+            invoke(&window, "open_issues_page", InvokeBody::default()),
+            Ok(())
+        );
         // A backup needs the day's date, checked before any dialog opens.
         for body in [
             serde_json::json!({}),
             serde_json::json!({ "date": 20261016 }),
         ] {
-            let malformed = invoke(&window, COMMANDS[12], InvokeBody::Json(body));
+            let malformed = invoke(&window, "save_backup", InvokeBody::Json(body));
             assert!(malformed.unwrap_err().contains("date"));
         }
         assert_eq!(
             invoke(
                 &window,
-                COMMANDS[12],
+                "save_backup",
                 InvokeBody::Json(serde_json::json!({ "date": "16/10/2026" }))
             ),
             Err(r#"{"kind":"invalid_request"}"#.into())
@@ -1231,33 +1273,36 @@ mod tests {
         // Restore's commands take no arguments; on the worker thread the dialog's
         // test double chooses nothing, so nothing is copied or held.
         assert_eq!(
-            reply_to(&window, COMMANDS[13]),
+            reply_to(&window, "choose_restore"),
             serde_json::json!({ "kind": "cancelled" })
         );
-        assert_eq!(invoke(&window, COMMANDS[14], InvokeBody::default()), Ok(()));
+        assert_eq!(
+            invoke(&window, "cancel_restore", InvokeBody::default()),
+            Ok(())
+        );
         // Confirming needs the local time, and with no backup held restores nothing.
         for body in [
             serde_json::json!({}),
             serde_json::json!({ "time": 20261020 }),
         ] {
-            let malformed = invoke(&window, COMMANDS[15], InvokeBody::Json(body));
+            let malformed = invoke(&window, "confirm_restore", InvokeBody::Json(body));
             assert!(malformed.unwrap_err().contains("time"));
         }
         assert_eq!(
             invoke(
                 &window,
-                COMMANDS[15],
+                "confirm_restore",
                 InvokeBody::Json(serde_json::json!({ "time": "2026-10-20T14:30:00" }))
             ),
             Err(r#"{"kind":"restore_failed"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[8], InvokeBody::default()),
+            invoke(&window, "saved_accounts", InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
         );
         // The test doubles can't serve worker threads, so the read fails safely.
         assert_eq!(
-            invoke(&window, COMMANDS[7], InvokeBody::default()),
+            invoke(&window, "last_import", InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
         );
         // History requests are checked before any database access, and need every argument.
@@ -1269,12 +1314,12 @@ mod tests {
                 "pageSize",
             ),
         ] {
-            let missing = invoke(&window, COMMANDS[6], InvokeBody::Json(body));
+            let missing = invoke(&window, "history_page", InvokeBody::Json(body));
             assert!(missing.unwrap_err().contains(argument));
         }
         let request = serde_json::json!({ "category": "99", "page": 1, "pageSize": 20 });
         assert_eq!(
-            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            invoke(&window, "history_page", InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // A filter, when named, is an object of the expected parts.
@@ -1287,7 +1332,7 @@ mod tests {
             let request = serde_json::json!({
                 "category": "11", "page": 1, "pageSize": 20, "filter": filter,
             });
-            let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+            let malformed = invoke(&window, "history_page", InvokeBody::Json(request));
             assert!(malformed.unwrap_err().contains("filter"));
         }
         // A filter's parts are checked before the database is opened.
@@ -1295,59 +1340,73 @@ mod tests {
             "category": "11", "page": 1, "pageSize": 20, "filter": { "to": "2024-13-01" },
         });
         assert_eq!(
-            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            invoke(&window, "history_page", InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // An account, when named, needs both its UID and server.
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "100000002" },
         });
-        let missing = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+        let missing = invoke(&window, "history_page", InvokeBody::Json(request));
         assert!(missing.unwrap_err().contains("server"));
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "", "server": "x" },
         });
         assert_eq!(
-            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            invoke(&window, "history_page", InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // Nothing was retrieved, so there is nothing to commit; discarding is harmless.
         assert_eq!(
-            invoke(&window, COMMANDS[4], InvokeBody::default()),
+            invoke(&window, "commit_import", InvokeBody::default()),
             Err(r#"{"kind":"no_preview"}"#.into())
         );
-        assert_eq!(invoke(&window, COMMANDS[5], InvokeBody::default()), Ok(()));
-        assert_eq!(invoke(&window, COMMANDS[2], InvokeBody::default()), Ok(()));
+        assert_eq!(
+            invoke(&window, "discard_import", InvokeBody::default()),
+            Ok(())
+        );
+        assert_eq!(
+            invoke(&window, "cancel_acquisition", InvokeBody::default()),
+            Ok(())
+        );
         // Retrieval needs a known mode; nothing was validated, so it sends nothing.
         let channel =
             |mode: &str| serde_json::json!({ "onProgress": "__CHANNEL__:1", "mode": mode });
         assert_eq!(
-            invoke(&window, COMMANDS[3], InvokeBody::Json(channel("full"))),
+            invoke(
+                &window,
+                "retrieve_history",
+                InvokeBody::Json(channel("full"))
+            ),
             Err(r#"{"kind":"no_context"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[3], InvokeBody::Json(channel("partial"))),
+            invoke(
+                &window,
+                "retrieve_history",
+                InvokeBody::Json(channel("partial"))
+            ),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         let missing = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
-        let missing = invoke(&window, COMMANDS[3], InvokeBody::Json(missing));
+        let missing = invoke(&window, "retrieve_history", InvokeBody::Json(missing));
         assert!(missing.unwrap_err().contains("mode"));
         // Host discovery is unsupported here: the unit-test OS double reports plain Linux.
         assert_eq!(
-            invoke(&window, COMMANDS[0], InvokeBody::default()),
+            invoke(&window, "extract_automatically", InvokeBody::default()),
             Err(r#"{"kind":"unsupported_host"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[1], InvokeBody::default()),
+            invoke(&window, "extract_from_file", InvokeBody::default()),
             Err(r#"{"kind":"invalid_file"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[1], raw(b"no request".to_vec())),
+            invoke(&window, "extract_from_file", raw(b"no request".to_vec())),
             Err(r#"{"kind":"no_request"}"#.into())
         );
         // A progress channel is required.
         let no_channel = InvokeBody::Json(serde_json::json!({ "mode": "full" }));
-        let missing = invoke(&window, COMMANDS[3], no_channel);
+        let missing = invoke(&window, "retrieve_history", no_channel);
         assert!(missing.unwrap_err().contains("onProgress"));
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
@@ -2767,6 +2826,42 @@ mod tests {
         sql::expect(accounts_script(vec![vec![Value::Null]]));
         assert_eq!(run(saved_accounts_into(&database)), Err(Failure::Storage));
         sql::finish();
+    }
+
+    #[test]
+    fn the_status_says_whether_the_history_can_be_used() {
+        // Opening it is all it takes.
+        let database = Database::new(Some(PathBuf::from("/data/astral-index")));
+        filesystem::install(filesystem::Fixture::default());
+        let mut script = vec![step(
+            "OPEN",
+            vec![text("/data/astral-index/history.sqlite")],
+            Reply::Done,
+        )];
+        script.extend(setup(true));
+        sql::expect(script);
+        assert_eq!(run(status_of(&database)), Ok(HistoryStatus::Ready));
+        sql::finish();
+        // An older history that couldn't be upgraded names its copy.
+        let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
+        let failed = Database::not_upgraded(PathBuf::from("/data/astral-index"), copy.clone());
+        assert_eq!(
+            run(status_of(&failed)),
+            Ok(HistoryStatus::NotUpgraded { copy: copy.clone() })
+        );
+        assert_eq!(
+            serde_json::to_value(HistoryStatus::NotUpgraded { copy }).unwrap(),
+            serde_json::json!({
+                "kind": "not_upgraded",
+                "copy": "history-v2-20261021-143000.sqlite"
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(HistoryStatus::Ready).unwrap(),
+            serde_json::json!({ "kind": "ready" })
+        );
+        // Any other failure to open it is a failure.
+        assert_eq!(run(status_of(&Database::new(None))), Err(Failure::Storage));
     }
 
     #[test]
