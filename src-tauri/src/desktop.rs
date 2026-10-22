@@ -27,6 +27,7 @@ pub mod about;
 pub mod backup;
 pub mod cache_file;
 pub mod database;
+pub mod dialogs;
 pub mod restore;
 pub use database::Database;
 
@@ -345,7 +346,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         portable: true,
         fresh_webview: false,
         opener: about::Opener::System,
-        dialogs: backup::Dialogs::System,
+        dialogs: dialogs::Dialogs::System,
         schema: storage::Schema::CURRENT,
     };
     register_with(
@@ -366,7 +367,7 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         portable: false,
         fresh_webview: true,
         opener: about::Opener::Recording,
-        dialogs: backup::Dialogs::Answering,
+        dialogs: dialogs::Dialogs::Answering,
         schema: scenario.schema,
     };
     register_with(builder, Network::Mock(scenario.network), settings)
@@ -418,7 +419,7 @@ struct Settings {
     /// Whether the webview's profile is cleared at each start.
     fresh_webview: bool,
     opener: about::Opener,
-    dialogs: backup::Dialogs,
+    dialogs: dialogs::Dialogs,
     /// The schema the history is opened with.
     schema: storage::Schema,
 }
@@ -1499,8 +1500,8 @@ mod tests {
         assert!(matches!(about.opener, about::Opener::System));
         // Backups are saved where the user chooses in the system's dialog.
         assert!(matches!(
-            *app.state::<backup::Dialogs>(),
-            backup::Dialogs::System
+            *app.state::<dialogs::Dialogs>(),
+            dialogs::Dialogs::System
         ));
         assert!(app.get_webview_window("main").is_some());
         // The app keeps its webview profile, and only the leftover copy is removed.
@@ -1560,8 +1561,8 @@ mod tests {
         assert!(matches!(about.opener, about::Opener::Recording));
         // Its tests answer the save dialog from its data folder.
         assert!(matches!(
-            *app.state::<backup::Dialogs>(),
-            backup::Dialogs::Answering
+            *app.state::<dialogs::Dialogs>(),
+            dialogs::Dialogs::Answering
         ));
         assert!(app.get_webview_window("main").is_some());
         // The mock starts each run with a fresh webview profile.
@@ -1717,9 +1718,9 @@ mod tests {
         // Choosing needs the dialogs, the database and somewhere to hold the file.
         for builder in [
             mock_builder(),
-            mock_builder().manage(backup::Dialogs::System),
+            mock_builder().manage(dialogs::Dialogs::System),
             mock_builder()
-                .manage(backup::Dialogs::System)
+                .manage(dialogs::Dialogs::System)
                 .manage(Database::new(None)),
         ] {
             let missing = invoke(&window(builder), "choose_cache_file", InvokeBody::default());
@@ -1727,7 +1728,7 @@ mod tests {
         }
         // On the worker thread the dialog's test double chooses nothing.
         let managed = mock_builder()
-            .manage(backup::Dialogs::System)
+            .manage(dialogs::Dialogs::System)
             .manage(Database::new(None))
             .manage(cache_file::CacheFile::default());
         assert_eq!(
@@ -1744,7 +1745,7 @@ mod tests {
 
     #[test]
     fn restore_fails_over_ipc_without_a_data_folder_or_its_state() {
-        let backup = || backup::Dialogs::System;
+        let backup = || dialogs::Dialogs::System;
         let builders = || {
             [
                 mock_builder().manage(backup()),

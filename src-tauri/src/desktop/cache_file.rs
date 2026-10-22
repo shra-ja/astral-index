@@ -6,8 +6,8 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure,
-    backup::{Dialogs, answer},
     database::Database,
+    dialogs::{Dialogs, ask, file_name},
 };
 use chooser::DialogExt;
 use serde::Serialize;
@@ -56,15 +56,9 @@ fn choose<R: Runtime>(
     dialogs: Dialogs,
     folder: Option<&Path>,
 ) -> Result<Option<PathBuf>, Failure> {
-    match dialogs {
-        Dialogs::System => app
-            .dialog()
-            .file()
-            .blocking_pick_file()
-            .map(|chosen| chosen.into_path().map_err(|_| Failure::InvalidFile))
-            .transpose(),
-        Dialogs::Answering => Ok(answer(folder, ANSWER)),
-    }
+    ask(dialogs, folder, ANSWER, Failure::InvalidFile, || {
+        app.dialog().file().blocking_pick_file()
+    })
 }
 
 /// Ask which cache file to read, off the async workers as the dialog blocks, and
@@ -82,10 +76,7 @@ async fn choose_into<R: Runtime>(
     let Some(path) = chosen else {
         return Ok(CacheChoice::Cancelled);
     };
-    let name = path
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .ok_or(Failure::InvalidFile)?;
+    let name = file_name(&path, Failure::InvalidFile)?;
     cache.hold(path);
     Ok(CacheChoice::Chosen { name })
 }

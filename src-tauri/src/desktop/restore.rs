@@ -7,8 +7,9 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
-    backup::{Dialogs, answer, publish, real},
+    backup::{publish, real},
     database::{self, Database},
+    dialogs::{Dialogs, ask, file_name},
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -144,16 +145,18 @@ fn choose<R: Runtime>(
     dialogs: Dialogs,
     folder: &Path,
 ) -> Result<Option<PathBuf>, Failure> {
-    match dialogs {
-        Dialogs::System => app
-            .dialog()
-            .file()
-            .add_filter("Astral Index backup", &["sqlite"])
-            .blocking_pick_file()
-            .map(|chosen| chosen.into_path().map_err(|_| Failure::RestoreFailed))
-            .transpose(),
-        Dialogs::Answering => Ok(answer(Some(folder), ANSWER)),
-    }
+    ask(
+        dialogs,
+        Some(folder),
+        ANSWER,
+        Failure::RestoreFailed,
+        || {
+            app.dialog()
+                .file()
+                .add_filter("Astral Index backup", &["sqlite"])
+                .blocking_pick_file()
+        },
+    )
 }
 
 /// Copy at most `limit` bytes of `source` into `to`, refusing a larger file, even
@@ -248,10 +251,7 @@ async fn choose_into<R: Runtime>(
     let Some(source) = chosen else {
         return Ok(Chosen::Cancelled);
     };
-    let name = source
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .ok_or(Failure::RestoreFailed)?;
+    let name = file_name(&source, Failure::RestoreFailed)?;
     if is_history(&history, &source) {
         return Err(Failure::RestoreIsHistory);
     }

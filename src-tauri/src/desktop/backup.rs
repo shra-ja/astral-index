@@ -4,7 +4,11 @@
 //! the webview.
 #[cfg(test)]
 use super::tests::{blocking::spawn_blocking, chooser};
-use super::{Failure, database::Database};
+use super::{
+    Failure,
+    database::Database,
+    dialogs::{Dialogs, ask, file_name},
+};
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
 use crate::storage::check_database;
@@ -24,17 +28,6 @@ use tokio::task::spawn_blocking;
 pub const ANSWER: &str = "save-as.txt";
 /// How many temporary names beside a target are tried before giving up.
 const PARTIAL_NAMES: usize = 8;
-
-/// How the file dialogs are answered.
-#[derive(Clone, Copy)]
-pub enum Dialogs {
-    /// By the user, in the system's dialogs.
-    System,
-    /// From answer files in the data folder, for the mock debug binary, which never
-    /// opens a dialog
-    /// ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
-    Answering,
-}
 
 /// What became of a backup.
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -64,24 +57,13 @@ fn choose<R: Runtime>(
     folder: Option<&Path>,
     name: &str,
 ) -> Result<Option<PathBuf>, Failure> {
-    match dialogs {
-        Dialogs::System => app
-            .dialog()
+    ask(dialogs, folder, ANSWER, Failure::BackupFailed, || {
+        app.dialog()
             .file()
             .set_file_name(name)
             .add_filter("Astral Index backup", &["sqlite"])
             .blocking_save_file()
-            .map(|chosen| chosen.into_path().map_err(|_| Failure::BackupFailed))
-            .transpose(),
-        Dialogs::Answering => Ok(answer(folder, ANSWER)),
-    }
-}
-
-/// The mock's answer to a dialog: the path in the data folder's `file`, if any.
-pub(super) fn answer(folder: Option<&Path>, file: &str) -> Option<PathBuf> {
-    folder
-        .and_then(|folder| fs::read_to_string(folder.join(file)).ok())
-        .map(|answer| PathBuf::from(answer.trim_end()))
+    })
 }
 
 /// A file's or folder's real path where it can be found, so links and differing
@@ -154,10 +136,7 @@ pub(super) fn publish(written: &Path, target: &Path) -> std::io::Result<()> {
 /// the temporary file, and only that file, so nothing is left half-written. A
 /// target in the database's data folder is refused.
 pub async fn save_to(database: &Database, target: &Path) -> Result<Saved, Failure> {
-    let name = target
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .ok_or(Failure::BackupFailed)?;
+    let name = file_name(target, Failure::BackupFailed)?;
     if in_data_folder(database.folder(), target) {
         return Err(Failure::BackupInDataFolder);
     }
