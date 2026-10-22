@@ -1,4 +1,7 @@
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from 'vitest'
 
 const read = (path: string) => readFileSync(path, 'utf8')
@@ -147,17 +150,72 @@ test('the Rust cache follows the asdf toolchain, where Cargo installs tools and 
   expect(order).toEqual(order.toSorted((a, b) => a - b))
 })
 
-test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
+/**
+ * Run the setup's OS package step with a stand-in sudo, whose first `failures`
+ * downloads time out as a stalled mirror's would. Returns its exit status and each
+ * command it ran.
+ */
+function installPackages(nativeTests: boolean, failures: number) {
+  const packages = step(linuxSetup, 'name: Install the OS packages')!
+  expect(packages).toContain('NATIVE_TESTS: ${{ inputs.native-tests }}')
+  const script = /run: \|\n((?: {8}.*\n|\n)+)/.exec(packages)![1].replace(/^ {8}/gm, '')
+  const dir = mkdtempSync(join(tmpdir(), 'apt-'))
+  writeFileSync(join(dir, 'failures'), String(failures))
+  writeFileSync(
+    join(dir, 'sudo'),
+    [
+      '#!/usr/bin/env bash',
+      'echo "$*" >> "$STUB/commands"',
+      'left=$(cat "$STUB/failures")',
+      'if [[ "$*" == *--download-only* ]] && (( left > 0 )); then',
+      '  echo $((left - 1)) > "$STUB/failures"; exit 124',
+      'fi',
+    ].join('\n'),
+    { mode: 0o755 },
+  )
+  const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
+    env: {
+      PATH: `${dir}:${process.env.PATH}`,
+      STUB: dir,
+      NATIVE_TESTS: String(nativeTests),
+    },
+  })
+  const commands = readFileSync(join(dir, 'commands'), 'utf8').trim().split('\n')
+  return { status: run.status, commands }
+}
+
+test('OS packages download in bounded, retried attempts, so a slow mirror cannot stall a job', () => {
   // The static checks need the libraries Rust links against, not the native test tools.
-  const libraries = step(linuxSetup, 'name: Install the native libraries')
-  expect(libraries).toContain('libwebkit2gtk-4.1-dev')
-  expect(libraries).not.toMatch(/^\s+if:/m)
-  expect(libraries).not.toContain('xvfb')
-  const testTools = step(linuxSetup, 'name: Install the native test tools')
-  expect(testTools).toContain("if: inputs.native-tests == 'true'")
+  const libraries = installPackages(false, 0)
+  expect(libraries.status).toBe(0)
+  const [update, download, install] = libraries.commands
+  expect(update).toBe('timeout 180 apt-get update')
+  expect(download).toMatch(
+    /^timeout 180 apt-get install -y --download-only .*libwebkit2gtk-4\.1-dev/,
+  )
+  expect(download).not.toContain('xvfb')
+  // Installing uses only what was downloaded, so it needs no time limit.
+  expect(install).toBe(
+    download.replace('timeout 180 ', '').replace('--download-only', '--no-download'),
+  )
+  expect(libraries.commands).toHaveLength(3)
+  // The gates and probes also get the native test tools.
+  const testTools = installPackages(true, 0).commands[1]
   for (const tool of ['xvfb', 'webkit2gtk-driver', 'xdotool', 'dbus-x11', 'bubblewrap']) {
     expect(testTools).toContain(tool)
   }
+  // A stalled download is tried again, keeping what already arrived.
+  const retried = installPackages(false, 2)
+  expect(retried.status).toBe(0)
+  expect(retried.commands.filter((command) => command.includes('--download-only'))).toHaveLength(3)
+  expect(retried.commands.at(-1)).toContain('--no-download')
+  // Three stalls fail the job early, with nothing installed.
+  const stalled = installPackages(false, 3)
+  expect(stalled.status).not.toBe(0)
+  expect(stalled.commands.some((command) => command.includes('--no-download'))).toBe(false)
+})
+
+test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
   const prebuilt = step(linuxSetup, 'uses: taiki-e/install-action@')
   expect(prebuilt).toContain('tool: cargo-llvm-cov@0.9.1,cargo-about@0.9.2')
   expect(prebuilt).toContain("if: inputs.native-tests == 'true'")

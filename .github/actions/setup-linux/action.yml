@@ -19,15 +19,23 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install the native libraries
+    - name: Install the OS packages
       shell: bash
+      env:
+        NATIVE_TESTS: ${{ inputs.native-tests }}
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-    - name: Install the native test tools
-      if: inputs.native-tests == 'true'
-      shell: bash
-      run: sudo apt-get install -y xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3
+        packages=(libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev)
+        if [[ $NATIVE_TESTS == true ]]; then
+          packages+=(xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3)
+        fi
+        # A slow mirror once stalled a download until the job's time limit. Each
+        # attempt is bounded, and a retry keeps the packages that already arrived.
+        for attempt in 1 2 3; do
+          sudo timeout 180 apt-get update &&
+            sudo timeout 180 apt-get install -y --download-only "${packages[@]}" && break
+          if (( attempt == 3 )); then exit 1; fi
+        done
+        sudo apt-get install -y --no-download "${packages[@]}"
     - name: Allow network namespaces for the CI test sandbox
       if: inputs.native-tests == 'true'
       shell: bash
