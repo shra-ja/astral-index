@@ -30,6 +30,7 @@ const {
   cancelling,
   searchDevice,
   chooseFile,
+  choosing,
   cancel,
   save,
   discard,
@@ -83,6 +84,7 @@ watch(
         :available
         :note
         :mode
+        :busy="choosing"
         @update:mode="chooseMode"
         @search="searchDevice"
         @choose="chooseFile"
@@ -117,6 +119,7 @@ watch(
         :title="outcome.title"
         :message="outcome.message"
         :source
+        :busy="choosing"
         @retry="searchDevice"
         @choose="chooseFile"
         @back="dismiss"

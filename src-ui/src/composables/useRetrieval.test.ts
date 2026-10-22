@@ -158,15 +158,20 @@ test('a retry before the first page leaves nothing to show', async () => {
 })
 
 test('a chosen file is read instead of searching, and its failures are explained as a file', async () => {
-  vi.mocked(extractFromFile).mockResolvedValue({ kind: 'no_request' })
+  let answer: (choice: { chosen: string }) => void = () => undefined
+  vi.mocked(chooseCacheFile).mockReturnValue(new Promise((resolve) => (answer = resolve)))
+  let extracted: (failure: Failure) => void = () => undefined
+  vi.mocked(extractFromFile).mockReturnValue(new Promise((resolve) => (extracted = resolve)))
   const flow = useRetrieval()
   // Nothing shows while the native dialog is open.
   const choosing = flow.chooseFile()
+  await settle()
   expect(flow.phase.value).toBe('idle')
-  await Promise.resolve()
-  await Promise.resolve()
+  answer({ chosen: 'data_2' })
+  await settle()
   expect(flow.source.value).toBe('file')
   expect(flow.status.value).toBe('Reading the file, then checking with HoYoverse…')
+  extracted({ kind: 'no_request' })
   await choosing
   expect(extractFromFile).toHaveBeenCalledWith()
   expect(extractAutomatically).not.toHaveBeenCalled()
@@ -366,4 +371,25 @@ test('a dialog that fails is explained as the file', async () => {
     message: expect.stringContaining('That file couldn’t be read.'),
   })
   expect(extractFromFile).not.toHaveBeenCalled()
+})
+
+test('while the dialog is open, nothing else starts: no second dialog and no search', async () => {
+  vi.mocked(extractFromFile).mockResolvedValue({ kind: 'no_request' })
+  let answer: (choice: { chosen: string }) => void = () => undefined
+  vi.mocked(chooseCacheFile).mockReturnValue(new Promise((resolve) => (answer = resolve)))
+  const flow = useRetrieval()
+  const choosing = flow.chooseFile()
+  expect(flow.choosing.value).toBe(true)
+  await flow.chooseFile()
+  await flow.searchDevice()
+  expect(chooseCacheFile).toHaveBeenCalledTimes(1)
+  expect(extractAutomatically).not.toHaveBeenCalled()
+  answer({ chosen: 'data_2' })
+  await choosing
+  expect(flow.choosing.value).toBe(false)
+  expect(extractFromFile).toHaveBeenCalledTimes(1)
+  // A closed or failed dialog frees the screen too.
+  vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
+  await flow.chooseFile()
+  expect(flow.choosing.value).toBe(false)
 })

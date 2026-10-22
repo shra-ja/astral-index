@@ -2,9 +2,9 @@ import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import ImportFailed from './ImportFailed.vue'
 
-const failed = (source: 'device' | 'file') =>
+const failed = (source: 'device' | 'file', busy = false) =>
   mount(ImportFailed, {
-    props: { title: 'Couldn’t Find the Game Files', message: 'We found the game.', source },
+    props: { title: 'Couldn’t Find the Game Files', message: 'We found the game.', source, busy },
     attachTo: document.body,
   })
 const button = (wrapper: ReturnType<typeof failed>, name: string) =>
@@ -33,5 +33,12 @@ test('a chosen file cannot be tried again as it was, so only another file is off
   const wrapper = failed('file')
   expect(button(wrapper, 'Try again')).toBeUndefined()
   expect(wrapper.find('#retry-cache-file').exists()).toBe(true)
+  wrapper.unmount()
+})
+
+test('while the cache file dialog is open, neither a retry nor another file can start', () => {
+  const wrapper = failed('device', true)
+  expect(button(wrapper, 'Try again')!.attributes('aria-disabled')).toBe('true')
+  expect(wrapper.get('#retry-cache-file').attributes('aria-disabled')).toBe('true')
   wrapper.unmount()
 })

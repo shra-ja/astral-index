@@ -7,7 +7,8 @@ import { onMounted, useTemplateRef } from 'vue'
 import type { Source } from '../../composables/useRetrieval'
 import CachePicker from '../shared/CachePicker.vue'
 
-defineProps<{ title: string; message: string; source: Source }>()
+// `busy` is set while the cache file's dialog is open, when nothing can start.
+defineProps<{ title: string; message: string; source: Source; busy?: boolean }>()
 const emit = defineEmits<{ retry: []; choose: []; back: [] }>()
 const heading = useTemplateRef('heading')
 onMounted(() => heading.value!.focus())
@@ -25,8 +26,15 @@ onMounted(() => heading.value!.focus())
       </div>
     </div>
     <div class="buttons">
-      <button v-if="source === 'device'" type="button" @click="emit('retry')">Try again</button>
-      <CachePicker id="retry-cache-file" @choose="emit('choose')" />
+      <button
+        v-if="source === 'device'"
+        type="button"
+        :aria-disabled="busy || undefined"
+        @click="emit('retry')"
+      >
+        Try again
+      </button>
+      <CachePicker id="retry-cache-file" :busy @choose="emit('choose')" />
       <button type="button" class="back" @click="emit('back')">Back</button>
     </div>
   </section>
