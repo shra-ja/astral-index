@@ -54,8 +54,10 @@ details.
 
 `ASTRAL_INDEX_MOCK_SCENARIO` chooses the mock's behaviour: `history` (the
 default), `expired-link`, `network-failure`, `rate-limited`, `no-history`,
-`newer-history`, `second-account`, `mixed-accounts` or `large-history` (20,000
-Character Event Warp rolls)
+`newer-history`, `second-account`, `mixed-accounts`, `large-history` (20,000
+Character Event Warp rolls) or `failing-upgrade` (`history`, with the saved
+history opened by a test-only migration that a history with two accounts on one
+server, such as the 1.0.0 fixture placed in its data folder, fails)
 ([decision 0014](../architecture/decisions/0014-mock-debug-binary.md)). The mock
 keeps its history in its own `astral-index-mock` data folder.
 

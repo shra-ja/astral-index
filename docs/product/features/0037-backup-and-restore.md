@@ -295,17 +295,31 @@ Backup and restore stay local and never make a network request.
     CONTRIBUTING's step for the tests would stop being true with the first real
     migration. The opening scripts are now built from named steps, and one
     checked helper turns a version into the migrations it has.
-- [ ] **Migration recovery, native support for the screen** (one PR):
-  - [ ] A `history_status` command, which the shell calls once at startup:
+- [x] **Migration recovery, native support for the screen** (one PR):
+  - [x] A `history_status` command, which the shell calls once at startup:
     ready, or not upgraded with the copy's name.
-  - [ ] Restoring another backup over a history that can't be upgraded:
+  - [x] Restoring another backup over a history that can't be upgraded:
     choosing returns no current contents to compare, as the user chose;
     confirming hands the file over without opening it, keeps it as a
     `history-before-restore-*` safety copy exactly as it is, puts the backup in
     place, and the next use opens the restored history without a restart.
-  - [ ] The mock debug binary can open its history with a test-only migration
+  - [x] The mock debug binary can open its history with a test-only migration
     that fails, so end-to-end tests drive a real failed upgrade of a 1.0.0
     history they place in its data folder.
+  - `history_status` and backup's and restore's use of the history's schema
+    failed first where they could: the status against a stub answering ready,
+    the mock's scenario and the schema wiring by breaking each on purpose
+    (backup's only through its real-file test, as the SQL double can't tell
+    the schemas apart). Restoring over a history that can't be upgraded
+    changes the choice's types, so its rules were broken on purpose too: the
+    unopened hand-over, the state reset after it, choosing without current
+    contents, a history that changed whether it can be read, and keeping an
+    unread history. The mock's migration was checked with SQLite to fail on
+    the 1.0.0 fixture and pass on one account. An end-to-end test places the
+    1.0.0 history in the mock's folder and finds `history_status` reporting
+    the copy, the history byte for byte as it was and one copy holding it;
+    without the failing migration it reports ready. Restoring over such a
+    history through the screen is end-to-end tested with the screen.
 - [ ] **Migration recovery, screen** (one PR):
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;

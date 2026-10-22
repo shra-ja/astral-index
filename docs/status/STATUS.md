@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### History that can't be upgraded (2026-10-22)
 
-`feat/not-upgraded-screen`: 0037's Migration recovery, native support for the screen (the screen follows in its own PR), under way.
+`feat/not-upgraded-screen`: 0037's Migration recovery, native support for the screen. `history_status` reports a history that can't be upgraded, naming its copy; a backup can be restored over one, keeping it as it is; and the mock's `failing-upgrade` scenario upgrades its history with a test-only migration the 1.0.0 fixture fails. Red first where the types allowed, each other rule broken on purpose; an end-to-end test drives the real failure. The screen follows in its own PR.
 
 ## Known limitations
 
