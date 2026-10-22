@@ -3,7 +3,7 @@
 // it. It owns the retrieval flow, so a retrieval keeps running while another screen
 // is shown.
 import { computed, inject, provide, shallowRef, watch } from 'vue'
-import { RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import AboutDialog from './components/about/AboutDialog.vue'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import { useAbout } from './composables/useAbout'
@@ -15,7 +15,7 @@ import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
 import { games } from './features'
 import { openingGame } from './router'
-import { isGameScreen, type Game, type Screen } from './format'
+import type { Game, Screen } from './format'
 
 provide(retrievalKey, useRetrieval())
 const route = useRoute()
@@ -30,13 +30,9 @@ watch(
   },
   { immediate: true },
 )
-// While the history can't be used, the game screens are locked, and a command that
-// finds it so on a game screen switches to the History Unavailable screen.
+// While the history can't be used, the sidebar locks the game screens; the router
+// keeps them away.
 const { unavailable } = inject(availabilityKey)!
-const router = useRouter()
-watch(unavailable, (now) => {
-  if (now && route.name && isGameScreen(screen.value)) void router.replace({ name: 'unavailable' })
-})
 // A debug build opened with ASTRAL_INDEX_SIZE_OVERLAY=1 shows the window's size.
 const size = sizeOverlayRequested() ? useWindowSize() : null
 
