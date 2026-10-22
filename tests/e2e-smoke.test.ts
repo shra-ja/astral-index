@@ -232,7 +232,7 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
       const done = arguments[arguments.length - 1];
       const invoke = window.__TAURI_INTERNALS__.invoke;
       Promise.all([
-        invoke('extract_from_file', new TextEncoder().encode('no request')).then(() => 'resolved', JSON.stringify),
+        invoke('extract_from_file', new TextEncoder().encode('ignored body')).then(() => 'resolved', JSON.stringify),
         invoke('read_arbitrary_file').then(() => 'resolved', String),
         invoke('cancel_acquisition').then(() => 'resolved', String),
         invoke('retrieve_history', {
@@ -248,7 +248,10 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
         invoke('history_page', { category: '99', page: 1, pageSize: 20 }).then(() => 'resolved', JSON.stringify),
       ]).then(done);
     `)
-    expect(commands[0]).toBe('{"kind":"no_request"}')
+    // The file is chosen in the system's dialog, which only the mock's tests can
+    // answer; with nothing chosen, reading is refused and a body is ignored, as no
+    // file's bytes cross IPC (decision 0034).
+    expect(commands[0]).toBe('{"kind":"invalid_file"}')
     expect(commands[1]).toContain('not allowed')
     expect(commands[2]).toBe('resolved')
     // Setup managed the database; nothing was validated, so nothing is retrieved.
@@ -269,17 +272,12 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     // Test builds carry no version or build identity (decision 0030).
     expect(info).toMatchObject({ version: '0.0.0', build: { kind: 'local' }, portable: false })
     expect(info.folder).toMatch(/[/\\]astral-index$/)
-    // Keyboard-operated automatic search fails safely here, then the real file input
-    // sends a synthetic cache through raw IPC. Validation cannot reach HoYoverse offline.
+    // Keyboard-operated automatic search fails safely here.
     await app.execute('document.querySelector(".retrieval button").focus()')
     await app.press(ENTER)
     await expect
       .poll(() => textOf(app, '.failed'), { timeout: 10000 })
       .toContain('Automatic search needs Windows')
-    await app.chooseFile('#retry-cache-file', cachePath)
-    await expect
-      .poll(() => textOf(app, '.failed'), { timeout: 10000 })
-      .toContain('We couldn’t reach HoYoverse.')
     // The narrow window collapses the sidebar to icons.
     expect(
       await app.execute(
@@ -475,7 +473,17 @@ async function retrieveFromFile(app: AppSession) {
   await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
   await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
   await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
-  await app.chooseFile('#cache-file', cachePath)
+  await chooseCache(app)
+}
+/**
+ * Choose the synthetic cache file as the mock answers its native dialog, from
+ * `cache-from.txt` in its data folder (decision 0034), then press `picker`.
+ */
+async function chooseCache(app: AppSession, picker = '#cache-file') {
+  const folder = resolve(mockData, 'astral-index-mock')
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(resolve(folder, 'cache-from.txt'), `${cachePath}\n`)
+  await app.execute(`document.querySelector(${JSON.stringify(picker)}).click()`)
 }
 const skipped = (app: AppSession) =>
   app.execute<string | undefined>(
@@ -1469,7 +1477,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.screenshot('e2e-mock-last-import')
     // A quick refresh, the default, stops each category at its first page: every
     // category reaches saved rolls there, so only those pages are skipped.
-    await app.chooseFile('#cache-file', cachePath)
+    await chooseCache(app)
     await expect
       .poll(
         () =>
@@ -1494,7 +1502,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.execute(
       '[...document.querySelectorAll("fieldset label")].find(label => label.textContent.trim() === "Full history").click()',
     )
-    await app.chooseFile('#cache-file', cachePath)
+    await chooseCache(app)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
       .toBe('Everything here is already saved')
@@ -1762,7 +1770,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
       .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
       .toBe('Retrieval cancelled. Nothing was saved.')
     expect(await stored(app)).toEqual(nothingSaved)
-    await app.chooseFile('#cache-file', cachePath)
+    await chooseCache(app)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
       .toBe('Ready to save 2,060 new rolls')
@@ -1771,7 +1779,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
       .poll(() => textOf(app, '.start .note'), { timeout: 10000 })
       .toBe('Discarded the retrieved history. Nothing was saved.')
     expect(await stored(app)).toEqual(nothingSaved)
-    await app.chooseFile('#cache-file', cachePath)
+    await chooseCache(app)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
       .toBe('Ready to save 2,060 new rolls')
@@ -1802,7 +1810,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
       )
       .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
     // A retrieval that fails now leaves the saved history as it was.
-    await app.chooseFile('#cache-file', cachePath)
+    await chooseCache(app)
     await expect
       .poll(() => textOf(app, '.failed h2'), { timeout: 30000 })
       .toBe('Couldn’t Reach HoYoverse')
@@ -1861,7 +1869,7 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     await app.execute(
       '[...document.querySelectorAll("fieldset label")].find(label => label.textContent.trim() === "Full history").click()',
     )
-    await app.chooseFile('#cache-file', cachePath)
+    await chooseCache(app)
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
       .toBe('Everything here is already saved')

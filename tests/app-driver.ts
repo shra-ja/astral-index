@@ -31,8 +31,6 @@ export interface AppSession {
   press(...keys: string[]): Promise<void>
   /** Scroll the first element matching `selector` into view and move the mouse pointer to its middle. */
   hover(selector: string): Promise<void>
-  /** Choose a file in a file input, as the native file dialog would. */
-  chooseFile(selector: string, path: string): Promise<void>
   /** Save a screenshot of the window with the run's results (`test-results/`). */
   screenshot(name: string): Promise<void>
   /** Close the window as a user would, and wait for its coverage data. */
@@ -131,10 +129,6 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
           },
         ],
       })
-    },
-    chooseFile: async (selector: string, path: string) => {
-      const element = await find(selector)
-      await command(`/element/${Object.values(element)[0]}/value`, 'POST', { text: path })
     },
     screenshot: async (name: string) => {
       mkdirSync(outputs().results, { recursive: true })

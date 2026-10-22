@@ -142,7 +142,9 @@ test('take the README screenshots', async () => {
     await expect.poll(() => text(app, 'h1'), { timeout: 5000 }).toBe('Import')
     await app.command('/window/rect', 'POST', gallery)
     await sidebar(app, false)
-    await app.chooseFile('#cache-file', cache)
+    // The mock answers its native dialog from its data folder (decision 0034).
+    writeFileSync(resolve(data, 'astral-index-mock', 'cache-from.txt'), `${cache}\n`)
+    await app.execute('document.querySelector("#cache-file").click()')
     await expect.poll(() => text(app, '.review h2'), { timeout: 60000 }).toMatch(/^Ready to save/)
     const width = (await save(app, 'import-review.png')).readUInt32BE(16)
     await click(app, '.review button', 'Save')
