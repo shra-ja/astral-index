@@ -1,19 +1,16 @@
 // The About dialog's details, its two openings and the third-party notices. The
 // details and the folder come from `useDataFolder`; reading them and the notices
-// stays on this device, and opening hands the folder or the issues page to the
+// stays on this device, and `useOpenings` hands the folder or the issues page to the
 // system.
 import { readonly, shallowRef } from 'vue'
-import { openIssuesPage } from '../commands'
 import { loadNotices, type Notices } from '../notices'
 import { useDataFolder } from './useDataFolder'
-
-/** What the About dialog can open. */
-export type Opening = 'folder' | 'issues'
+import { useOpenings } from './useOpenings'
 
 export function useAbout(readNotices = loadNotices) {
   const data = useDataFolder()
-  // The opening that failed last, until another is tried or the dialog closes.
-  const failed = shallowRef<Opening | null>(null)
+  // The opening that failed last is reset when the dialog closes.
+  const openings = useOpenings(data)
 
   // The notices are read once, when first shown; a build may have generated none.
   const notices = shallowRef<Notices | null>(null)
@@ -24,28 +21,16 @@ export function useAbout(readNotices = loadNotices) {
     noticesMissing.value = notices.value === null
   }
 
-  async function revealFolder() {
-    failed.value = null
-    await data.reveal()
-    failed.value = data.revealFailed.value ? 'folder' : null
-  }
-  async function openIssues() {
-    failed.value = null
-    failed.value = (await openIssuesPage()) ? 'issues' : null
-  }
-
   return {
     info: data.info,
     read: data.read,
-    failed: readonly(failed),
+    failed: openings.failed,
     notices: readonly(notices),
     noticesMissing: readonly(noticesMissing),
     load: data.load,
     showNotices,
-    revealFolder,
-    openIssues,
-    reset: () => {
-      failed.value = null
-    },
+    revealFolder: openings.revealFolder,
+    openIssues: openings.openIssues,
+    reset: openings.reset,
   }
 }

@@ -2,7 +2,7 @@
 // couldn't be upgraded can't be shown or added to until a restore replaces it, and
 // meanwhile the app shows the History Unavailable screen in place of the game
 // screens (feature 0037). The shell owns it, for the router and that screen.
-import { getCurrentScope, onScopeDispose, readonly, shallowRef, type InjectionKey } from 'vue'
+import { readonly, shallowRef, type InjectionKey } from 'vue'
 import { historyStatus, watchHistoryUnavailable } from '../commands'
 import type { Restored } from './useRestore'
 
@@ -16,9 +16,9 @@ export function useHistoryAvailability() {
   // How a restore from the History Unavailable screen went, for Backup & Restore to
   // show once.
   let handed: Restored | null = null
-  // The status at startup, and any later command, report it the same way.
-  const stop = watchHistoryUnavailable((copy) => (unavailable.value = { copy }))
-  if (getCurrentScope()) onScopeDispose(stop)
+  // The status at startup, and any later command, report it the same way. It lasts as
+  // long as the app, so it never stops watching.
+  watchHistoryUnavailable((copy) => (unavailable.value = { copy }))
   return {
     unavailable: readonly(unavailable),
     /** Ask once, at startup, before a game screen shows. */

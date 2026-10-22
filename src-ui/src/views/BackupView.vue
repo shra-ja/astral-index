@@ -9,6 +9,7 @@ import BackupCard from '../components/backup/BackupCard.vue'
 import LeaveRestoreDialog from '../components/backup/LeaveRestoreDialog.vue'
 import RestoreCard from '../components/backup/RestoreCard.vue'
 import RestoreConfirm from '../components/backup/RestoreConfirm.vue'
+import RestoringFrom from '../components/backup/RestoringFrom.vue'
 import DataFolder from '../components/shared/DataFolder.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { useDataFolder } from '../composables/useDataFolder'
@@ -45,9 +46,7 @@ const { asking, answer } = useRestoreLeaving(restore)
 <template>
   <main>
     <ScreenHeader :title="checked ? 'Restore Backup' : 'Backup & Restore'">
-      <span v-if="checked" class="source"
-        >Restoring from <span class="name">{{ checked.name }}</span></span
-      >
+      <RestoringFrom v-if="checked" :name="checked.name" />
     </ScreenHeader>
     <RestoreConfirm
       v-if="checked"
@@ -93,18 +92,6 @@ const { asking, answer } = useRestoreLeaving(restore)
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.source {
-  max-width: 100%;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--selected);
-  color: var(--text-secondary);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-.source .name {
-  color: var(--text-soft);
 }
 h2 {
   margin: 0;

@@ -8,16 +8,17 @@ import { inject, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import LeaveRestoreDialog from '../components/backup/LeaveRestoreDialog.vue'
 import RestoreConfirm from '../components/backup/RestoreConfirm.vue'
+import RestoringFrom from '../components/backup/RestoringFrom.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import UnavailableCard from '../components/unavailable/UnavailableCard.vue'
-import { useAbout } from '../composables/useAbout'
+import { useOpenings } from '../composables/useOpenings'
 import { availabilityKey } from '../composables/useHistoryAvailability'
 import { useRestore } from '../composables/useRestore'
 import { useRestoreLeaving } from '../composables/useRestoreLeaving'
 import { unavailableOpeningFailures } from '../messages'
 
 const availability = inject(availabilityKey)!
-const about = useAbout()
+const openings = useOpenings()
 const restore = useRestore({ onRestored: availability.restored })
 const { checked, restoring } = restore
 const { asking, answer } = useRestoreLeaving(restore)
@@ -44,7 +45,7 @@ const failure = shallowRef<string | null>(null)
 watch(restore.outcome, (outcome) => {
   failure.value = outcome?.kind === 'failed' ? outcome.message : null
 })
-watch(about.failed, (opening) => {
+watch(openings.failed, (opening) => {
   failure.value = opening ? unavailableOpeningFailures[opening] : null
 })
 </script>
@@ -52,9 +53,7 @@ watch(about.failed, (opening) => {
 <template>
   <main>
     <ScreenHeader :title="checked ? 'Restore Backup' : 'History Unavailable'">
-      <span v-if="checked" class="source"
-        >Restoring from <span class="name">{{ checked.name }}</span></span
-      >
+      <RestoringFrom v-if="checked" :name="checked.name" />
     </ScreenHeader>
     <RestoreConfirm
       v-if="checked"
@@ -70,8 +69,8 @@ watch(about.failed, (opening) => {
         :copy="availability.unavailable.value?.copy ?? null"
         :checking="restore.checking.value"
         :failure
-        @reveal="about.revealFolder"
-        @report="about.openIssues"
+        @reveal="openings.revealFolder"
+        @report="openings.openIssues"
         @restore="restore.choose"
       />
     </div>
@@ -86,17 +85,5 @@ watch(about.failed, (opening) => {
   min-height: 0;
   padding: 64px var(--content-pad);
   overflow-y: auto;
-}
-.source {
-  max-width: 100%;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--selected);
-  color: var(--text-secondary);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-.source .name {
-  color: var(--text-soft);
 }
 </style>

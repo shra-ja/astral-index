@@ -1,7 +1,7 @@
 // What the retrieval flow tells the user about failures, progress and saving, and
 // what the About dialog and Backup & Restore say when something couldn’t be done.
 import type { Counts, Failure, Kind, LastImport, Progress, Refusal } from './commands'
-import type { Opening } from './composables/useAbout'
+import type { Opening } from './composables/useOpenings'
 import { localDateTime, plural, serverName, warps } from './format'
 
 /** Messages by failure kind, for one step of the flow. */
@@ -238,16 +238,18 @@ export const lastImportParts = (last: LastImport, timeZone?: string) => [
   `${plural(last.inserted, 'new roll')} saved`,
 ]
 
-/** The History Unavailable screen's failed openings; the issues page's address is given. */
+// A failed opening of the issues page gives its address instead.
+const issuesFailure =
+  'The issues page couldn’t be opened. Its address is github.com/shra-ja/astral-index/issues.'
+
+/** The History Unavailable screen's failed openings. */
 export const unavailableOpeningFailures: Record<Opening, string> = {
   folder: 'The data folder couldn’t be opened.',
-  issues:
-    'The issues page couldn’t be opened. Its address is github.com/shra-ja/astral-index/issues.',
+  issues: issuesFailure,
 }
 
 /** The About dialog's failed openings; the path stays on screen, and the address is given. */
 export const openingFailures: Record<Opening, string> = {
   folder: 'The folder couldn’t be opened. Its path is shown above.',
-  issues:
-    'The issues page couldn’t be opened. Its address is github.com/shra-ja/astral-index/issues.',
+  issues: issuesFailure,
 }

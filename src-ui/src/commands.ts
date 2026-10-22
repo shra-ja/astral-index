@@ -133,11 +133,7 @@ function parse(error: unknown): Failure {
     (known === 'history_not_upgraded' && code !== null && typeof code !== 'string')
   )
     return { kind: 'unavailable' }
-  if (known === 'history_not_upgraded') {
-    const copy = code as string | null
-    for (const watcher of unavailableWatchers) watcher(copy)
-    return { kind: known, copy }
-  }
+  if (known === 'history_not_upgraded') return { kind: known, copy: code as string | null }
   const failure: Failure =
     known === 'api_error'
       ? { kind: known, code: code as number }
@@ -155,12 +151,22 @@ function parse(error: unknown): Failure {
   return failure
 }
 
+// A rejection as a failure, telling the watchers whenever it says the history can't
+// be used.
+function fail(error: unknown): Failure {
+  const failure = parse(error)
+  if (failure.kind === 'history_not_upgraded') {
+    for (const watcher of unavailableWatchers) watcher(failure.copy ?? null)
+  }
+  return failure
+}
+
 async function run(call: () => Promise<unknown>): Promise<Failure | undefined> {
   try {
     await call()
     return undefined
   } catch (error) {
-    return parse(error)
+    return fail(error)
   }
 }
 
@@ -187,7 +193,7 @@ export async function retrieveHistory(
       }),
     }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -196,7 +202,7 @@ export async function commitImport(): Promise<{ summary: Counts } | { failure: F
   try {
     return { summary: await invoke<Counts>('commit_import') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -293,7 +299,7 @@ export async function historyPage(
       }),
     }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -304,7 +310,7 @@ export async function savedAccounts(): Promise<
   try {
     return { accounts: await invoke<SavedAccount[]>('saved_accounts') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -328,7 +334,7 @@ export async function lastImport(): Promise<{ last: LastImport | null } | { fail
   try {
     return { last: await invoke<LastImport | null>('last_import') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -343,7 +349,7 @@ export async function chooseCacheFile(): Promise<
     )
     return result.kind === 'cancelled' ? { cancelled: true } : { chosen: result.name }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -372,7 +378,7 @@ export async function appInfo(): Promise<{ info: AppInfo } | { failure: Failure 
   try {
     return { info: await invoke<AppInfo>('app_info') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -398,7 +404,7 @@ export async function saveBackup(
     )
     return result.kind === 'saved' ? { saved: result.name } : { cancelled: true }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -407,9 +413,8 @@ export interface HistoryContents {
   accounts: SavedAccount[]
   last_import: LastImport | null
 }
-/** A checked backup held for restoring: its file name, and what it and the current history hold. */
-/** A checked backup and the current history, which is null when it couldn't be upgraded,
- * so can't be read. */
+/** A checked backup held for restoring: its file name, and what it and the current history
+ * hold; the current history is null when it couldn't be upgraded, so can't be read. */
 export interface CheckedBackup {
   name: string
   backup: HistoryContents
@@ -429,7 +434,7 @@ export async function chooseRestore(): Promise<
     const { name, backup, current } = result
     return { checked: { name, backup, current } }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -447,6 +452,6 @@ export async function confirmRestore(
     const result = await invoke<{ safety_copy: string | null }>('confirm_restore', { time })
     return { safetyCopy: result.safety_copy }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }

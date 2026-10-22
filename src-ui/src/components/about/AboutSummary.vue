@@ -4,7 +4,7 @@
 // folder or the issues page, and the other views, are asked for with events.
 import { ChevronRight, ExternalLink } from '@lucide/vue'
 import type { AppInfo } from '../../commands'
-import type { Opening } from '../../composables/useAbout'
+import type { Opening } from '../../composables/useOpenings'
 import type { Read } from '../../composables/useDataFolder'
 import { openingFailures } from '../../messages'
 import DataFolder from '../shared/DataFolder.vue'
