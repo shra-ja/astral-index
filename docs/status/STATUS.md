@@ -53,7 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Native cache file picker (2026-10-22)
 
-`feat/native-cache-picker`: [decision 0034](../architecture/decisions/0034-native-cache-file-dialog.md), under way: `choose_cache_file` (native dialog, mock answer, path held natively), `extract_from_file` reading the held file, the Import screen's picker as a button, and the end-to-end tests choosing through the mock.
+`feat/native-cache-picker`: [decision 0034](../architecture/decisions/0034-native-cache-file-dialog.md). `choose_cache_file` opens the system's dialog from Rust (the mock answers from `cache-from.txt`) and holds the path; `extract_from_file` reads it natively, so no file bytes cross IPC; the picker is a plain button and a closed dialog changes nothing. Red first: the command's choice, the picker, the screens, the client and the flow; the file read's error mapping by breaking it, as its tests' types changed. The end-to-end tests choose through the mock; the bundled app's check refuses reading with nothing chosen. Whether the CI stall goes will show in later runs.
 
 ## Known limitations
 
