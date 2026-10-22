@@ -14,6 +14,7 @@
     "allow-history-page",
     "allow-last-import",
     "allow-saved-accounts",
+    "allow-history-status",
     "allow-app-info",
     "allow-reveal-data-folder",
     "allow-open-issues-page",

@@ -36,7 +36,7 @@ const SCHEMA: &str =
 /// the first release's to the newest is released, and its expected schema is the
 /// one these steps produce, so a new database is built by the same steps as an
 /// upgraded one.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Schema {
     migrations: &'static [&'static str],
 }
@@ -999,17 +999,12 @@ fn open_untrusted(path: &Path) -> Result<Connection, Refusal> {
     Ok(connection)
 }
 
-/// Check a database file as restore will, against the app's schema.
-pub fn check_database(path: &Path) -> Result<(), Refusal> {
-    check_against(path, Schema::CURRENT)
-}
-
 /// Check a database file, treating it as untrusted: at most `MAX_DATABASE_BYTES`,
 /// checked before it is opened; then a non-empty database with this app's
 /// application ID and a released version of `schema`, with exactly the schema
 /// that version's steps build, compared before the integrity check runs the
 /// file's schema, and a passing integrity check.
-pub fn check_against(path: &Path, schema: Schema) -> Result<(), Refusal> {
+pub fn check_database(path: &Path, schema: Schema) -> Result<(), Refusal> {
     let size = fs::metadata(path).map_err(|_| Refusal::Unreadable)?.len();
     if size > MAX_DATABASE_BYTES {
         return Err(Refusal::TooLarge);
@@ -1247,6 +1242,12 @@ pub(crate) mod tests {
         } else {
             creating()
         };
+        steps.extend(finishing());
+        steps
+    }
+    /// The SQL for opening a database already at `version`, its schema's newest.
+    pub(crate) fn opened_at(version: i32) -> Vec<Step> {
+        let mut steps = reading(version, APPLICATION_ID);
         steps.extend(finishing());
         steps
     }
@@ -2684,7 +2685,7 @@ pub(crate) mod tests {
         });
     }
     fn check() -> Result<(), Refusal> {
-        check_database(Path::new("backup.sqlite"))
+        check_database(Path::new("backup.sqlite"), Schema::CURRENT)
     }
     /// A failure SQLite reports with `code`.
     fn sqlite(code: std::ffi::c_int) -> rusqlite::Error {

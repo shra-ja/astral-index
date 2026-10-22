@@ -111,7 +111,12 @@ upgrade checks every reference with `foreign_key_check` before committing.
 `Store::open`
 keeps nothing, as for a restore's held copy, itself a copy. A failed upgrade
 or copy is remembered until the app restarts, so each failure keeps one copy,
-and every use of the history refuses with `NotUpgraded`, naming the copy.
+and every use of the history refuses with `NotUpgraded`, naming the copy;
+`history_status` reports it for the shell. Only `Database::replace` still hands
+such a history over, unopened, so a restore can put a backup in its place, and
+the next use opens the file afresh. `Database` keeps the schema it opens the
+history with, which backup's and restore's checks use too; the mock debug
+binary's `failing-upgrade` scenario gives it a test-only migration.
 Migrations are fast: at 100,000 rolls, a 35 MB file, rebuilding the rolls
 table took 380 ms and the copy 41 ms in a measurement on 2026-10-21.
 

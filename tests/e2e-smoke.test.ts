@@ -1,4 +1,12 @@
-import { readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import {
+  copyFileSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+} from 'node:fs'
 import { join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
@@ -718,6 +726,39 @@ test('Restore replaces the history with a backup, keeping the history as a safet
   expect(count(resolve(folder, safety))).toBe(2060)
   expect(count(resolve(folder, second))).toBe(2060 - removed)
   rmSync(backups, { recursive: true, force: true })
+}, 120000)
+
+test('an older history the mock cannot upgrade is copied first, left as it was and reported', async () => {
+  const folder = resolve(mockData, 'astral-index-mock')
+  rmSync(mockData, { recursive: true, force: true })
+  mkdirSync(folder, { recursive: true })
+  // 1.0.0's history holds two accounts on one server, which the mock's test-only
+  // migration refuses.
+  const fixture = resolve(
+    import.meta.dirname,
+    '../src-tauri/tests/fixtures/storage/history-1.0.0.sqlite',
+  )
+  copyFileSync(fixture, resolve(folder, 'history.sqlite'))
+  const original = readFileSync(fixture)
+  // Ready resolves; a history that can't be used rejects with the failure.
+  const status = (app: AppSession) =>
+    app.executeAsync<{ kind: string; code?: string | null } | null>(
+      `const done = arguments[arguments.length - 1];
+      window.__TAURI_INTERNALS__.invoke('history_status').then(() => done(null), done)`,
+    )
+  let copy = ''
+  await withMock('failing-upgrade', { keep: true }, async (app) => {
+    const first = await status(app)
+    expect(first?.kind).toBe('history_not_upgraded')
+    expect(first?.code).toMatch(/^history-v2-\d{8}-\d{6}\.sqlite$/)
+    copy = first!.code!
+    // Asked again, it reports the same copy without trying again.
+    expect(await status(app)).toEqual(first)
+  })
+  // The history is as it was, and the one copy holds it byte for byte.
+  expect(readFileSync(resolve(folder, 'history.sqlite'))).toEqual(original)
+  expect(readdirSync(folder).filter((name) => name.startsWith('history-v'))).toEqual([copy])
+  expect(readFileSync(resolve(folder, copy))).toEqual(original)
 }, 120000)
 
 test('the About dialog opens from the keyboard, opens what it offers and closes back to its button', async () => {

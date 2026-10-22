@@ -4,7 +4,7 @@
 use astral_index::acquisition::Category;
 use astral_index::storage::{
     Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
-    Source, Store, StoredRoll, Summary, check_against,
+    Source, Store, StoredRoll, Summary, check_database,
 };
 use rusqlite::Connection;
 use serde_json::json;
@@ -367,11 +367,14 @@ fn a_failed_migration_or_keep_leaves_a_1_0_0_database_unchanged() {
 fn the_check_expects_each_version_s_schema_as_its_migrations_build_it() {
     let copy = Copy::of(RELEASE_1_0_0);
     // The release's own version, before and after upgrading.
-    assert_eq!(check_against(&copy.0, UPGRADED), Ok(()));
+    assert_eq!(check_database(&copy.0, UPGRADED), Ok(()));
     drop(Store::open_with(&copy.0, UPGRADED, None).unwrap());
-    assert_eq!(check_against(&copy.0, UPGRADED), Ok(()));
+    assert_eq!(check_database(&copy.0, UPGRADED), Ok(()));
     // The app's schema doesn't know the newer version.
-    assert_eq!(check_against(&copy.0, Schema::CURRENT), Err(Refusal::Newer));
+    assert_eq!(
+        check_database(&copy.0, Schema::CURRENT),
+        Err(Refusal::Newer)
+    );
     // A new database at that version has exactly the upgraded one's schema.
     let fresh = Copy::of(RELEASE_1_0_0);
     std::fs::remove_file(&fresh.0).unwrap();
@@ -381,7 +384,7 @@ fn the_check_expects_each_version_s_schema_as_its_migrations_build_it() {
         Some(&mut |_| panic!("a new database has nothing to keep")),
     );
     drop(new.unwrap());
-    assert_eq!(check_against(&fresh.0, UPGRADED), Ok(()));
+    assert_eq!(check_database(&fresh.0, UPGRADED), Ok(()));
     // A file at the newer version whose schema lacks the migration is damaged.
     let unmigrated = Copy::of(RELEASE_1_0_0);
     Connection::open(&unmigrated.0)
@@ -389,7 +392,7 @@ fn the_check_expects_each_version_s_schema_as_its_migrations_build_it() {
         .execute_batch("PRAGMA user_version=3")
         .unwrap();
     assert_eq!(
-        check_against(&unmigrated.0, UPGRADED),
+        check_database(&unmigrated.0, UPGRADED),
         Err(Refusal::Damaged)
     );
 }

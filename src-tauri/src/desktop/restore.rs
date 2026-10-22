@@ -12,7 +12,7 @@ use super::{
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
-use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Store, check_database};
+use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
 use chooser::DialogExt;
 use serde::Serialize;
 #[cfg(not(test))]
@@ -51,10 +51,11 @@ struct Holding {
     /// a new choice would copy to.
     confirming: bool,
 }
-/// A checked copy and what the history held when the confirmation was shown.
+/// A checked copy and what the history held when the confirmation was shown, if
+/// it could be read.
 struct Held {
     copy: PathBuf,
-    current: Contents,
+    current: Option<Contents>,
 }
 /// Marks a confirmed restore as putting its copy in place until dropped.
 struct Confirming<'a>(&'a Restore);
@@ -125,11 +126,12 @@ pub fn clean_up_on_exit<R: Runtime>() -> TauriPlugin<R> {
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Chosen {
     /// Checked and held: the backup's file name, what it holds and what the current
-    /// history holds, for the confirmation. Its folder is not sent.
+    /// history holds, for the confirmation; none when the history is from an older
+    /// release and couldn't be upgraded, so can't be read. Its folder is not sent.
     Checked {
         name: String,
         backup: Contents,
-        current: Contents,
+        current: Option<Contents>,
     },
     /// The dialog was closed without choosing a file.
     Cancelled,
@@ -185,17 +187,21 @@ fn copy_bounded(source: &Path, to: &mut dyn Write, limit: u64) -> Result<(), Fai
 /// Copy `source` into the data folder under the held copy's name, replacing any copy
 /// left there, check it as untrusted input, open it, which brings it to the current
 /// schema, and read what it holds. Any failure removes the copy.
-pub fn hold_copy(folder: &Path, source: &Path) -> Result<(PathBuf, Contents), Failure> {
+pub fn hold_copy(
+    folder: &Path,
+    source: &Path,
+    schema: Schema,
+) -> Result<(PathBuf, Contents), Failure> {
     let copy = folder.join(HELD);
     let _ = fs::remove_file(&copy);
     let mut file = fs::File::create_new(&copy).map_err(|_| Failure::RestoreFailed)?;
     let checked = copy_bounded(source, &mut file, MAX_DATABASE_BYTES)
         .and_then(|()| {
             drop(file);
-            check_database(&copy).map_err(Failure::RestoreRefused)
+            check_database(&copy, schema).map_err(Failure::RestoreRefused)
         })
         .and_then(|()| {
-            Store::open(&copy)
+            Store::open_with(&copy, schema, None)
                 .and_then(|store| store.contents())
                 .map_err(|_| Failure::RestoreFailed)
         });
@@ -255,14 +261,20 @@ async fn choose_into<R: Runtime>(
     }
     // Another backup was chosen, so the one held earlier is no longer shown.
     restore.release()?;
-    let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source))
+    let schema = database.schema();
+    let (copy, contents) = spawn_blocking(move || hold_copy(&folder, &source, schema))
         .await
         .map_err(|_| Failure::RestoreFailed)??;
-    match database
+    let current = match database
         .run(|store| store.contents())
         .await
         .and_then(|read| read)
     {
+        Ok(current) => Ok(Some(current)),
+        Err(crate::storage::Error::NotUpgraded(_)) => Ok(None),
+        Err(error) => Err(error),
+    };
+    match current {
         Ok(current) => {
             restore.hold(Some(Held {
                 copy,
@@ -364,17 +376,23 @@ fn read_and_close(store: Store) -> Result<Contents, crate::storage::Error> {
 
 /// With the store handed over, read the history once more and, if it is what the
 /// confirmation showed, close it and put the checked copy in its place, keeping a
-/// safety copy of any history first.
-fn replace(store: Store, history: &Path, held: Held, safety: String) -> Result<Restored, Failure> {
-    match read_and_close(store) {
-        Err(_) => Err(Failure::Storage),
-        Ok(current) if current != held.current => Err(Failure::RestoreChanged),
-        Ok(current) => put_in_place(
-            history,
-            &held.copy,
-            (!current.accounts.is_empty()).then_some(safety),
-        ),
+/// safety copy of any history first. A history handed over unopened, as it
+/// couldn't be upgraded, can't be read, so it is kept as it is.
+fn replace(
+    store: Option<Store>,
+    history: &Path,
+    held: Held,
+    safety: String,
+) -> Result<Restored, Failure> {
+    let current = store
+        .map(read_and_close)
+        .transpose()
+        .map_err(|_| Failure::Storage)?;
+    if current != held.current {
+        return Err(Failure::RestoreChanged);
     }
+    let kept = current.is_none_or(|current| !current.accounts.is_empty());
+    put_in_place(history, &held.copy, kept.then_some(safety))
 }
 
 /// Replace the history with the held copy at `time`, which names the safety copy.
@@ -413,8 +431,8 @@ mod tests {
     use crate::acquisition::tests::filesystem::{self, Fixture as Files};
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{
-        SERVER, UID, accounts_row, accounts_script, check_script, ending_at, last_import_row,
-        last_import_step, setup, step, text,
+        SERVER, UID, UPGRADED, accounts_row, accounts_script, check_script, ending_at,
+        last_import_row, last_import_step, opened_at, setup, step, text, upgrading,
     };
     use crate::storage::{LastImport, SavedAccount, Source};
     use chooser::{Asked, FilePath, Fixture as Answers};
@@ -450,12 +468,21 @@ mod tests {
     }
     /// The SQL for opening the database at `path` and reading what it holds.
     fn reading(path: &Path, accounts: Vec<Vec<rusqlite::types::Value>>) -> Vec<Step> {
+        opened_then_read(path, setup(true), accounts)
+    }
+    /// The SQL for opening the database at `path` by `opening`, then reading what
+    /// it holds.
+    fn opened_then_read(
+        path: &Path,
+        opening: Vec<Step>,
+        accounts: Vec<Vec<rusqlite::types::Value>>,
+    ) -> Vec<Step> {
         let mut steps = vec![step(
             "OPEN",
             vec![text(&path.to_string_lossy())],
             Reply::Done,
         )];
-        steps.extend(setup(true));
+        steps.extend(opening);
         steps.extend(accounts_script(accounts));
         steps.push(last_import_step(vec![last_import_row()]));
         steps
@@ -491,7 +518,7 @@ mod tests {
         Chosen::Checked {
             name: "Astral-Index-backup-2026-10-16.sqlite".into(),
             backup: contents(1),
-            current: contents(0),
+            current: Some(contents(0)),
         }
     }
     /// A file system holding the backup and the files given.
@@ -530,6 +557,10 @@ mod tests {
     }
     /// Hold the copy, as choosing it leaves it, compared with `current`.
     fn holding_copy(restore: &Restore, current: Contents) {
+        holding_shown(restore, Some(current));
+    }
+    /// Hold the copy as if the confirmation showed `current`, or no history.
+    fn holding_shown(restore: &Restore, current: Option<Contents>) {
         restore.state().held = Some(Held {
             copy: held(),
             current,
@@ -689,7 +720,7 @@ mod tests {
             Ok(Chosen::Checked {
                 name: "history-before-restore-20261016-120000.sqlite".into(),
                 backup: contents(1),
-                current: contents(0),
+                current: Some(contents(0)),
             })
         );
         sql::finish();
@@ -993,10 +1024,32 @@ mod tests {
         reading(&history(), vec![accounts_row(); accounts])
     }
     #[test]
-    fn a_history_that_could_not_be_upgraded_is_named_as_such_and_nothing_is_held() {
-        let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
-        let failed = Err(Failure::HistoryNotUpgraded(copy.clone()));
-        // Choosing checks the backup, then can't read the history to compare.
+    fn a_backup_is_checked_and_upgraded_with_the_history_s_own_schema() {
+        filesystem::install(files(&[]));
+        answering(Some(source()));
+        // The backup, at the first release's version, is upgraded in its copy;
+        // the history, at the schema's newest, opens as it is.
+        let mut steps = check_script(&held().to_string_lossy());
+        steps.extend(opened_then_read(&held(), upgrading(), vec![accounts_row()]));
+        steps.extend(opened_then_read(&history(), opened_at(3), vec![]));
+        sql::expect(steps);
+        let restore = Restore::default();
+        let chosen = run(choose_into(
+            app(),
+            &Session::default(),
+            Dialogs::System,
+            &restore,
+            &Database::with_schema(Some(folder()), UPGRADED),
+        ));
+        sql::finish();
+        assert_eq!(chosen, Ok(checked()));
+    }
+
+    #[test]
+    fn a_backup_restores_over_a_history_that_could_not_be_upgraded() {
+        let failed =
+            || Database::not_upgraded(folder(), Some("history-v2-20261021-143000.sqlite".into()));
+        // Choosing checks the backup, with no current history to compare.
         filesystem::install(files(&[]));
         answering(Some(source()));
         let mut steps = check_script(&held().to_string_lossy());
@@ -1008,24 +1061,61 @@ mod tests {
             &Session::default(),
             Dialogs::System,
             &restore,
-            &Database::not_upgraded(folder(), copy.clone()),
+            &failed(),
         ));
         sql::finish();
-        assert_eq!(chosen.map(|_| ()), failed.clone());
-        assert_eq!(holding(&restore), None);
-        assert!(!has(&held()));
-        // Confirming a copy held before can't replace it either.
-        filesystem::install(files(&[(held(), BYTES)]));
-        holding_copy(&restore, contents(0));
-        let restored = run(restore_into(
-            &Session::default(),
-            &restore,
-            &Database::not_upgraded(folder(), copy),
-            TIME,
-        ));
-        assert_eq!(restored.map(|_| ()), failed);
-        assert!(!has(&held()));
+        assert_eq!(
+            chosen,
+            Ok(Chosen::Checked {
+                name: "Astral-Index-backup-2026-10-16.sqlite".into(),
+                backup: contents(1),
+                current: None,
+            })
+        );
+        assert_eq!(holding(&restore), Some(held()));
+        // Confirming keeps the history unread, exactly as it is, then puts the
+        // backup in its place.
+        filesystem::install(data(&[]));
+        let outcome = run(restore_into(&Session::default(), &restore, &failed(), TIME));
+        assert_eq!(
+            outcome,
+            Ok(restored(Some(
+                "history-before-restore-20261020-143000.sqlite"
+            )))
+        );
+        filesystem::inspect(|state| {
+            assert_eq!(state.files[&safety()], CURRENT);
+            assert_eq!(state.files[&history()], BYTES);
+            assert!(!state.files.contains_key(&held()));
+        });
     }
+
+    #[test]
+    fn a_history_that_changed_whether_it_can_be_read_is_not_replaced() {
+        // Shown as unreadable, then read; or shown, then unreadable.
+        for (shown, database) in [
+            (None, database()),
+            (Some(contents(1)), Database::not_upgraded(folder(), None)),
+        ] {
+            filesystem::install(data(&[]));
+            let opened = shown.is_none();
+            if opened {
+                sql::expect(rereading(1));
+            }
+            let restore = Restore::default();
+            holding_shown(&restore, shown);
+            assert_eq!(
+                run(restore_into(&Session::default(), &restore, &database, TIME)),
+                Err(Failure::RestoreChanged)
+            );
+            sql::finish();
+            filesystem::inspect(|state| {
+                assert_eq!(state.files[&history()], CURRENT);
+                assert!(!state.files.contains_key(&held()));
+            });
+        }
+    }
+
     fn restore_now(session: &Session, restore: &Restore) -> Result<Restored, Failure> {
         run(restore_into(session, restore, &database(), TIME))
     }

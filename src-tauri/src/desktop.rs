@@ -1,6 +1,6 @@
 //! Desktop IPC: narrow commands that return safe categories; request contexts stay native.
-use crate::acquisition::mock::MockTransport;
-pub use crate::acquisition::mock::Scenario;
+pub use crate::acquisition::mock::UnknownScenario;
+use crate::acquisition::mock::{self, MockTransport};
 use crate::acquisition::{
     AcquisitionError, CacheError, CachedRequest, Cancellable, Category, FetchFailure,
     HttpTransport, Paced, Progress, RequestContext, RetryBudget, Retrying, StopCheck, Transport,
@@ -284,7 +284,7 @@ impl Session {
 /// ([decision 0014](../../docs/architecture/decisions/0014-mock-debug-binary.md)).
 pub enum Network {
     Https,
-    Mock(Scenario),
+    Mock(mock::Scenario),
 }
 impl Network {
     /// A transport for one operation; the HTTPS client is built afresh each time.
@@ -324,6 +324,7 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         history_page,
         last_import,
         saved_accounts,
+        history_status,
         about::app_info,
         about::reveal_data_folder,
         about::open_issues_page,
@@ -344,6 +345,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         fresh_webview: false,
         opener: about::Opener::System,
         dialogs: backup::Dialogs::System,
+        schema: storage::Schema::CURRENT,
     };
     register_with(
         builder.plugin(tauri_plugin_dialog::init()),
@@ -364,8 +366,47 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         fresh_webview: true,
         opener: about::Opener::Recording,
         dialogs: backup::Dialogs::Answering,
+        schema: scenario.schema,
     };
-    register_with(builder, Network::Mock(scenario), settings)
+    register_with(builder, Network::Mock(scenario.network), settings)
+}
+
+/// The mock debug binary's test-only migration for its `failing-upgrade`
+/// scenario: one account per game and server, which a history with two accounts
+/// on one server, such as the 1.0.0 fixture's, fails.
+const FAILING_UPGRADE: storage::Schema = storage::Schema::with_migrations(&[
+    "CREATE UNIQUE INDEX one_account_per_server ON accounts(game, server)",
+]);
+
+/// What the mock debug binary simulates: how its synthetic HoYoverse answers,
+/// and the schema it opens its history with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Scenario {
+    network: mock::Scenario,
+    schema: storage::Schema,
+}
+impl Scenario {
+    /// The scenario `ASTRAL_INDEX_MOCK_SCENARIO` names: one of the synthetic
+    /// HoYoverse's, with the app's schema, or `failing-upgrade`, `history`'s
+    /// HoYoverse with the history opened by a test-only migration that a history
+    /// the tests place there fails.
+    pub fn named(name: Option<&str>) -> Result<Self, UnknownScenario> {
+        if name == Some("failing-upgrade") {
+            return Ok(Self {
+                network: mock::Scenario::History,
+                schema: FAILING_UPGRADE,
+            });
+        }
+        mock::Scenario::named(name).map(Self::from)
+    }
+}
+impl From<mock::Scenario> for Scenario {
+    fn from(network: mock::Scenario) -> Self {
+        Self {
+            network,
+            schema: storage::Schema::CURRENT,
+        }
+    }
 }
 
 /// How the app and the mock debug binary differ, besides their network.
@@ -377,6 +418,8 @@ struct Settings {
     fresh_webview: bool,
     opener: about::Opener,
     dialogs: backup::Dialogs,
+    /// The schema the history is opened with.
+    schema: storage::Schema,
 }
 
 fn register_with<R: Runtime>(
@@ -408,7 +451,7 @@ fn register_with<R: Runtime>(
         });
         app.manage(settings.dialogs);
         restore::remove_leftovers(folder.as_deref());
-        app.manage(Database::new(folder));
+        app.manage(Database::with_schema(folder, settings.schema));
         opened.map_err(Into::into)
     })
 }
@@ -955,6 +998,20 @@ async fn last_import(database: State<'_, Database>) -> Result<Option<LastImport>
     last_import_into(&database).await
 }
 
+/// Open the history, if it isn't open, so the shell knows before showing a game
+/// screen whether it can be used: it fails as any use of it would, with
+/// `HistoryNotUpgraded` naming the copy for an older one that couldn't be
+/// upgraded.
+async fn status_of(database: &Database) -> Result<(), Failure> {
+    database.run(|_| ()).await.map_err(Failure::from)
+}
+
+/// Stored history only: never contacts HoYoverse.
+#[tauri::command]
+async fn history_status(database: State<'_, Database>) -> Result<(), Failure> {
+    status_of(&database).await
+}
+
 /// Drop the held preview without writing anything.
 #[tauri::command]
 fn discard_import(session: State<'_, Session>) {
@@ -1181,6 +1238,7 @@ mod tests {
                 "history_page",
                 "last_import",
                 "saved_accounts",
+                "history_status",
                 "app_info",
                 "reveal_data_folder",
                 "open_issues_page",
@@ -1190,9 +1248,15 @@ mod tests {
                 "confirm_restore"
             ]
         );
+        // The history's status takes no arguments; on the worker thread the
+        // database's test double opens nothing, so it can't be read.
+        assert_eq!(
+            invoke(&window, "history_status", InvokeBody::default()),
+            Err(r#"{"kind":"storage"}"#.into())
+        );
         // The About commands take no arguments. Opening goes to the test double,
         // which launches nothing.
-        let info = reply_to(&window, COMMANDS[9]);
+        let info = reply_to(&window, "app_info");
         let folder = window
             .path()
             .local_data_dir()
@@ -1210,20 +1274,26 @@ mod tests {
                 "portable": false,
             })
         );
-        assert_eq!(invoke(&window, COMMANDS[10], InvokeBody::default()), Ok(()));
-        assert_eq!(invoke(&window, COMMANDS[11], InvokeBody::default()), Ok(()));
+        assert_eq!(
+            invoke(&window, "reveal_data_folder", InvokeBody::default()),
+            Ok(())
+        );
+        assert_eq!(
+            invoke(&window, "open_issues_page", InvokeBody::default()),
+            Ok(())
+        );
         // A backup needs the day's date, checked before any dialog opens.
         for body in [
             serde_json::json!({}),
             serde_json::json!({ "date": 20261016 }),
         ] {
-            let malformed = invoke(&window, COMMANDS[12], InvokeBody::Json(body));
+            let malformed = invoke(&window, "save_backup", InvokeBody::Json(body));
             assert!(malformed.unwrap_err().contains("date"));
         }
         assert_eq!(
             invoke(
                 &window,
-                COMMANDS[12],
+                "save_backup",
                 InvokeBody::Json(serde_json::json!({ "date": "16/10/2026" }))
             ),
             Err(r#"{"kind":"invalid_request"}"#.into())
@@ -1231,33 +1301,36 @@ mod tests {
         // Restore's commands take no arguments; on the worker thread the dialog's
         // test double chooses nothing, so nothing is copied or held.
         assert_eq!(
-            reply_to(&window, COMMANDS[13]),
+            reply_to(&window, "choose_restore"),
             serde_json::json!({ "kind": "cancelled" })
         );
-        assert_eq!(invoke(&window, COMMANDS[14], InvokeBody::default()), Ok(()));
+        assert_eq!(
+            invoke(&window, "cancel_restore", InvokeBody::default()),
+            Ok(())
+        );
         // Confirming needs the local time, and with no backup held restores nothing.
         for body in [
             serde_json::json!({}),
             serde_json::json!({ "time": 20261020 }),
         ] {
-            let malformed = invoke(&window, COMMANDS[15], InvokeBody::Json(body));
+            let malformed = invoke(&window, "confirm_restore", InvokeBody::Json(body));
             assert!(malformed.unwrap_err().contains("time"));
         }
         assert_eq!(
             invoke(
                 &window,
-                COMMANDS[15],
+                "confirm_restore",
                 InvokeBody::Json(serde_json::json!({ "time": "2026-10-20T14:30:00" }))
             ),
             Err(r#"{"kind":"restore_failed"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[8], InvokeBody::default()),
+            invoke(&window, "saved_accounts", InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
         );
         // The test doubles can't serve worker threads, so the read fails safely.
         assert_eq!(
-            invoke(&window, COMMANDS[7], InvokeBody::default()),
+            invoke(&window, "last_import", InvokeBody::default()),
             Err(r#"{"kind":"storage"}"#.into())
         );
         // History requests are checked before any database access, and need every argument.
@@ -1269,12 +1342,12 @@ mod tests {
                 "pageSize",
             ),
         ] {
-            let missing = invoke(&window, COMMANDS[6], InvokeBody::Json(body));
+            let missing = invoke(&window, "history_page", InvokeBody::Json(body));
             assert!(missing.unwrap_err().contains(argument));
         }
         let request = serde_json::json!({ "category": "99", "page": 1, "pageSize": 20 });
         assert_eq!(
-            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            invoke(&window, "history_page", InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // A filter, when named, is an object of the expected parts.
@@ -1287,7 +1360,7 @@ mod tests {
             let request = serde_json::json!({
                 "category": "11", "page": 1, "pageSize": 20, "filter": filter,
             });
-            let malformed = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+            let malformed = invoke(&window, "history_page", InvokeBody::Json(request));
             assert!(malformed.unwrap_err().contains("filter"));
         }
         // A filter's parts are checked before the database is opened.
@@ -1295,59 +1368,73 @@ mod tests {
             "category": "11", "page": 1, "pageSize": 20, "filter": { "to": "2024-13-01" },
         });
         assert_eq!(
-            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            invoke(&window, "history_page", InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // An account, when named, needs both its UID and server.
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "100000002" },
         });
-        let missing = invoke(&window, COMMANDS[6], InvokeBody::Json(request));
+        let missing = invoke(&window, "history_page", InvokeBody::Json(request));
         assert!(missing.unwrap_err().contains("server"));
         let request = serde_json::json!({
             "category": "11", "page": 1, "pageSize": 20, "account": { "uid": "", "server": "x" },
         });
         assert_eq!(
-            invoke(&window, COMMANDS[6], InvokeBody::Json(request)),
+            invoke(&window, "history_page", InvokeBody::Json(request)),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         // Nothing was retrieved, so there is nothing to commit; discarding is harmless.
         assert_eq!(
-            invoke(&window, COMMANDS[4], InvokeBody::default()),
+            invoke(&window, "commit_import", InvokeBody::default()),
             Err(r#"{"kind":"no_preview"}"#.into())
         );
-        assert_eq!(invoke(&window, COMMANDS[5], InvokeBody::default()), Ok(()));
-        assert_eq!(invoke(&window, COMMANDS[2], InvokeBody::default()), Ok(()));
+        assert_eq!(
+            invoke(&window, "discard_import", InvokeBody::default()),
+            Ok(())
+        );
+        assert_eq!(
+            invoke(&window, "cancel_acquisition", InvokeBody::default()),
+            Ok(())
+        );
         // Retrieval needs a known mode; nothing was validated, so it sends nothing.
         let channel =
             |mode: &str| serde_json::json!({ "onProgress": "__CHANNEL__:1", "mode": mode });
         assert_eq!(
-            invoke(&window, COMMANDS[3], InvokeBody::Json(channel("full"))),
+            invoke(
+                &window,
+                "retrieve_history",
+                InvokeBody::Json(channel("full"))
+            ),
             Err(r#"{"kind":"no_context"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[3], InvokeBody::Json(channel("partial"))),
+            invoke(
+                &window,
+                "retrieve_history",
+                InvokeBody::Json(channel("partial"))
+            ),
             Err(r#"{"kind":"invalid_request"}"#.into())
         );
         let missing = serde_json::json!({ "onProgress": "__CHANNEL__:1" });
-        let missing = invoke(&window, COMMANDS[3], InvokeBody::Json(missing));
+        let missing = invoke(&window, "retrieve_history", InvokeBody::Json(missing));
         assert!(missing.unwrap_err().contains("mode"));
         // Host discovery is unsupported here: the unit-test OS double reports plain Linux.
         assert_eq!(
-            invoke(&window, COMMANDS[0], InvokeBody::default()),
+            invoke(&window, "extract_automatically", InvokeBody::default()),
             Err(r#"{"kind":"unsupported_host"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[1], InvokeBody::default()),
+            invoke(&window, "extract_from_file", InvokeBody::default()),
             Err(r#"{"kind":"invalid_file"}"#.into())
         );
         assert_eq!(
-            invoke(&window, COMMANDS[1], raw(b"no request".to_vec())),
+            invoke(&window, "extract_from_file", raw(b"no request".to_vec())),
             Err(r#"{"kind":"no_request"}"#.into())
         );
         // A progress channel is required.
         let no_channel = InvokeBody::Json(serde_json::json!({ "mode": "full" }));
-        let missing = invoke(&window, COMMANDS[3], no_channel);
+        let missing = invoke(&window, "retrieve_history", no_channel);
         assert!(missing.unwrap_err().contains("onProgress"));
         let unknown = invoke(&window, "read_arbitrary_file", InvokeBody::default());
         assert!(unknown.unwrap_err().contains("not found"));
@@ -1395,6 +1482,7 @@ mod tests {
         let database = app.state::<Database>();
         assert_eq!(database.folder(), Some(folder.as_path()));
         assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
+        assert_eq!(database.schema(), storage::Schema::CURRENT);
         // The system opens things.
         let about = app.state::<about::About>();
         assert!(!about.portable);
@@ -1414,8 +1502,31 @@ mod tests {
     }
 
     #[test]
+    fn the_mock_s_failing_upgrade_opens_its_history_with_the_failing_migration() {
+        let scenario = Scenario::named(Some("failing-upgrade")).unwrap();
+        let mut app = register_mock(mock_builder(), scenario)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        #[allow(deprecated)]
+        app.run_iteration(events::ignore);
+        assert_eq!(app.state::<Database>().schema(), FAILING_UPGRADE);
+        // Its synthetic HoYoverse answers as `history`'s does.
+        assert!(matches!(
+            *app.state::<Network>(),
+            Network::Mock(mock::Scenario::History)
+        ));
+        // Every other name is the synthetic HoYoverse's, with the app's schema,
+        // and an unknown one is refused.
+        assert_eq!(
+            Scenario::named(Some("expired-link")),
+            Ok(Scenario::from(mock::Scenario::ExpiredLink))
+        );
+        assert_eq!(Scenario::named(Some("unknown")), Err(UnknownScenario));
+    }
+
+    #[test]
     fn the_mock_app_keeps_its_own_data_folder_and_network() {
-        let mut app = register_mock(mock_builder(), Scenario::History)
+        let mut app = register_mock(mock_builder(), mock::Scenario::History.into())
             .build(mock_context(noop_assets()))
             .unwrap();
         #[allow(deprecated)]
@@ -1428,9 +1539,10 @@ mod tests {
         let database = app.state::<Database>();
         assert_eq!(database.folder(), Some(folder.as_path()));
         assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
+        assert_eq!(database.schema(), storage::Schema::CURRENT);
         assert!(matches!(
             *app.state::<Network>(),
-            Network::Mock(Scenario::History)
+            Network::Mock(mock::Scenario::History)
         ));
         // It records requests to open rather than launching anything.
         let about = app.state::<about::About>();
@@ -1452,7 +1564,7 @@ mod tests {
     fn the_mock_network_validates_and_serves_history_without_any_request() {
         http::install(Default::default());
         let session = Session::default();
-        let network = Network::Mock(Scenario::History);
+        let network = Network::Mock(mock::Scenario::History);
         assert_eq!(
             run(extract_file_into(
                 &session,
@@ -1464,7 +1576,7 @@ mod tests {
         let client = network.client().unwrap();
         let history = run(fetch_history(&client, &context("synthetic"), &|_| {}, None)).unwrap();
         assert_eq!(history.account().unwrap().uid(), "100000001");
-        let expired = Network::Mock(Scenario::ExpiredLink);
+        let expired = Network::Mock(mock::Scenario::ExpiredLink);
         assert_eq!(
             run(extract_file_into(
                 &session,
@@ -2767,6 +2879,35 @@ mod tests {
         sql::expect(accounts_script(vec![vec![Value::Null]]));
         assert_eq!(run(saved_accounts_into(&database)), Err(Failure::Storage));
         sql::finish();
+    }
+
+    #[test]
+    fn the_status_says_whether_the_history_can_be_used() {
+        // Opening it is all it takes.
+        let folder = PathBuf::from("/data/astral-index");
+        let database = Database::new(Some(folder.clone()));
+        filesystem::install(filesystem::Fixture::default());
+        // Joined natively, with the platform's own separator.
+        let history = folder.join(database::FILE_NAME);
+        let mut script = vec![step(
+            "OPEN",
+            vec![text(&history.to_string_lossy())],
+            Reply::Done,
+        )];
+        script.extend(setup(true));
+        sql::expect(script);
+        assert_eq!(run(status_of(&database)), Ok(()));
+        sql::finish();
+        // An older history that couldn't be upgraded fails as every other use of
+        // it does, naming its copy.
+        let copy = Some("history-v2-20261021-143000.sqlite".to_owned());
+        let failed = Database::not_upgraded(PathBuf::from("/data/astral-index"), copy.clone());
+        assert_eq!(
+            run(status_of(&failed)),
+            Err(Failure::HistoryNotUpgraded(copy))
+        );
+        // Any other failure to open it is a failure too.
+        assert_eq!(run(status_of(&Database::new(None))), Err(Failure::Storage));
     }
 
     #[test]

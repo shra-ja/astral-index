@@ -295,13 +295,51 @@ Backup and restore stay local and never make a network request.
     CONTRIBUTING's step for the tests would stop being true with the first real
     migration. The opening scripts are now built from named steps, and one
     checked helper turns a version into the migrations it has.
+- [x] **Migration recovery, native support for the screen** (one PR):
+  - [x] A `history_status` command, which the shell calls once at startup:
+    nothing when the history can be used, or the failure any use of it would
+    get, such as `history_not_upgraded` with the copy's name.
+  - [x] Restoring another backup over a history that can't be upgraded:
+    choosing returns no current contents to compare;
+    confirming hands the file over without opening it, keeps it as a
+    `history-before-restore-*` safety copy exactly as it is, puts the backup in
+    place, and the next use opens the restored history without a restart.
+  - [x] The mock debug binary can open its history with a test-only migration
+    that fails, so end-to-end tests drive a real failed upgrade of a 1.0.0
+    history they place in its data folder.
+  - `history_status` and backup's and restore's use of the history's schema
+    failed first where they could: the status against a stub answering ready,
+    the mock's scenario and the schema wiring by breaking each on purpose
+    (backup's only through its real-file test, as the SQL double can't tell
+    the schemas apart). Restoring over a history that can't be upgraded
+    changes the choice's types, so its rules were broken on purpose too: the
+    unopened hand-over, the state reset after it, choosing without current
+    contents, a history that changed whether it can be read, and keeping an
+    unread history. The mock's migration was checked with SQLite to fail on
+    the 1.0.0 fixture and pass on one account. An end-to-end test places the
+    1.0.0 history in the mock's folder and finds `history_status` reporting
+    the copy, the history byte for byte as it was and one copy holding it;
+    without the failing migration it reports ready. Restoring over such a
+    history through the screen is end-to-end tested with the screen.
+  - Two reviewer agents found that a failed restore over a history that can't
+    be upgraded made the next use try the upgrade again and keep another copy;
+    the replacement now reports whether it replaced the file, and only a
+    success forgets the failure (its test failed first). From the reviews too:
+    `history_status` returns the failure any use of the history would get
+    rather than a status of its own, so the shell parses one shape, and the
+    mock's failing upgrade is the desktop's scenario, pairing a HoYoverse
+    scenario with a schema, rather than a HoYoverse one.
 - [ ] **Migration recovery, screen** (one PR):
   - [ ] An app-wide screen for a history that can't be upgraded, designed on the
     canvas first: it says the history couldn't be upgraded and names the copy;
     the game screens in the sidebar are greyed out and unavailable; Backup &
-    Restore and About stay open.
-  - [ ] Restoring another backup over a history that can't be upgraded, which
-    can't be read for the confirmation's comparison and is copied as it is.
+    Restore and About stay open. The shell shows it whenever a command, at
+    startup `history_status`, fails with `history_not_upgraded`.
+  - [ ] The restore confirmation says the current history couldn't be upgraded,
+    so it can't be compared.
+  - [ ] End-to-end tests through the mock's failed upgrade: the screen, the
+    copy named, the game screens unavailable, and a restore that brings the
+    app back.
 - [ ] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and

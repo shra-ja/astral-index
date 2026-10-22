@@ -5,7 +5,7 @@ use astral_index::desktop::{
     Failure,
     restore::{hold_copy, is_history, put_in_place},
 };
-use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Store};
+use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Schema, Store};
 use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
@@ -60,7 +60,7 @@ fn a_backup_is_copied_into_the_data_folder_checked_and_read_there() {
     let backup = folder.path("backup.sqlite");
     store.write_snapshot(&backup).unwrap();
     let before = std::fs::read(&backup).unwrap();
-    let (copy, contents) = hold_copy(&folder.data(), &backup).unwrap();
+    let (copy, contents) = hold_copy(&folder.data(), &backup, Schema::CURRENT).unwrap();
     assert_eq!(contents, store.contents().unwrap());
     assert_eq!(contents.accounts[0].rolls, 2);
     // The copy sits in the data folder, alone; the backup is untouched.
@@ -76,7 +76,7 @@ fn a_refused_backup_leaves_nothing_in_the_data_folder() {
     let text = folder.path("notes.sqlite");
     std::fs::write(&text, b"not a database, just some text that is long enough").unwrap();
     assert_eq!(
-        hold_copy(&folder.data(), &text),
+        hold_copy(&folder.data(), &text, Schema::CURRENT),
         Err(Failure::RestoreRefused(Refusal::NotDatabase))
     );
     // A sparse file over the bound is refused before it is copied.
@@ -86,11 +86,15 @@ fn a_refused_backup_leaves_nothing_in_the_data_folder() {
         .set_len(MAX_DATABASE_BYTES + 1)
         .unwrap();
     assert_eq!(
-        hold_copy(&folder.data(), &large),
+        hold_copy(&folder.data(), &large, Schema::CURRENT),
         Err(Failure::RestoreRefused(Refusal::TooLarge))
     );
     assert_eq!(
-        hold_copy(&folder.data(), &folder.path("missing.sqlite")),
+        hold_copy(
+            &folder.data(),
+            &folder.path("missing.sqlite"),
+            Schema::CURRENT
+        ),
         Err(Failure::RestoreRefused(Refusal::Unreadable))
     );
     assert_eq!(names(&folder.data()), Vec::<String>::new());
@@ -112,7 +116,7 @@ fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
     }
     let current = Store::open(&history).unwrap().contents().unwrap();
     let before = std::fs::read(&history).unwrap();
-    let (copy, contents) = hold_copy(&folder.data(), &backup).unwrap();
+    let (copy, contents) = hold_copy(&folder.data(), &backup, Schema::CURRENT).unwrap();
     let restored = put_in_place(
         &history,
         &copy,
@@ -166,4 +170,24 @@ fn only_the_history_itself_is_refused_in_any_form_of_its_path() {
     }
     assert!(!is_history(&history, &safety));
     assert!(!is_history(&history, &elsewhere));
+}
+
+#[test]
+fn a_backup_is_upgraded_in_its_held_copy_with_the_schema_it_is_restored_into() {
+    let upgraded = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
+    let folder = Folder::new();
+    let mut store = Store::open(&folder.path("history.sqlite")).unwrap();
+    let preview = store
+        .preview("100000002", "synthetic-server", &[PAGE])
+        .unwrap();
+    store.commit(preview, 1234).unwrap();
+    let backup = folder.path("backup.sqlite");
+    store.write_snapshot(&backup).unwrap();
+    let (copy, contents) = hold_copy(&folder.data(), &backup, upgraded).unwrap();
+    assert_eq!(contents, store.contents().unwrap());
+    let version: i32 = rusqlite::Connection::open(&copy)
+        .unwrap()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 3);
 }
