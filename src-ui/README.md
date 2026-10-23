@@ -26,7 +26,7 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   (`ActionCard`, the card offering one action on Import and Backup & Restore,
   with `StatusLine` for what its action reported, `StatusCard`, the card
   in the middle of the screen holding its whole status, with `FailureSummary`
-  for what failed,
+  for what failed, `IconTile`, the tile a card's icon sits in,
   `AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
   Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
