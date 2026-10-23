@@ -259,7 +259,8 @@ request is in scope ([decision 0002](../architecture/decisions/0002-user-request
 and push to `main`, then publishes the Windows build. The five should be
 required checks on protected `main`; the publish job should not, since pull
 requests from forks skip it. A newer push cancels a pull request's run in
-progress, but every run on `main` finishes, since only `main` saves caches:
+progress. On `main`, where caches are saved, it waits for the run in progress
+instead, though it replaces one still waiting:
 
 | Job | Runs on | Does |
 | --- | --- | --- |
@@ -271,27 +272,37 @@ progress, but every run on `main` finishes, since only `main` saves caches:
 | **Publish the Windows build** | `ubuntu-24.04` | After the five: republishes a passing run's build |
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
-Windows jobs through `.github/actions/setup-windows`. CI's Windows release
-build and the release workflow both build and smoke-test the executable through
-`.github/actions/build-windows`, which takes the version and build identity as
-inputs, so the two builds cannot drift apart; `tooling/ci.test.ts` checks that
-the rest of the two jobs (runner, timeout, shell, checkout credentials and
-cache) still match. The tool versions live
-there. The static checks run once, on Linux, except Clippy, which only lints the
-code compiled for its target: the Windows unit-test job runs it again, so the
-Windows-only code is linted too. Windows runs because the first release ships
-for Windows only
+Windows jobs through `.github/actions/setup-windows`; the tool versions live in
+those two actions. The Linux setup installs its OS packages from
+a cache that `main` saves, since the runners' Azure Ubuntu mirror is sometimes
+slow for minutes on end
+([actions/runner-images#14823](https://github.com/actions/runner-images/issues/14823));
+only the package index then comes from the mirror. A download that outlasts
+its first, bounded attempt drops the Azure mirror and continues from Ubuntu's
+own archive, because apt moves on only from a mirror that stops answering. CI's Windows
+release build and the release workflow both build and smoke-test the executable
+through `.github/actions/build-windows`, which takes the version and build
+identity as inputs, so the two builds cannot drift apart; `tooling/ci.test.ts`
+checks that the rest of the two jobs (runner, timeout, shell, checkout
+credentials and cache) still match. The static checks run once, on Linux,
+except Clippy, which only lints the code compiled for its target: the Windows
+unit-test job runs it again, so the Windows-only code is linted too. Windows
+runs because the first release ships for Windows only
 ([decision 0027](../architecture/decisions/0027-windows-first-release.md)): it
 measures no coverage, and the offline sandbox and native end-to-end tests stay
-Linux-only. The release build runs in parallel with the checks, so an
-executable exists only once every check has passed: the build waits as
-`windows-build-unverified-<commit>` for a day, and the publish job republishes
-it as `astral-index-dev-build-unsigned-<commit>` for 7 days once all five jobs
-pass. A failed run's build is never published and expires, so re-running only
-the failed jobs can still publish it; the unverified build can be downloaded
-under that name until then. Only this repository's builds are kept, not those
-of fork pull requests. The published build is a development build, unsigned and
-not a release. Linux, not a release OS, builds no release.
+Linux-only.
+
+The release build runs in parallel with the checks and waits under an
+unverified name until they finish. The publish job runs only once all five
+pass, by GitHub's default for a job's needs, and republishes it as a
+development build: unsigned, not a release, and named after its commit, which
+for a pull request is the head commit, though the build is that head merged
+into `main`. The unverified build is kept after publishing and expires on its
+own, so re-running a failed job can still publish it and re-running a passed
+one publishes it again. Only reports and uploads run whatever came before them.
+Only this repository's builds are kept, not those of fork pull requests. Linux,
+not a release OS, builds no release. The workflow holds the names and retention
+periods.
 `tooling/ci.test.ts` checks the jobs, the setup actions and the scripts they run.
 
 `.github/workflows/release.yml` drafts a release, started only by hand

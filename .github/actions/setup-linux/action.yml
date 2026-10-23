@@ -1,6 +1,6 @@
 name: Set up the Linux checks
 description: >-
-  Installs the native libraries, the pinned toolchains from .tool-versions and the
+  Installs the OS packages, the pinned toolchains from .tool-versions and the
   locked dependencies, restoring the caches main saved. Tool versions live here, so
   changing them invalidates the Rust cache.
 inputs:
@@ -16,18 +16,55 @@ inputs:
   save-npm-cache:
     description: Whether this job saves the npm cache on main; one job is enough.
     default: false
+  save-apt-cache:
+    description: Whether this job saves its OS packages on main; one job per set of packages is enough.
+    default: false
 runs:
   using: composite
   steps:
-    - name: Install the native libraries
+    # The OS packages come from a cache main saves, as the Azure mirror is sometimes
+    # slow for minutes on end (actions/runner-images#14823). A new runner image or
+    # package list starts from the last cache, and apt downloads only what changed,
+    # checking every cached package against the signed index.
+    - name: Prepare the OS package cache
+      id: image
       shell: bash
+      # Outside the home folder, which apt's download user can't enter.
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-    - name: Install the native test tools
-      if: inputs.native-tests == 'true'
+        sudo install -d -o "$USER" /var/cache/ci-apt-archives
+        echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: /var/cache/ci-apt-archives/*.deb
+        key: apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-${{ hashFiles('.github/actions/setup-linux/action.yml') }}-${{ steps.image.outputs.version }}
+        restore-keys: apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-
+    - name: Install the OS packages
       shell: bash
-      run: sudo apt-get install -y xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3
+      env:
+        NATIVE_TESTS: ${{ inputs.native-tests }}
+      run: |
+        packages=(libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev)
+        if [[ $NATIVE_TESTS == true ]]; then
+          packages+=(xvfb webkit2gtk-driver xdotool dbus-x11 bubblewrap python3)
+        fi
+        archives=(-o Dir::Cache::Archives=/var/cache/ci-apt-archives)
+        # apt moves on from a mirror that stops answering, not from one that crawls,
+        # so a slow first attempt drops the Azure mirror and fetches the rest from
+        # Ubuntu's own archive.
+        if ! { sudo timeout -k 10 60 apt-get update &&
+          sudo timeout -k 10 240 apt-get "${archives[@]}" install -y --download-only "${packages[@]}"; }; then
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          sudo apt-get update
+          sudo apt-get "${archives[@]}" install -y --download-only "${packages[@]}"
+        fi
+        sudo apt-get "${archives[@]}" install -y --no-download "${packages[@]}"
+        # The cache keeps only the packages still current.
+        sudo apt-get "${archives[@]}" autoclean
+    - if: inputs.save-apt-cache == 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: /var/cache/ci-apt-archives/*.deb
+        key: apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-${{ hashFiles('.github/actions/setup-linux/action.yml') }}-${{ steps.image.outputs.version }}
     - name: Allow network namespaces for the CI test sandbox
       if: inputs.native-tests == 'true'
       shell: bash

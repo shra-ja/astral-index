@@ -23,7 +23,10 @@ spends no money.
   properties. The first release is 1.0.0.
 - **Builds say what they are.** About shows "Version 1.2.0" for a release
   build, "Version 1.2.0 · dev build a1b2c3d" for a CI build (the last tag and
-  the commit), and "local build" for anything built elsewhere.
+  the commit), and "local build" for anything built elsewhere. (Amended
+  2026-10-23: a pull request's CI build is named after its head commit, though
+  it is built from that head merged into `main`, as its checks run; the merge
+  commit can't be checked out once `main` moves.)
 - **One action releases.** A manually started workflow works out the next
   version from the Conventional Commits since the last tag (a breaking change
   is major, a feature minor, anything else a patch) unless a version is given,

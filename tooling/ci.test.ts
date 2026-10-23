@@ -1,4 +1,7 @@
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from 'vitest'
 
 const read = (path: string) => readFileSync(path, 'utf8')
@@ -23,8 +26,8 @@ const step = (text: string, needle: string) => stepsOf(text).find((each) => each
 test('checks run on pull requests and pushes to main, with no merge queue', () => {
   expect(workflow).toMatch(/^on:\n {2}pull_request:\n {2}push:\n {4}branches: \[main\]\n/m)
   expect(workflow).not.toContain('merge_group')
-  // A newer push supersedes a pull request's run, but every run on main finishes,
-  // since only main saves the caches.
+  // A newer push supersedes a pull request's run. On main, which saves the caches,
+  // it waits for the run in progress instead.
   expect(workflow).toContain(
     "concurrency:\n  group: checks-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
   )
@@ -112,10 +115,12 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   expect(step(windowsSetup, 'uses: Swatinem/rust-cache@')).toContain(
     "key: ${{ hashFiles('.tool-versions', '.github/actions/setup-windows/action.yml') }}",
   )
-  const restore = step(linuxSetup, 'uses: actions/cache/restore@')
-  expect(restore).toContain('path: ~/.npm/_cacache')
+  const [restore, save] = stepsOf(linuxSetup).filter((each) =>
+    each.includes('path: ~/.npm/_cacache'),
+  )
+  expect(restore).toContain('uses: actions/cache/restore@')
   expect(restore).toContain("hashFiles('.tool-versions', 'package-lock.json')")
-  const save = step(linuxSetup, 'uses: actions/cache/save@')
+  expect(save).toContain('uses: actions/cache/save@')
   expect(save).toContain("if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'")
   expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
     'save-npm-cache: true',
@@ -147,17 +152,132 @@ test('the Rust cache follows the asdf toolchain, where Cargo installs tools and 
   expect(order).toEqual(order.toSorted((a, b) => a - b))
 })
 
-test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
+/**
+ * Run the setup's OS package step with a stand-in sudo, whose first `stalls`
+ * commands matching `stall`, if any, time out as a slow mirror's would. Returns its exit status and
+ * each command it ran.
+ */
+function installPackages(nativeTests: boolean, stall?: string, stalls = 1) {
+  const packages = step(linuxSetup, 'name: Install the OS packages')!
+  expect(packages).toContain('NATIVE_TESTS: ${{ inputs.native-tests }}')
+  const script = /run: \|\n((?: {8}.*\n|\n)+)/.exec(packages)![1].replace(/^ {8}/gm, '')
+  const dir = mkdtempSync(join(tmpdir(), 'apt-'))
+  writeFileSync(join(dir, 'stalls'), String(stall ? stalls : 0))
+  writeFileSync(
+    join(dir, 'sudo'),
+    [
+      '#!/usr/bin/env bash',
+      'echo "$*" >> "$STUB/commands"',
+      'left=$(cat "$STUB/stalls")',
+      'if [[ -n $STALL && "$*" == *"$STALL"* ]] && (( left > 0 )); then',
+      '  echo $((left - 1)) > "$STUB/stalls"; exit 124',
+      'fi',
+    ].join('\n'),
+    { mode: 0o755 },
+  )
+  const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
+    env: {
+      PATH: `${dir}:${process.env.PATH}`,
+      STUB: dir,
+      STALL: stall ?? '',
+      NATIVE_TESTS: String(nativeTests),
+    },
+  })
+  const commands = readFileSync(join(dir, 'commands'), 'utf8').trim().split('\n')
+  return { status: run.status, commands }
+}
+
+test('OS packages come from the cache, then the Azure mirror, then Ubuntu’s own archive', () => {
+  const archives = '-o Dir::Cache::Archives=/var/cache/ci-apt-archives'
   // The static checks need the libraries Rust links against, not the native test tools.
-  const libraries = step(linuxSetup, 'name: Install the native libraries')
-  expect(libraries).toContain('libwebkit2gtk-4.1-dev')
-  expect(libraries).not.toMatch(/^\s+if:/m)
-  expect(libraries).not.toContain('xvfb')
-  const testTools = step(linuxSetup, 'name: Install the native test tools')
-  expect(testTools).toContain("if: inputs.native-tests == 'true'")
+  const libraries = installPackages(false)
+  expect(libraries.status).toBe(0)
+  const [update, download, install, clean] = libraries.commands
+  // The first attempt is bounded and killed if it outlasts its limit.
+  expect(update).toBe('timeout -k 10 60 apt-get update')
+  expect(download).toMatch(
+    /^timeout -k 10 240 apt-get -o Dir::Cache::Archives=\/var\/cache\/ci-apt-archives install -y --download-only .*libwebkit2gtk-4\.1-dev/,
+  )
+  expect(download).not.toContain('xvfb')
+  const packages = download.replace(/.*--download-only /, '')
+  // Installing uses only what is cached or was downloaded, and the cache keeps only
+  // the packages still current.
+  expect(install).toBe(`apt-get ${archives} install -y --no-download ${packages}`)
+  expect(clean).toBe(`apt-get ${archives} autoclean`)
+  expect(libraries.commands).toHaveLength(4)
+  // The gates and probes also get the native test tools.
+  const testTools = installPackages(true).commands[1]
   for (const tool of ['xvfb', 'webkit2gtk-driver', 'xdotool', 'dbus-x11', 'bubblewrap']) {
     expect(testTools).toContain(tool)
   }
+  // apt moves on from a mirror that stops answering, not from one that crawls, so a
+  // stalled first attempt drops the Azure mirror and tries again from Ubuntu's own
+  // archive, keeping what already arrived, with only the job's time limit.
+  const fallback = [
+    'sed -i /azure\\.archive\\.ubuntu\\.com/d /etc/apt/apt-mirrors.txt',
+    'apt-get update',
+    `apt-get ${archives} install -y --download-only ${packages}`,
+    install,
+    clean,
+  ]
+  for (const stall of ['--download-only', 'update']) {
+    const slow = installPackages(false, stall)
+    expect(slow.status, stall).toBe(0)
+    expect(slow.commands, stall).toEqual([
+      ...(stall === 'update' ? [update] : [update, download]),
+      ...fallback,
+    ])
+  }
+  // A stalled fallback fails the job, with nothing installed.
+  const stalled = installPackages(false, '--download-only', 2)
+  expect(stalled.status).not.toBe(0)
+  expect(stalled.commands).toEqual([update, download, ...fallback.slice(0, 3)])
+})
+
+test('main saves the downloaded OS packages, which every job restores before installing', () => {
+  const path = 'path: /var/cache/ci-apt-archives/*.deb'
+  const key =
+    "apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-${{ hashFiles('.github/actions/setup-linux/action.yml') }}-"
+  // Each runner image and package list has its own key, and starts from the last
+  // one's packages, so apt downloads only what changed.
+  const image = step(linuxSetup, 'name: Prepare the OS package cache')!
+  // apt's download user can't enter the home folder, so the cache lives outside it.
+  expect(image).toContain('sudo install -d -o "$USER" /var/cache/ci-apt-archives')
+  expect(image).toContain('echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"')
+  const restore = step(linuxSetup, `${path}`)!
+  expect(restore).toContain('uses: actions/cache/restore@')
+  expect(restore).toContain(`key: ${key}\${{ steps.image.outputs.version }}`)
+  expect(restore).toContain(
+    'restore-keys: apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-\n',
+  )
+  const save = stepsOf(linuxSetup).filter((each) => each.includes(path))[1]
+  expect(save).toContain('uses: actions/cache/save@')
+  expect(save).toContain(`key: ${key}\${{ steps.image.outputs.version }}`)
+  expect(save).toContain("if: inputs.save-apt-cache == 'true' && github.ref == 'refs/heads/main'")
+  const order = [
+    'name: Prepare the OS package cache',
+    'uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n      with:\n        ' +
+      path,
+    'name: Install the OS packages',
+    'uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n      with:\n        ' +
+      path,
+  ].map((needle) => linuxSetup.indexOf(needle))
+  expect(order.every((index) => index >= 0)).toBe(true)
+  expect(order).toEqual(order.toSorted((a, b) => a - b))
+  // The static checks save the libraries, and the gates the native test tools too.
+  expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
+    'save-apt-cache: true',
+  )
+  expect(step(job('gates'), 'uses: ./.github/actions/setup-linux')).toContain(
+    'save-apt-cache: true',
+  )
+  expect(step(job('probes'), 'uses: ./.github/actions/setup-linux')).toContain(
+    'save-apt-cache: false',
+  )
+  expect(linuxSetup).toMatch(/save-apt-cache:\n[^\n]*\n {4}default: false\n/)
+})
+
+test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
   const prebuilt = step(linuxSetup, 'uses: taiki-e/install-action@')
   expect(prebuilt).toContain('tool: cargo-llvm-cov@0.9.1,cargo-about@0.9.2')
   expect(prebuilt).toContain("if: inputs.native-tests == 'true'")
@@ -290,13 +410,22 @@ test('the Windows build carries the last release’s version and its commit', ()
   const identity = step(release, 'name: Name the build')!
   expect(identity).toBeDefined()
   expect(identity).toContain('id: name')
-  expect(identity).toContain("git describe --tags --abbrev=0 --match 'v[0-9]*'")
+  // Release tags only, as the release workflow finds them: a tag such as v1.1.0-rc1
+  // would give every build a version Tauri refuses.
+  expect(identity).toContain(
+    "git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*[!0-9.]*'",
+  )
   expect(identity).toContain('|| echo v0.0.0')
   expect(identity).toContain('>> "$GITHUB_OUTPUT"')
   const build = step(release, 'uses: ./.github/actions/build-windows')!
   expect(build).toContain('version: ${{ steps.name.outputs.version }}')
-  // The commit the artifact is named after.
-  expect(build).toContain('build: ${{ github.event.pull_request.head.sha || github.sha }}')
+  // The commit the artifact is named after: a pull request's head, though its build
+  // is that head merged into main (decision 0030).
+  expect(workflow).toContain(
+    'env:\n  BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}\n',
+  )
+  expect(workflow.split('github.event.pull_request.head.sha')).toHaveLength(2)
+  expect(build).toContain('build: ${{ env.BUILD_COMMIT }}')
   expect(release.indexOf('name: Name the build')).toBeLessThan(
     release.indexOf('uses: ./.github/actions/build-windows'),
   )
@@ -308,33 +437,51 @@ test('a Windows build is published only once every check has passed', () => {
   // Built in parallel with the checks, the executable waits under an unverified name.
   const build = step(job('windows-release'), 'uses: actions/upload-artifact@')
   expect(build).toContain(`if: ${fromThisRepository}`)
-  expect(build).toContain(
-    'name: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
-  )
+  expect(build).toContain('name: windows-build-unverified-${{ env.BUILD_COMMIT }}')
   expect(build).toContain('path: src-tauri/target/release/astral-index.exe')
   expect(build).toContain('retention-days: 1')
   expect(build).toContain('if-no-files-found: error')
   const publish = job('publish')
   expect(publish).toContain('needs: [static, gates, probes, windows-tests, windows-release]')
-  expect(publish).toContain(`if: always() && (${fromThisRepository})`)
-  // No job may delete artifacts: a failed run's build simply expires.
+  // GitHub runs a job only once every job it needs has succeeded, unless its
+  // condition names a status function, so this one says only whose builds it keeps.
+  expect(publish).toContain(`\n    if: ${fromThisRepository}\n`)
+  // Least privilege: no job needs to write to the run's artifacts.
   expect(workflow).not.toContain('actions: write')
-  const passed =
-    "!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped')"
-  // Once every check passes, it is republished under its lasting name for 7 days.
+  // It is republished under its lasting name for 7 days.
   const merge = step(publish, 'uses: actions/upload-artifact/merge@')
-  expect(merge).toContain(`if: \${{ ${passed} }}`)
-  expect(merge).toContain(
-    'name: astral-index-dev-build-unsigned-${{ github.event.pull_request.head.sha || github.sha }}',
-  )
-  expect(merge).toContain(
-    'pattern: windows-build-unverified-${{ github.event.pull_request.head.sha || github.sha }}',
-  )
+  expect(merge).not.toMatch(/^\s+if:/m)
+  expect(merge).toContain('name: astral-index-dev-build-unsigned-${{ env.BUILD_COMMIT }}')
+  expect(merge).toContain('pattern: windows-build-unverified-${{ env.BUILD_COMMIT }}')
   expect(merge).toContain('retention-days: 7')
-  expect(merge).toContain('delete-merged: true')
-  // A failed run's build is never published and expires in a day, so re-running only
-  // the failed jobs can still publish it.
-  expect(publish).not.toContain('gh api -X DELETE')
+  // The unverified build stays until it expires, so a re-run's publish still finds it.
+  expect(merge).not.toContain('delete-merged')
+})
+
+test('only reports and uploads run whatever came before them', () => {
+  // A step or job that names a status function, or reads the results of the jobs it
+  // needs, overrides GitHub's own rule that it runs only after success. Reporting
+  // and saving evidence are the only reasons to.
+  for (const [name, text] of [
+    ['check', workflow],
+    ['release', release],
+    ['setup-linux', linuxSetup],
+    ['setup-windows', windowsSetup],
+    ['build-windows', buildWindows],
+  ]) {
+    expect(text, name).not.toContain('needs.*.result')
+    // Only a step's own one-line condition, never a job's.
+    for (const line of text
+      .split('\n')
+      .filter((one) => /\b(always|success|failure|cancelled)\(\)/.test(one))) {
+      expect(line, name).toMatch(/^ {8}if: /)
+    }
+    for (const each of stepsOf(text).filter((one) =>
+      /\b(always|failure|cancelled)\(\)/.test(one),
+    )) {
+      expect(each, name).toMatch(/uses: actions\/upload-artifact@|run: npm run ci:summary/)
+    }
+  }
 })
 
 test('each Linux job writes its own summary, however its check ended', () => {
@@ -462,7 +609,7 @@ test('a job saves a cache only when it says so, and every job says', () => {
     expect(setup, name).not.toMatch(/default: '/)
   }
   expect(linuxSetup).toMatch(/native-tests:\n[^\n]*\n {4}default: false\n/)
-  // Each job that sets up states both choices, as plain booleans.
+  // Each job that sets up states its choices, as plain booleans.
   const uses = [
     ...(workflow + release).matchAll(
       /uses: \.\/\.github\/actions\/setup-\w+\n {8}with:\n((?: {10}.+\n)+)/g,
@@ -472,14 +619,15 @@ test('a job saves a cache only when it says so, and every job says', () => {
   const saving = uses.map(([, inputs]) => ({
     rust: /save-rust-cache: (true|false)\n/.exec(inputs)?.[1],
     npm: /save-npm-cache: (true|false)\n/.exec(inputs)?.[1],
+    apt: /save-apt-cache: (true|false)\n/.exec(inputs)?.[1],
   }))
   expect(saving).toEqual([
-    { rust: 'true', npm: 'true' },
-    { rust: 'true', npm: 'false' },
-    { rust: 'true', npm: 'false' },
-    { rust: 'true', npm: 'false' },
-    { rust: 'true', npm: 'true' },
-    { rust: 'false', npm: 'false' },
+    { rust: 'true', npm: 'true', apt: 'true' },
+    { rust: 'true', npm: 'false', apt: 'true' },
+    { rust: 'true', npm: 'false', apt: 'false' },
+    { rust: 'true', npm: 'false', apt: undefined },
+    { rust: 'true', npm: 'true', apt: undefined },
+    { rust: 'false', npm: 'false', apt: undefined },
   ])
   // Booleans are never quoted in the workflows.
   expect(workflow + release).not.toMatch(/: '(true|false)'$/m)
