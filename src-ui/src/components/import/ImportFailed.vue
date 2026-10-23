@@ -13,10 +13,9 @@ const emit = defineEmits<{ retry: []; choose: []; back: [] }>()
 </script>
 
 <template>
+  <!-- The end-to-end tests find the card by its class. -->
   <StatusCard class="failed" role="alert" aria-labelledby="failed-heading">
-    <FailureSummary id="failed-heading" :title>
-      <p>{{ message }}</p>
-    </FailureSummary>
+    <FailureSummary id="failed-heading" :title :message />
     <div class="buttons">
       <button
         v-if="source === 'device'"

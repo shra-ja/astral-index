@@ -14,6 +14,11 @@ test('explains the failure as an alert, focusing its heading', () => {
   const wrapper = failed('device')
   expect(wrapper.get('[role="alert"]').text()).toContain('We found the game.')
   expect(wrapper.get('h2').text()).toBe('Couldn’t Find the Game Files')
+  // The alert is named by its heading.
+  const alert = wrapper.get('[role="alert"]')
+  expect(alert.get(`#${alert.attributes('aria-labelledby')}`).element).toBe(
+    wrapper.get('h2').element,
+  )
   expect(document.activeElement).toBe(wrapper.get('h2').element)
   wrapper.unmount()
 })

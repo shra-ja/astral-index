@@ -11,10 +11,10 @@ test('frames its content as a section, named and announced as its caller says', 
   expect(section.attributes('role')).toBe('alert')
   expect(section.attributes('aria-labelledby')).toBe('card-heading')
   expect(section.get('h2 + p').text()).toBe('Done.')
-  expect(section.classes()).not.toContain('centred')
+  expect(section.classes()).not.toContain('result')
 })
 
-test('a result can be centred', () => {
-  const wrapper = mount(StatusCard, { props: { centred: true } })
-  expect(wrapper.get('section').classes()).toContain('centred')
+test('a short result has its own, narrower layout', () => {
+  const wrapper = mount(StatusCard, { props: { result: true } })
+  expect(wrapper.get('section').classes()).toContain('result')
 })

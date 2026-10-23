@@ -10,6 +10,8 @@ import StatusLine from '../shared/StatusLine.vue'
 
 defineProps<{ copy: string | null; checking: boolean; failure?: string | null }>()
 const emit = defineEmits<{ reveal: []; report: []; restore: [] }>()
+const explanation =
+  'This version of Astral Index stores history in a new format, and your existing history failed to upgrade automatically to support it. Nothing was changed, but your history can’t be shown or added to until this is fixed.'
 const restoreButton = useTemplateRef('restoreButton')
 defineExpose({
   /** Focus the button that chose a backup, once its confirmation closes. */
@@ -18,14 +20,12 @@ defineExpose({
 </script>
 
 <template>
-  <StatusCard class="unavailable" role="alert" aria-labelledby="unavailable-heading">
-    <FailureSummary id="unavailable-heading" title="Your History Couldn’t Be Upgraded">
-      <p>
-        This version of Astral Index stores history in a new format, and your existing history
-        failed to upgrade automatically to support it. Nothing was changed, but your history can’t
-        be shown or added to until this is fixed.
-      </p>
-    </FailureSummary>
+  <StatusCard role="alert" aria-labelledby="unavailable-heading">
+    <FailureSummary
+      id="unavailable-heading"
+      title="Your History Couldn’t Be Upgraded"
+      :message="explanation"
+    />
 
     <div class="copy">
       <template v-if="copy">

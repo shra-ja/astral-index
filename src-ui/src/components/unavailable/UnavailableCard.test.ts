@@ -12,6 +12,8 @@ test('says the history failed to upgrade, names the copy and how to use it again
   const wrapper = card({ copy: 'history-v2-20261021-143000.sqlite' })
   const alert = wrapper.get('[role="alert"]')
   expect(alert.get('h2').text()).toBe('Your History Couldn’t Be Upgraded')
+  // The alert is named by its heading.
+  expect(alert.get(`#${alert.attributes('aria-labelledby')}`).element).toBe(alert.get('h2').element)
   expect(document.activeElement).toBe(alert.get('h2').element)
   expect(alert.text()).toContain(
     'This version of Astral Index stores history in a new format, and your existing history failed to upgrade automatically to support it. Nothing was changed, but your history can’t be shown or added to until this is fixed.',

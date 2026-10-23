@@ -83,6 +83,7 @@ onMounted(() => cancelButton.value!.focus())
 </script>
 
 <template>
+  <!-- The end-to-end tests find the card by its class. -->
   <StatusCard class="progress" aria-labelledby="progress-heading">
     <div class="intro">
       <h2 id="progress-heading">Retrieving {{ term }} History</h2>

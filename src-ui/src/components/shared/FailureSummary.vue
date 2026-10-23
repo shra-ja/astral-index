@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// Presentational: what failed, beside a warning, with the message in the default
-// slot. The heading takes focus so the caller's alert is read in full.
+// Presentational: what failed and why, beside a warning. The heading takes focus so
+// the caller's alert is read in full.
 import { TriangleAlert } from '@lucide/vue'
 import { onMounted, useTemplateRef } from 'vue'
 
-defineProps<{ id: string; title: string }>()
+defineProps<{ id: string; title: string; message: string }>()
 const heading = useTemplateRef('heading')
 onMounted(() => heading.value!.focus())
 </script>
@@ -16,7 +16,7 @@ onMounted(() => heading.value!.focus())
     </span>
     <div class="text">
       <h2 :id ref="heading" tabindex="-1">{{ title }}</h2>
-      <slot />
+      <p>{{ message }}</p>
     </div>
   </div>
 </template>
@@ -47,7 +47,7 @@ h2 {
   font-size: 20px;
   font-weight: 600;
 }
-.text :slotted(p) {
+p {
   margin: 0;
   color: var(--text-secondary);
   font-size: 15px;

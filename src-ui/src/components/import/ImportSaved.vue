@@ -16,7 +16,8 @@ onMounted(() => heading.value!.focus())
 </script>
 
 <template>
-  <StatusCard class="saved" centred aria-labelledby="saved-heading">
+  <!-- The end-to-end tests find the card by its class. -->
+  <StatusCard class="saved" result aria-labelledby="saved-heading">
     <span class="icon" aria-hidden="true">
       <Check :size="28" />
     </span>

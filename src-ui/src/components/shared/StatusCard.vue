@@ -1,12 +1,12 @@
 <script setup lang="ts">
 // Presentational: a card that holds a screen's whole status, such as a retrieval's
 // progress, why it failed or what a save added, in the middle of the screen. The
-// caller names it and gives its role; a centred card shows a short result.
-defineProps<{ centred?: boolean }>()
+// caller names it and gives its role; a short result is narrower, centred within.
+defineProps<{ result?: boolean }>()
 </script>
 
 <template>
-  <section class="status-card" :class="{ centred }">
+  <section class="status-card" :class="{ result }">
     <slot />
   </section>
 </template>
@@ -25,7 +25,7 @@ defineProps<{ centred?: boolean }>()
   border-radius: 14px;
   background: var(--panel);
 }
-.centred {
+.result {
   align-items: center;
   gap: 18px;
   max-width: 520px;
