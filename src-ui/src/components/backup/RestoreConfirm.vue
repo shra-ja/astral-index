@@ -101,10 +101,6 @@ onMounted(() => intro.value!.focus())
   font-size: 15px;
   line-height: 1.5;
 }
-/* The intro takes focus only so it is announced; it is not a control. */
-.intro:focus {
-  outline: none;
-}
 .panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));

@@ -46,10 +46,6 @@ h2 {
   font-size: 20px;
   font-weight: 600;
 }
-/* The heading takes focus only so it is announced; it is not a control. */
-h2:focus {
-  outline: none;
-}
 p {
   margin: 0;
   color: var(--text-secondary);

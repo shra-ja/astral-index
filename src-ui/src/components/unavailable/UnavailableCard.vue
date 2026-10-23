@@ -3,15 +3,14 @@
 // 0037). It names the copy kept before the failed upgrade, and asks with events to
 // open the data folder, report the problem or restore a backup; the caller restores
 // and reports how a choice failed, which its status region announces.
-import { TriangleAlert } from '@lucide/vue'
-import { onMounted, useTemplateRef } from 'vue'
+import { useTemplateRef } from 'vue'
+import FailureSummary from '../shared/FailureSummary.vue'
+import StatusCard from '../shared/StatusCard.vue'
 import StatusLine from '../shared/StatusLine.vue'
 
 defineProps<{ copy: string | null; checking: boolean; failure?: string | null }>()
 const emit = defineEmits<{ reveal: []; report: []; restore: [] }>()
-const heading = useTemplateRef('heading')
 const restoreButton = useTemplateRef('restoreButton')
-onMounted(() => heading.value!.focus())
 defineExpose({
   /** Focus the button that chose a backup, once its confirmation closes. */
   focus: () => restoreButton.value!.focus(),
@@ -19,22 +18,14 @@ defineExpose({
 </script>
 
 <template>
-  <section class="unavailable" role="alert" aria-labelledby="unavailable-heading">
-    <div class="summary">
-      <span class="icon" aria-hidden="true">
-        <TriangleAlert :size="22" :stroke-width="1.75" />
-      </span>
-      <div class="text">
-        <h2 id="unavailable-heading" ref="heading" tabindex="-1">
-          Your History Couldn’t Be Upgraded
-        </h2>
-        <p>
-          This version of Astral Index stores history in a new format, and your existing history
-          failed to upgrade automatically to support it. Nothing was changed, but your history can’t
-          be shown or added to until this is fixed.
-        </p>
-      </div>
-    </div>
+  <StatusCard class="unavailable" role="alert" aria-labelledby="unavailable-heading">
+    <FailureSummary id="unavailable-heading" title="Your History Couldn’t Be Upgraded">
+      <p>
+        This version of Astral Index stores history in a new format, and your existing history
+        failed to upgrade automatically to support it. Nothing was changed, but your history can’t
+        be shown or added to until this is fixed.
+      </p>
+    </FailureSummary>
 
     <div class="copy">
       <template v-if="copy">
@@ -81,39 +72,10 @@ defineExpose({
         <StatusLine v-if="failure" tone="failed">{{ failure }}</StatusLine>
       </div>
     </div>
-  </section>
+  </StatusCard>
 </template>
 
 <style scoped>
-.unavailable {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  width: 100%;
-  max-width: 640px;
-  /* A status card sits in the middle of the screen, across and down. */
-  margin: auto;
-  padding: 32px;
-  border: 1px solid var(--rim);
-  border-radius: 14px;
-  background: var(--panel);
-}
-.summary {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-.icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--error-tint);
-  color: var(--error);
-}
-.text,
 .copy,
 .steps,
 .actions {
@@ -125,25 +87,15 @@ defineExpose({
 .actions {
   gap: 10px;
 }
-h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-/* The heading takes focus only so it is announced; it is not a control. */
-h2:focus {
-  outline: none;
-}
 h3 {
   margin: 0;
   color: var(--text-soft);
   font-size: 13px;
   font-weight: 600;
 }
-p {
+.copy p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 15px;
   line-height: 1.5;
 }
 .copy {
