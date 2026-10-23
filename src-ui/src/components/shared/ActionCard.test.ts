@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import ActionCard from './ActionCard.vue'
+import IconTile from './IconTile.vue'
 
 const card = () =>
   mount(ActionCard, {
@@ -28,14 +29,13 @@ test('names its section by its heading and shows the text, points and slots in o
   expect(wrapper.get('.actions button').text()).toBe('Save')
 })
 
-test('hides the icon from screen readers and marks an accented one', async () => {
+test('shows its icon in a tile, neutral or accented', async () => {
   const wrapper = card()
-  const icon = wrapper.get('.icon')
-  expect(icon.attributes('aria-hidden')).toBe('true')
-  expect(icon.find('.glyph').exists()).toBe(true)
-  expect(icon.classes()).not.toContain('accent')
+  const tile = wrapper.getComponent(IconTile)
+  expect(tile.find('.glyph').exists()).toBe(true)
+  expect(tile.props('tone')).toBe('neutral')
   await wrapper.setProps({ accent: true })
-  expect(wrapper.get('.icon').classes()).toContain('accent')
+  expect(wrapper.getComponent(IconTile).props('tone')).toBe('accent')
 })
 
 test('announces what its actions report in a status region below them', () => {

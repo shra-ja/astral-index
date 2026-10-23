@@ -3,6 +3,7 @@
 // The heading takes focus so the alert is read in full.
 import { TriangleAlert } from '@lucide/vue'
 import { onMounted, useTemplateRef } from 'vue'
+import IconTile from '../shared/IconTile.vue'
 
 defineProps<{ title: string; message: string }>()
 const emit = defineEmits<{ retry: [] }>()
@@ -12,9 +13,9 @@ onMounted(() => heading.value!.focus())
 
 <template>
   <section class="history-failed" role="alert" aria-labelledby="history-failed-heading">
-    <span class="icon" aria-hidden="true">
+    <IconTile tone="error">
       <TriangleAlert :size="22" :stroke-width="1.75" />
-    </span>
+    </IconTile>
     <h2 id="history-failed-heading" ref="heading" tabindex="-1">{{ title }}</h2>
     <p>{{ message }}</p>
     <button type="button" @click="emit('retry')">Try again</button>
@@ -31,15 +32,6 @@ onMounted(() => heading.value!.focus())
   max-width: 440px;
   margin: auto;
   text-align: center;
-}
-.icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--error-tint);
-  color: var(--error);
 }
 h2 {
   margin: 0;
