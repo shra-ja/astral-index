@@ -54,7 +54,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Shared status card (2026-10-23)
 
-`refactor/status-card`: the frame repeated by the History Unavailable card and the Import screen's cards, shared as one component; under way.
+`refactor/status-card`: the History Unavailable card and the Import screen's progress, failure and result cards repeated one frame; they now share `StatusCard` (a centred variant for the result), and the two failure cards `FailureSummary`, the warning, heading and message. Headings and text that take focus only to be announced lose their outline through one rule in `main.css`, not five; it leaves the account menu's items alone. The four cards' tests pass unchanged; the new parts' tests red first. Small visual changes: Import's failure card is as wide as the others (640px, from 600), and the progress card's spacing 22px, from 24.
 
 ## Known limitations
 
