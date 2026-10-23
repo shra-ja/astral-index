@@ -29,7 +29,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart, and repeated
   or overlapping imports add only new rolls. A history from an older release is
-  upgraded in one transaction after a dated copy is kept beside it; no
+  upgraded in one transaction after a dated copy is kept beside it; one
+  that can't be opens History Unavailable, which restores a backup. No
   migration exists yet.
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
@@ -51,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### History that can't be upgraded, screen (2026-10-22)
+### Shared status card (2026-10-23)
 
-`feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen. A history that couldn't be upgraded opens History Unavailable (option A on the canvas) before any game screen: the router asks `history_status`, later commands switch to it too, and the sidebar locks the game screens. Its card names the copy, advises reinstalling the previous version, reporting or restoring, and restores a backup through the usual confirmation, after which Backup & Restore says how it went. Each layer red first; an end-to-end test drives the mock's failing upgrade through to a restore. From the reviews: a restore from Backup & Restore now unlocks the app too, locked links stay named and focusable, and the card shows its latest failure (each red first).
+`refactor/status-card`: the frame repeated by the History Unavailable card and the Import screen's cards, shared as one component; under way.
 
 ## Known limitations
 
@@ -191,4 +192,5 @@ research, under a "From" heading.
 - [2026-10-22: not-upgraded support](history/2026-10-22-not-upgraded-support.md):
   the history status, restoring over a history that can't be upgraded, the
   mock's failing upgrade, the wide-window stall's diagnostics, the native
-  cache file picker and CI's OS package cache.
+  cache file picker, CI's OS package cache and the History Unavailable
+  screen.
