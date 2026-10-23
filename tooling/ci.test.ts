@@ -115,10 +115,12 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   expect(step(windowsSetup, 'uses: Swatinem/rust-cache@')).toContain(
     "key: ${{ hashFiles('.tool-versions', '.github/actions/setup-windows/action.yml') }}",
   )
-  const restore = step(linuxSetup, 'uses: actions/cache/restore@')
-  expect(restore).toContain('path: ~/.npm/_cacache')
+  const [restore, save] = stepsOf(linuxSetup).filter((each) =>
+    each.includes('path: ~/.npm/_cacache'),
+  )
+  expect(restore).toContain('uses: actions/cache/restore@')
   expect(restore).toContain("hashFiles('.tool-versions', 'package-lock.json')")
-  const save = step(linuxSetup, 'uses: actions/cache/save@')
+  expect(save).toContain('uses: actions/cache/save@')
   expect(save).toContain("if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'")
   expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
     'save-npm-cache: true',
@@ -151,35 +153,33 @@ test('the Rust cache follows the asdf toolchain, where Cargo installs tools and 
 })
 
 /**
- * Run the setup's OS package step with a stand-in sudo, whose first `failures`
- * downloads time out as a stalled mirror's would, and a stand-in sleep. Returns its
- * exit status and each command it ran.
+ * Run the setup's OS package step with a stand-in sudo, whose first `stalls`
+ * commands matching `stall`, if any, time out as a slow mirror's would. Returns its exit status and
+ * each command it ran.
  */
-function installPackages(nativeTests: boolean, failures: number) {
+function installPackages(nativeTests: boolean, stall?: string, stalls = 1) {
   const packages = step(linuxSetup, 'name: Install the OS packages')!
   expect(packages).toContain('NATIVE_TESTS: ${{ inputs.native-tests }}')
   const script = /run: \|\n((?: {8}.*\n|\n)+)/.exec(packages)![1].replace(/^ {8}/gm, '')
   const dir = mkdtempSync(join(tmpdir(), 'apt-'))
-  writeFileSync(join(dir, 'failures'), String(failures))
+  writeFileSync(join(dir, 'stalls'), String(stall ? stalls : 0))
   writeFileSync(
     join(dir, 'sudo'),
     [
       '#!/usr/bin/env bash',
       'echo "$*" >> "$STUB/commands"',
-      'left=$(cat "$STUB/failures")',
-      'if [[ "$*" == *--download-only* ]] && (( left > 0 )); then',
-      '  echo $((left - 1)) > "$STUB/failures"; exit 124',
+      'left=$(cat "$STUB/stalls")',
+      'if [[ -n $STALL && "$*" == *"$STALL"* ]] && (( left > 0 )); then',
+      '  echo $((left - 1)) > "$STUB/stalls"; exit 124',
       'fi',
     ].join('\n'),
     { mode: 0o755 },
   )
-  writeFileSync(join(dir, 'sleep'), '#!/usr/bin/env bash\necho "sleep $*" >> "$STUB/commands"', {
-    mode: 0o755,
-  })
   const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
     env: {
       PATH: `${dir}:${process.env.PATH}`,
       STUB: dir,
+      STALL: stall ?? '',
       NATIVE_TESTS: String(nativeTests),
     },
   })
@@ -187,44 +187,94 @@ function installPackages(nativeTests: boolean, failures: number) {
   return { status: run.status, commands }
 }
 
-test('OS packages download in bounded, retried attempts, so a slow mirror cannot stall a job', () => {
+test('OS packages come from the cache, then the Azure mirror, then Ubuntu’s own archive', () => {
+  const archives = '-o Dir::Cache::Archives=/var/cache/ci-apt-archives'
   // The static checks need the libraries Rust links against, not the native test tools.
-  const libraries = installPackages(false, 0)
+  const libraries = installPackages(false)
   expect(libraries.status).toBe(0)
-  const [update, download, install] = libraries.commands
-  // Each part of an attempt is killed if it outlasts its limit: at most about 12
-  // minutes in all, inside every job's time limit.
+  const [update, download, install, clean] = libraries.commands
+  // The first attempt is bounded and killed if it outlasts its limit.
   expect(update).toBe('timeout -k 10 60 apt-get update')
   expect(download).toMatch(
-    /^timeout -k 10 180 apt-get install -y --download-only .*libwebkit2gtk-4\.1-dev/,
+    /^timeout -k 10 240 apt-get -o Dir::Cache::Archives=\/var\/cache\/ci-apt-archives install -y --download-only .*libwebkit2gtk-4\.1-dev/,
   )
   expect(download).not.toContain('xvfb')
-  // Installing uses only what was downloaded, so it needs no time limit.
-  expect(install).toBe(
-    download.replace('timeout -k 10 180 ', '').replace('--download-only', '--no-download'),
-  )
-  expect(libraries.commands).toHaveLength(3)
+  const packages = download.replace(/.*--download-only /, '')
+  // Installing uses only what is cached or was downloaded, and the cache keeps only
+  // the packages still current.
+  expect(install).toBe(`apt-get ${archives} install -y --no-download ${packages}`)
+  expect(clean).toBe(`apt-get ${archives} autoclean`)
+  expect(libraries.commands).toHaveLength(4)
   // The gates and probes also get the native test tools.
-  const testTools = installPackages(true, 0).commands[1]
+  const testTools = installPackages(true).commands[1]
   for (const tool of ['xvfb', 'webkit2gtk-driver', 'xdotool', 'dbus-x11', 'bubblewrap']) {
     expect(testTools).toContain(tool)
   }
-  // A stalled download is tried again after a pause, keeping what already arrived.
-  const retried = installPackages(false, 2)
-  expect(retried.status).toBe(0)
-  const attempt: unknown[] = [update, expect.stringContaining('--download-only')]
-  expect(retried.commands).toEqual([
-    ...attempt,
-    'sleep 10',
-    ...attempt,
-    'sleep 10',
-    ...attempt,
+  // apt moves on from a mirror that stops answering, not from one that crawls, so a
+  // stalled first attempt drops the Azure mirror and tries again from Ubuntu's own
+  // archive, keeping what already arrived, with only the job's time limit.
+  const fallback = [
+    'sed -i /azure\\.archive\\.ubuntu\\.com/d /etc/apt/apt-mirrors.txt',
+    'apt-get update',
+    `apt-get ${archives} install -y --download-only ${packages}`,
     install,
-  ])
-  // Three stalls fail the job early, with nothing installed and no last pause.
-  const stalled = installPackages(false, 3)
+    clean,
+  ]
+  for (const stall of ['--download-only', 'update']) {
+    const slow = installPackages(false, stall)
+    expect(slow.status, stall).toBe(0)
+    expect(slow.commands, stall).toEqual([
+      ...(stall === 'update' ? [update] : [update, download]),
+      ...fallback,
+    ])
+  }
+  // A stalled fallback fails the job, with nothing installed.
+  const stalled = installPackages(false, '--download-only', 2)
   expect(stalled.status).not.toBe(0)
-  expect(stalled.commands).toEqual([...attempt, 'sleep 10', ...attempt, 'sleep 10', ...attempt])
+  expect(stalled.commands).toEqual([update, download, ...fallback.slice(0, 3)])
+})
+
+test('main saves the downloaded OS packages, which every job restores before installing', () => {
+  const path = 'path: /var/cache/ci-apt-archives/*.deb'
+  const key =
+    "apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-${{ hashFiles('.github/actions/setup-linux/action.yml') }}-"
+  // Each runner image and package list has its own key, and starts from the last
+  // one's packages, so apt downloads only what changed.
+  const image = step(linuxSetup, 'name: Prepare the OS package cache')!
+  // apt's download user can't enter the home folder, so the cache lives outside it.
+  expect(image).toContain('sudo install -d -o "$USER" /var/cache/ci-apt-archives')
+  expect(image).toContain('echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"')
+  const restore = step(linuxSetup, `${path}`)!
+  expect(restore).toContain('uses: actions/cache/restore@')
+  expect(restore).toContain(`key: ${key}\${{ steps.image.outputs.version }}`)
+  expect(restore).toContain(
+    'restore-keys: apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-\n',
+  )
+  const save = stepsOf(linuxSetup).filter((each) => each.includes(path))[1]
+  expect(save).toContain('uses: actions/cache/save@')
+  expect(save).toContain(`key: ${key}\${{ steps.image.outputs.version }}`)
+  expect(save).toContain("if: inputs.save-apt-cache == 'true' && github.ref == 'refs/heads/main'")
+  const order = [
+    'name: Prepare the OS package cache',
+    'uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n      with:\n        ' +
+      path,
+    'name: Install the OS packages',
+    'uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n      with:\n        ' +
+      path,
+  ].map((needle) => linuxSetup.indexOf(needle))
+  expect(order.every((index) => index >= 0)).toBe(true)
+  expect(order).toEqual(order.toSorted((a, b) => a - b))
+  // The static checks save the libraries, and the gates the native test tools too.
+  expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
+    'save-apt-cache: true',
+  )
+  expect(step(job('gates'), 'uses: ./.github/actions/setup-linux')).toContain(
+    'save-apt-cache: true',
+  )
+  expect(step(job('probes'), 'uses: ./.github/actions/setup-linux')).toContain(
+    'save-apt-cache: false',
+  )
+  expect(linuxSetup).toMatch(/save-apt-cache:\n[^\n]*\n {4}default: false\n/)
 })
 
 test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
@@ -559,7 +609,7 @@ test('a job saves a cache only when it says so, and every job says', () => {
     expect(setup, name).not.toMatch(/default: '/)
   }
   expect(linuxSetup).toMatch(/native-tests:\n[^\n]*\n {4}default: false\n/)
-  // Each job that sets up states both choices, as plain booleans.
+  // Each job that sets up states its choices, as plain booleans.
   const uses = [
     ...(workflow + release).matchAll(
       /uses: \.\/\.github\/actions\/setup-\w+\n {8}with:\n((?: {10}.+\n)+)/g,
@@ -569,14 +619,15 @@ test('a job saves a cache only when it says so, and every job says', () => {
   const saving = uses.map(([, inputs]) => ({
     rust: /save-rust-cache: (true|false)\n/.exec(inputs)?.[1],
     npm: /save-npm-cache: (true|false)\n/.exec(inputs)?.[1],
+    apt: /save-apt-cache: (true|false)\n/.exec(inputs)?.[1],
   }))
   expect(saving).toEqual([
-    { rust: 'true', npm: 'true' },
-    { rust: 'true', npm: 'false' },
-    { rust: 'true', npm: 'false' },
-    { rust: 'true', npm: 'false' },
-    { rust: 'true', npm: 'true' },
-    { rust: 'false', npm: 'false' },
+    { rust: 'true', npm: 'true', apt: 'true' },
+    { rust: 'true', npm: 'false', apt: 'true' },
+    { rust: 'true', npm: 'false', apt: 'false' },
+    { rust: 'true', npm: 'false', apt: undefined },
+    { rust: 'true', npm: 'true', apt: undefined },
+    { rust: 'false', npm: 'false', apt: undefined },
   ])
   // Booleans are never quoted in the workflows.
   expect(workflow + release).not.toMatch(/: '(true|false)'$/m)

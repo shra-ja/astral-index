@@ -273,9 +273,13 @@ instead, though it replaces one still waiting:
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
 Windows jobs through `.github/actions/setup-windows`; the tool versions live in
-those two actions. The Linux setup downloads its OS packages in at most three
-bounded attempts, about 12 minutes in all, then installs them offline, so a slow
-mirror fails the job instead of stalling it until its time limit. CI's Windows
+those two actions. The Linux setup installs its OS packages from
+a cache that `main` saves, since the runners' Azure Ubuntu mirror is sometimes
+slow for minutes on end
+([actions/runner-images#14823](https://github.com/actions/runner-images/issues/14823));
+only the package index then comes from the mirror. A download that outlasts
+its first, bounded attempt drops the Azure mirror and continues from Ubuntu's
+own archive, because apt moves on only from a mirror that stops answering. CI's Windows
 release build and the release workflow both build and smoke-test the executable
 through `.github/actions/build-windows`, which takes the version and build
 identity as inputs, so the two builds cannot drift apart; `tooling/ci.test.ts`
