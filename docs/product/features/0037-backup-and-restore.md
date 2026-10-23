@@ -370,8 +370,9 @@ Backup and restore stay local and never make a network request.
     rail and couldn't take focus for their tooltip, and the card's status line
     kept an older restore refusal over a newer failed opening (both red first);
     the redirect rule moved wholly into the router's guard; and the restore
-    chip and the openings are shared. A status card shared by the four
-    screens that repeat one is a follow-up.
+    chip and the openings are shared. In a follow-up, its card and the
+    Import screen's progress, failure and result cards share one
+    `StatusCard`, and the two failure cards one `FailureSummary`.
 - [ ] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and

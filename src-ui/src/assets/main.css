@@ -76,6 +76,11 @@ label {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* Headings and text take focus only so they are announced; they are not controls.
+   Controls focused by script, such as a menu's items, keep their outline. */
+:is(h1, h2, h3, p)[tabindex='-1']:focus {
+  outline: none;
+}
 button,
 .button {
   display: inline-flex;

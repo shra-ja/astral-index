@@ -8,6 +8,7 @@
 import { computed, onMounted, useTemplateRef } from 'vue'
 import type { Download, Source, Stage } from '../../composables/useRetrieval'
 import { plural, retrievalOrder, warps } from '../../format'
+import StatusCard from '../shared/StatusCard.vue'
 
 const props = defineProps<{
   term: string
@@ -82,7 +83,8 @@ onMounted(() => cancelButton.value!.focus())
 </script>
 
 <template>
-  <section class="progress" aria-labelledby="progress-heading">
+  <!-- The end-to-end tests find the card by its class. -->
+  <StatusCard class="progress" aria-labelledby="progress-heading">
     <div class="intro">
       <h2 id="progress-heading">Retrieving {{ term }} History</h2>
       <p>Nothing is saved until you review and confirm.</p>
@@ -140,23 +142,10 @@ onMounted(() => cancelButton.value!.focus())
         Cancel
       </button>
     </div>
-  </section>
+  </StatusCard>
 </template>
 
 <style scoped>
-.progress {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 640px;
-  /* A status card sits in the middle of the screen, across and down. */
-  margin: auto;
-  padding: 32px;
-  border: 1px solid var(--rim);
-  border-radius: 14px;
-  background: var(--panel);
-}
 .intro {
   display: flex;
   flex-direction: column;

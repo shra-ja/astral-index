@@ -173,10 +173,6 @@ h2 {
   font-size: 18px;
   font-weight: 600;
 }
-/* The heading takes focus only so it is announced; it is not a control. */
-h2:focus {
-  outline: none;
-}
 .account {
   display: flex;
   flex-wrap: wrap;

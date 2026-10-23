@@ -5,6 +5,7 @@ import { Check } from '@lucide/vue'
 import { onMounted, useTemplateRef } from 'vue'
 import type { Counts } from '../../commands'
 import { savedDetail, savedTitle } from '../../messages'
+import StatusCard from '../shared/StatusCard.vue'
 
 defineProps<{
   saved: { summary: Counts; fiveStar: number; fourStar: number; uid: string; server: string }
@@ -15,7 +16,8 @@ onMounted(() => heading.value!.focus())
 </script>
 
 <template>
-  <section class="saved" aria-labelledby="saved-heading">
+  <!-- The end-to-end tests find the card by its class. -->
+  <StatusCard class="saved" result aria-labelledby="saved-heading">
     <span class="icon" aria-hidden="true">
       <Check :size="28" />
     </span>
@@ -39,24 +41,10 @@ onMounted(() => heading.value!.focus())
       <slot />
       <button type="button" class="secondary" @click="emit('done')">Done</button>
     </div>
-  </section>
+  </StatusCard>
 </template>
 
 <style scoped>
-.saved {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  width: 100%;
-  max-width: 520px;
-  margin: auto;
-  padding: 36px;
-  border: 1px solid var(--rim);
-  border-radius: 14px;
-  background: var(--panel);
-  text-align: center;
-}
 .icon {
   display: grid;
   place-items: center;
@@ -71,10 +59,6 @@ h2 {
   font-size: 22px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-/* The heading takes focus only so it is announced; it is not a control. */
-h2:focus {
-  outline: none;
 }
 p {
   margin: 0;
