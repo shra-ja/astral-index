@@ -219,6 +219,9 @@ test('a backup that was not saved says why: the place, or the history itself', (
   expect(backupFailure({ kind: 'storage' })).toBe(
     'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
   )
+  expect(backupFailure({ kind: 'history_not_upgraded', copy: null })).toBe(
+    'Your history couldn’t be upgraded, so it can’t be backed up. Restore a backup instead.',
+  )
   expect(backupFailure({ kind: 'unavailable' })).toBe('Something went wrong. Please try again.')
 })
 
@@ -254,6 +257,10 @@ test('a refused or failed restore says why, and that nothing was changed', () =>
   expect(titleOf({ kind: 'restore_failed' })).toBe('Something Went Wrong')
   expect(titleOf({ kind: 'restore_changed' })).toBe('Something Went Wrong')
   expect(titleOf({ kind: 'import_under_way' })).toBe('Something Went Wrong')
+  // A history that can't be upgraded has its own screen; a failure title still names it.
+  expect(titleOf({ kind: 'history_not_upgraded', copy: null })).toBe(
+    'Your History Couldn’t Be Upgraded',
+  )
 })
 
 test('a confirmed restore that replaced nothing says why, and that the history is unchanged', () => {
@@ -290,6 +297,10 @@ test('the restore confirmation sums up what replaces what', () => {
   )
   // With no saved history, nothing is replaced.
   expect(restoreSummary(holding(), holding(15))).toBe('Restoring saves 15 rolls in 1 account.')
+  // A history that couldn't be upgraded can't be counted.
+  expect(restoreSummary(null, holding(15))).toBe(
+    'Restoring replaces your current history with 15 rolls in 1 account.',
+  )
 })
 
 test('reading saved history explains damage, and anything else asks to try again', () => {

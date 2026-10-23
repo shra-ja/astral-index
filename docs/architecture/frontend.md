@@ -19,6 +19,13 @@ rearranged without rewriting the flows behind them.
   game, so it is app-wide at `/backup`, in the sidebar's Data group; while it is
   open no game is current, and the shell keeps the game shown last for the View
   group's links ([decision 0033](decisions/0033-app-wide-and-per-game-screens.md)).
+  A history from an older release that couldn't be upgraded opens the app-wide
+  History Unavailable screen at `/unavailable` instead: the router's guard asks
+  `history_status` before the first screen, any later command that fails with
+  `history_not_upgraded` switches the shell there too, and while it shows, the
+  game screens redirect to it and the sidebar greys out their links. Its card can
+  restore a backup, with the usual confirmation, after which Backup & Restore says
+  how it went ([0037](../product/features/0037-backup-and-restore.md)).
   The app opens on Star Rail's history. The
   shell creates the retrieval flow and provides it to the screens, so a running
   retrieval and its review survive switching screens. A restore, by contrast,
@@ -30,14 +37,17 @@ rearranged without rewriting the flows behind them.
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
   last import; `useBackup` saves a backup; `useRestore` chooses a backup to
   restore, holds it while its confirmation is shown and restores it, forgetting
-  each game's chosen account; `useAbout` reads the About dialog's details, asks the native
-  side to open the data folder or issues page, and loads the third-party
-  notices once, when first shown. They are the only callers of the native commands, through the
+  each game's chosen account, and tells its screen when it replaced the
+  history; `useRestoreLeaving` asks before leaving a held restore, on both
+  screens that restore; `useHistoryAvailability` holds whether the history can
+  be used; `useOpenings` asks the native side to open the data folder or issues
+  page; `useAbout` builds on it, reads the About dialog's details and loads the
+  third-party notices once, when first shown. They are the only callers of the native commands, through the
   typed client in `commands.ts`. They expose read-only state and actions.
 - **Views:** wire flows to components and manage focus between steps.
 - **Components:** presentational only: props in, events out, no native calls.
   Grouped by where they are used (`layout/`, `history/`, `import/`, `backup/`,
-  `about/`, `shared/`).
+  `unavailable/`, `about/`, `shared/`).
 - **Text:** `messages.ts` turns failures, progress and save results into what the
   user reads; `format.ts` holds names, dates, times and other display text.
 

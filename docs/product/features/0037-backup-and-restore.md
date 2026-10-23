@@ -329,17 +329,49 @@ Backup and restore stay local and never make a network request.
     rather than a status of its own, so the shell parses one shape, and the
     mock's failing upgrade is the desktop's scenario, pairing a HoYoverse
     scenario with a schema, rather than a HoYoverse one.
-- [ ] **Migration recovery, screen** (one PR):
-  - [ ] An app-wide screen for a history that can't be upgraded, designed on the
-    canvas first: it says the history couldn't be upgraded and names the copy;
-    the game screens in the sidebar are greyed out and unavailable; Backup &
-    Restore and About stay open. The shell shows it whenever a command, at
-    startup `history_status`, fails with `history_not_upgraded`.
-  - [ ] The restore confirmation says the current history couldn't be upgraded,
-    so it can't be compared.
-  - [ ] End-to-end tests through the mock's failed upgrade: the screen, the
-    copy named, the game screens unavailable, and a restore that brings the
-    app back.
+- [x] **Migration recovery, screen** (one PR), designed on the canvas as its own
+  screen (option A, which the user chose over a banner on Backup & Restore):
+  - [x] The webview knows `history_not_upgraded` and its copy's name, and asks
+    `history_status` at startup; any later command that fails with it switches
+    the app to the screen too.
+  - [x] An app-wide History Unavailable screen, while the history can't be used:
+    the game screens redirect to it and the sidebar greys out their links;
+    Backup & Restore and About stay open.
+  - [x] Its card says the history failed to upgrade automatically and nothing was
+    changed, names the copy kept before the upgrade (or says none could be),
+    opens the data folder, and advises, in order: reinstall the version used
+    before after an update, as the history is unchanged; report the problem,
+    which opens the issues page; or restore a backup. The guidance is text only:
+    no releases link, as the app opens only the issues page.
+  - [x] Restoring starts from the card: a refusal shows in its status line, as on
+    the Restore card; a checked backup shows the usual confirmation, which says
+    the current history couldn't be upgraded, so it can't be compared; once
+    restored, the app is usable again and shows Backup & Restore with its
+    restored line.
+  - [x] End-to-end tests through the mock's failing upgrade of the 1.0.0 history:
+    the screen, the copy named, the game screens unavailable, and a restore that
+    brings the app back.
+  - Each layer's tests failed first: the client's failure and status, the
+    availability state and its handoff, the locked sidebar, the card, the
+    confirmation over an unreadable history, the backup message, and the app
+    tests: the screen before any game screen, a game address returning to it,
+    a later command switching to it, the folder and the issues page, a refused
+    and then a restored backup, and cancelling or leaving a held one. Backup &
+    Restore's rule for leaving a held restore moved into a composable the two
+    screens share. The end-to-end test opens the 1.0.0 history in the mock's
+    failing-upgrade scenario, passes an accessibility audit, restores a backup
+    with one account per server, finds the History screen working, and leaves
+    the restored history, the copy and a safety copy, both byte for byte the
+    1.0.0 file.
+  - Two reviewer agents found that a restore made from Backup & Restore, not
+    the card, left the app locked until it restarted; every restore now tells
+    the availability state through `useRestore`'s `onRestored` (its app test
+    failed first). Also fixed: locked sidebar links were unnamed in the icon
+    rail and couldn't take focus for their tooltip, and the card's status line
+    kept an older restore refusal over a newer failed opening (both red first);
+    the redirect rule moved wholly into the router's guard; and the restore
+    chip and the openings are shared. A status card shared by the four
+    screens that repeat one is a follow-up.
 - [ ] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and

@@ -3,6 +3,10 @@ import '@fontsource-variable/hanken-grotesk'
 import './assets/main.css'
 import { createApp } from 'vue'
 import App from './App.vue'
-import router from './router'
+import router, { guardHistory } from './router'
+import { availabilityKey, useHistoryAvailability } from './composables/useHistoryAvailability'
 
-createApp(App).use(router).mount('#app')
+// Whether the history can be used, asked before the first screen shows (feature 0037).
+const availability = useHistoryAvailability()
+guardHistory(availability)
+createApp(App).provide(availabilityKey, availability).use(router).mount('#app')

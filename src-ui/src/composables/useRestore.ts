@@ -15,14 +15,30 @@ export type RestoreOutcome =
   | { kind: 'restored'; name: string; safetyCopy: string | null }
   | { kind: 'failed'; message: string }
 
-export function useRestore(now = () => new Date()) {
+/** A restore that replaced the history. */
+export type Restored = Extract<RestoreOutcome, { kind: 'restored' }>
+
+export interface RestoreOptions {
+  /** The clock that names the safety copy. */
+  now?: () => Date
+  /** How a restore made elsewhere went, for the Restore card to show. */
+  initial?: RestoreOutcome | null
+  /** Told of every restore that replaced the history. */
+  onRestored?: (restored: Restored) => void
+}
+
+export function useRestore({
+  now = () => new Date(),
+  initial = null,
+  onRestored,
+}: RestoreOptions = {}) {
   // While a backup is being chosen and checked.
   const checking = shallowRef(false)
   // The checked backup the confirmation shows, while it is held.
   const checked = shallowRef<CheckedBackup | null>(null)
   // While the held backup replaces the history.
   const restoring = shallowRef(false)
-  const outcome = shallowRef<RestoreOutcome | null>(null)
+  const outcome = shallowRef<RestoreOutcome | null>(initial)
   let closed = false
   if (getCurrentScope()) onScopeDispose(() => (closed = true))
 
@@ -60,9 +76,15 @@ export function useRestore(now = () => new Date()) {
     if ('failure' in result) {
       outcome.value = { kind: 'failed', message: replaceFailure(result.failure) }
     } else {
-      outcome.value = { kind: 'restored', name: held.name, safetyCopy: result.safetyCopy }
+      const restored: Restored = {
+        kind: 'restored',
+        name: held.name,
+        safetyCopy: result.safetyCopy,
+      }
+      outcome.value = restored
       // The restored history may lack the accounts chosen in the switchers.
       forgetAccountChoices()
+      onRestored?.(restored)
     }
   }
 

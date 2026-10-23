@@ -24,8 +24,9 @@ export type Game = keyof typeof games
 
 /** The screens each game has. */
 export type GameScreen = 'history' | 'import'
-/** The screens covering every game, outside the selected game's (decision 0033). */
-const appScreens = ['backup'] as const
+/** The screens covering every game, outside the selected game's (decision 0033); the
+ * History Unavailable screen shows while the history can't be used (feature 0037). */
+const appScreens = ['backup', 'unavailable'] as const
 export type Screen = GameScreen | (typeof appScreens)[number]
 
 /** Whether a screen belongs to the selected game, rather than covering every game. */

@@ -2,7 +2,7 @@
 // Presentational: what one history holds, for the restore confirmation: its roll and
 // account totals, each account with its server and rolls, and its last import. Set
 // beside another history, it marks the accounts that one lacks.
-import { computed, type DeepReadonly } from 'vue'
+import type { DeepReadonly } from 'vue'
 import type { HistoryContents } from '../../commands'
 import { holdsAccount, plural, serverName } from '../../format'
 import { lastImportParts } from '../../messages'
@@ -13,16 +13,19 @@ const props = defineProps<{
   tag: string
   /** What the panel says when the history holds nothing. */
   empty: string
-  contents: DeepReadonly<HistoryContents>
+  /** The history, or null when it can't be read. */
+  contents: DeepReadonly<HistoryContents> | null
+  /** What the panel says when the history can't be read. */
+  unreadable?: string
   /** The history to compare with; accounts it lacks are marked. */
   compared?: DeepReadonly<HistoryContents>
   /** The history the restore makes current, drawn in the accent. */
   accent?: boolean
 }>()
 
-const total = computed(() =>
-  props.contents.accounts.reduce((sum, account) => sum + account.rolls, 0).toLocaleString('en'),
-)
+// The roll total of a history that could be read.
+const total = (contents: DeepReadonly<HistoryContents>) =>
+  contents.accounts.reduce((sum, account) => sum + account.rolls, 0).toLocaleString('en')
 // Accounts are told apart by UID and server together.
 const key = (account: { uid: string; server: string }) => `${account.uid}\n${account.server}`
 const missing = (account: { uid: string; server: string }) =>
@@ -35,12 +38,13 @@ const missing = (account: { uid: string; server: string }) =>
       <h2 :id>{{ title }}</h2>
       <span class="tag">{{ tag }}</span>
     </div>
-    <p v-if="contents.accounts.length === 0" class="empty">{{ empty }}</p>
+    <p v-if="!contents" class="empty">{{ unreadable }}</p>
+    <p v-else-if="contents.accounts.length === 0" class="empty">{{ empty }}</p>
     <template v-else>
       <div class="figures">
         <div class="figure">
           <span class="label">Rolls</span>
-          <span class="value">{{ total }}</span>
+          <span class="value">{{ total(contents) }}</span>
         </div>
         <div class="figure">
           <span class="label">Accounts</span>

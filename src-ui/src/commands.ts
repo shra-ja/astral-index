@@ -38,6 +38,7 @@ const nativeKinds = [
   'restore_failed',
   'restore_changed',
   'import_under_way',
+  'history_not_upgraded',
 ] as const
 /** Why a backup was refused for restoring. */
 const refusals = [
@@ -61,12 +62,15 @@ export interface Location {
 }
 /**
  * Only `api_error` carries a code: the first nonzero code HoYoverse returned; only
- * `restore_refused` carries a refusal: why the backup was refused.
+ * `restore_refused` carries a refusal: why the backup was refused; only
+ * `history_not_upgraded` carries a copy: the name of the copy kept in the data folder
+ * before the failed upgrade, or null when none could be kept.
  */
 export interface Failure {
   kind: Kind
   code?: number
   refusal?: Refusal
+  copy?: string | null
   location?: Location
 }
 
@@ -102,9 +106,20 @@ export type Progress =
 /** A quick refresh that stops at saved rolls, or the full history (decision 0015). */
 export type Mode = 'new' | 'full'
 
+// Whoever watches for a history that can't be used, as any command may find it.
+const unavailableWatchers = new Set<(copy: string | null) => void>()
+
+/** Hear of every command that fails because the history couldn't be upgraded, with the
+ * copy's name; returns a function that stops. */
+export function watchHistoryUnavailable(watcher: (copy: string | null) => void): () => void {
+  unavailableWatchers.add(watcher)
+  return () => unavailableWatchers.delete(watcher)
+}
+
 // Accept only the native shape; only API errors carry a code, and it must be an integer,
-// and a refused restore's code must be a known refusal. A location is kept only when
-// both its category and page are valid.
+// a refused restore's code must be a known refusal, and a history that couldn't be
+// upgraded names its copy or none. A location is kept only when both its category and
+// page are valid.
 function parse(error: unknown): Failure {
   const { kind, code, gacha_type, page } = (
     typeof error === 'object' && error !== null ? error : {}
@@ -114,9 +129,11 @@ function parse(error: unknown): Failure {
   if (
     !known ||
     (known === 'api_error') !== Number.isSafeInteger(code) ||
-    (known === 'restore_refused' && !refusal)
+    (known === 'restore_refused' && !refusal) ||
+    (known === 'history_not_upgraded' && code !== null && typeof code !== 'string')
   )
     return { kind: 'unavailable' }
+  if (known === 'history_not_upgraded') return { kind: known, copy: code as string | null }
   const failure: Failure =
     known === 'api_error'
       ? { kind: known, code: code as number }
@@ -134,12 +151,22 @@ function parse(error: unknown): Failure {
   return failure
 }
 
+// A rejection as a failure, telling the watchers whenever it says the history can't
+// be used.
+function fail(error: unknown): Failure {
+  const failure = parse(error)
+  if (failure.kind === 'history_not_upgraded') {
+    for (const watcher of unavailableWatchers) watcher(failure.copy ?? null)
+  }
+  return failure
+}
+
 async function run(call: () => Promise<unknown>): Promise<Failure | undefined> {
   try {
     await call()
     return undefined
   } catch (error) {
-    return parse(error)
+    return fail(error)
   }
 }
 
@@ -166,7 +193,7 @@ export async function retrieveHistory(
       }),
     }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -175,7 +202,7 @@ export async function commitImport(): Promise<{ summary: Counts } | { failure: F
   try {
     return { summary: await invoke<Counts>('commit_import') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -272,7 +299,7 @@ export async function historyPage(
       }),
     }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -283,7 +310,7 @@ export async function savedAccounts(): Promise<
   try {
     return { accounts: await invoke<SavedAccount[]>('saved_accounts') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -296,12 +323,18 @@ export interface LastImport {
   inserted: number
 }
 
+/** Whether the saved history can be used: nothing when it can, else the failure any use
+ * of it would get. Reads this device only. */
+export function historyStatus(): Promise<Failure | undefined> {
+  return run(() => invoke('history_status'))
+}
+
 /** Read the newest import's summary, or null before the first. Reads this device only. */
 export async function lastImport(): Promise<{ last: LastImport | null } | { failure: Failure }> {
   try {
     return { last: await invoke<LastImport | null>('last_import') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -316,7 +349,7 @@ export async function chooseCacheFile(): Promise<
     )
     return result.kind === 'cancelled' ? { cancelled: true } : { chosen: result.name }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -345,7 +378,7 @@ export async function appInfo(): Promise<{ info: AppInfo } | { failure: Failure 
   try {
     return { info: await invoke<AppInfo>('app_info') }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -371,7 +404,7 @@ export async function saveBackup(
     )
     return result.kind === 'saved' ? { saved: result.name } : { cancelled: true }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -380,11 +413,12 @@ export interface HistoryContents {
   accounts: SavedAccount[]
   last_import: LastImport | null
 }
-/** A checked backup held for restoring: its file name, and what it and the current history hold. */
+/** A checked backup held for restoring: its file name, and what it and the current history
+ * hold; the current history is null when it couldn't be upgraded, so can't be read. */
 export interface CheckedBackup {
   name: string
   backup: HistoryContents
-  current: HistoryContents
+  current: HistoryContents | null
 }
 
 /** Choose a backup in the native dialog; the native side copies, checks and holds it.
@@ -400,7 +434,7 @@ export async function chooseRestore(): Promise<
     const { name, backup, current } = result
     return { checked: { name, backup, current } }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }
 
@@ -418,6 +452,6 @@ export async function confirmRestore(
     const result = await invoke<{ safety_copy: string | null }>('confirm_restore', { time })
     return { safetyCopy: result.safety_copy }
   } catch (error) {
-    return { failure: parse(error) }
+    return { failure: fail(error) }
   }
 }

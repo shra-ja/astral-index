@@ -812,6 +812,73 @@ test('an older history the mock cannot upgrade is copied first, left as it was a
   expect(readFileSync(resolve(folder, copy))).toEqual(original)
 }, 120000)
 
+test('a history the mock can’t upgrade opens History Unavailable, and a restore brings the app back', async () => {
+  const folder = resolve(mockData, 'astral-index-mock')
+  rmSync(mockData, { recursive: true, force: true })
+  mkdirSync(folder, { recursive: true })
+  const fixture = resolve(
+    import.meta.dirname,
+    '../src-tauri/tests/fixtures/storage/history-1.0.0.sqlite',
+  )
+  copyFileSync(fixture, resolve(folder, 'history.sqlite'))
+  // A backup of that history without its second account on Asia, so one account per
+  // server: the mock's test-only migration takes it.
+  const backups = resolve(results, 'e2e-unavailable')
+  rmSync(backups, { recursive: true, force: true })
+  mkdirSync(backups, { recursive: true })
+  const backup = resolve(backups, 'one-per-server.sqlite')
+  copyFileSync(fixture, backup)
+  const trimmed = new DatabaseSync(backup)
+  try {
+    for (const table of ['rolls', 'batches', 'accounts']) {
+      trimmed.prepare(`DELETE FROM ${table} WHERE uid = '100000003'`).run()
+    }
+  } finally {
+    trimmed.close()
+  }
+  const status = '#unavailable-status'
+  await withMock('failing-upgrade', { keep: true }, async (app) => {
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('History Unavailable')
+    expect(await textOf(app, 'main .copy .name')).toMatch(/^history-v2-\d{8}-\d{6}\.sqlite$/)
+    expect(
+      await app.execute<boolean>(
+        `return [...document.querySelectorAll('[aria-labelledby="sidebar-games"] a')].every((link) => link.getAttribute('aria-disabled') === 'true' && !link.hasAttribute('href'))`,
+      ),
+    ).toBe(true)
+    expect(await accessibilityViolations(app)).toEqual([])
+    await app.screenshot('e2e-unavailable')
+    // The backup is restored from the card, over a history that can't be compared.
+    writeFileSync(resolve(folder, 'restore-from.txt'), `${backup}\n`)
+    await click(app, 'main', 'Restore a backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(await textOf(app, 'main')).toContain('Your current history couldn’t be upgraded')
+    expect(await textOf(app, status)).toBe('')
+    await click(app, 'main footer', 'Restore backup')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Backup & Restore')
+    expect(
+      (await textOf(app, "#restore-title ~ .actions [role='status']"))!.replace(/\s+/g, ' ').trim(),
+    ).toMatch(
+      /^Restored one-per-server\.sqlite\. Your previous history is kept in the data folder as history-before-restore-\d{8}-\d{6}\.sqlite\.$/,
+    )
+    // The game screens are open again, reading the restored history.
+    await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+    await expect
+      .poll(() => textOf(app, "[aria-label='Category summary'] .tile .value"), { timeout: 10000 })
+      .toMatch(/\d/)
+  })
+  // The data folder holds the restored history, the copy kept before the failed
+  // upgrade, and the unread history kept as it was, byte for byte.
+  const original = readFileSync(fixture)
+  const names = readdirSync(folder).filter((name) => name.endsWith('.sqlite'))
+  const copy = names.find((name) => name.startsWith('history-v2-'))!
+  const safety = names.find((name) => name.startsWith('history-before-restore-'))!
+  expect(names.toSorted()).toEqual([copy, safety, 'history.sqlite'].toSorted())
+  expect(readFileSync(resolve(folder, copy))).toEqual(original)
+  expect(readFileSync(resolve(folder, safety))).toEqual(original)
+  rmSync(backups, { recursive: true, force: true })
+}, 120000)
+
 test('the About dialog opens from the keyboard, opens what it offers and closes back to its button', async () => {
   await withMock('history', {}, async (app) => {
     const folder = resolve(mockData, 'astral-index-mock')

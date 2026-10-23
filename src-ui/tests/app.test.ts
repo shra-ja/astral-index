@@ -1500,3 +1500,202 @@ test('leaving a restore’s confirmation, once agreed, cancels the restore', asy
   await follow(named(sidebar(), 'Backup & Restore'))
   expect(heading()).toBe('Backup & Restore')
 })
+
+// Start the app afresh with a history that an earlier release saved and this one
+// couldn't upgrade.
+async function startUnavailable(
+  handlers: Record<string, Handler> = {},
+  copy: string | null = null,
+) {
+  const calls = serve({
+    history_status: () => reject({ kind: 'history_not_upgraded', code: copy }),
+    ...handlers,
+  })
+  document.body.innerHTML = '<div id="app"></div>'
+  history.replaceState(null, '', '/')
+  vi.resetModules()
+  await import('../src/main')
+  await settle()
+  return calls
+}
+const unavailableStatus = () =>
+  document.querySelector('#unavailable-status')?.textContent?.replace(/\s+/g, ' ').trim()
+
+test('a history that couldn’t be upgraded opens on its own screen, before any game screen', async () => {
+  const calls = await startUnavailable({}, 'history-v2-20261021-143000.sqlite')
+  expect(location.hash).toBe('#/unavailable')
+  expect(heading()).toBe('History Unavailable')
+  // Nothing tried to read the history for a game screen first.
+  expect(calls).not.toContain('history_page')
+  const card = document.querySelector('main [role="alert"]')!
+  expect(card.querySelector('h2')?.textContent?.trim()).toBe('Your History Couldn’t Be Upgraded')
+  expect(card.querySelector('.copy .name')?.textContent).toBe('history-v2-20261021-143000.sqlite')
+  // The game screens are greyed out with nowhere to go; Backup & Restore stays open.
+  const locked = [...sidebar().querySelectorAll('[aria-labelledby="sidebar-games"] a')]
+  expect(locked.every((link) => link.getAttribute('aria-disabled') === 'true')).toBe(true)
+  expect(named(sidebar(), 'Backup & Restore').getAttribute('href')).toBe('#/backup')
+  // A game screen's address returns here.
+  const { default: router } = await import('../src/router')
+  await router.push('/honkai-star-rail/import')
+  await settle()
+  expect(location.hash).toBe('#/unavailable')
+  // Backup & Restore opens, and comes back here through the sidebar only by address.
+  await follow(named(sidebar(), 'Backup & Restore'))
+  expect(heading()).toBe('Backup & Restore')
+  await router.push('/unavailable')
+  await settle()
+  expect(heading()).toBe('History Unavailable')
+})
+
+test('the card opens the data folder or the issues page, saying when that fails', async () => {
+  const calls = await startUnavailable({
+    reveal_data_folder: () => reject({ kind: 'open_failed' }),
+  })
+  const main = () => document.querySelector('main')!
+  await click(button(main(), 'Open folder'))
+  await settle()
+  expect(unavailableStatus()).toBe('The data folder couldn’t be opened.')
+  await click(button(main(), 'Report this problem'))
+  await settle()
+  expect(unavailableStatus()).toBe('')
+  expect(calls).toEqual(expect.arrayContaining(['reveal_data_folder', 'open_issues_page']))
+})
+
+test('a command that later finds the history unusable switches to the screen', async () => {
+  serve({ history_page: () => reject({ kind: 'history_not_upgraded', code: null }) })
+  document.body.innerHTML = '<div id="app"></div>'
+  history.replaceState(null, '', '/')
+  vi.resetModules()
+  await import('../src/main')
+  await settle()
+  await settle()
+  expect(location.hash).toBe('#/unavailable')
+  expect(document.querySelector('main .copy')?.textContent).toContain('No copy could be kept')
+})
+
+test('a backup restored from the screen makes the history usable again', async () => {
+  const asia = (uid: string, rolls: number) => ({
+    uid,
+    server: 'prod_official_asia',
+    timezone: 8,
+    rolls,
+  })
+  let refused = true
+  await startUnavailable({
+    choose_restore: () =>
+      refused
+        ? reject({ kind: 'restore_refused', code: 'damaged' })
+        : {
+            kind: 'checked',
+            name: 'Astral-Index-backup-2026-10-16.sqlite',
+            backup: { accounts: [asia('800000117', 2030)], last_import: null },
+            current: null,
+          },
+    confirm_restore: () => ({ safety_copy: 'history-before-restore-20261022-143005.sqlite' }),
+  })
+  const main = () => document.querySelector('main')!
+  // A refusal shows in the card's status line.
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(unavailableStatus()).toBe('This backup is damaged and can’t be restored.')
+  // A checked backup goes to the confirmation, which can't compare the history.
+  refused = false
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(heading()).toBe('Restore Backup')
+  expect(main().textContent).toContain('Your current history couldn’t be upgraded')
+  await click(button(main(), 'Restore backup'))
+  await settle()
+  // Back on Backup & Restore, saying what happened, with the game screens open again.
+  expect(location.hash).toBe('#/backup')
+  expect(
+    main()
+      .querySelector('#restore-title')
+      ?.closest('section')
+      ?.querySelector('[role="status"]')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim(),
+  ).toBe(
+    'Restored Astral-Index-backup-2026-10-16.sqlite. Your previous history is kept in the data folder as history-before-restore-20261022-143005.sqlite.',
+  )
+  expect(named(sidebar(), 'Warp History').getAttribute('aria-disabled')).toBeNull()
+  await follow(named(sidebar(), 'Warp History'))
+  expect(heading()).toBe('Warp History')
+  // The screen has nothing to say any more.
+  const { default: router } = await import('../src/router')
+  await router.push('/unavailable')
+  await settle()
+  expect(heading()).toBe('Warp History')
+})
+
+test('on the screen, cancelling a checked backup returns to the card, and leaving asks first', async () => {
+  await startUnavailable({
+    choose_restore: () => ({
+      kind: 'checked',
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: { accounts: [], last_import: null },
+      current: null,
+    }),
+  })
+  const main = () => document.querySelector('main')!
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(heading()).toBe('Restore Backup')
+  await click(button(main(), 'Cancel'))
+  await settle()
+  expect(heading()).toBe('History Unavailable')
+  expect(document.activeElement).toBe(button(main(), 'Restore a backup…'))
+  // Leaving a held backup's confirmation asks; staying keeps it, leaving cancels it.
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  await follow(named(sidebar(), 'Backup & Restore'))
+  const dialog = () => document.querySelector<HTMLDialogElement>('dialog.leave-restore')
+  expect(dialog()).not.toBeNull()
+  await click(button(dialog()!, 'Stay'))
+  await settle()
+  expect(heading()).toBe('Restore Backup')
+  await follow(named(sidebar(), 'Backup & Restore'))
+  await click(button(dialog()!, 'Leave'))
+  await settle()
+  expect(heading()).toBe('Backup & Restore')
+})
+
+test('a backup restored from Backup & Restore makes the history usable again too', async () => {
+  await startUnavailable({
+    choose_restore: () => ({
+      kind: 'checked',
+      name: 'Astral-Index-backup-2026-10-16.sqlite',
+      backup: { accounts: [], last_import: null },
+      current: null,
+    }),
+    confirm_restore: () => ({ safety_copy: 'history-before-restore-20261022-143005.sqlite' }),
+  })
+  const main = () => document.querySelector('main')!
+  await follow(named(sidebar(), 'Backup & Restore'))
+  await click(button(main(), 'Restore from backup…'))
+  await settle()
+  await click(button(main(), 'Restore backup'))
+  await settle()
+  expect(heading()).toBe('Backup & Restore')
+  // The game screens are open again, and the unavailable screen has nothing to say.
+  expect(named(sidebar(), 'Warp History').getAttribute('aria-disabled')).toBeNull()
+  await follow(named(sidebar(), 'Warp History'))
+  expect(heading()).toBe('Warp History')
+})
+
+test('the card’s status line says what failed last', async () => {
+  await startUnavailable({
+    choose_restore: () => reject({ kind: 'restore_refused', code: 'damaged' }),
+    reveal_data_folder: () => reject({ kind: 'open_failed' }),
+  })
+  const main = () => document.querySelector('main')!
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(unavailableStatus()).toBe('This backup is damaged and can’t be restored.')
+  await click(button(main(), 'Open folder'))
+  await settle()
+  expect(unavailableStatus()).toBe('The data folder couldn’t be opened.')
+  await click(button(main(), 'Restore a backup…'))
+  await settle()
+  expect(unavailableStatus()).toBe('This backup is damaged and can’t be restored.')
+})

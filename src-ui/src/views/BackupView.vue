@@ -4,23 +4,31 @@
 // screen names no game (decision 0031). A checked backup's confirmation replaces the
 // screen's content; leaving it, after the user agrees, cancels the restore, and
 // leaving waits while it restores.
-import { onMounted, shallowRef, useTemplateRef, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { inject, onMounted, useTemplateRef, watch } from 'vue'
 import BackupCard from '../components/backup/BackupCard.vue'
 import LeaveRestoreDialog from '../components/backup/LeaveRestoreDialog.vue'
 import RestoreCard from '../components/backup/RestoreCard.vue'
 import RestoreConfirm from '../components/backup/RestoreConfirm.vue'
+import RestoringFrom from '../components/backup/RestoringFrom.vue'
 import DataFolder from '../components/shared/DataFolder.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
 import { useDataFolder } from '../composables/useDataFolder'
 import { useBackup } from '../composables/useBackup'
 import { useRestore } from '../composables/useRestore'
+import { availabilityKey } from '../composables/useHistoryAvailability'
+import { useRestoreLeaving } from '../composables/useRestoreLeaving'
 
 const { state, name, message, save } = useBackup()
 const { info, read, revealFailed, load, reveal } = useDataFolder()
 onMounted(load)
 
-const restore = useRestore()
+// A restore from the History Unavailable screen says how it went here, and any
+// restore makes a history that couldn't be upgraded usable again.
+const availability = inject(availabilityKey)!
+const restore = useRestore({
+  initial: availability.takeRestored(),
+  onRestored: availability.restored,
+})
 const { checked, restoring } = restore
 // Closing the confirmation returns focus to the button that chose the backup.
 const restoreCard = useTemplateRef('restoreCard')
@@ -32,27 +40,13 @@ watch(
   { flush: 'post' },
 )
 
-// Leaving while a backup is held asks first; leaving cancels the restore. A restore
-// under way is quick and can't be stopped, so leaving waits for it.
-const asking = shallowRef<((leave: boolean) => void) | null>(null)
-onBeforeRouteLeave(() => {
-  if (restoring.value) return false
-  return checked.value ? new Promise<boolean>((resolve) => (asking.value = resolve)) : true
-})
-async function answer(leave: boolean) {
-  const resolve = asking.value!
-  asking.value = null
-  if (leave) await restore.cancel()
-  resolve(leave)
-}
+const { asking, answer } = useRestoreLeaving(restore)
 </script>
 
 <template>
   <main>
     <ScreenHeader :title="checked ? 'Restore Backup' : 'Backup & Restore'">
-      <span v-if="checked" class="source"
-        >Restoring from <span class="name">{{ checked.name }}</span></span
-      >
+      <RestoringFrom v-if="checked" :name="checked.name" />
     </ScreenHeader>
     <RestoreConfirm
       v-if="checked"
@@ -98,18 +92,6 @@ async function answer(leave: boolean) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.source {
-  max-width: 100%;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--selected);
-  color: var(--text-secondary);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-.source .name {
-  color: var(--text-soft);
 }
 h2 {
   margin: 0;

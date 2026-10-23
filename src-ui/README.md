@@ -5,9 +5,12 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
 
 - `src/main.ts` mounts `App.vue`, the shell with the sidebar beside the current
   screen and the About dialog over it; `src/router/` maps each game's History and Import
-  routes, and the app-wide Backup & Restore route, to views, with hash history.
+  routes, and the app-wide Backup & Restore and History Unavailable routes, to
+  views, with hash history; its guard asks whether the history can be used before
+  the first screen, and keeps the game screens away while it can't.
 - `src/views/` holds screens: `HistoryView.vue` shows saved history,
-  `ImportView.vue` the retrieval flow and `BackupView.vue` Backup & Restore. Views wire composables to components and
+  `ImportView.vue` the retrieval flow, `BackupView.vue` Backup & Restore and
+  `UnavailableView.vue` History Unavailable, for a history that couldn't be upgraded. Views wire composables to components and
   move focus.
 - `src/components/` holds presentational components, which take props and emit
   events and never make native calls, grouped by where they are used:
@@ -16,7 +19,8 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   `history/` for the History screen, `import/` for the Import screen, `backup/`
   for Backup & Restore (`BackupCard`, `RestoreCard`, and `RestoreConfirm`,
   the restore confirmation, with a `ContentsPanel` for each history, and
-  `LeaveRestoreDialog`, asking before leaving it), `about/`
+  `LeaveRestoreDialog`, asking before leaving it), `unavailable/` for History
+  Unavailable (`UnavailableCard`), `about/`
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
   (`ActionCard`, the card offering one action on Import and Backup & Restore,
@@ -26,15 +30,18 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native
   commands: `useRetrieval.ts` runs retrieval, review and saving,
-  `useDataFolder.ts` reads the app's details and opens the data folder, and
-  `useAbout.ts` builds on it for the About dialog, adding the issues page and
-  notices, and `useHistory.ts` reads the saved accounts and saved history a
+  `useDataFolder.ts` reads the app's details and opens the data folder,
+  `useOpenings.ts` opens the folder or the issues page, saying which failed,
+  `useAbout.ts` builds on both for the About dialog, adding the notices, and `useHistory.ts` reads the saved accounts and saved history a
   page at a time, keeping each game's account chosen in the switcher until the
   app restarts or a save into that game. `useBackup.ts` saves a backup and
   tracks how it went, and `useRestore.ts` chooses a backup to restore, holds
-  it for its confirmation, which the Backup & Restore screen owns, and restores
-  it: leaving the confirmation, once agreed, cancels the restore, and leaving
-  waits while it restores. `useWindowSize.ts` follows the window's size for the
+  it for its confirmation and restores it, telling its screen when it replaced
+  the history; `useRestoreLeaving.ts` makes leaving the confirmation ask first,
+  then cancel the restore, and wait while it restores, on Backup & Restore and
+  History Unavailable alike. `useHistoryAvailability.ts` holds whether the
+  history can be used, from `history_status` or any command that finds it
+  couldn't be upgraded, until a restore replaces it. `useWindowSize.ts` follows the window's size for the
   size overlay.
 - `src/commands.ts` is the typed client for the native commands. Results carry
   failure categories only, never request contexts, paths or native detail. Keep

@@ -1,7 +1,7 @@
 // What the retrieval flow tells the user about failures, progress and saving, and
 // what the About dialog and Backup & Restore say when something couldn’t be done.
 import type { Counts, Failure, Kind, LastImport, Progress, Refusal } from './commands'
-import type { Opening } from './composables/useAbout'
+import type { Opening } from './composables/useOpenings'
 import { localDateTime, plural, serverName, warps } from './format'
 
 /** Messages by failure kind, for one step of the flow. */
@@ -101,6 +101,8 @@ const titles: Record<Kind, string> = {
   restore_failed: 'Something Went Wrong',
   restore_changed: 'Something Went Wrong',
   import_under_way: 'Something Went Wrong',
+  // The History Unavailable screen explains it; any failure screen still names it.
+  history_not_upgraded: 'Your History Couldn’t Be Upgraded',
   unavailable: 'Something Went Wrong',
 }
 
@@ -124,6 +126,8 @@ export const backupFailure = (failure: Failure) =>
     history_damaged:
       'Your saved history failed its check, so no backup was made. Nothing was changed.',
     storage: 'Your saved history couldn’t be read, so no backup was made. Nothing was changed.',
+    history_not_upgraded:
+      'Your history couldn’t be upgraded, so it can’t be backed up. Restore a backup instead.',
   })
 
 /** Why a backup was refused for restoring. */
@@ -172,10 +176,12 @@ const holding = ({ accounts }: Holding) =>
   )} in ${plural(accounts.length, 'account')}`
 
 /** The restore confirmation's summary of what replaces what. */
-export const restoreSummary = (current: Holding, backup: Holding) =>
-  current.accounts.length === 0
-    ? `Restoring saves ${holding(backup)}.`
-    : `Restoring replaces ${holding(current)} with ${holding(backup)}.`
+export const restoreSummary = (current: Holding | null, backup: Holding) =>
+  current === null
+    ? `Restoring replaces your current history with ${holding(backup)}.`
+    : current.accounts.length === 0
+      ? `Restoring saves ${holding(backup)}.`
+      : `Restoring replaces ${holding(current)} with ${holding(backup)}.`
 
 /** Why saved history couldn’t be shown. */
 export const historyFailure = (failure: Failure) =>
@@ -232,9 +238,18 @@ export const lastImportParts = (last: LastImport, timeZone?: string) => [
   `${plural(last.inserted, 'new roll')} saved`,
 ]
 
+// A failed opening of the issues page gives its address instead.
+const issuesFailure =
+  'The issues page couldn’t be opened. Its address is github.com/shra-ja/astral-index/issues.'
+
+/** The History Unavailable screen's failed openings. */
+export const unavailableOpeningFailures: Record<Opening, string> = {
+  folder: 'The data folder couldn’t be opened.',
+  issues: issuesFailure,
+}
+
 /** The About dialog's failed openings; the path stays on screen, and the address is given. */
 export const openingFailures: Record<Opening, string> = {
   folder: 'The folder couldn’t be opened. Its path is shown above.',
-  issues:
-    'The issues page couldn’t be opened. Its address is github.com/shra-ja/astral-index/issues.',
+  issues: issuesFailure,
 }

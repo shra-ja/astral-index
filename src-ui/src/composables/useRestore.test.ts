@@ -77,7 +77,8 @@ const confirmedLater = () => {
 
 test('restoring replaces the history, then names the backup and the safety copy', async () => {
   vi.mocked(chooseRestore).mockResolvedValue({ checked: CHECKED })
-  const restore = useRestore(() => NOW)
+  const restored = vi.fn()
+  const restore = useRestore({ now: () => NOW, onRestored: restored })
   await restore.choose()
   const finish = confirmedLater()
   const confirming = restore.confirm()
@@ -98,6 +99,8 @@ test('restoring replaces the history, then names the backup and the safety copy'
   })
   // The History screen shows each game's account imported into last again.
   expect(forgetAccountChoices).toHaveBeenCalledTimes(1)
+  // Whoever asked hears of it, as the history may be usable again.
+  expect(restored).toHaveBeenCalledWith(restore.outcome.value)
   // Choosing again clears the outcome.
   vi.mocked(chooseRestore).mockResolvedValue({ cancelled: true })
   await restore.choose()
@@ -110,7 +113,7 @@ test('restoring replaces the history, then names the backup and the safety copy'
 test('a restore that replaced nothing closes the confirmation and says why', async () => {
   vi.mocked(chooseRestore).mockResolvedValue({ checked: CHECKED })
   vi.mocked(confirmRestore).mockResolvedValue({ failure: { kind: 'restore_changed' } })
-  const restore = useRestore(() => NOW)
+  const restore = useRestore({ now: () => NOW })
   await restore.choose()
   await restore.confirm()
   expect(restore.checked.value).toBeNull()
@@ -148,4 +151,9 @@ test('a backup checked after its screen has closed is let go at once', async () 
   await choosing
   expect(cancelRestore).toHaveBeenCalledTimes(1)
   expect(restore.checked.value).toBeNull()
+})
+
+test('a restore made elsewhere can be shown as the first outcome', () => {
+  const outcome = { kind: 'restored' as const, name: 'backup.sqlite', safetyCopy: null }
+  expect(useRestore({ initial: outcome }).outcome.value).toEqual(outcome)
 })

@@ -80,3 +80,17 @@ test('without missing accounts the note says only where the copy goes', () => {
   )
   wrapper.unmount()
 })
+
+test('over a history that couldn’t be upgraded, it says it can’t be compared and is kept as it is', () => {
+  const wrapper = confirm({ ...CHECKED, current: null })
+  expect(wrapper.get('#in-current').element.closest('section')!.textContent).toContain(
+    'Your current history couldn’t be upgraded, so it can’t be compared. It’s kept as a safety copy exactly as it is.',
+  )
+  // A safety copy is always kept, so the note shows; no account can be told missing.
+  expect(note(wrapper).exists()).toBe(true)
+  expect(note(wrapper).text()).not.toContain('Accounts not in the backup')
+  expect(wrapper.get('.footnote').text()).toBe(
+    'Restoring replaces your current history with 2,342 rolls in 2 accounts.',
+  )
+  wrapper.unmount()
+})
