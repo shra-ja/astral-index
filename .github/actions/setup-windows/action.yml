@@ -2,7 +2,7 @@ name: Set up the Windows jobs
 description: >-
   Installs Node and the Rust nightly named in .tool-versions and the locked
   dependencies, restoring the caches main saved, and makes Git Bash npm's script
-  shell for the rest of the job. Needs Git Bash as the job's default shell too.
+  shell for the rest of the job.
 inputs:
   rust-cache:
     description: The Rust cache to share; jobs that build the same way share one.

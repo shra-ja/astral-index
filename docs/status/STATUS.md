@@ -192,6 +192,6 @@ research, under a "From" heading.
 - [2026-10-22: not-upgraded support](history/2026-10-22-not-upgraded-support.md):
   the history status, restoring over a history that can't be upgraded, the
   mock's failing upgrade, the wide-window stall's diagnostics, the native
-  cache file picker, CI's OS package cache, the History Unavailable screen
+  cache file picker, CI's OS package cache, the History Unavailable screen,
   the shared status card and icon tile, and CI tests that parse the
   workflows.

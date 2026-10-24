@@ -390,18 +390,28 @@ test('the setup actions set the environment their jobs need, so no job repeats i
   expect(using(linuxSetup.runs.steps, 'asdf-vm/actions/install@').env).toEqual({
     ASDF_RUST_PROFILE: 'minimal',
   })
-  // npm runs scripts through cmd.exe on Windows, which splits the quoted arguments
-  // the package scripts use; Git Bash reads them as on Linux. Set first, it holds
-  // for every later step of the job.
+  // npm would otherwise run scripts through cmd.exe; set first, it holds for the job.
   const [shell] = windowsSetup.runs.steps
   expect(shell.shell).toBe('bash')
-  expect(shell.run).toBe(
-    `echo 'npm_config_script_shell=C:\\Program Files\\Git\\bin\\bash.exe' >> "$GITHUB_ENV"`,
+  expect(shell.run).toContain('npm_config_script_shell=C:\\Program Files\\Git\\bin\\bash.exe')
+  expect(shell.run).toContain('>> "$GITHUB_ENV"')
+  // Neither a workflow, a job nor a step sets them again.
+  const environments = [
+    ...Object.entries(workflows).map(([file, workflow]) => ({ at: file, env: workflow.env })),
+    ...everyJob.map(({ at, job }) => ({ at, env: job.env })),
+    ...everyStep.map(({ at, step }) => ({
+      at: `${at} ${step.name ?? step.uses ?? step.run}`,
+      env: step.env,
+    })),
+  ].filter(({ env }) => env !== undefined)
+  const repeated = environments.filter(({ env }) =>
+    Object.keys(env!).some((name) =>
+      ['ASDF_RUST_PROFILE', 'npm_config_script_shell'].includes(name),
+    ),
   )
-  for (const { at, job } of everyJob) {
-    expect(Object.keys(job.env ?? {}), at).not.toContain('ASDF_RUST_PROFILE')
-    expect(Object.keys(job.env ?? {}), at).not.toContain('npm_config_script_shell')
-  }
+  // Only the asdf step, which alone reads the profile.
+  const asdf = using(linuxSetup.runs.steps, 'asdf-vm/actions/install@')
+  expect(repeated.map(({ at }) => at)).toEqual([`linuxSetup ${asdf.uses}`])
   // Each Windows job sets up before it runs anything through npm.
   const windows = everyJob.filter(({ job }) => job['runs-on'].startsWith('windows-'))
   expect(windows.map(({ at }) => at)).toEqual([
