@@ -385,15 +385,43 @@ test('every action outside the repository is pinned to a commit, named by its ve
   for (const { at, job } of everyJob) expect(job, at).not.toHaveProperty('uses')
 })
 
+test('the setup actions set the environment their jobs need, so no job repeats it', () => {
+  // asdf installs Rust with only the components the checks use.
+  expect(using(linuxSetup.runs.steps, 'asdf-vm/actions/install@').env).toEqual({
+    ASDF_RUST_PROFILE: 'minimal',
+  })
+  // npm runs scripts through cmd.exe on Windows, which splits the quoted arguments
+  // the package scripts use; Git Bash reads them as on Linux. Set first, it holds
+  // for every later step of the job.
+  const [shell] = windowsSetup.runs.steps
+  expect(shell.shell).toBe('bash')
+  expect(shell.run).toBe(
+    `echo 'npm_config_script_shell=C:\\Program Files\\Git\\bin\\bash.exe' >> "$GITHUB_ENV"`,
+  )
+  for (const { at, job } of everyJob) {
+    expect(Object.keys(job.env ?? {}), at).not.toContain('ASDF_RUST_PROFILE')
+    expect(Object.keys(job.env ?? {}), at).not.toContain('npm_config_script_shell')
+  }
+  // Each Windows job sets up before it runs anything through npm.
+  const windows = everyJob.filter(({ job }) => job['runs-on'].startsWith('windows-'))
+  expect(windows.map(({ at }) => at)).toEqual([
+    'check windows-tests',
+    'check windows-release',
+    'release build',
+  ])
+  for (const { at, job } of windows) {
+    const npm = job.steps.findIndex(
+      (step) => step.run?.includes('npm ') || step.uses === './.github/actions/build-windows',
+    )
+    expect(job.steps.indexOf(windowsSetupOf(job)), at).toBeLessThan(npm)
+  }
+})
+
 test('Windows runs the unit tests and the release build as separate jobs', () => {
   // The first release ships for Windows only (decision 0027).
   for (const name of ['windows-tests', 'windows-release']) {
     const job = check.jobs[name]
     expect(job['runs-on'], name).toBe('windows-2025')
-    // npm would otherwise run the package scripts through cmd.exe.
-    expect(job.env).toMatchObject({
-      npm_config_script_shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
-    })
     expect(windowsSetupOf(job).uses, name).toBe('./.github/actions/setup-windows')
   }
   // The versions come from .tool-versions, as asdf reads them on Linux.
@@ -465,7 +493,6 @@ test('one action builds and smoke-tests the Windows executable, named by its inp
   const shared = (job: Job) => ({
     runner: job['runs-on'],
     timeout: job['timeout-minutes'],
-    shell: job.env?.npm_config_script_shell,
     defaults: job.defaults?.run.shell,
     credentials: using(job.steps, 'actions/checkout@').with?.['persist-credentials'],
     cache: windowsSetupOf(job).with?.['rust-cache'],
@@ -474,7 +501,6 @@ test('one action builds and smoke-tests the Windows executable, named by its inp
   expect(shared(check.jobs['windows-release'])).toEqual({
     runner: 'windows-2025',
     timeout: 30,
-    shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
     defaults: 'bash',
     credentials: false,
     cache: 'windows-release',

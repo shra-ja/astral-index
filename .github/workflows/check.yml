@@ -27,8 +27,6 @@ jobs:
     name: Format, lint, docs and Rust lints
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      ASDF_RUST_PROFILE: minimal
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,8 +50,6 @@ jobs:
     name: Tests and 100% coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      ASDF_RUST_PROFILE: minimal
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,8 +86,6 @@ jobs:
     name: Mutation probes
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      ASDF_RUST_PROFILE: minimal
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -124,10 +118,6 @@ jobs:
     name: Windows unit tests
     runs-on: windows-2025
     timeout-minutes: 30
-    env:
-      # npm runs scripts through cmd.exe on Windows, which splits the quoted
-      # arguments the package scripts use; Git Bash reads them as on Linux.
-      npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
     defaults:
       run:
         shell: bash
@@ -157,8 +147,6 @@ jobs:
     name: Windows release build
     runs-on: windows-2025
     timeout-minutes: 30
-    env:
-      npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
     defaults:
       run:
         shell: bash

@@ -90,8 +90,6 @@ jobs:
     needs: prepare
     runs-on: windows-2025
     timeout-minutes: 30
-    env:
-      npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
     defaults:
       run:
         shell: bash

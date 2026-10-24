@@ -3,7 +3,7 @@ description: >-
   Builds src-tauri/target/release/astral-index.exe with the given version and
   build identity, then smoke-tests it (decision 0030). Shared by CI's Windows
   release build and the release workflow, so the two cannot drift apart. Needs
-  the setup-windows action first, and Git Bash as npm's script shell.
+  the setup-windows action first, which also makes Git Bash npm's script shell.
 inputs:
   version:
     description: The version the build carries, such as 1.2.0.
