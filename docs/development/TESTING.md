@@ -304,6 +304,9 @@ Only this repository's builds are kept, not those of fork pull requests. Linux,
 not a release OS, builds no release. The workflow holds the names and retention
 periods.
 `tooling/ci.test.ts` checks the jobs, the setup actions and the scripts they run.
+It reads the workflows and actions as YAML, so it checks what each job and step
+does (its conditions, inputs, keys and order) rather than how the file is laid
+out; only the pinned actions' version comments come from the text.
 
 `.github/workflows/release.yml` drafts a release, started only by hand
 ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md),
