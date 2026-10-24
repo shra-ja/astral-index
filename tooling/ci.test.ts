@@ -19,6 +19,8 @@ interface Step {
   with?: Record<string, unknown>
   env?: Record<string, string>
 }
+/** A job's or workflow's permissions: each listed, or one grant for all, or none. */
+type Permissions = Record<string, string> | 'read-all' | 'write-all' | null
 interface Job {
   name: string
   'runs-on': string
@@ -26,14 +28,14 @@ interface Job {
   needs?: string | string[]
   if?: string | boolean
   'continue-on-error'?: boolean | string
-  permissions?: Record<string, string>
+  permissions?: Permissions
   env?: Record<string, string>
   defaults?: { run: { shell: string } }
   steps: Step[]
 }
 interface Workflow {
   on: Record<string, unknown>
-  permissions: Record<string, string>
+  permissions: Permissions
   concurrency: Record<string, unknown>
   env?: Record<string, string>
   jobs: Record<string, Job>
@@ -66,21 +68,21 @@ const scripts = (JSON.parse(read('package.json')) as { scripts: Record<string, s
 const workflows = { check, release }
 const actions = { linuxSetup, windowsSetup, buildWindows }
 type File = keyof typeof files
-/** Every step in the workflows and actions, with its file and where in it. */
+/** Every job in the workflows, with its file and where in it. */
+const everyJob = Object.entries(workflows).flatMap(([file, workflow]) =>
+  Object.entries(workflow.jobs).map(([name, job]) => ({
+    file: file as File,
+    at: `${file} ${name}`,
+    job,
+  })),
+)
+/** Every step in the workflows' jobs and the actions, with its file and where in it. */
 const everyStep = [
-  ...Object.entries(workflows).flatMap(([file, workflow]) =>
-    Object.entries(workflow.jobs).flatMap(([job, { steps }]) =>
-      steps.map((step) => ({ file: file as File, at: `${file} ${job}`, step })),
-    ),
-  ),
+  ...everyJob.flatMap(({ file, at, job }) => job.steps.map((step) => ({ file, at, step }))),
   ...Object.entries(actions).flatMap(([file, action]) =>
     action.runs.steps.map((step) => ({ file: file as File, at: file, step })),
   ),
 ]
-/** Every job in the workflows, with where it is. */
-const everyJob = Object.entries(workflows).flatMap(([file, workflow]) =>
-  Object.entries(workflow.jobs).map(([name, job]) => ({ at: `${file} ${name}`, job })),
-)
 
 /** The one step matching, so a second copy fails rather than hides. */
 function only(steps: Step[], matches: (step: Step) => boolean, what: string) {
@@ -93,10 +95,23 @@ const using = (steps: Step[], action: string) =>
 const running = (steps: Step[], command: string) =>
   only(steps, (step) => step.run?.includes(command) ?? false, command)
 const named = (steps: Step[], name: string) => only(steps, (step) => step.name === name, name)
-/** The steps, each found in the list, come in the order given. */
+/** The steps, each in the list once, come in the order given. */
 function expectInOrder(steps: Step[], ...each: Step[]) {
   const positions = each.map((step) => steps.indexOf(step))
-  expect(positions).toEqual(positions.toSorted((a, b) => a - b))
+  expect(positions, 'each step is in the list').not.toContain(-1)
+  expect(positions).toEqual([...new Set(positions)].toSorted((a, b) => a - b))
+}
+/** A job's or workflow's permissions as listed, or none for a grant to all. */
+const listed = (permissions: Permissions | undefined) =>
+  typeof permissions === 'object' && permissions !== null ? permissions : {}
+const requiredChecks = () =>
+  named(release.jobs.prepare.steps, 'Require every check to have passed on this commit')
+/** Each string in a workflow, with its path, to find where an expression is used. */
+function* strings(value: unknown, path: string): Generator<[string, string]> {
+  if (typeof value === 'string') yield [path, value]
+  else if (value && typeof value === 'object') {
+    for (const [key, each] of Object.entries(value)) yield* strings(each, `${path}.${key}`)
+  }
 }
 const linuxSetupOf = (job: Job) => using(job.steps, './.github/actions/setup-linux')
 const windowsSetupOf = (job: Job) => using(job.steps, './.github/actions/setup-windows')
@@ -359,18 +374,15 @@ test('tools install at pinned versions, prebuilt where checksummed releases exis
 test('every action outside the repository is pinned to a commit, named by its version', () => {
   const outside = everyStep.filter(({ step }) => step.uses && !step.uses.startsWith('./'))
   expect(outside.length).toBeGreaterThan(0)
-  for (const { file, at, step } of outside) {
-    expect(step.uses, at).toMatch(/@[0-9a-f]{40}$/)
-    // The version is a comment, which only the text keeps, on every use of the pin.
-    const text = read(files[file])
-    const pinned = step.uses!.replace(/[$()*+.?[\\\]^{|}]/g, '\\$&')
-    const uses = text.match(new RegExp(`uses: ${pinned}.*`, 'g'))!
-    for (const line of uses) expect(line, at).toMatch(/ # v\d/)
-  }
+  for (const { at, step } of outside) expect(step.uses, at).toMatch(/@[0-9a-f]{40}$/)
+  // The version is a comment, which only the text keeps, on every use.
+  const pins = Object.values(files).flatMap((file) =>
+    (read(file).match(/uses: (?!\.\/).*/g) ?? []).map((line) => ({ file, line })),
+  )
+  expect(pins).toHaveLength(outside.length)
+  for (const { file, line } of pins) expect(line, file).toMatch(/@[0-9a-f]{40} # v\d/)
   // No job calls a reusable workflow, which would need pinning too.
-  for (const workflow of [check, release]) {
-    for (const job of Object.values(workflow.jobs)) expect(job).not.toHaveProperty('uses')
-  }
+  for (const { at, job } of everyJob) expect(job, at).not.toHaveProperty('uses')
 })
 
 test('Windows runs the unit tests and the release build as separate jobs', () => {
@@ -382,7 +394,7 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
     expect(job.env).toMatchObject({
       npm_config_script_shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
     })
-    expect(windowsSetupOf(job).with, name).toBeDefined()
+    expect(windowsSetupOf(job).uses, name).toBe('./.github/actions/setup-windows')
   }
   // The versions come from .tool-versions, as asdf reads them on Linux.
   const setup = windowsSetup.runs.steps
@@ -515,7 +527,8 @@ test('a Windows build is published only once every check has passed', () => {
   // condition names a status function, so this one says only whose builds it keeps.
   expect(publish.if).toBe(fromThisRepository)
   // Least privilege: no job needs to write to the run's artifacts.
-  for (const job of Object.values(check.jobs)) expect(job.permissions?.actions).toBeUndefined()
+  for (const job of Object.values(check.jobs))
+    expect(listed(job.permissions).actions).toBeUndefined()
   expect(check.permissions).toEqual({ contents: 'read' })
   // It is republished under its lasting name for 7 days. The unverified build stays
   // until it expires, so a re-run's publish still finds it.
@@ -532,7 +545,8 @@ test('only reports and uploads run whatever came before them', () => {
   // A step or job that names a status function, or reads the results of the jobs it
   // needs, overrides GitHub's own rule that it runs only after success. Reporting
   // and saving evidence are the only reasons to.
-  const overrides = /\b(always|success|failure|cancelled)\(\)|\bneeds\b[^&|]*\bresult\b/
+  // GitHub reads function names in any case.
+  const overrides = /\b(always|success|failure|cancelled)\(\)|\bneeds\b[^&|]*\bresult\b/i
   for (const { at, job } of everyJob) expect(String(job.if ?? ''), at).not.toMatch(overrides)
   for (const { at, step } of everyStep.filter(({ step }) =>
     overrides.test(String(step.if ?? '')),
@@ -574,17 +588,6 @@ test('a release starts only by hand, from main, once every check has passed on i
   expect(prepare.permissions).toMatchObject({ checks: 'read' })
 })
 
-const requiredChecks = () =>
-  named(release.jobs.prepare.steps, 'Require every check to have passed on this commit')
-
-/** Each string in a workflow, with its path, to find where an expression is used. */
-function* strings(value: unknown, path: string): Generator<[string, string]> {
-  if (typeof value === 'string') yield [path, value]
-  else if (value && typeof value === 'object') {
-    for (const [key, each] of Object.entries(value)) yield* strings(each, `${path}.${key}`)
-  }
-}
-
 test('a release’s version and notes come from the commits or the inputs, which never reach a script', () => {
   const inputs = (release.on.workflow_dispatch as { inputs: Record<string, Input> }).inputs
   expect(inputs.version.required).toBe(false)
@@ -598,9 +601,8 @@ test('a release’s version and notes come from the commits or the inputs, which
     "vitest run --project gates tests/release.test.ts -t '^write the release$'",
   )
   // Inputs reach scripts only through the environment, in whatever form they are read.
-  const input = /\$\{\{[^}]*\b(github\.event\.)?inputs\./
-  const used = [...strings({ ...release, on: undefined }, 'release')].filter(([, value]) =>
-    input.test(value),
+  const used = [...strings(release, 'release')].filter(
+    ([, value]) => value.includes('${{') && /\binputs\b/.test(value),
   )
   expect(used.map(([path]) => path.replace(/\.\d+\./, '.'))).toEqual([
     'release.jobs.prepare.steps.env.RELEASE_VERSION',
@@ -618,7 +620,7 @@ test('a release builds on Windows as a release, smoke-tested, and only drafts it
   // Only the job that creates the draft may write to the repository.
   expect(release.permissions).toEqual({ contents: 'read' })
   const writers = Object.entries(release.jobs).filter(
-    ([, job]) => job.permissions?.contents === 'write',
+    ([, job]) => listed(job.permissions).contents === 'write',
   )
   expect(writers.map(([name]) => name)).toEqual(['release'])
   const create = running(release.jobs.release.steps, 'gh release create')
@@ -718,10 +720,11 @@ test('no check can pass by failing quietly, and no job asks for every permission
   }
   for (const { at, job } of everyJob) {
     expect(job['continue-on-error'], at).toBeUndefined()
-    // Permissions are listed one by one, never as read-all or write-all.
-    expect(job.permissions ?? {}, at).toBeTypeOf('object')
+    // Permissions are listed one by one, never granted to all or left empty.
+    const granted = job.permissions === undefined || listed(job.permissions) === job.permissions
+    expect(granted, `${at} permissions: ${JSON.stringify(job.permissions)}`).toBe(true)
   }
   for (const [file, workflow] of Object.entries(workflows)) {
-    expect(workflow.permissions, file).toBeTypeOf('object')
+    expect(listed(workflow.permissions), file).toBe(workflow.permissions)
   }
 })
