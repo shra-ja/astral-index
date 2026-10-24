@@ -54,7 +54,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Setup actions own the job environment (2026-10-24)
 
-`ci/setup-owns-environment`: the Windows script shell and the minimal Rust profile, repeated in each job, set once by the setup actions; under way.
+`ci/setup-owns-environment`: each Linux job set `ASDF_RUST_PROFILE` and each Windows job, in both workflows, `npm_config_script_shell`, with the reason given once. The Linux setup now sets the profile on its asdf step, and the Windows setup makes Git Bash npm's script shell through `$GITHUB_ENV` as its first step, which holds for the rest of the job; jobs keep only `defaults.run.shell`, which an action can't set. Red first: a test that the setup actions set both, that no job repeats them and that each Windows job sets up before running npm; removing the step or repeating it in a job fails it. That the Windows jobs still run their scripts through Git Bash shows only in this PR's CI run.
 
 ## Known limitations
 

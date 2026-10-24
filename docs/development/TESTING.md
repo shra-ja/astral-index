@@ -273,7 +273,9 @@ instead, though it replaces one still waiting:
 
 The Linux jobs share their setup through `.github/actions/setup-linux`, and the
 Windows jobs through `.github/actions/setup-windows`; the tool versions live in
-those two actions. The Linux setup installs its OS packages from
+those two actions, as does what their jobs need from the environment: Rust's
+minimal profile on Linux, and Git Bash as npm's script shell on Windows, set for
+the rest of the job. The Linux setup installs its OS packages from
 a cache that `main` saves, since the runners' Azure Ubuntu mirror is sometimes
 slow for minutes on end
 ([actions/runner-images#14823](https://github.com/actions/runner-images/issues/14823));
