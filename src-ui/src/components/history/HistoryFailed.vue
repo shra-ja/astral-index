@@ -13,9 +13,7 @@ onMounted(() => heading.value!.focus())
 
 <template>
   <section class="history-failed" role="alert" aria-labelledby="history-failed-heading">
-    <IconTile tone="error">
-      <TriangleAlert :size="22" :stroke-width="1.75" />
-    </IconTile>
+    <IconTile :icon="TriangleAlert" tone="error" />
     <h2 id="history-failed-heading" ref="heading" tabindex="-1">{{ title }}</h2>
     <p>{{ message }}</p>
     <button type="button" @click="emit('retry')">Try again</button>

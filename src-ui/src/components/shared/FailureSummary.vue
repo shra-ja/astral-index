@@ -12,9 +12,7 @@ onMounted(() => heading.value!.focus())
 
 <template>
   <div class="failure-summary">
-    <IconTile tone="error">
-      <TriangleAlert :size="22" :stroke-width="1.75" />
-    </IconTile>
+    <IconTile :icon="TriangleAlert" tone="error" />
     <div class="text">
       <h2 :id ref="heading" tabindex="-1">{{ title }}</h2>
       <p>{{ message }}</p>

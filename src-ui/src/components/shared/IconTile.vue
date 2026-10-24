@@ -1,13 +1,17 @@
 <script setup lang="ts">
-// Presentational: the rounded tile a card's icon sits in, hidden from screen readers
-// since the card's heading says the same. Its tone matches the card: neutral,
-// accented, or an error.
-withDefaults(defineProps<{ tone?: 'neutral' | 'accent' | 'error' }>(), { tone: 'neutral' })
+// Presentational: the rounded tile a card's icon sits in, drawn at the tile's size
+// and hidden from screen readers, since the card's heading says the same. Its tone
+// matches the card: neutral, accented, or an error.
+import type { Component } from 'vue'
+
+withDefaults(defineProps<{ icon: Component; tone?: 'neutral' | 'accent' | 'error' }>(), {
+  tone: 'neutral',
+})
 </script>
 
 <template>
   <span class="icon-tile" :class="tone" aria-hidden="true">
-    <slot />
+    <component :is="icon" :size="22" :stroke-width="1.75" />
   </span>
 </template>
 

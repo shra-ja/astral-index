@@ -1,3 +1,4 @@
+import { TriangleAlert } from '@lucide/vue'
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import FailureSummary from './FailureSummary.vue'
@@ -19,6 +20,6 @@ test('names the failure beside a warning, focusing its heading so it is read in 
   expect(wrapper.get('h2 + p').text()).toBe('We found the game.')
   const tile = wrapper.getComponent(IconTile)
   expect(tile.props('tone')).toBe('error')
-  expect(tile.find('svg').exists()).toBe(true)
+  expect(tile.props('icon')).toBe(TriangleAlert)
   wrapper.unmount()
 })

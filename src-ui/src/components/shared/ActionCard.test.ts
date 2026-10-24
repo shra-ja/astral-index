@@ -1,3 +1,4 @@
+import { FileText } from '@lucide/vue'
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import ActionCard from './ActionCard.vue'
@@ -10,9 +11,9 @@ const card = () =>
       title: 'Backup',
       text: 'Save a copy.',
       points: ['One', 'Two'],
+      icon: FileText,
     },
     slots: {
-      icon: '<svg class="glyph" />',
       default: '<fieldset class="extra" />',
       actions: '<button type="button">Save</button>',
     },
@@ -32,7 +33,7 @@ test('names its section by its heading and shows the text, points and slots in o
 test('shows its icon in a tile, neutral or accented', async () => {
   const wrapper = card()
   const tile = wrapper.getComponent(IconTile)
-  expect(tile.find('.glyph').exists()).toBe(true)
+  expect(tile.props('icon')).toBe(FileText)
   expect(tile.props('tone')).toBe('neutral')
   await wrapper.setProps({ accent: true })
   expect(wrapper.getComponent(IconTile).props('tone')).toBe('accent')
@@ -40,7 +41,7 @@ test('shows its icon in a tile, neutral or accented', async () => {
 
 test('announces what its actions report in a status region below them', () => {
   const wrapper = mount(ActionCard, {
-    props: { id: 'card-title', title: 'Backup', text: 'Save a copy.', points: [] },
+    props: { id: 'card-title', icon: FileText, title: 'Backup', text: 'Save a copy.', points: [] },
     slots: {
       actions: '<button type="button">Save</button>',
       status: '<p class="note">Saved</p>',
