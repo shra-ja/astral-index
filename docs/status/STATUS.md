@@ -52,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### CI tests that parse the workflows (2026-10-24)
+### Setup actions own the job environment (2026-10-24)
 
-`test/parse-ci-workflows`: `tooling/ci.test.ts` reads the workflows and actions with the `yaml` package (2.9.1, a new dev dependency with none of its own) and checks what each job and step does: conditions, inputs, cache keys, step order and which job runs what, finding steps by name, action or command. The redundant `always()` survived because the old tests matched exact text, so a cleanup failed them while a leftover with the same meaning passed. Evidence: an `always()` or a hand check of needed jobs' results on the publish job, `delete-merged`, a quoted boolean and an `always()` on the build step each fail the new tests; a block-style `needs` list, a folded `if` and quoted strings pass them, while each failed the old tests. Text is still read only for the pinned actions' version comments and for things that must appear nowhere. From the reviews: the release upload's path is checked again (the rewrite had dropped it), every use of a pin needs its own `# v<digit>` comment, inputs are traced through the whole release workflow in any form, every setup input's boolean must be unquoted, the status-function rule catches hyphenated job names, and two new checks refuse `continue-on-error` and `write-all`/`read-all` permissions; each was confirmed by breaking it.
+`ci/setup-owns-environment`: the Windows script shell and the minimal Rust profile, repeated in each job, set once by the setup actions; under way.
 
 ## Known limitations
 
@@ -193,4 +193,5 @@ research, under a "From" heading.
   the history status, restoring over a history that can't be upgraded, the
   mock's failing upgrade, the wide-window stall's diagnostics, the native
   cache file picker, CI's OS package cache, the History Unavailable screen
-  and the shared status card and icon tile.
+  the shared status card and icon tile, and CI tests that parse the
+  workflows.
