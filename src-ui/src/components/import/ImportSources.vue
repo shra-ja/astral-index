@@ -46,8 +46,8 @@ defineExpose({
           'Long histories can take a few minutes',
         ]"
         accent
+        :icon="CloudDownload"
       >
-        <template #icon><CloudDownload :size="22" :stroke-width="1.75" /></template>
         <fieldset class="mode" aria-describedby="mode-hint">
           <!-- The options speak for themselves; screen readers still need the group's name. -->
           <legend class="visually-hidden">What to retrieve</legend>
@@ -112,8 +112,8 @@ defineExpose({
           'Read on this device; nothing is sent anywhere',
           'Rolls you already have are skipped',
         ]"
+        :icon="FileText"
       >
-        <template #icon><FileText :size="22" :stroke-width="1.75" /></template>
         <template #actions>
           <AppTooltip v-slot="{ tooltipId }" text="Importing from a file isn’t available yet.">
             <button

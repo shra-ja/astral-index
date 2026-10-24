@@ -27,8 +27,8 @@ defineExpose({
       'Backups from this or any earlier version of Astral Index',
       'Shows what will change before anything is replaced',
     ]"
+    :icon="RotateCcwClock"
   >
-    <template #icon><RotateCcwClock :size="22" :stroke-width="1.75" /></template>
     <template #actions>
       <button
         ref="button"

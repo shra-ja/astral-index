@@ -1,6 +1,8 @@
+import { TriangleAlert } from '@lucide/vue'
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import FailureSummary from './FailureSummary.vue'
+import IconTile from './IconTile.vue'
 
 test('names the failure beside a warning, focusing its heading so it is read in full', () => {
   const wrapper = mount(FailureSummary, {
@@ -16,8 +18,8 @@ test('names the failure beside a warning, focusing its heading so it is read in 
   expect(heading.attributes('tabindex')).toBe('-1')
   expect(document.activeElement).toBe(heading.element)
   expect(wrapper.get('h2 + p').text()).toBe('We found the game.')
-  const icon = wrapper.get('.icon')
-  expect(icon.attributes('aria-hidden')).toBe('true')
-  expect(icon.find('svg').exists()).toBe(true)
+  const tile = wrapper.getComponent(IconTile)
+  expect(tile.props('tone')).toBe('error')
+  expect(tile.props('icon')).toBe(TriangleAlert)
   wrapper.unmount()
 })

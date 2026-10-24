@@ -24,10 +24,10 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
   (`ActionCard`, the card offering one action on Import and Backup & Restore,
-  with `StatusLine` for what its action reported, `StatusCard`, the card
+  with `StatusLine` for what its action reported; `StatusCard`, the card
   in the middle of the screen holding its whole status, with `FailureSummary`
-  for what failed,
-  `AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
+  for what failed; `IconTile`, the tile that draws an action or failure card's
+  icon at its size; `AppTooltip`, `CachePicker`, `DataFolder`, where history is stored, as About and
   Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native

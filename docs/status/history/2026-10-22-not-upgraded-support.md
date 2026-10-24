@@ -32,3 +32,9 @@ Integrated through PR #140.
 Integrated through PR #139.
 
 `feat/not-upgraded-screen-ui`: 0037's Migration recovery, screen. A history that couldn't be upgraded opens History Unavailable (option A on the canvas) before any game screen: the router asks `history_status`, later commands switch to it too, and the sidebar locks the game screens. Its card names the copy, advises reinstalling the previous version, reporting or restoring, and restores a backup through the usual confirmation, after which Backup & Restore says how it went. Each layer red first; an end-to-end test drives the mock's failing upgrade through to a restore. From the reviews: a restore from Backup & Restore now unlocks the app too, locked links stay named and focusable, and the card shows its latest failure (each red first).
+
+## Shared status card (2026-10-23)
+
+Integrated through PR #141.
+
+`refactor/status-card`: the History Unavailable card and the Import screen's progress, failure and result cards repeated one frame; they now share `StatusCard` (a narrower `result` variant for what a save added), and the two failure cards `FailureSummary`, the warning, heading and message. From the reviews: the failure summary takes its message as a prop, and the failure cards' tests check that each alert is named by its heading. Headings and text that take focus only to be announced lose their outline through one rule in `main.css`, not five; it leaves the account menu's items alone. The four cards' tests pass unchanged; the new parts' tests red first. Follow-up: one icon tile for the four copies. Small visual changes: Import's failure card is as wide as the others (640px, from 600), and the progress card's spacing 22px, from 24. In CI, #141's Linux jobs restored their OS packages from the cache, with nothing left to download.

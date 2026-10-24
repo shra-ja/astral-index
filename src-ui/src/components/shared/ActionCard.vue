@@ -1,17 +1,25 @@
 <script setup lang="ts">
 // Presentational: a card offering one action, as on the Import and Backup & Restore
-// screens: an icon, a heading naming the section, a description and its points. The
+// screens: its icon, a heading naming the section, a description and its points. The
 // default slot adds controls below the points; the actions slot holds the buttons, at
 // the card's foot, and the status slot what they report, which a status region below
 // them announces.
-defineProps<{ id: string; title: string; text: string; points: string[]; accent?: boolean }>()
+import type { Component } from 'vue'
+import IconTile from './IconTile.vue'
+
+defineProps<{
+  id: string
+  icon: Component
+  title: string
+  text: string
+  points: string[]
+  accent?: boolean
+}>()
 </script>
 
 <template>
   <section class="action-card" :aria-labelledby="id">
-    <div class="icon" :class="{ accent }" aria-hidden="true">
-      <slot name="icon" />
-    </div>
+    <IconTile :icon :tone="accent ? 'accent' : 'neutral'" />
     <h3 :id>{{ title }}</h3>
     <p>{{ text }}</p>
     <ul>
@@ -36,19 +44,6 @@ defineProps<{ id: string; title: string; text: string; points: string[]; accent?
   border: 1px solid var(--rim);
   border-radius: 14px;
   background: var(--panel);
-}
-.icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--panel-rim);
-  color: var(--text-soft);
-}
-.icon.accent {
-  background: var(--accent-tint);
-  color: var(--accent);
 }
 h3 {
   margin: 0;

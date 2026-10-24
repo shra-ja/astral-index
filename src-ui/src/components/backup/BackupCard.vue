@@ -21,8 +21,8 @@ const emit = defineEmits<{ save: [] }>()
       'Written on this device; nothing is sent anywhere',
     ]"
     accent
+    :icon="DatabaseBackup"
   >
-    <template #icon><DatabaseBackup :size="22" :stroke-width="1.75" /></template>
     <template #actions>
       <button type="button" :disabled="state === 'saving'" @click="emit('save')">
         {{ state === 'saving' ? 'Saving backup…' : 'Save backup…' }}
