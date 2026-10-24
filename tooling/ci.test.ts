@@ -101,7 +101,7 @@ function expectInOrder(steps: Step[], ...each: Step[]) {
   expect(positions, 'each step is in the list').not.toContain(-1)
   expect(positions).toEqual([...new Set(positions)].toSorted((a, b) => a - b))
 }
-/** A job's or workflow's permissions as listed, or none for a grant to all. */
+/** The permissions listed one by one; none for a blanket grant or a bare `permissions:`. */
 const listed = (permissions: Permissions | undefined) =>
   typeof permissions === 'object' && permissions !== null ? permissions : {}
 const requiredChecks = () =>
@@ -376,11 +376,11 @@ test('every action outside the repository is pinned to a commit, named by its ve
   expect(outside.length).toBeGreaterThan(0)
   for (const { at, step } of outside) expect(step.uses, at).toMatch(/@[0-9a-f]{40}$/)
   // The version is a comment, which only the text keeps, on every use.
-  const pins = Object.values(files).flatMap((file) =>
-    (read(file).match(/uses: (?!\.\/).*/g) ?? []).map((line) => ({ file, line })),
-  )
-  expect(pins).toHaveLength(outside.length)
-  for (const { file, line } of pins) expect(line, file).toMatch(/@[0-9a-f]{40} # v\d/)
+  for (const [file, path] of Object.entries(files)) {
+    const pins = read(path).match(/uses: (?!\.\/).*/g) ?? []
+    expect(pins, file).toHaveLength(outside.filter((each) => each.file === file).length)
+    for (const line of pins) expect(line, file).toMatch(/@[0-9a-f]{40} # v\d/)
+  }
   // No job calls a reusable workflow, which would need pinning too.
   for (const { at, job } of everyJob) expect(job, at).not.toHaveProperty('uses')
 })
@@ -601,6 +601,8 @@ test('a release’s version and notes come from the commits or the inputs, which
     "vitest run --project gates tests/release.test.ts -t '^write the release$'",
   )
   // Inputs reach scripts only through the environment, in whatever form they are read.
+  // Any expression near the word fails, so a harmless mention fails too, never the
+  // other way round.
   const used = [...strings(release, 'release')].filter(
     ([, value]) => value.includes('${{') && /\binputs\b/.test(value),
   )
@@ -720,9 +722,11 @@ test('no check can pass by failing quietly, and no job asks for every permission
   }
   for (const { at, job } of everyJob) {
     expect(job['continue-on-error'], at).toBeUndefined()
-    // Permissions are listed one by one, never granted to all or left empty.
-    const granted = job.permissions === undefined || listed(job.permissions) === job.permissions
-    expect(granted, `${at} permissions: ${JSON.stringify(job.permissions)}`).toBe(true)
+  }
+  // Permissions are listed one by one, never a blanket grant or a bare `permissions:`;
+  // a job may also leave them out and take the workflow's.
+  for (const { at, job } of everyJob.filter(({ job }) => job.permissions !== undefined)) {
+    expect(listed(job.permissions), at).toBe(job.permissions)
   }
   for (const [file, workflow] of Object.entries(workflows)) {
     expect(listed(workflow.permissions), file).toBe(workflow.permissions)
