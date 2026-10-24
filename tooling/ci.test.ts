@@ -3,34 +3,130 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
+import { parse } from 'yaml'
 
+// The workflows and actions as GitHub reads them, so the tests check what each job
+// and step does, not how the file is laid out. The text is read only for the pinned
+// actions' version comments, which parsing drops, and for what must appear nowhere.
+interface Step {
+  name?: string
+  id?: string
+  uses?: string
+  run?: string
+  if?: string | boolean
+  shell?: string
+  'continue-on-error'?: boolean | string
+  with?: Record<string, unknown>
+  env?: Record<string, string>
+}
+/** A job's or workflow's permissions: each listed, or one grant for all, or none. */
+type Permissions = Record<string, string> | 'read-all' | 'write-all' | null
+interface Job {
+  name: string
+  'runs-on': string
+  'timeout-minutes': number
+  needs?: string | string[]
+  if?: string | boolean
+  'continue-on-error'?: boolean | string
+  permissions?: Permissions
+  env?: Record<string, string>
+  defaults?: { run: { shell: string } }
+  steps: Step[]
+}
+interface Workflow {
+  on: Record<string, unknown>
+  permissions: Permissions
+  concurrency: Record<string, unknown>
+  env?: Record<string, string>
+  jobs: Record<string, Job>
+}
+interface Input {
+  description: string
+  required?: boolean
+  default?: unknown
+}
+interface Action {
+  inputs: Record<string, Input>
+  runs: { steps: Step[] }
+}
+
+const files = {
+  check: '.github/workflows/check.yml',
+  release: '.github/workflows/release.yml',
+  linuxSetup: '.github/actions/setup-linux/action.yml',
+  windowsSetup: '.github/actions/setup-windows/action.yml',
+  buildWindows: '.github/actions/build-windows/action.yml',
+}
 const read = (path: string) => readFileSync(path, 'utf8')
-const workflow = read('.github/workflows/check.yml')
-const release = read('.github/workflows/release.yml')
-const linuxSetup = read('.github/actions/setup-linux/action.yml')
-const windowsSetup = read('.github/actions/setup-windows/action.yml')
-const buildWindows = read('.github/actions/build-windows/action.yml')
+const check = parse(read(files.check)) as Workflow
+const release = parse(read(files.release)) as Workflow
+const linuxSetup = parse(read(files.linuxSetup)) as Action
+const windowsSetup = parse(read(files.windowsSetup)) as Action
+const buildWindows = parse(read(files.buildWindows)) as Action
 const scripts = (JSON.parse(read('package.json')) as { scripts: Record<string, string> }).scripts
 
-/** A job's block in a workflow, from its key to the next job's. */
-function job(name: string, text = workflow) {
-  const start = text.indexOf(`\n  ${name}:\n`)
-  expect(start, name).toBeGreaterThan(0)
-  const next = text.slice(start + 1).search(/\n {2}[a-z-]+:\n/)
-  return next < 0 ? text.slice(start) : text.slice(start, start + 1 + next)
+const workflows = { check, release }
+const actions = { linuxSetup, windowsSetup, buildWindows }
+type File = keyof typeof files
+/** Every job in the workflows, with its file and where in it. */
+const everyJob = Object.entries(workflows).flatMap(([file, workflow]) =>
+  Object.entries(workflow.jobs).map(([name, job]) => ({
+    file: file as File,
+    at: `${file} ${name}`,
+    job,
+  })),
+)
+/** Every step in the workflows' jobs and the actions, with its file and where in it. */
+const everyStep = [
+  ...everyJob.flatMap(({ file, at, job }) => job.steps.map((step) => ({ file, at, step }))),
+  ...Object.entries(actions).flatMap(([file, action]) =>
+    action.runs.steps.map((step) => ({ file: file as File, at: file, step })),
+  ),
+]
+
+/** The one step matching, so a second copy fails rather than hides. */
+function only(steps: Step[], matches: (step: Step) => boolean, what: string) {
+  const found = steps.filter(matches)
+  expect(found, what).toHaveLength(1)
+  return found[0]
 }
-/** The steps of a workflow job or a composite action, split at their list items. */
-const stepsOf = (text: string) => text.split(/^ {4,6}- /m).slice(1)
-const step = (text: string, needle: string) => stepsOf(text).find((each) => each.includes(needle))
+const using = (steps: Step[], action: string) =>
+  only(steps, (step) => step.uses?.startsWith(action) ?? false, action)
+const running = (steps: Step[], command: string) =>
+  only(steps, (step) => step.run?.includes(command) ?? false, command)
+const named = (steps: Step[], name: string) => only(steps, (step) => step.name === name, name)
+/** The steps, each in the list once, come in the order given. */
+function expectInOrder(steps: Step[], ...each: Step[]) {
+  const positions = each.map((step) => steps.indexOf(step))
+  expect(positions, 'each step is in the list').not.toContain(-1)
+  expect(positions).toEqual([...new Set(positions)].toSorted((a, b) => a - b))
+}
+/** The permissions listed one by one; none for a blanket grant or a bare `permissions:`. */
+const listed = (permissions: Permissions | undefined) =>
+  typeof permissions === 'object' && permissions !== null ? permissions : {}
+const requiredChecks = () =>
+  named(release.jobs.prepare.steps, 'Require every check to have passed on this commit')
+/** Each string in a workflow, with its path, to find where an expression is used. */
+function* strings(value: unknown, path: string): Generator<[string, string]> {
+  if (typeof value === 'string') yield [path, value]
+  else if (value && typeof value === 'object') {
+    for (const [key, each] of Object.entries(value)) yield* strings(each, `${path}.${key}`)
+  }
+}
+const linuxSetupOf = (job: Job) => using(job.steps, './.github/actions/setup-linux')
+const windowsSetupOf = (job: Job) => using(job.steps, './.github/actions/setup-windows')
+
+const fromThisRepository =
+  "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
 
 test('checks run on pull requests and pushes to main, with no merge queue', () => {
-  expect(workflow).toMatch(/^on:\n {2}pull_request:\n {2}push:\n {4}branches: \[main\]\n/m)
-  expect(workflow).not.toContain('merge_group')
+  expect(check.on).toEqual({ pull_request: null, push: { branches: ['main'] } })
   // A newer push supersedes a pull request's run. On main, which saves the caches,
   // it waits for the run in progress instead.
-  expect(workflow).toContain(
-    "concurrency:\n  group: checks-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
-  )
+  expect(check.concurrency).toEqual({
+    group: 'checks-${{ github.ref }}',
+    'cancel-in-progress': "${{ github.event_name == 'pull_request' }}",
+  })
 })
 
 test('the full check runs the static checks, then the gates, then the isolated probes', () => {
@@ -71,96 +167,92 @@ test('CI runs each part of the full check as its own Linux job, so none is skipp
     ['gates', 'check:gates'],
     ['probes', 'check:probes'],
   ]) {
-    const run = step(job(name), `run: npm run ${part}`)
-    expect(run, part).toBeDefined()
-    expect(run).not.toMatch(/^\s+if:/m)
-    expect(job(name)).toContain('runs-on: ubuntu-24.04')
-    expect(workflow.split(`npm run ${part}`)).toHaveLength(2)
+    const job = check.jobs[name]
+    expect(job['runs-on'], name).toBe('ubuntu-24.04')
+    const run = only(job.steps, (step) => step.run === `npm run ${part}`, part)
+    expect(run.if, part).toBeUndefined()
+    // No other step runs it.
+    const runs = everyStep.filter(({ step }) => step.run?.includes(`npm run ${part}`))
+    expect(runs.map(({ at }) => at)).toEqual([`check ${name}`])
   }
   // The gates job's reports and screenshots are kept, even when a gate fails.
-  const reports = step(job('gates'), 'uses: actions/upload-artifact@')
-  expect(reports).toContain('if: always()')
-  expect(reports).toContain('name: coverage-and-native-smoke')
-  expect(reports).toContain('if-no-files-found: error')
-  // A failed probe keeps its snapshot.
-  const snapshots = step(job('probes'), 'uses: actions/upload-artifact@')
-  // A probe that stalls until the job's time limit counts as cancelled.
-  expect(snapshots).toContain('if: failure() || cancelled()')
-  expect(snapshots).toContain('path: test-results/probe-failures/')
+  const reports = using(check.jobs.gates.steps, 'actions/upload-artifact@')
+  expect(reports.if).toBe('always()')
+  expect(reports.with).toMatchObject({
+    name: 'coverage-and-native-smoke',
+    'if-no-files-found': 'error',
+  })
+  // A failed probe keeps its snapshot; one that stalls until the job's time limit
+  // counts as cancelled.
+  const snapshots = using(check.jobs.probes.steps, 'actions/upload-artifact@')
+  expect(snapshots.if).toBe('failure() || cancelled()')
+  expect(snapshots.with).toMatchObject({ path: 'test-results/probe-failures/' })
 })
 
 test('the gates and probes share one instrumented Rust cache; the static checks keep their own', () => {
-  expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain('rust-cache: static')
+  expect(linuxSetupOf(check.jobs.static).with).toMatchObject({ 'rust-cache': 'static' })
   for (const name of ['gates', 'probes']) {
-    const setup = step(job(name), 'uses: ./.github/actions/setup-linux')
-    expect(setup).toContain('rust-cache: instrumented')
-    expect(setup).toContain('native-tests: true')
+    expect(linuxSetupOf(check.jobs[name]).with, name).toMatchObject({
+      'rust-cache': 'instrumented',
+      'native-tests': true,
+    })
   }
 })
 
 test('only main saves caches, which pull requests restore, keyed by toolchain and lockfiles', () => {
-  // v2.9.2 is the first release that keeps hyphenated crates under Cargo's new build-dir layout.
-  for (const setup of [linuxSetup, windowsSetup]) {
-    const rust = step(setup, 'uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6')
-    expect(rust).toBeDefined()
-    expect(rust).toContain('workspaces: src-tauri -> target')
-    expect(rust).toContain('cache-bin: true')
-    expect(rust).toContain('cache-workspace-crates: false')
-    expect(rust).toMatch(/save-if: \$\{\{ .*github\.ref == 'refs\/heads\/main' \}\}/)
+  // v2.9.2 is the first release that keeps hyphenated crates under Cargo's new
+  // build-dir layout. Tool versions live in the setup actions, so changing them
+  // invalidates the cache.
+  for (const [setup, file] of [
+    [linuxSetup, files.linuxSetup],
+    [windowsSetup, files.windowsSetup],
+  ] as const) {
+    const rust = using(setup.runs.steps, 'Swatinem/rust-cache@')
+    expect(rust.uses).toBe('Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6')
+    expect(rust.with).toMatchObject({
+      workspaces: 'src-tauri -> target',
+      key: `\${{ hashFiles('.tool-versions', '${file}') }}`,
+      'cache-bin': true,
+      'cache-workspace-crates': false,
+      'save-if': "${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
+    })
   }
-  // Tool versions live in the setup actions; changing them must invalidate the cache.
-  expect(step(linuxSetup, 'uses: Swatinem/rust-cache@')).toContain(
-    "key: ${{ hashFiles('.tool-versions', '.github/actions/setup-linux/action.yml') }}",
-  )
-  expect(step(windowsSetup, 'uses: Swatinem/rust-cache@')).toContain(
-    "key: ${{ hashFiles('.tool-versions', '.github/actions/setup-windows/action.yml') }}",
-  )
-  const [restore, save] = stepsOf(linuxSetup).filter((each) =>
-    each.includes('path: ~/.npm/_cacache'),
-  )
-  expect(restore).toContain('uses: actions/cache/restore@')
-  expect(restore).toContain("hashFiles('.tool-versions', 'package-lock.json')")
-  expect(save).toContain('uses: actions/cache/save@')
-  expect(save).toContain("if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'")
-  expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
-    'save-npm-cache: true',
-  )
-  const windowsSave = step(windowsSetup, 'uses: actions/cache/save@')
-  expect(windowsSave).toContain(
-    "if: inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'",
-  )
-  expect(step(job('windows-release'), 'uses: ./.github/actions/setup-windows')).toContain(
-    'save-npm-cache: true',
-  )
-  expect(step(job('windows-tests'), 'uses: ./.github/actions/setup-windows')).toContain(
-    'save-npm-cache: false',
-  )
+  for (const setup of [linuxSetup, windowsSetup]) {
+    const npm = setup.runs.steps.filter((step) => String(step.with?.key).startsWith('npm-'))
+    const restore = using(npm, 'actions/cache/restore@')
+    expect(restore.with?.key).toBe(
+      "npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.tool-versions', 'package-lock.json') }}",
+    )
+    // Saved where and as it was restored from.
+    const save = using(npm, 'actions/cache/save@')
+    expect(save.with).toEqual(restore.with)
+    expect(save.if).toBe("inputs.save-npm-cache == 'true' && github.ref == 'refs/heads/main'")
+  }
   // A cache hit never skips an install or a check.
-  for (const text of [workflow, linuxSetup, windowsSetup]) expect(text).not.toContain('cache-hit')
+  for (const file of Object.values(files)) expect(read(file), file).not.toContain('cache-hit')
 })
 
 test('the Rust cache follows the asdf toolchain, where Cargo installs tools and registry sources', () => {
   // asdf keeps Cargo's home inside the toolchain; the cache otherwise saves an unused ~/.cargo.
-  const order = [
-    'asdf-vm/actions/install@',
-    'echo "CARGO_HOME=$(asdf where rust)" >> "$GITHUB_ENV"',
-    'Swatinem/rust-cache@',
-    'taiki-e/install-action@',
-    'cargo install tauri-driver',
-  ].map((needle) => linuxSetup.indexOf(needle))
-  expect(order.every((index) => index >= 0)).toBe(true)
-  expect(order).toEqual(order.toSorted((a, b) => a - b))
+  const steps = linuxSetup.runs.steps
+  expectInOrder(
+    steps,
+    using(steps, 'asdf-vm/actions/install@'),
+    running(steps, 'echo "CARGO_HOME=$(asdf where rust)" >> "$GITHUB_ENV"'),
+    using(steps, 'Swatinem/rust-cache@'),
+    using(steps, 'taiki-e/install-action@'),
+    running(steps, 'cargo install tauri-driver'),
+  )
 })
 
 /**
  * Run the setup's OS package step with a stand-in sudo, whose first `stalls`
- * commands matching `stall`, if any, time out as a slow mirror's would. Returns its exit status and
- * each command it ran.
+ * commands matching `stall`, if any, time out as a slow mirror's would. Returns its
+ * exit status and each command it ran.
  */
 function installPackages(nativeTests: boolean, stall?: string, stalls = 1) {
-  const packages = step(linuxSetup, 'name: Install the OS packages')!
-  expect(packages).toContain('NATIVE_TESTS: ${{ inputs.native-tests }}')
-  const script = /run: \|\n((?: {8}.*\n|\n)+)/.exec(packages)![1].replace(/^ {8}/gm, '')
+  const packages = named(linuxSetup.runs.steps, 'Install the OS packages')
+  expect(packages.env).toEqual({ NATIVE_TESTS: '${{ inputs.native-tests }}' })
   const dir = mkdtempSync(join(tmpdir(), 'apt-'))
   writeFileSync(join(dir, 'stalls'), String(stall ? stalls : 0))
   writeFileSync(
@@ -175,14 +267,18 @@ function installPackages(nativeTests: boolean, stall?: string, stalls = 1) {
     ].join('\n'),
     { mode: 0o755 },
   )
-  const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
-    env: {
-      PATH: `${dir}:${process.env.PATH}`,
-      STUB: dir,
-      STALL: stall ?? '',
-      NATIVE_TESTS: String(nativeTests),
+  const run = spawnSync(
+    'bash',
+    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', packages.run!],
+    {
+      env: {
+        PATH: `${dir}:${process.env.PATH}`,
+        STUB: dir,
+        STALL: stall ?? '',
+        NATIVE_TESTS: String(nativeTests),
+      },
     },
-  })
+  )
   const commands = readFileSync(join(dir, 'commands'), 'utf8').trim().split('\n')
   return { status: run.status, commands }
 }
@@ -235,252 +331,230 @@ test('OS packages come from the cache, then the Azure mirror, then Ubuntu’s ow
 })
 
 test('main saves the downloaded OS packages, which every job restores before installing', () => {
-  const path = 'path: /var/cache/ci-apt-archives/*.deb'
-  const key =
-    "apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-${{ hashFiles('.github/actions/setup-linux/action.yml') }}-"
+  const steps = linuxSetup.runs.steps
+  const path = '/var/cache/ci-apt-archives/*.deb'
+  const packageCache = steps.filter((step) => step.with?.path === path)
   // Each runner image and package list has its own key, and starts from the last
   // one's packages, so apt downloads only what changed.
-  const image = step(linuxSetup, 'name: Prepare the OS package cache')!
+  const prefix = 'apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-'
+  const key = `${prefix}\${{ hashFiles('${files.linuxSetup}') }}-\${{ steps.image.outputs.version }}`
+  const prepare = named(steps, 'Prepare the OS package cache')
+  expect(prepare.id).toBe('image')
   // apt's download user can't enter the home folder, so the cache lives outside it.
-  expect(image).toContain('sudo install -d -o "$USER" /var/cache/ci-apt-archives')
-  expect(image).toContain('echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"')
-  const restore = step(linuxSetup, `${path}`)!
-  expect(restore).toContain('uses: actions/cache/restore@')
-  expect(restore).toContain(`key: ${key}\${{ steps.image.outputs.version }}`)
-  expect(restore).toContain(
-    'restore-keys: apt-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-tests }}-\n',
-  )
-  const save = stepsOf(linuxSetup).filter((each) => each.includes(path))[1]
-  expect(save).toContain('uses: actions/cache/save@')
-  expect(save).toContain(`key: ${key}\${{ steps.image.outputs.version }}`)
-  expect(save).toContain("if: inputs.save-apt-cache == 'true' && github.ref == 'refs/heads/main'")
-  const order = [
-    'name: Prepare the OS package cache',
-    'uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n      with:\n        ' +
-      path,
-    'name: Install the OS packages',
-    'uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n      with:\n        ' +
-      path,
-  ].map((needle) => linuxSetup.indexOf(needle))
-  expect(order.every((index) => index >= 0)).toBe(true)
-  expect(order).toEqual(order.toSorted((a, b) => a - b))
-  // The static checks save the libraries, and the gates the native test tools too.
-  expect(step(job('static'), 'uses: ./.github/actions/setup-linux')).toContain(
-    'save-apt-cache: true',
-  )
-  expect(step(job('gates'), 'uses: ./.github/actions/setup-linux')).toContain(
-    'save-apt-cache: true',
-  )
-  expect(step(job('probes'), 'uses: ./.github/actions/setup-linux')).toContain(
-    'save-apt-cache: false',
-  )
-  expect(linuxSetup).toMatch(/save-apt-cache:\n[^\n]*\n {4}default: false\n/)
+  expect(prepare.run).toContain('sudo install -d -o "$USER" /var/cache/ci-apt-archives')
+  expect(prepare.run).toContain('echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"')
+  const restore = using(packageCache, 'actions/cache/restore@')
+  expect(restore.with).toEqual({ path, key, 'restore-keys': prefix })
+  const save = using(packageCache, 'actions/cache/save@')
+  expect(save.with).toEqual({ path, key })
+  expect(save.if).toBe("inputs.save-apt-cache == 'true' && github.ref == 'refs/heads/main'")
+  expectInOrder(steps, prepare, restore, named(steps, 'Install the OS packages'), save)
 })
 
 test('tools install at pinned versions, prebuilt where checksummed releases exist', () => {
-  const prebuilt = step(linuxSetup, 'uses: taiki-e/install-action@')
-  expect(prebuilt).toContain('tool: cargo-llvm-cov@0.9.1,cargo-about@0.9.2')
-  expect(prebuilt).toContain("if: inputs.native-tests == 'true'")
-  const driver = step(linuxSetup, 'cargo install tauri-driver --version 2.0.6 --locked')
-  expect(driver).toContain("if: inputs.native-tests == 'true'")
-  expect(step(buildWindows, 'uses: taiki-e/install-action@')).toContain('tool: cargo-about@0.9.2')
+  const steps = linuxSetup.runs.steps
+  const prebuilt = using(steps, 'taiki-e/install-action@')
+  expect(prebuilt.with).toEqual({ tool: 'cargo-llvm-cov@0.9.1,cargo-about@0.9.2' })
+  expect(prebuilt.if).toBe("inputs.native-tests == 'true'")
+  const driver = running(steps, 'cargo install tauri-driver --version 2.0.6 --locked')
+  expect(driver.if).toBe("inputs.native-tests == 'true'")
+  expect(using(buildWindows.runs.steps, 'taiki-e/install-action@').with).toEqual({
+    tool: 'cargo-about@0.9.2',
+  })
   for (const setup of [linuxSetup, windowsSetup]) {
     for (const command of [
       'npm ci --ignore-scripts',
       'cargo fetch --manifest-path src-tauri/Cargo.toml --locked',
     ]) {
-      const install = step(setup, command)
-      expect(install, command).toBeDefined()
-      expect(install).not.toMatch(/^\s+if:/m)
+      expect(running(setup.runs.steps, command).if, command).toBeUndefined()
     }
   }
 })
 
 test('every action outside the repository is pinned to a commit, named by its version', () => {
-  for (const text of [workflow, release, linuxSetup, windowsSetup, buildWindows]) {
-    for (const [, target] of text.matchAll(/uses: (\S+)/g)) {
-      if (target.startsWith('./')) continue
-      expect(text, target).toMatch(
-        new RegExp(`uses: ${target.replace(/[$()*+.?[\\\]^{|}]/g, '\\$&')} # v\\d`),
-      )
-      expect(target, target).toMatch(/@[0-9a-f]{40}$/)
-    }
+  const outside = everyStep.filter(({ step }) => step.uses && !step.uses.startsWith('./'))
+  expect(outside.length).toBeGreaterThan(0)
+  for (const { at, step } of outside) expect(step.uses, at).toMatch(/@[0-9a-f]{40}$/)
+  // The version is a comment, which only the text keeps, on every use.
+  for (const [file, path] of Object.entries(files)) {
+    const pins = read(path).match(/uses: (?!\.\/).*/g) ?? []
+    expect(pins, file).toHaveLength(outside.filter((each) => each.file === file).length)
+    for (const line of pins) expect(line, file).toMatch(/@[0-9a-f]{40} # v\d/)
   }
+  // No job calls a reusable workflow, which would need pinning too.
+  for (const { at, job } of everyJob) expect(job, at).not.toHaveProperty('uses')
 })
 
 test('Windows runs the unit tests and the release build as separate jobs', () => {
   // The first release ships for Windows only (decision 0027).
   for (const name of ['windows-tests', 'windows-release']) {
-    const windows = job(name)
-    expect(windows).toContain('runs-on: windows-2025')
+    const job = check.jobs[name]
+    expect(job['runs-on'], name).toBe('windows-2025')
     // npm would otherwise run the package scripts through cmd.exe.
-    expect(windows).toContain('npm_config_script_shell: C:\\Program Files\\Git\\bin\\bash.exe')
-    expect(step(windows, 'uses: ./.github/actions/setup-windows')).toBeDefined()
+    expect(job.env).toMatchObject({
+      npm_config_script_shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
+    })
+    expect(windowsSetupOf(job).uses, name).toBe('./.github/actions/setup-windows')
   }
   // The versions come from .tool-versions, as asdf reads them on Linux.
-  expect(windowsSetup).toContain('node-version-file: .tool-versions')
-  expect(windowsSetup).toContain(`awk '$1 == "rust" { print $2 }' .tool-versions`)
-  // The unit tests embed the built frontend.
-  const tests = job('windows-tests')
-  const build = tests.indexOf('run: npm run build --workspace src-ui')
-  expect(build).toBeGreaterThan(0)
-  expect(build).toBeLessThan(
-    tests.indexOf('run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked'),
-  )
-  // Backups and restores write, flush and rename real files, which Windows treats
-  // differently from Linux, so their real-file tests run there too.
-  expect(
-    tests.indexOf(
-      'run: cargo test --manifest-path src-tauri/Cargo.toml --locked --test backup --test restore',
-    ),
-  ).toBeGreaterThan(build)
-  // Clippy lints the Windows-only code too, which the Linux static checks never compile.
-  const clippy = tests.indexOf(
-    'run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
-  )
-  expect(clippy).toBeGreaterThan(build)
-  expect(windowsSetup).toContain(
-    'rustup toolchain install "$toolchain" --profile minimal --component clippy',
-  )
+  const setup = windowsSetup.runs.steps
+  only(setup, (step) => step.with?.['node-version-file'] === '.tool-versions', 'Node')
+  running(setup, `awk '$1 == "rust" { print $2 }' .tool-versions`)
+  running(setup, 'rustup toolchain install "$toolchain" --profile minimal --component clippy')
+  // The unit tests embed the built frontend. Backups and restores write, flush and
+  // rename real files, which Windows treats differently from Linux, so their
+  // real-file tests run there too. Clippy lints the Windows-only code, which the
+  // Linux static checks never compile.
+  const tests = check.jobs['windows-tests'].steps
+  const build = running(tests, 'npm run build --workspace src-ui')
+  for (const after of [
+    'cargo test --manifest-path src-tauri/Cargo.toml --lib --locked',
+    'cargo test --manifest-path src-tauri/Cargo.toml --locked --test backup --test restore',
+    'cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
+  ]) {
+    expectInOrder(tests, build, running(tests, after))
+  }
   // Linux is not a release OS, so only Windows builds a release, in one place.
-  expect(step(buildWindows, 'run: npm run tauri -- build --no-bundle')).not.toMatch(/^\s+if:/m)
-  expect(buildWindows.split('npm run tauri -- build')).toHaveLength(2)
-  expect(workflow + release).not.toContain('npm run tauri -- build')
+  const releaseBuilds = everyStep.filter(({ step }) => step.run?.includes('npm run tauri -- build'))
+  expect(releaseBuilds.map(({ at }) => at)).toEqual(['buildWindows'])
+  expect(releaseBuilds[0].step.if).toBeUndefined()
 })
 
 test('Windows smoke-tests the release executable before keeping it', () => {
   // The UI is tested end to end on Linux; Windows checks the native side (decision 0029).
-  const build = buildWindows.indexOf('run: npm run tauri -- build --no-bundle')
-  expect(buildWindows.indexOf('run: npm run test:windows-smoke')).toBeGreaterThan(build)
-  expect(step(buildWindows, 'run: npm run test:windows-smoke')).not.toMatch(/^\s+if:/m)
+  const steps = buildWindows.runs.steps
+  const smoke = running(steps, 'npm run test:windows-smoke')
+  expectInOrder(steps, running(steps, 'npm run tauri -- build --no-bundle'), smoke)
+  expect(smoke.if).toBeUndefined()
   expect(scripts['test:windows-smoke']).toBe('vitest run --project windows')
   // Both builds go through it before anything keeps the executable.
-  const ci = job('windows-release')
-  expect(ci.indexOf('uses: ./.github/actions/build-windows')).toBeLessThan(
-    ci.indexOf('uses: actions/upload-artifact@'),
+  const ci = check.jobs['windows-release'].steps
+  expectInOrder(
+    ci,
+    using(ci, './.github/actions/build-windows'),
+    using(ci, 'actions/upload-artifact@'),
   )
-  const drafted = job('build', release)
-  expect(drafted.indexOf('uses: ./.github/actions/build-windows')).toBeLessThan(
-    drafted.indexOf('name: Name the download'),
+  const drafted = release.jobs.build.steps
+  expectInOrder(
+    drafted,
+    using(drafted, './.github/actions/build-windows'),
+    named(drafted, 'Name the download'),
+    using(drafted, 'actions/upload-artifact@'),
   )
 })
 
 test('one action builds and smoke-tests the Windows executable, named by its inputs', () => {
   // The version and build identity reach the build and the smoke test alike.
-  expect(buildWindows).toMatch(/inputs:\n {2}version:\n[\s\S]*?required: true/)
-  expect(buildWindows).toMatch(/ {2}build:\n[\s\S]*?required: true/)
-  for (const command of [
-    'run: npm run tauri -- build --no-bundle',
-    'run: npm run test:windows-smoke',
-  ]) {
-    const each = step(buildWindows, command)!
-    expect(each, command).toContain('TAURI_CONFIG: \'{"version":"${{ inputs.version }}"}\'')
-    expect(each, command).toContain('ASTRAL_INDEX_BUILD: ${{ inputs.build }}')
-    expect(each, command).toContain('shell: bash')
+  expect(buildWindows.inputs.version.required).toBe(true)
+  expect(buildWindows.inputs.build.required).toBe(true)
+  const steps = buildWindows.runs.steps
+  for (const command of ['npm run tauri -- build --no-bundle', 'npm run test:windows-smoke']) {
+    const each = running(steps, command)
+    expect(each.env, command).toEqual({
+      TAURI_CONFIG: '{"version":"${{ inputs.version }}"}',
+      ASTRAL_INDEX_BUILD: '${{ inputs.build }}',
+    })
+    expect(each.shell, command).toBe('bash')
   }
   // Only the action names a build: tests build without one, as local builds do.
   for (const name of ['TAURI_CONFIG', 'ASTRAL_INDEX_BUILD']) {
-    expect(workflow + release, name).not.toContain(name)
+    for (const file of [files.check, files.release]) expect(read(file), name).not.toContain(name)
   }
   // What stays in the two jobs matches, but for the cache CI alone saves and the
   // history CI alone needs, to find the last tag.
-  const kept = (text: string) => ({
-    runner: /runs-on: (.+)/.exec(text)?.[1],
-    timeout: /timeout-minutes: (\d+)/.exec(text)?.[1],
-    shell: /npm_config_script_shell: (.+)/.exec(text)?.[1],
-    defaults: /defaults:\n {6}run:\n {8}shell: (\w+)/.exec(text)?.[1],
-    credentials: /persist-credentials: (\w+)/.exec(text)?.[1],
-    cache: /rust-cache: ([\w-]+)/.exec(text)?.[1],
+  const shared = (job: Job) => ({
+    runner: job['runs-on'],
+    timeout: job['timeout-minutes'],
+    shell: job.env?.npm_config_script_shell,
+    defaults: job.defaults?.run.shell,
+    credentials: using(job.steps, 'actions/checkout@').with?.['persist-credentials'],
+    cache: windowsSetupOf(job).with?.['rust-cache'],
   })
-  expect(kept(job('build', release))).toEqual(kept(job('windows-release')))
-  expect(kept(job('windows-release'))).toEqual({
+  expect(shared(release.jobs.build)).toEqual(shared(check.jobs['windows-release']))
+  expect(shared(check.jobs['windows-release'])).toEqual({
     runner: 'windows-2025',
-    timeout: '30',
+    timeout: 30,
     shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
     defaults: 'bash',
-    credentials: 'false',
+    credentials: false,
     cache: 'windows-release',
   })
 })
 
 test('the Windows build carries the last release’s version and its commit', () => {
   // No manifest declares a version: builds receive it from the tags (decision 0030).
-  const release = job('windows-release')
-  expect(step(release, 'uses: actions/checkout@')).toContain('fetch-depth: 0')
-  const identity = step(release, 'name: Name the build')!
-  expect(identity).toBeDefined()
-  expect(identity).toContain('id: name')
+  const steps = check.jobs['windows-release'].steps
+  expect(using(steps, 'actions/checkout@').with).toMatchObject({ 'fetch-depth': 0 })
+  const identity = named(steps, 'Name the build')
+  expect(identity.id).toBe('name')
   // Release tags only, as the release workflow finds them: a tag such as v1.1.0-rc1
   // would give every build a version Tauri refuses.
-  expect(identity).toContain(
+  expect(identity.run).toContain(
     "git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*[!0-9.]*'",
   )
-  expect(identity).toContain('|| echo v0.0.0')
-  expect(identity).toContain('>> "$GITHUB_OUTPUT"')
-  const build = step(release, 'uses: ./.github/actions/build-windows')!
-  expect(build).toContain('version: ${{ steps.name.outputs.version }}')
-  // The commit the artifact is named after: a pull request's head, though its build
-  // is that head merged into main (decision 0030).
-  expect(workflow).toContain(
-    'env:\n  BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}\n',
+  expect(identity.run).toContain('|| echo v0.0.0')
+  expect(identity.run).toContain('>> "$GITHUB_OUTPUT"')
+  // The commit the artifact is named after, named once: a pull request's head,
+  // though its build is that head merged into main (decision 0030).
+  expect(check.env).toEqual({
+    BUILD_COMMIT: '${{ github.event.pull_request.head.sha || github.sha }}',
+  })
+  const heads = [...strings(check, 'check')].filter(([, value]) =>
+    value.includes('github.event.pull_request.head.sha'),
   )
-  expect(workflow.split('github.event.pull_request.head.sha')).toHaveLength(2)
-  expect(build).toContain('build: ${{ env.BUILD_COMMIT }}')
-  expect(release.indexOf('name: Name the build')).toBeLessThan(
-    release.indexOf('uses: ./.github/actions/build-windows'),
-  )
+  expect(heads.map(([path]) => path)).toEqual(['check.env.BUILD_COMMIT'])
+  const build = using(steps, './.github/actions/build-windows')
+  expect(build.with).toEqual({
+    version: '${{ steps.name.outputs.version }}',
+    build: '${{ env.BUILD_COMMIT }}',
+  })
+  expectInOrder(steps, identity, build)
 })
 
 test('a Windows build is published only once every check has passed', () => {
-  const fromThisRepository =
-    "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
   // Built in parallel with the checks, the executable waits under an unverified name.
-  const build = step(job('windows-release'), 'uses: actions/upload-artifact@')
-  expect(build).toContain(`if: ${fromThisRepository}`)
-  expect(build).toContain('name: windows-build-unverified-${{ env.BUILD_COMMIT }}')
-  expect(build).toContain('path: src-tauri/target/release/astral-index.exe')
-  expect(build).toContain('retention-days: 1')
-  expect(build).toContain('if-no-files-found: error')
-  const publish = job('publish')
-  expect(publish).toContain('needs: [static, gates, probes, windows-tests, windows-release]')
+  const unverified = using(check.jobs['windows-release'].steps, 'actions/upload-artifact@')
+  expect(unverified.if).toBe(fromThisRepository)
+  expect(unverified.with).toEqual({
+    name: 'windows-build-unverified-${{ env.BUILD_COMMIT }}',
+    path: 'src-tauri/target/release/astral-index.exe',
+    'retention-days': 1,
+    'if-no-files-found': 'error',
+  })
+  const publish = check.jobs.publish
+  expect(publish.needs).toEqual(Object.keys(check.jobs).filter((name) => name !== 'publish'))
   // GitHub runs a job only once every job it needs has succeeded, unless its
   // condition names a status function, so this one says only whose builds it keeps.
-  expect(publish).toContain(`\n    if: ${fromThisRepository}\n`)
+  expect(publish.if).toBe(fromThisRepository)
   // Least privilege: no job needs to write to the run's artifacts.
-  expect(workflow).not.toContain('actions: write')
-  // It is republished under its lasting name for 7 days.
-  const merge = step(publish, 'uses: actions/upload-artifact/merge@')
-  expect(merge).not.toMatch(/^\s+if:/m)
-  expect(merge).toContain('name: astral-index-dev-build-unsigned-${{ env.BUILD_COMMIT }}')
-  expect(merge).toContain('pattern: windows-build-unverified-${{ env.BUILD_COMMIT }}')
-  expect(merge).toContain('retention-days: 7')
-  // The unverified build stays until it expires, so a re-run's publish still finds it.
-  expect(merge).not.toContain('delete-merged')
+  for (const job of Object.values(check.jobs))
+    expect(listed(job.permissions).actions).toBeUndefined()
+  expect(check.permissions).toEqual({ contents: 'read' })
+  // It is republished under its lasting name for 7 days. The unverified build stays
+  // until it expires, so a re-run's publish still finds it.
+  const merge = using(publish.steps, 'actions/upload-artifact/merge@')
+  expect(merge.if).toBeUndefined()
+  expect(merge.with).toEqual({
+    name: 'astral-index-dev-build-unsigned-${{ env.BUILD_COMMIT }}',
+    pattern: 'windows-build-unverified-${{ env.BUILD_COMMIT }}',
+    'retention-days': 7,
+  })
 })
 
 test('only reports and uploads run whatever came before them', () => {
   // A step or job that names a status function, or reads the results of the jobs it
   // needs, overrides GitHub's own rule that it runs only after success. Reporting
   // and saving evidence are the only reasons to.
-  for (const [name, text] of [
-    ['check', workflow],
-    ['release', release],
-    ['setup-linux', linuxSetup],
-    ['setup-windows', windowsSetup],
-    ['build-windows', buildWindows],
-  ]) {
-    expect(text, name).not.toContain('needs.*.result')
-    // Only a step's own one-line condition, never a job's.
-    for (const line of text
-      .split('\n')
-      .filter((one) => /\b(always|success|failure|cancelled)\(\)/.test(one))) {
-      expect(line, name).toMatch(/^ {8}if: /)
-    }
-    for (const each of stepsOf(text).filter((one) =>
-      /\b(always|failure|cancelled)\(\)/.test(one),
-    )) {
-      expect(each, name).toMatch(/uses: actions\/upload-artifact@|run: npm run ci:summary/)
-    }
+  // GitHub reads function names in any case.
+  const overrides = /\b(always|success|failure|cancelled)\(\)|\bneeds\b[^&|]*\bresult\b/i
+  for (const { at, job } of everyJob) expect(String(job.if ?? ''), at).not.toMatch(overrides)
+  for (const { at, step } of everyStep.filter(({ step }) =>
+    overrides.test(String(step.if ?? '')),
+  )) {
+    expect(step.if, at).not.toContain('needs.')
+    const reports =
+      step.uses?.startsWith('actions/upload-artifact@') || step.run === 'npm run ci:summary'
+    expect(reports, `${at} ${step.name ?? step.uses ?? step.run}`).toBe(true)
   }
 })
 
@@ -489,146 +563,172 @@ test('each Linux job writes its own summary, however its check ended', () => {
     "vitest run --project gates tests/job-summary.test.ts -t '^write the job summary$'",
   )
   for (const name of ['static', 'gates', 'probes']) {
-    const summary = step(job(name), 'run: npm run ci:summary')
-    expect(summary, name).toBeDefined()
-    expect(summary).toContain('if: always()')
-    expect(summary).toContain(`CHECK_JOB: ${name}`)
-    expect(summary).toContain('CHECK_STATUS: ${{ job.status }}')
+    const summary = only(check.jobs[name].steps, (step) => step.run === 'npm run ci:summary', name)
+    expect(summary.if).toBe('always()')
+    expect(summary.env).toEqual({ CHECK_JOB: name, CHECK_STATUS: '${{ job.status }}' })
   }
 })
 
 test('a release starts only by hand, from main, once every check has passed on it', () => {
   // One action releases (decision 0030): nothing starts it on a push or a schedule.
-  const triggers = release.slice(release.indexOf('\non:\n'), release.indexOf('\npermissions:'))
-  expect(triggers).toMatch(/^ {2}workflow_dispatch:$/m)
-  expect(triggers).not.toMatch(/^ {2}(push|pull_request|schedule|release|workflow_run):/m)
-  expect(release).toContain('cancel-in-progress: false')
-  const prepare = job('prepare', release)
-  expect(step(prepare, 'uses: actions/checkout@')).toContain('fetch-depth: 0')
-  expect(step(prepare, 'refs/heads/main')).toContain('exit 1')
+  expect(Object.keys(release.on)).toEqual(['workflow_dispatch'])
+  expect(release.concurrency['cancel-in-progress']).toBe(false)
+  const prepare = release.jobs.prepare
+  expect(using(prepare.steps, 'actions/checkout@').with).toMatchObject({ 'fetch-depth': 0 })
+  const fromMain = running(prepare.steps, 'refs/heads/main')
+  expect(fromMain.run).toContain('exit 1')
   // Exactly the checks the check workflow runs, other than publishing.
-  const required = step(prepare, 'name: Require every check to have passed')!
-  const checks = [...workflow.matchAll(/^ {4}name: (.+)$/gm)]
-    .map(([, name]) => name)
-    .filter((name) => name !== 'Publish the Windows build')
-  expect(checks).toHaveLength(5)
-  for (const name of checks) expect(required).toContain(`\n            ${name}\n`)
-  expect(required).toContain('commits/$GITHUB_SHA/check-runs')
-  expect(prepare).toContain('checks: read')
+  const required = requiredChecks()
+  expect(required.env?.CHECKS.trim().split('\n')).toEqual(
+    Object.entries(check.jobs)
+      .filter(([name]) => name !== 'publish')
+      .map(([, job]) => job.name),
+  )
+  expect(required.run).toContain('commits/$GITHUB_SHA/check-runs')
+  expect(prepare.permissions).toMatchObject({ checks: 'read' })
 })
 
 test('a release’s version and notes come from the commits or the inputs, which never reach a script', () => {
-  const prepare = job('prepare', release)
-  expect(release).toMatch(/inputs:\n {6}version:\n[\s\S]*?required: false/)
-  expect(release).toMatch(/ {6}notes:\n[\s\S]*?required: false/)
-  const write = step(prepare, 'run: npm run release:prepare')!
-  expect(write).toContain('RELEASE_VERSION: ${{ inputs.version }}')
-  expect(write).toContain('RELEASE_NOTES: ${{ inputs.notes }}')
+  const inputs = (release.on.workflow_dispatch as { inputs: Record<string, Input> }).inputs
+  expect(inputs.version.required).toBe(false)
+  expect(inputs.notes.required).toBe(false)
+  const write = running(release.jobs.prepare.steps, 'npm run release:prepare')
+  expect(write.env).toEqual({
+    RELEASE_VERSION: '${{ inputs.version }}',
+    RELEASE_NOTES: '${{ inputs.notes }}',
+  })
   expect(scripts['release:prepare']).toBe(
     "vitest run --project gates tests/release.test.ts -t '^write the release$'",
   )
-  // Inputs reach scripts only through the environment.
-  for (const line of release.split('\n').filter((each) => each.includes('${{ inputs.'))) {
-    expect(line, line).toMatch(/^\s+RELEASE_(VERSION|NOTES): \$\{\{ inputs\.(version|notes) \}\}$/)
-  }
+  // Inputs reach scripts only through the environment, in whatever form they are read.
+  // Any expression near the word fails, so a harmless mention fails too, never the
+  // other way round.
+  const used = [...strings(release, 'release')].filter(
+    ([, value]) => value.includes('${{') && /\binputs\b/.test(value),
+  )
+  expect(used.map(([path]) => path.replace(/\.\d+\./, '.'))).toEqual([
+    'release.jobs.prepare.steps.env.RELEASE_VERSION',
+    'release.jobs.prepare.steps.env.RELEASE_NOTES',
+  ])
 })
 
 test('a release builds on Windows as a release, smoke-tested, and only drafts it', () => {
-  const build = job('build', release)
-  expect(build).toContain('runs-on: windows-2025')
-  const built = step(build, 'uses: ./.github/actions/build-windows')!
-  expect(built).toContain('version: ${{ needs.prepare.outputs.version }}')
-  expect(built).toContain('build: release')
-  expect(build).toContain('Astral-Index-${{ needs.prepare.outputs.tag }}.exe')
+  const build = release.jobs.build
+  expect(build['runs-on']).toBe('windows-2025')
+  expect(using(build.steps, './.github/actions/build-windows').with).toEqual({
+    version: '${{ needs.prepare.outputs.version }}',
+    build: 'release',
+  })
   // Only the job that creates the draft may write to the repository.
-  expect(release).toMatch(/^permissions:\n {2}contents: read\n/m)
-  expect(release.split('contents: write')).toHaveLength(2)
-  const draft = job('release', release)
-  expect(draft).toContain('contents: write')
-  const create = step(draft, 'gh release create')!
-  expect(create).toContain('--draft')
-  expect(create).toContain('--title "$TAG"')
-  expect(create).toContain('--target "$GITHUB_SHA"')
-  expect(create).toContain('--notes-file')
+  expect(release.permissions).toEqual({ contents: 'read' })
+  const writers = Object.entries(release.jobs).filter(
+    ([, job]) => listed(job.permissions).contents === 'write',
+  )
+  expect(writers.map(([name]) => name)).toEqual(['release'])
+  const create = running(release.jobs.release.steps, 'gh release create')
+  for (const flag of ['--draft', '--title "$TAG"', '--target "$GITHUB_SHA"', '--notes-file']) {
+    expect(create.run).toContain(flag)
+  }
 })
 
 test('a release refuses a version already drafted or released, and passes its files on intact', () => {
   for (const name of ['prepare', 'build']) {
-    expect(step(job(name, release), 'uses: actions/checkout@'), name).toContain(
-      'persist-credentials: false',
-    )
+    expect(using(release.jobs[name].steps, 'actions/checkout@').with, name).toMatchObject({
+      'persist-credentials': false,
+    })
   }
   // A draft creates no tag, so the drafting job, which can see drafts, checks first.
-  const draft = job('release', release)
-  const existing = step(draft, 'name: Refuse a version already drafted or released')!
-  expect(existing).toContain('gh release list')
-  expect(existing).toContain('select(.tagName == env.TAG)')
-  expect(existing).toContain('exit 1')
-  expect(draft.indexOf('name: Refuse a version already drafted or released')).toBeLessThan(
-    draft.indexOf('gh release create'),
-  )
+  const draft = release.jobs.release.steps
+  const existing = named(draft, 'Refuse a version already drafted or released')
+  for (const part of ['gh release list', 'select(.tagName == env.TAG)', 'exit 1']) {
+    expect(existing.run).toContain(part)
+  }
+  const create = running(draft, 'gh release create')
+  expectInOrder(draft, existing, create)
   // The notes and the executable arrive where the release is created from.
-  expect(step(job('prepare', release), 'name: release-notes')).toContain(
-    'path: test-results/release/notes.md',
+  const notes = only(
+    release.jobs.prepare.steps,
+    (step) => step.with?.name === 'release-notes',
+    'notes',
   )
-  expect(step(draft, 'uses: actions/download-artifact@')).toContain('merge-multiple: true')
-  expect(step(draft, 'gh release create')).toContain('--notes-file notes.md')
-  expect(step(draft, 'gh release create')).toContain('"Astral-Index-$TAG.exe"')
+  expect(notes.with).toMatchObject({ path: 'test-results/release/notes.md' })
+  expect(using(draft, 'actions/download-artifact@').with).toMatchObject({
+    'merge-multiple': true,
+  })
+  expect(create.run).toContain('--notes-file notes.md')
+  expect(create.run).toContain('"Astral-Index-$TAG.exe"')
   // The checks gate fails on anything but a passing run from GitHub Actions itself.
-  const required = step(job('prepare', release), 'name: Require every check to have passed')!
-  expect(required).toContain('select(.app.slug == "github-actions")')
-  expect(required).toMatch(/if \[ "\$result" != success \]; then[\s\S]*?exit 1/)
+  const required = requiredChecks()
+  expect(required.run).toContain('select(.app.slug == "github-actions")')
+  expect(required.run).toMatch(/if \[ "\$result" != success \]; then[\s\S]*?exit 1/)
 })
 
 test('a release smoke-tests the version it built, and leaves CI’s caches to CI', () => {
-  const build = job('build', release)
+  const build = release.jobs.build
   // A release, started by hand, restores the caches main saved but saves none.
-  expect(step(build, 'uses: ./.github/actions/setup-windows')).toContain('save-rust-cache: false')
+  expect(windowsSetupOf(build).with).toMatchObject({ 'save-rust-cache': false })
   // The tag reaches the copy step through the environment.
-  const name = step(build, 'name: Name the download')!
-  expect(name).toContain('TAG: ${{ needs.prepare.outputs.tag }}')
-  expect(name).toContain(
-    'run: cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"',
-  )
+  const name = named(build.steps, 'Name the download')
+  expect(name.env).toEqual({ TAG: '${{ needs.prepare.outputs.tag }}' })
+  expect(name.run).toBe('cp src-tauri/target/release/astral-index.exe "Astral-Index-$TAG.exe"')
+  // That file, and only it, goes to the job that drafts the release.
+  expect(using(build.steps, 'actions/upload-artifact@').with).toEqual({
+    name: 'release-executable',
+    path: 'Astral-Index-${{ needs.prepare.outputs.tag }}.exe',
+    'if-no-files-found': 'error',
+  })
 })
 
 test('a job saves a cache only when it says so, and every job says', () => {
-  // Every boolean input defaults to false, so saving is opt-in.
-  for (const [name, setup] of [
-    ['setup-linux', linuxSetup],
-    ['setup-windows', windowsSetup],
-  ] as const) {
-    for (const input of ['save-rust-cache', 'save-npm-cache']) {
-      expect(setup, `${name} ${input}`).toMatch(
-        new RegExp(`${input}:\\n[^\\n]*\\n {4}default: false\\n`),
-      )
-    }
-    expect(setup, name).toContain(
-      "save-if: ${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",
-    )
-    expect(setup, name).not.toMatch(/default: '/)
+  // Every choice an action offers defaults to false, so saving is opt-in.
+  const choices = {
+    linuxSetup: ['native-tests', 'save-rust-cache', 'save-npm-cache', 'save-apt-cache'],
+    windowsSetup: ['save-rust-cache', 'save-npm-cache'],
   }
-  expect(linuxSetup).toMatch(/native-tests:\n[^\n]*\n {4}default: false\n/)
-  // Each job that sets up states its choices, as plain booleans.
-  const uses = [
-    ...(workflow + release).matchAll(
-      /uses: \.\/\.github\/actions\/setup-\w+\n {8}with:\n((?: {10}.+\n)+)/g,
-    ),
-  ]
-  expect(uses).toHaveLength(6)
-  const saving = uses.map(([, inputs]) => ({
-    rust: /save-rust-cache: (true|false)\n/.exec(inputs)?.[1],
-    npm: /save-npm-cache: (true|false)\n/.exec(inputs)?.[1],
-    apt: /save-apt-cache: (true|false)\n/.exec(inputs)?.[1],
-  }))
-  expect(saving).toEqual([
-    { rust: 'true', npm: 'true', apt: 'true' },
-    { rust: 'true', npm: 'false', apt: 'true' },
-    { rust: 'true', npm: 'false', apt: 'false' },
-    { rust: 'true', npm: 'false', apt: undefined },
-    { rust: 'true', npm: 'true', apt: undefined },
-    { rust: 'false', npm: 'false', apt: undefined },
-  ])
-  // Booleans are never quoted in the workflows.
-  expect(workflow + release).not.toMatch(/: '(true|false)'$/m)
+  for (const [name, inputs] of Object.entries(choices)) {
+    const setup = actions[name as keyof typeof choices]
+    for (const input of inputs) expect(setup.inputs[input].default, `${name} ${input}`).toBe(false)
+  }
+  // Each job that sets up states its choices, as booleans, never quoted strings.
+  const setups = everyStep.filter(({ step }) => step.uses?.startsWith('./.github/actions/setup-'))
+  for (const { at, step } of setups) {
+    for (const [input, value] of Object.entries(step.with ?? {})) {
+      const quoted = typeof value === 'string' && /^(true|false)$/.test(value)
+      expect(quoted, `${at} ${input}`).toBe(false)
+    }
+  }
+  const saving = Object.fromEntries(
+    setups.map(({ at, step }) => [
+      at,
+      Object.fromEntries(
+        Object.entries(step.with ?? {}).filter(([input]) => input.startsWith('save-')),
+      ),
+    ]),
+  )
+  expect(saving).toEqual({
+    'check static': { 'save-rust-cache': true, 'save-npm-cache': true, 'save-apt-cache': true },
+    'check gates': { 'save-rust-cache': true, 'save-npm-cache': false, 'save-apt-cache': true },
+    'check probes': { 'save-rust-cache': true, 'save-npm-cache': false, 'save-apt-cache': false },
+    'check windows-tests': { 'save-rust-cache': true, 'save-npm-cache': false },
+    'check windows-release': { 'save-rust-cache': true, 'save-npm-cache': true },
+    'release build': { 'save-rust-cache': false, 'save-npm-cache': false },
+  })
+})
+
+test('no check can pass by failing quietly, and no job asks for every permission', () => {
+  // A step or job allowed to fail would let a broken check pass the run.
+  for (const { at, step } of everyStep) {
+    expect(step['continue-on-error'], `${at} ${step.name ?? step.uses ?? step.run}`).toBeUndefined()
+  }
+  for (const { at, job } of everyJob) {
+    expect(job['continue-on-error'], at).toBeUndefined()
+  }
+  // Permissions are listed one by one, never a blanket grant or a bare `permissions:`;
+  // a job may also leave them out and take the workflow's.
+  for (const { at, job } of everyJob.filter(({ job }) => job.permissions !== undefined)) {
+    expect(listed(job.permissions), at).toBe(job.permissions)
+  }
+  for (const [file, workflow] of Object.entries(workflows)) {
+    expect(listed(workflow.permissions), file).toBe(workflow.permissions)
+  }
 })
