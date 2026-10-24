@@ -52,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Shared icon tile (2026-10-23)
+### CI tests that parse the workflows (2026-10-24)
 
-`refactor/icon-tile`: the 44px icon tile repeated by `ActionCard`, `FailureSummary` and `HistoryFailed` is one `IconTile` with a neutral, accent or error tone, hidden from screen readers. From the review, it takes the icon itself and draws it at the tile's size, so the six cards passing an icon no longer each repeat that size; `ActionCard`'s icon slot is now a prop. `ImportSaved`'s 56px round badge stays its own. Red first: the tile's test, then the three cards' tests asking for it; no visual change.
+`test/parse-ci-workflows`: `tooling/ci.test.ts` reads the workflows and actions as YAML and checks what they mean, not their text; under way.
 
 ## Known limitations
 
@@ -193,4 +193,4 @@ research, under a "From" heading.
   the history status, restoring over a history that can't be upgraded, the
   mock's failing upgrade, the wide-window stall's diagnostics, the native
   cache file picker, CI's OS package cache, the History Unavailable screen
-  and the shared status card.
+  and the shared status card and icon tile.

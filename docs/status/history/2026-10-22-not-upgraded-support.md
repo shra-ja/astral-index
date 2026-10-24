@@ -38,3 +38,9 @@ Integrated through PR #139.
 Integrated through PR #141.
 
 `refactor/status-card`: the History Unavailable card and the Import screen's progress, failure and result cards repeated one frame; they now share `StatusCard` (a narrower `result` variant for what a save added), and the two failure cards `FailureSummary`, the warning, heading and message. From the reviews: the failure summary takes its message as a prop, and the failure cards' tests check that each alert is named by its heading. Headings and text that take focus only to be announced lose their outline through one rule in `main.css`, not five; it leaves the account menu's items alone. The four cards' tests pass unchanged; the new parts' tests red first. Follow-up: one icon tile for the four copies. Small visual changes: Import's failure card is as wide as the others (640px, from 600), and the progress card's spacing 22px, from 24. In CI, #141's Linux jobs restored their OS packages from the cache, with nothing left to download.
+
+## Shared icon tile (2026-10-23)
+
+Integrated through PR #142.
+
+`refactor/icon-tile`: the 44px icon tile repeated by `ActionCard`, `FailureSummary` and `HistoryFailed` is one `IconTile` with a neutral, accent or error tone, hidden from screen readers. From the review, it takes the icon itself and draws it at the tile's size, so the six cards passing an icon no longer each repeat that size; `ActionCard`'s icon slot is now a prop. `ImportSaved`'s 56px round badge stays its own. Red first: the tile's test, then the three cards' tests asking for it; no visual change.
