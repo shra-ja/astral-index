@@ -54,7 +54,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Rust cache key (2026-10-25)
 
-`ci/drop-dead-rust-cache-key`: the setup actions' Rust cache `key:` has no effect beside `shared-key`; removed, with the docs that relied on it corrected; under way.
+`ci/drop-dead-rust-cache-key`: both setup actions gave rust-cache a `key:` hashing `.tool-versions` and the action file, meant to renew the cache when a tool version changed. The pinned rust-cache ignores `key` beside `shared-key` (its source, and CI logs: after #144 changed both setup files, every Rust cache still restored on the same key), so it never did. Removed, with the setup action's description and TESTING corrected; a pinned tool's new version is now documented as installed over the cached one until the lockfile or toolchain next changes. Red first: the cache step's inputs are pinned exactly, so an ignored input fails the test.
 
 ## Known limitations
 
