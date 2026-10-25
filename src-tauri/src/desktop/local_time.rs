@@ -33,6 +33,6 @@ mod tests {
         let before = chrono::Local::now().naive_local();
         let read = now();
         let after = chrono::Local::now().naive_local();
-        assert!(before <= read && read <= after, "{before} {read} {after}");
+        assert!((before..=after).contains(&read), "{before} {read} {after}");
     }
 }
