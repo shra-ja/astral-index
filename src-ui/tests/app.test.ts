@@ -2,7 +2,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { Channel } from '@tauri-apps/api/core'
-import { localDate, localDateTime } from '../src/format'
+import { localDateTime } from '../src/format'
 
 // Tauri rejects a command with the native failure as plain data, not an Error.
 function reject(failure: unknown): never {
@@ -1236,7 +1236,7 @@ test('closing the About dialog returns to its button, and a failure does not out
 
 test('Backup & Restore saves a backup where the user chooses, and shows where history is kept', async () => {
   const saving = pending()
-  const dates: unknown[] = []
+  const sent: unknown[] = []
   const calls = serve({
     app_info: () => ({
       version: '1.2.0',
@@ -1246,7 +1246,7 @@ test('Backup & Restore saves a backup where the user chooses, and shows where hi
       portable: false,
     }),
     save_backup: (args) => {
-      dates.push(args.date)
+      sent.push(args)
       return saving.handler()
     },
     reveal_data_folder: () => reject({ kind: 'open_failed' }),
@@ -1261,9 +1261,10 @@ test('Backup & Restore saves a backup where the user chooses, and shows where hi
   expect(main.querySelector('h2')?.textContent).toBe('Keep Your History Safe')
   expect(main.querySelector('.path')?.textContent).toBe('/local/astral-index/history.sqlite')
   expect(screenIcons()).toEqual(['database-backup', 'rotate-ccw-clock', 'folder-open'])
-  // Saving sends today's local date and waits for the native dialog and check.
+  // Saving sends nothing, as the native side names the backup, and waits for the
+  // native dialog and check.
   await click(button(main, 'Save backup…'))
-  expect(dates).toEqual([localDate(new Date())])
+  expect(sent).toEqual([{}])
   expect(button(main, 'Saving backup…').disabled).toBe(true)
   saving.resolve({ kind: 'saved', name: 'Astral-Index-backup-2026-10-16.sqlite' })
   await settle()
@@ -1406,7 +1407,7 @@ test('Restore checks a chosen backup, then compares it with the history until ca
 
 test('Restore replaces the history, then names the safety copy on the card', async () => {
   const restoring = pending()
-  const times: unknown[] = []
+  const sent: unknown[] = []
   const asia = (uid: string, rolls: number) => ({
     uid,
     server: 'prod_official_asia',
@@ -1421,7 +1422,7 @@ test('Restore replaces the history, then names the safety copy on the card', asy
       current: { accounts: [asia('800000117', 2244)], last_import: null },
     }),
     confirm_restore: (args) => {
-      times.push(args.time)
+      sent.push(args)
       return restoring.handler()
     },
   })
@@ -1431,8 +1432,8 @@ test('Restore replaces the history, then names the safety copy on the card', asy
   await settle()
   await click(button(main(), 'Restore backup'))
   // The local time names the safety copy; both buttons wait meanwhile.
-  expect(times).toHaveLength(1)
-  expect(times[0]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
+  // The native side names the safety copy, so confirming sends nothing.
+  expect(sent).toEqual([{}])
   expect(button(main(), 'Restoring…').disabled).toBe(true)
   expect(button(main(), 'Cancel').disabled).toBe(true)
   // Leaving waits for the restore, without asking.

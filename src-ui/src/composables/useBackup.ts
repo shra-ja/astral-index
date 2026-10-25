@@ -1,15 +1,13 @@
-// Saving a backup: the native side asks where, writes and checks the file, and
-// returns its name. Only today's date leaves the webview, for the suggested name
-// (decision 0031); nothing is fetched.
+// Saving a backup: the native side suggests a name, asks where, writes and checks
+// the file, and returns its name; nothing is fetched.
 import { readonly, shallowRef } from 'vue'
 import { saveBackup } from '../commands'
-import { localDate } from '../format'
 import { backupFailure } from '../messages'
 
 /** Where saving a backup stands. */
 export type BackupState = 'idle' | 'saving' | 'saved' | 'failed'
 
-export function useBackup(today = () => new Date()) {
+export function useBackup() {
   const state = shallowRef<BackupState>('idle')
   // The saved file's name, or why the last backup failed.
   const name = shallowRef<string | null>(null)
@@ -20,7 +18,7 @@ export function useBackup(today = () => new Date()) {
     state.value = 'saving'
     name.value = null
     message.value = null
-    const result = await saveBackup(localDate(today()))
+    const result = await saveBackup()
     if ('saved' in result) {
       name.value = result.saved
       state.value = 'saved'

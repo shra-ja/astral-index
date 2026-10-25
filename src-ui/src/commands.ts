@@ -392,15 +392,14 @@ export function openIssuesPage(): Promise<Failure | undefined> {
   return run(() => invoke('open_issues_page'))
 }
 
-/** Save a checked backup where the user chooses in the native dialog. Only today's
- * date is sent, for the suggested file name; the saved file's name comes back. */
-export async function saveBackup(
-  date: string,
-): Promise<{ saved: string } | { cancelled: true } | { failure: Failure }> {
+/** Save a checked backup where the user chooses in the native dialog, which
+ * suggests a name from the local date; the saved file's name comes back. */
+export async function saveBackup(): Promise<
+  { saved: string } | { cancelled: true } | { failure: Failure }
+> {
   try {
     const result = await invoke<{ kind: 'saved'; name: string } | { kind: 'cancelled' }>(
       'save_backup',
-      { date },
     )
     return result.kind === 'saved' ? { saved: result.name } : { cancelled: true }
   } catch (error) {
@@ -443,13 +442,13 @@ export function cancelRestore(): Promise<Failure | undefined> {
   return run(() => invoke('cancel_restore'))
 }
 
-/** Replace the history with the held backup. Only the local time is sent, which names
- * the safety copy; the copy's name comes back, or none when there was no history. */
-export async function confirmRestore(
-  time: string,
-): Promise<{ safetyCopy: string | null } | { failure: Failure }> {
+/** Replace the history with the held backup, keeping it first in a safety copy named
+ * from the local time; the copy's name comes back, or none when there was no history. */
+export async function confirmRestore(): Promise<
+  { safetyCopy: string | null } | { failure: Failure }
+> {
   try {
-    const result = await invoke<{ safety_copy: string | null }>('confirm_restore', { time })
+    const result = await invoke<{ safety_copy: string | null }>('confirm_restore')
     return { safetyCopy: result.safety_copy }
   } catch (error) {
     return { failure: fail(error) }

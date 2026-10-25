@@ -68,7 +68,6 @@ test('a refused backup says why, until the next choice', async () => {
   await choosing
 })
 
-const NOW = new Date(2026, 9, 20, 14, 30, 5)
 const confirmedLater = () => {
   let finish!: (value: Awaited<ReturnType<typeof confirmRestore>>) => void
   vi.mocked(confirmRestore).mockReturnValue(new Promise((resolve) => (finish = resolve)))
@@ -78,7 +77,7 @@ const confirmedLater = () => {
 test('restoring replaces the history, then names the backup and the safety copy', async () => {
   vi.mocked(chooseRestore).mockResolvedValue({ checked: CHECKED })
   const restored = vi.fn()
-  const restore = useRestore({ now: () => NOW, onRestored: restored })
+  const restore = useRestore({ onRestored: restored })
   await restore.choose()
   const finish = confirmedLater()
   const confirming = restore.confirm()
@@ -86,7 +85,7 @@ test('restoring replaces the history, then names the backup and the safety copy'
   // A second press while restoring sends nothing more; the confirmation stays meanwhile.
   void restore.confirm()
   expect(confirmRestore).toHaveBeenCalledTimes(1)
-  expect(confirmRestore).toHaveBeenCalledWith('2026-10-20T14:30:05')
+  expect(confirmRestore).toHaveBeenCalledWith()
   expect(restore.checked.value).toEqual(CHECKED)
   finish({ safetyCopy: 'history-before-restore-20261020-143005.sqlite' })
   await confirming
@@ -113,7 +112,7 @@ test('restoring replaces the history, then names the backup and the safety copy'
 test('a restore that replaced nothing closes the confirmation and says why', async () => {
   vi.mocked(chooseRestore).mockResolvedValue({ checked: CHECKED })
   vi.mocked(confirmRestore).mockResolvedValue({ failure: { kind: 'restore_changed' } })
-  const restore = useRestore({ now: () => NOW })
+  const restore = useRestore()
   await restore.choose()
   await restore.confirm()
   expect(restore.checked.value).toBeNull()

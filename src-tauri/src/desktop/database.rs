@@ -1,5 +1,6 @@
 //! The local history database, opened on first use in the app's local data folder
 //! ([decision 0009](../../../docs/architecture/decisions/0009-local-database-location.md)).
+use super::local_time;
 #[cfg(test)]
 use super::tests::blocking::spawn_blocking;
 #[cfg(test)]
@@ -196,8 +197,10 @@ pub(super) fn copy_new(from: &Path, to: &Path) -> std::io::Result<()> {
 /// Copy the history in `file`, at schema `version`, beside it before it is
 /// upgraded, named from the local time; returns the copy's name.
 fn keep_before_upgrade(file: &Path, version: i32) -> std::io::Result<String> {
-    let time = chrono::Local::now().format("%Y%m%d-%H%M%S");
-    let name = format!("history-v{version}-{time}.sqlite");
+    let name = format!(
+        "history-v{version}-{}.sqlite",
+        local_time::stamp(local_time::now())
+    );
     copy_new(file, &file.with_file_name(&name))?;
     Ok(name)
 }

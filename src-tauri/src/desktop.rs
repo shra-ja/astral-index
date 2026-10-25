@@ -28,6 +28,7 @@ pub mod backup;
 pub mod cache_file;
 pub mod database;
 pub mod dialogs;
+pub mod local_time;
 pub mod restore;
 pub use database::Database;
 
@@ -1297,24 +1298,13 @@ mod tests {
             invoke(&window, "open_issues_page", InvokeBody::default()),
             Ok(())
         );
-        // A backup needs the day's date, checked before any dialog opens.
-        for body in [
-            serde_json::json!({}),
-            serde_json::json!({ "date": 20261016 }),
-        ] {
-            let malformed = invoke(&window, "save_backup", InvokeBody::Json(body));
-            assert!(malformed.unwrap_err().contains("date"));
-        }
+        // Backup's and restore's commands take no arguments, the local time
+        // included; on the worker thread the dialog's test double chooses nothing,
+        // so nothing is saved, copied or held.
         assert_eq!(
-            invoke(
-                &window,
-                "save_backup",
-                InvokeBody::Json(serde_json::json!({ "date": "16/10/2026" }))
-            ),
-            Err(r#"{"kind":"invalid_request"}"#.into())
+            reply_to(&window, "save_backup"),
+            serde_json::json!({ "kind": "cancelled" })
         );
-        // Restore's commands take no arguments; on the worker thread the dialog's
-        // test double chooses nothing, so nothing is copied or held.
         assert_eq!(
             reply_to(&window, "choose_restore"),
             serde_json::json!({ "kind": "cancelled" })
@@ -1323,20 +1313,9 @@ mod tests {
             invoke(&window, "cancel_restore", InvokeBody::default()),
             Ok(())
         );
-        // Confirming needs the local time, and with no backup held restores nothing.
-        for body in [
-            serde_json::json!({}),
-            serde_json::json!({ "time": 20261020 }),
-        ] {
-            let malformed = invoke(&window, "confirm_restore", InvokeBody::Json(body));
-            assert!(malformed.unwrap_err().contains("time"));
-        }
+        // With no backup held, confirming restores nothing.
         assert_eq!(
-            invoke(
-                &window,
-                "confirm_restore",
-                InvokeBody::Json(serde_json::json!({ "time": "2026-10-20T14:30:00" }))
-            ),
+            invoke(&window, "confirm_restore", InvokeBody::default()),
             Err(r#"{"kind":"restore_failed"}"#.into())
         );
         assert_eq!(
@@ -1744,6 +1723,23 @@ mod tests {
     }
 
     #[test]
+    fn a_backup_fails_over_ipc_without_its_state() {
+        for builder in [
+            mock_builder(),
+            mock_builder().manage(dialogs::Dialogs::System),
+        ] {
+            let app = handle_commands(builder)
+                .build(mock_context(noop_assets()))
+                .unwrap();
+            let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+                .build()
+                .unwrap();
+            let reply = invoke(&window, "save_backup", InvokeBody::default()).unwrap_err();
+            assert!(reply.contains("state not managed"), "{reply}");
+        }
+    }
+
+    #[test]
     fn restore_fails_over_ipc_without_a_data_folder_or_its_state() {
         let backup = || dialogs::Dialogs::System;
         let builders = || {
@@ -1761,11 +1757,7 @@ mod tests {
                     .manage(Database::new(None)),
             ]
         };
-        let time = || InvokeBody::Json(serde_json::json!({ "time": "2026-10-20T14:30:00" }));
-        for (command, body) in [
-            ("choose_restore", InvokeBody::default as fn() -> InvokeBody),
-            ("confirm_restore", time),
-        ] {
+        for command in ["choose_restore", "confirm_restore"] {
             let replies: Vec<_> = builders()
                 .into_iter()
                 .map(|builder| {
@@ -1775,7 +1767,7 @@ mod tests {
                     let window = WebviewWindowBuilder::new(&app, "main", Default::default())
                         .build()
                         .unwrap();
-                    invoke(&window, command, body()).unwrap_err()
+                    invoke(&window, command, InvokeBody::default()).unwrap_err()
                 })
                 .collect();
             for reply in &replies[..3] {

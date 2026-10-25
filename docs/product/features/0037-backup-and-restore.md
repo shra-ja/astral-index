@@ -76,7 +76,8 @@ Backup and restore stay local and never make a network request.
     than the app's, a passing integrity check and exactly that version's schema.
   - [x] A `save_backup` command opens the save dialog from Rust
     (`tauri-plugin-dialog`, with no webview permission), suggesting
-    `Astral-Index-backup-YYYY-MM-DD.sqlite` from the date the webview sends,
+    `Astral-Index-backup-YYYY-MM-DD.sqlite` from the local date (sent by the
+    webview until Native times),
     writes the snapshot to a temporary file beside the target, checks it and
     renames it into place, removing the temporary file on any failure. It
     returns the saved file's name, a cancellation or a failure. The mock debug
@@ -91,10 +92,10 @@ Backup and restore stay local and never make a network request.
     stubs; the screen's against the missing modules and sidebar link. A real
     damaged page fails the check as unreadable before its integrity report,
     which unit tests cover. A backup can be made at any time, as storage runs
-    one operation at a time. The webview sends the date, as `chrono` here had no
-    clock then (it gained one with Migration recovery, and taking backup's and
-    restore's times natively is a follow-up); the screen sits under the current game, so the sidebar needs no
-    special case.
+    one operation at a time. The webview sent the date, as `chrono` here had no
+    clock then (it gained one with Migration recovery, and Native times took
+    backup's and restore's times natively); the screen sits under the current
+    game, so the sidebar needs no special case.
   - A read-only reviewer agent found a backup could replace the live database
     and every failure asked for another folder. Fixed: the data-folder guard,
     distinct failures, a claimed temporary name that never removes the user's
@@ -194,8 +195,8 @@ Backup and restore stay local and never make a network request.
     Startup still removes a copy a crash left.
   - [x] Confirming closes the store, copies the current database to
     `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, named
-    from the local time the webview sends, checked strictly as a real date and
-    time as the backup's date is, renames
+    from the local time (sent by the webview, and checked strictly, until
+    Native times), renames
     the checked copy over `history.sqlite` and reopens it; any failure before the
     rename leaves the history as it was, and the copy is removed. A current
     history with no accounts gets no safety copy, as the user chose.
@@ -373,10 +374,19 @@ Backup and restore stay local and never make a network request.
     chip and the openings are shared. In a follow-up, its card and the
     Import screen's progress, failure and result cards share one
     `StatusCard`, and the two failure cards one `FailureSummary`.
-- [ ] **Native times** (one PR): backup's suggested name and restore's safety
+- [x] **Native times** (one PR): backup's suggested name and restore's safety
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and
   time arguments, their checks and their `invalid_request` failure.
+  - A `local_time` module in the desktop layer reads the local time for the
+    upgrade's copy, the restore's safety copy and the backup's suggested name,
+    and formats the kept copies' `YYYYMMDD-HHMMSS`; the backup's name takes its
+    day. The commands read it once
+    and pass it in, so their unit tests name files from a fixed time. The
+    webview's `localDate` and `localTime` went with the arguments they fed;
+    `invalid_request` stays for history requests. Test first: the stamp's tests,
+    then backup's and restore's against a fixed time, the commands over IPC with
+    no arguments, and the frontend sending none.
 - [ ] **Verification** (one PR, with the user's Windows check):
   - [ ] A round trip through a fresh profile: back up, restore into a new data
     folder, and find the same accounts, rolls and imports.

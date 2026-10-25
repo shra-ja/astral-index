@@ -52,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Pinned asdf plugins (2026-10-25)
+### Native times (2026-10-25)
 
-`ci/pin-asdf-plugins`: the asdf action cloned the Node and Rust plugins at their default branches on every run, and the Node plugin cloned and updated node-build from its own, so third-party scripts ran unpinned in main's jobs, whose caches every branch restores. asdf is now set up first and each is cloned into asdf's plugin folder at a pinned commit (node-build at v5.4.58, the newest at least two weeks old); the install action keeps them, with node-build's update switched off, and needs no inputs once asdf is set up (its `skip_install` was never read then). (`asdf plugin update <sha>` can't do this: asdf clones plugins one commit deep and fetches the ref as a branch.) Red first: a test runs the step's script with a stand-in git, deriving the plugins from `.tool-versions`; removing the checkout, the update switch, the setup step, a plugin or a pin's comment fails it, and a failed clone stops the step. The three tests that run a step's script share one helper with GitHub's bash flags. Checked for real in a throwaway asdf folder: asdf lists both plugins at their commits and the pinned node-build knows Node 26.10.0. Also: the tooling tests' config imports its outputs with the extension Node needs, ending a warning on every run.
+`feat/native-times`: 0037's Native times. A desktop `local_time` module reads the local time for the upgrade's copy, the restore's safety copy and the backup's suggested name, and formats the kept copies' stamp (the backup's name takes its day); `save_backup` and `confirm_restore` take no arguments and lose their date and time checks and `invalid_request` (which stays for history requests), and the webview's `localDate` and `localTime` went with them. Each layer red first: the stamp's tests, backup's and restore's against a fixed time, the commands over IPC with no arguments, the frontend sending none.
 
 ## Known limitations
 
@@ -73,7 +73,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0037](../product/features/0037-backup-and-restore.md)'s Native times, then Verification.
+Next: [0037](../product/features/0037-backup-and-restore.md)'s Verification, with the Windows check.
 
 ## Keeping this file current
 
@@ -195,4 +195,5 @@ research, under a "From" heading.
   cache file picker, CI's OS package cache, the History Unavailable screen,
   the shared status card and icon tile, CI tests that parse the workflows and
   the setup actions owning their jobs' environment and the release gated on
-  the check workflow's run, and the Rust cache key that did nothing.
+  the check workflow's run, the Rust cache key that did nothing, and pinned
+  asdf plugins.
