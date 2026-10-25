@@ -229,6 +229,70 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   for (const file of Object.values(files)) expect(read(file), file).not.toContain('cache-hit')
 })
 
+/**
+ * Run the setup's step that adds the asdf plugins, with a stand-in git that records
+ * each command. Returns its exit status and the commands, with the asdf data
+ * folder as `$DATA`.
+ */
+function addPlugins() {
+  const step = named(linuxSetup.runs.steps, 'Add the asdf plugins at pinned commits')
+  const dir = mkdtempSync(join(tmpdir(), 'plugins-'))
+  writeFileSync(join(dir, 'git'), '#!/usr/bin/env bash\necho "git $*" >> "$STUB/commands"', {
+    mode: 0o755,
+  })
+  const run = spawnSync(
+    'bash',
+    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', step.run!],
+    {
+      env: { PATH: `${dir}:${process.env.PATH}`, STUB: dir, ASDF_DATA_DIR: join(dir, 'data') },
+    },
+  )
+  const commands = readFileSync(join(dir, 'commands'), 'utf8')
+    .replaceAll(join(dir, 'data'), '$DATA')
+    .trim()
+    .split('\n')
+  return { status: run.status, commands }
+}
+
+test('the asdf plugins and node-build are pinned to commits, as the actions are', () => {
+  const steps = linuxSetup.runs.steps
+  // asdf is set up first, so the plugins can be added at their commits before the
+  // install action, which adds only those still missing.
+  const setup = using(steps, 'asdf-vm/actions/setup@')
+  const install = using(steps, 'asdf-vm/actions/install@')
+  expect(setup.uses!.split('@')[1]).toBe(install.uses!.split('@')[1])
+  expect(setup.with).toEqual({ asdf_version: '0.20.0' })
+  expect(install.with).toEqual({ skip_install: true })
+  const plugins = named(steps, 'Add the asdf plugins at pinned commits')
+  expectInOrder(steps, setup, plugins, install)
+  // Each tool in .tool-versions has its plugin cloned into asdf's plugin folder and
+  // moved to a commit; so does the node-build the Node plugin would otherwise clone
+  // from its default branch, and update on every install.
+  const { status, commands } = addPlugins()
+  expect(status).toBe(0)
+  const tools = read('.tool-versions')
+    .split('\n')
+    .map((line) => line.split(' ')[0])
+    .filter(Boolean)
+  const folders = [
+    ...tools.map((tool) => `$DATA/plugins/${tool}`),
+    '$DATA/plugins/nodejs/.node-build',
+  ]
+  expect(commands).toHaveLength(folders.length * 2)
+  folders.forEach((folder, at) => {
+    expect(commands[at * 2], folder).toMatch(
+      new RegExp(`^git clone --quiet https://github\\.com/[\\w-]+/[\\w-]+\\.git \\${folder}$`),
+    )
+    expect(commands[at * 2 + 1], folder).toMatch(
+      new RegExp(`^git -C \\${folder} checkout --quiet [0-9a-f]{40}$`),
+    )
+  })
+  expect(install.env).toEqual({
+    ASDF_RUST_PROFILE: 'minimal',
+    ASDF_NODEJS_SKIP_NODEBUILD_UPDATE: '1',
+  })
+})
+
 test('the Rust cache follows the asdf toolchain, where Cargo installs tools and registry sources', () => {
   // asdf keeps Cargo's home inside the toolchain; the cache otherwise saves an unused ~/.cargo.
   const steps = linuxSetup.runs.steps
@@ -384,7 +448,7 @@ test('every action outside the repository is pinned to a commit, named by its ve
 
 test('the setup actions set the environment their jobs need, so no job repeats it', () => {
   // asdf installs Rust with only the components the checks use.
-  expect(using(linuxSetup.runs.steps, 'asdf-vm/actions/install@').env).toEqual({
+  expect(using(linuxSetup.runs.steps, 'asdf-vm/actions/install@').env).toMatchObject({
     ASDF_RUST_PROFILE: 'minimal',
   })
   // npm would otherwise run scripts through cmd.exe; set first, it holds for the job.
