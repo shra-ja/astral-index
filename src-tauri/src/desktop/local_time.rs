@@ -3,8 +3,8 @@
 
 use chrono::{Local, NaiveDateTime};
 
-/// The local time now. Read once for each name, so a copy's name and anything
-/// shown with it agree.
+/// The local time now; commands read it once and pass it in, so their unit tests
+/// can fix it.
 pub fn now() -> NaiveDateTime {
     Local::now().naive_local()
 }

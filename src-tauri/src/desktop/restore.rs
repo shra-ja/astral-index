@@ -10,7 +10,7 @@ use super::{
     backup::{publish, real},
     database::{self, Database},
     dialogs::{Dialogs, ask, file_name},
-    stamp,
+    local_time,
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -328,12 +328,12 @@ pub async fn confirm_restore(
     restore: State<'_, Restore>,
     database: State<'_, Database>,
 ) -> Result<Restored, Failure> {
-    restore_into(&session, &restore, &database, stamp::now()).await
+    restore_into(&session, &restore, &database, local_time::now()).await
 }
 
 /// The safety copy's name for a restore at the local time `now`.
 fn safety_name(now: chrono::NaiveDateTime) -> String {
-    format!("history-before-restore-{}.sqlite", stamp::stamp(now))
+    format!("history-before-restore-{}.sqlite", local_time::stamp(now))
 }
 
 /// Keep the history under `safety`, when given, then flush the checked copy and

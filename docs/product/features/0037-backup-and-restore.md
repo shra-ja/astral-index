@@ -378,9 +378,10 @@ Backup and restore stay local and never make a network request.
   copy take the local time natively, as the upgrade's copy does, with one
   shared time stamp; `save_backup` and `confirm_restore` lose their date and
   time arguments, their checks and their `invalid_request` failure.
-  - A `stamp` module in the desktop layer reads the local time and formats the
-    kept copies' `YYYYMMDD-HHMMSS`, for the upgrade's copy, the restore's safety
-    copy and, by its day, the backup's suggested name. The commands read it once
+  - A `local_time` module in the desktop layer reads the local time for the
+    upgrade's copy, the restore's safety copy and the backup's suggested name,
+    and formats the kept copies' `YYYYMMDD-HHMMSS`; the backup's name takes its
+    day. The commands read it once
     and pass it in, so their unit tests name files from a fixed time. The
     webview's `localDate` and `localTime` went with the arguments they fed;
     `invalid_request` stays for history requests. Test first: the stamp's tests,

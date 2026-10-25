@@ -23,7 +23,7 @@ for how the parts fit together; run commands from the repository root.
   safety copy; `src/desktop/cache_file.rs` holds the Import screen's cache file
   command, which chooses the file in the open dialog and holds its path for
   `extract_from_file` to read; `src/desktop/dialogs.rs` opens those dialogs,
-  or takes the mock's answer from its data folder; and `src/desktop/stamp.rs`
+  or takes the mock's answer from its data folder; and `src/desktop/local_time.rs`
   reads the local time that names the copies kept beside the history and the
   suggested backup.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`

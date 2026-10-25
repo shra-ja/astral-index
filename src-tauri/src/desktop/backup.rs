@@ -8,7 +8,7 @@ use super::{
     Failure,
     database::Database,
     dialogs::{Dialogs, ask, file_name},
-    stamp,
+    local_time,
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -173,7 +173,7 @@ pub async fn save_backup<R: Runtime>(
     dialogs: State<'_, Dialogs>,
     database: State<'_, Database>,
 ) -> Result<Saved, Failure> {
-    save_into(app, *dialogs, &database, stamp::now()).await
+    save_into(app, *dialogs, &database, local_time::now()).await
 }
 
 #[cfg(test)]

@@ -28,8 +28,8 @@ pub mod backup;
 pub mod cache_file;
 pub mod database;
 pub mod dialogs;
+pub mod local_time;
 pub mod restore;
-pub mod stamp;
 pub use database::Database;
 
 /// Shared with `build.rs`, whose app manifest makes each command require a capability grant.
@@ -1720,6 +1720,23 @@ mod tests {
             .manage(Network::Https);
         let missing = invoke(&window(session), "extract_from_file", InvokeBody::default());
         assert!(missing.unwrap_err().contains("state not managed"));
+    }
+
+    #[test]
+    fn a_backup_fails_over_ipc_without_its_state() {
+        for builder in [
+            mock_builder(),
+            mock_builder().manage(dialogs::Dialogs::System),
+        ] {
+            let app = handle_commands(builder)
+                .build(mock_context(noop_assets()))
+                .unwrap();
+            let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+                .build()
+                .unwrap();
+            let reply = invoke(&window, "save_backup", InvokeBody::default()).unwrap_err();
+            assert!(reply.contains("state not managed"), "{reply}");
+        }
     }
 
     #[test]
