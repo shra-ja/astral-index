@@ -105,7 +105,7 @@ function expectInOrder(steps: Step[], ...each: Step[]) {
 const listed = (permissions: Permissions | undefined) =>
   typeof permissions === 'object' && permissions !== null ? permissions : {}
 const requiredChecks = () =>
-  named(release.jobs.prepare.steps, 'Require every check to have passed on this commit')
+  named(release.jobs.prepare.steps, 'Require the checks to have passed on this commit')
 /** Each string in a workflow, with its path, to find where an expression is used. */
 function* strings(value: unknown, path: string): Generator<[string, string]> {
   if (typeof value === 'string') yield [path, value]
@@ -613,15 +613,80 @@ test('a release starts only by hand, from main, once every check has passed on i
   expect(using(prepare.steps, 'actions/checkout@').with).toMatchObject({ 'fetch-depth': 0 })
   const fromMain = running(prepare.steps, 'refs/heads/main')
   expect(fromMain.run).toContain('exit 1')
-  // Exactly the checks the check workflow runs, other than publishing.
-  const required = requiredChecks()
-  expect(required.env?.CHECKS.trim().split('\n')).toEqual(
-    Object.entries(check.jobs)
-      .filter(([name]) => name !== 'publish')
-      .map(([, job]) => job.name),
+  // It reads the check workflow's runs, and nothing else about the checks.
+  expect(prepare.permissions).toEqual({ contents: 'read', actions: 'read' })
+  expect(requiredChecks().env).toEqual({ GH_TOKEN: '${{ github.token }}' })
+})
+
+/**
+ * Run the release's checks gate with a stand-in gh, which prints `conclusion` as
+ * gh would for the latest check run on the commit, or nothing for none. Returns its
+ * exit status, what it printed and the arguments gh was given.
+ */
+function gateOn(conclusion: string | undefined) {
+  const dir = mkdtempSync(join(tmpdir(), 'gate-'))
+  writeFileSync(
+    join(dir, 'gh'),
+    ['#!/usr/bin/env bash', 'printf "%s\\n" "$@" > "$STUB/args"', 'printf "%s" "$CONCLUSION"'].join(
+      '\n',
+    ),
+    { mode: 0o755 },
   )
-  expect(required.run).toContain('commits/$GITHUB_SHA/check-runs')
-  expect(prepare.permissions).toMatchObject({ checks: 'read' })
+  const run = spawnSync(
+    'bash',
+    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', requiredChecks().run!],
+    {
+      env: {
+        PATH: `${dir}:${process.env.PATH}`,
+        STUB: dir,
+        CONCLUSION: conclusion === undefined ? '' : `${conclusion}\n`,
+        GITHUB_REPOSITORY: 'owner/repo',
+        GITHUB_SHA: 'abc123',
+      },
+      encoding: 'utf8',
+    },
+  )
+  const args = readFileSync(join(dir, 'args'), 'utf8').trim().split('\n')
+  return { status: run.status, output: run.stdout, args }
+}
+
+test('a release goes ahead only once the check workflow has passed on its commit', () => {
+  // The check workflow's latest run for the push to main: its result covers every job
+  // in it, so no list of checks needs keeping in step, and only GitHub Actions makes runs.
+  const passed = gateOn('success')
+  expect(passed.status).toBe(0)
+  expect(passed.args).toEqual([
+    'run',
+    'list',
+    '--repo',
+    'owner/repo',
+    '--workflow',
+    'check.yml',
+    '--commit',
+    'abc123',
+    '--event',
+    'push',
+    '--limit',
+    '1',
+    '--json',
+    'conclusion',
+    '--jq',
+    '.[].conclusion',
+  ])
+  // A failed or cancelled run, one still running (no conclusion yet) or none at all
+  // stops the release, saying why.
+  for (const [conclusion, reason] of [
+    ['failure', 'failure'],
+    ['cancelled', 'cancelled'],
+    ['', 'not run or still running'],
+    [undefined, 'not run or still running'],
+  ] as const) {
+    const refused = gateOn(conclusion)
+    expect(refused.status, reason).not.toBe(0)
+    expect(refused.output, reason).toBe(
+      `::error::The checks have not passed on abc123 (${reason})\n`,
+    )
+  }
 })
 
 test('a release’s version and notes come from the commits or the inputs, which never reach a script', () => {
@@ -693,10 +758,6 @@ test('a release refuses a version already drafted or released, and passes its fi
   })
   expect(create.run).toContain('--notes-file notes.md')
   expect(create.run).toContain('"Astral-Index-$TAG.exe"')
-  // The checks gate fails on anything but a passing run from GitHub Actions itself.
-  const required = requiredChecks()
-  expect(required.run).toContain('select(.app.slug == "github-actions")')
-  expect(required.run).toMatch(/if \[ "\$result" != success \]; then[\s\S]*?exit 1/)
 })
 
 test('a release smoke-tests the version it built, and leaves CI’s caches to CI', () => {

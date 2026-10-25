@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      checks: read
+      actions: read
     outputs:
       version: ${{ steps.write.outputs.version }}
       tag: ${{ steps.write.outputs.tag }}
@@ -41,28 +41,18 @@ jobs:
             echo "::error::Releases are made from main, not $GITHUB_REF"
             exit 1
           fi
-      # The required checks, as the check workflow names them; the latest run of
-      # each from GitHub Actions itself must have passed on this commit.
-      - name: Require every check to have passed on this commit
+      # The check workflow's latest run for the push to main: its result covers every
+      # job in it, so no list of checks is kept here, and only GitHub Actions makes runs.
+      - name: Require the checks to have passed on this commit
         env:
           GH_TOKEN: ${{ github.token }}
-          CHECKS: |
-            Format, lint, docs and Rust lints
-            Tests and 100% coverage
-            Mutation probes
-            Windows unit tests
-            Windows release build
         run: |
-          while IFS= read -r name; do
-            [ -n "$name" ] || continue
-            result=$(gh api -X GET "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
-              -f check_name="$name" \
-              --jq '.check_runs | map(select(.app.slug == "github-actions")) | sort_by(.started_at) | last | .conclusion // "missing"')
-            if [ "$result" != success ]; then
-              echo "::error::$name has not passed on $GITHUB_SHA ($result)"
-              exit 1
-            fi
-          done <<< "$CHECKS"
+          result=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow check.yml \
+            --commit "$GITHUB_SHA" --event push --limit 1 --json conclusion --jq '.[].conclusion')
+          if [ "$result" != success ]; then
+            echo "::error::The checks have not passed on $GITHUB_SHA (${result:-not run or still running})"
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
