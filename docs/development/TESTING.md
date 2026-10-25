@@ -351,9 +351,11 @@ every invocation. Some details matter:
   v2.9.2 prunes badly; keep v2.9.2 or later.
 - rust-cache keys a cache on its shared name, the Rust version, Cargo's
   environment and the lockfiles, and ignores a `key` beside `shared-key`, so
-  none is given. It saves nothing on an exact hit, so a pinned tool's new
-  version is installed over the cached one each run until the lockfile or
-  toolchain next changes and a new cache is saved.
+  none is given. It saves nothing on an exact hit, so a new `tauri-driver`
+  version is compiled over the cached one each run until the lockfile or
+  toolchain next changes and a new cache is saved. The prebuilt tools land
+  outside the cache, in the install action's own folder, and are fetched each
+  run.
 - Every action is pinned to a commit, and updated by hand to releases at least
   two weeks old.
 
