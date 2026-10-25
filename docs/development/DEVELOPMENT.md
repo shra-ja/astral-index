@@ -204,8 +204,8 @@ Releases are versioned from git tags and drafted by the Release workflow,
 The same steps suit a person or an agent; an agent asks before each one, as they
 are outward-facing.
 
-1. **Check `main`.** The workflow refuses unless every check passed on `main`'s
-   latest commit.
+1. **Check `main`.** The workflow refuses unless the check workflow's run for
+   `main`'s latest commit passed, so wait for that run to finish.
 2. **Preview.** Bring `main` and its tags up to date
    (`git switch main && git pull --tags`), then `npm run release:prepare`
    prints the next version and the notes the workflow would write, from the

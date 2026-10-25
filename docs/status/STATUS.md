@@ -52,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Setup actions own the job environment (2026-10-24)
+### Release gated on the check run (2026-10-25)
 
-`ci/setup-owns-environment`: each Linux job set `ASDF_RUST_PROFILE` and each Windows job, in both workflows, `npm_config_script_shell`, with the reason given once. The Linux setup now sets the profile on its asdf step, and the Windows setup makes Git Bash npm's script shell through `$GITHUB_ENV` as its first step, which holds for the rest of the job; jobs keep only `defaults.run.shell`, which an action can't set. Red first: a test that the setup actions set both, that no job repeats them and that each Windows job sets up before running npm; removing the step or repeating it in a job fails it. That the Windows jobs still run their scripts through Git Bash shows only in this PR's CI run.
+`ci/release-gate-on-check-run`: a release kept its own list of the five check jobs' names, which a test kept in step, and filtered out check runs not made by GitHub Actions. It now asks for the check workflow's latest push run on the commit (`gh run list`, needing `actions: read` instead of `checks: read`), whose result covers every job and which only Actions can make; a failed publish now stops a release too. Red first: a test runs the gate's real script against a stand-in `gh` for a passed, failed, cancelled, unfinished and missing run; a wrong condition, a missing push filter, a missing `exit 1` or the old permission each fail it. The gate first runs for real at the next release.
 
 ## Known limitations
 
@@ -193,5 +193,5 @@ research, under a "From" heading.
   the history status, restoring over a history that can't be upgraded, the
   mock's failing upgrade, the wide-window stall's diagnostics, the native
   cache file picker, CI's OS package cache, the History Unavailable screen,
-  the shared status card and icon tile, and CI tests that parse the
-  workflows.
+  the shared status card and icon tile, CI tests that parse the workflows and
+  the setup actions owning their jobs' environment.

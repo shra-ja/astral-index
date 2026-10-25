@@ -315,14 +315,15 @@ what must appear nowhere. It also checks that no check may fail quietly
 `.github/workflows/release.yml` drafts a release, started only by hand
 ([decision 0030](../architecture/decisions/0030-tag-versioned-releases.md),
 steps in [DEVELOPMENT](DEVELOPMENT.md#releasing)). It refuses unless it runs
-from `main` and the latest run of each of the five checks above passed on that
-commit, works out the version and notes with `npm run release:prepare`, builds
-the executable on Windows as a release and smoke-tests it, and creates a draft
+from `main` and the check workflow's latest run for that commit passed, every
+job in it, publishing included. It then works out the version and notes with
+`npm run release:prepare`, builds the executable on Windows as a release and smoke-tests it, and creates a draft
 release with it attached, unless a release or draft for that tag already
 exists. Only that last job can write to the repository, and
 its inputs reach scripts only through environment variables;
-`tooling/ci.test.ts` checks all of this, including that its list of checks
-matches the check workflow's jobs.
+`tooling/ci.test.ts` checks all of this, running the gate's script against a
+stand-in `gh` for a passed, failed, cancelled, unfinished and missing run, and
+for `gh` failing.
 
 Each Linux job ends by writing one summary for its run, even after a failure
 (`npm run ci:summary`, from `tooling/job-summary.ts`): its name and result, what
