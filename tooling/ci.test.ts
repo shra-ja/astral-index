@@ -113,6 +113,26 @@ function* strings(value: unknown, path: string): Generator<[string, string]> {
     for (const [key, each] of Object.entries(value)) yield* strings(each, `${path}.${key}`)
   }
 }
+/**
+ * Run a step's script as GitHub runs a bash step, with stand-in commands first on the
+ * path. Each stand-in is a bash script; `$STUB` is the folder the stand-ins and the
+ * step share, for recording what they were asked. Returns the exit status, what the
+ * step printed and that folder.
+ */
+function runStep(script: string, stubs: Record<string, string>, env: Record<string, string>) {
+  const dir = mkdtempSync(join(tmpdir(), 'step-'))
+  for (const [name, body] of Object.entries(stubs)) {
+    writeFileSync(join(dir, name), `#!/usr/bin/env bash\n${body}`, { mode: 0o755 })
+  }
+  const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
+    env: { PATH: `${dir}:${process.env.PATH}`, STUB: dir, ...env },
+    encoding: 'utf8',
+  })
+  return { status: run.status, output: run.stdout, dir }
+}
+/** What the stand-ins wrote to `$STUB/<name>`, line by line. */
+const recorded = (dir: string, name: string) =>
+  readFileSync(join(dir, name), 'utf8').trim().split('\n')
 const linuxSetupOf = (job: Job) => using(job.steps, './.github/actions/setup-linux')
 const windowsSetupOf = (job: Job) => using(job.steps, './.github/actions/setup-windows')
 
@@ -229,45 +249,43 @@ test('only main saves caches, which pull requests restore, keyed by toolchain an
   for (const file of Object.values(files)) expect(read(file), file).not.toContain('cache-hit')
 })
 
+const pinning = () => named(linuxSetup.runs.steps, 'Add the asdf plugins at pinned commits')
 /**
  * Run the setup's step that adds the asdf plugins, with a stand-in git that records
- * each command. Returns its exit status and the commands, with the asdf data
- * folder as `$DATA`.
+ * each command, and fails to clone if `cloneFails`. Returns its exit status and the
+ * commands, with the asdf data folder as `$DATA`.
  */
-function addPlugins() {
-  const step = named(linuxSetup.runs.steps, 'Add the asdf plugins at pinned commits')
-  const dir = mkdtempSync(join(tmpdir(), 'plugins-'))
-  writeFileSync(join(dir, 'git'), '#!/usr/bin/env bash\necho "git $*" >> "$STUB/commands"', {
-    mode: 0o755,
-  })
-  const run = spawnSync(
-    'bash',
-    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', step.run!],
+function addPlugins(cloneFails = false) {
+  const git =
+    'echo "git $*" >> "$STUB/commands"\n[[ $1 == clone && -n $CLONE_FAILS ]] && exit 128\ntrue'
+  const data = join(tmpdir(), 'asdf-data')
+  const { status, dir } = runStep(
+    pinning().run!,
+    { git },
     {
-      env: { PATH: `${dir}:${process.env.PATH}`, STUB: dir, ASDF_DATA_DIR: join(dir, 'data') },
+      ASDF_DATA_DIR: data,
+      CLONE_FAILS: cloneFails ? '1' : '',
     },
   )
-  const commands = readFileSync(join(dir, 'commands'), 'utf8')
-    .replaceAll(join(dir, 'data'), '$DATA')
-    .trim()
-    .split('\n')
-  return { status: run.status, commands }
+  return {
+    status,
+    commands: recorded(dir, 'commands').map((line) => line.replaceAll(data, '$DATA')),
+  }
 }
 
 test('the asdf plugins and node-build are pinned to commits, as the actions are', () => {
   const steps = linuxSetup.runs.steps
   // asdf is set up first, so the plugins can be added at their commits before the
-  // install action, which adds only those still missing.
+  // install action, which then finds asdf ready and adds only plugins still missing.
   const setup = using(steps, 'asdf-vm/actions/setup@')
   const install = using(steps, 'asdf-vm/actions/install@')
   expect(setup.uses!.split('@')[1]).toBe(install.uses!.split('@')[1])
   expect(setup.with).toEqual({ asdf_version: '0.20.0' })
-  expect(install.with).toEqual({ skip_install: true })
-  const plugins = named(steps, 'Add the asdf plugins at pinned commits')
-  expectInOrder(steps, setup, plugins, install)
+  expect(install.with).toBeUndefined()
+  expectInOrder(steps, setup, pinning(), install)
   // Each tool in .tool-versions has its plugin cloned into asdf's plugin folder and
-  // moved to a commit; so does the node-build the Node plugin would otherwise clone
-  // from its default branch, and update on every install.
+  // checked out at a commit; so has the node-build the Node plugin would otherwise
+  // clone from its default branch, and keep updating.
   const { status, commands } = addPlugins()
   expect(status).toBe(0)
   const tools = read('.tool-versions')
@@ -278,19 +296,34 @@ test('the asdf plugins and node-build are pinned to commits, as the actions are'
     ...tools.map((tool) => `$DATA/plugins/${tool}`),
     '$DATA/plugins/nodejs/.node-build',
   ]
-  expect(commands).toHaveLength(folders.length * 2)
-  folders.forEach((folder, at) => {
-    expect(commands[at * 2], folder).toMatch(
-      new RegExp(`^git clone --quiet https://github\\.com/[\\w-]+/[\\w-]+\\.git \\${folder}$`),
+  const checkedOut = Object.fromEntries(
+    commands.flatMap((command) => {
+      const at = /^git -C (\S+) checkout .*\b([0-9a-f]{40})$/.exec(command)
+      return at ? [[at[1], at[2]]] : []
+    }),
+  )
+  expect(Object.keys(checkedOut).toSorted()).toEqual(folders.toSorted())
+  for (const folder of folders) {
+    const clone = commands.findIndex(
+      (command) => /^git clone .*https:\/\/\S+ /.test(command) && command.endsWith(` ${folder}`),
     )
-    expect(commands[at * 2 + 1], folder).toMatch(
-      new RegExp(`^git -C \\${folder} checkout --quiet [0-9a-f]{40}$`),
+    const checkout = commands.findIndex((command) =>
+      command.startsWith(`git -C ${folder} checkout`),
     )
-  })
-  expect(install.env).toEqual({
-    ASDF_RUST_PROFILE: 'minimal',
-    ASDF_NODEJS_SKIP_NODEBUILD_UPDATE: '1',
-  })
+    expect(clone, folder).toBeGreaterThanOrEqual(0)
+    expect(clone, folder).toBeLessThan(checkout)
+  }
+  // Each pin says what it is: a release, or the date of an untagged commit.
+  const pins = pinning()
+    .run!.split('\n')
+    .filter((line) => line.startsWith('pin '))
+  expect(pins).toHaveLength(folders.length)
+  for (const pin of pins) expect(pin).toMatch(/ # (v\d[\w.]*|commit of \d{4}-\d{2}-\d{2})$/)
+  // A clone that fails stops the job, before anything is checked out.
+  const failed = addPlugins(true)
+  expect(failed.status).not.toBe(0)
+  expect(failed.commands).toHaveLength(1)
+  expect(install.env).toMatchObject({ ASDF_NODEJS_SKIP_NODEBUILD_UPDATE: '1' })
 })
 
 test('the Rust cache follows the asdf toolchain, where Cargo installs tools and registry sources', () => {
@@ -314,34 +347,23 @@ test('the Rust cache follows the asdf toolchain, where Cargo installs tools and 
 function installPackages(nativeTests: boolean, stall?: string, stalls = 1) {
   const packages = named(linuxSetup.runs.steps, 'Install the OS packages')
   expect(packages.env).toEqual({ NATIVE_TESTS: '${{ inputs.native-tests }}' })
-  const dir = mkdtempSync(join(tmpdir(), 'apt-'))
-  writeFileSync(join(dir, 'stalls'), String(stall ? stalls : 0))
-  writeFileSync(
-    join(dir, 'sudo'),
-    [
-      '#!/usr/bin/env bash',
-      'echo "$*" >> "$STUB/commands"',
-      'left=$(cat "$STUB/stalls")',
-      'if [[ -n $STALL && "$*" == *"$STALL"* ]] && (( left > 0 )); then',
-      '  echo $((left - 1)) > "$STUB/stalls"; exit 124',
-      'fi',
-    ].join('\n'),
-    { mode: 0o755 },
-  )
-  const run = spawnSync(
-    'bash',
-    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', packages.run!],
+  const sudo = [
+    'echo "$*" >> "$STUB/commands"',
+    'left=$(cat "$STUB/stalls" 2>/dev/null || echo "$STALLS")',
+    'if [[ -n $STALL && "$*" == *"$STALL"* ]] && (( left > 0 )); then',
+    '  echo $((left - 1)) > "$STUB/stalls"; exit 124',
+    'fi',
+  ].join('\n')
+  const { status, dir } = runStep(
+    packages.run!,
+    { sudo },
     {
-      env: {
-        PATH: `${dir}:${process.env.PATH}`,
-        STUB: dir,
-        STALL: stall ?? '',
-        NATIVE_TESTS: String(nativeTests),
-      },
+      STALL: stall ?? '',
+      STALLS: String(stall ? stalls : 0),
+      NATIVE_TESTS: String(nativeTests),
     },
   )
-  const commands = readFileSync(join(dir, 'commands'), 'utf8').trim().split('\n')
-  return { status: run.status, commands }
+  return { status, commands: recorded(dir, 'commands') }
 }
 
 test('OS packages come from the cache, then the Azure mirror, then Ubuntu’s own archive', () => {
@@ -447,9 +469,11 @@ test('every action outside the repository is pinned to a commit, named by its ve
 })
 
 test('the setup actions set the environment their jobs need, so no job repeats it', () => {
-  // asdf installs Rust with only the components the checks use.
-  expect(using(linuxSetup.runs.steps, 'asdf-vm/actions/install@').env).toMatchObject({
+  // asdf installs Rust with only the components the checks use, and keeps
+  // node-build at its pinned commit.
+  expect(using(linuxSetup.runs.steps, 'asdf-vm/actions/install@').env).toEqual({
     ASDF_RUST_PROFILE: 'minimal',
+    ASDF_NODEJS_SKIP_NODEBUILD_UPDATE: '1',
   })
   // npm would otherwise run scripts through cmd.exe; set first, it holds for the job.
   const [shell] = windowsSetup.runs.steps
@@ -686,34 +710,22 @@ test('a release starts only by hand, from main, once every check has passed on i
  * the arguments gh was given.
  */
 function gateOn(conclusion: string | undefined, ghFails = false) {
-  const dir = mkdtempSync(join(tmpdir(), 'gate-'))
-  writeFileSync(
-    join(dir, 'gh'),
-    [
-      '#!/usr/bin/env bash',
-      'printf "%s\\n" "$@" > "$STUB/args"',
-      'if [[ -n $GH_FAILS ]]; then echo "HTTP 403: Resource not accessible" >&2; exit 1; fi',
-      'printf "%s" "$CONCLUSION"',
-    ].join('\n'),
-    { mode: 0o755 },
-  )
-  const run = spawnSync(
-    'bash',
-    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', checksGate().run!],
+  const gh = [
+    'printf "%s\\n" "$@" > "$STUB/args"',
+    'if [[ -n $GH_FAILS ]]; then echo "HTTP 403: Resource not accessible" >&2; exit 1; fi',
+    'printf "%s" "$CONCLUSION"',
+  ].join('\n')
+  const { status, output, dir } = runStep(
+    checksGate().run!,
+    { gh },
     {
-      env: {
-        PATH: `${dir}:${process.env.PATH}`,
-        STUB: dir,
-        CONCLUSION: conclusion === undefined ? '' : `${conclusion}\n`,
-        GH_FAILS: ghFails ? '1' : '',
-        GITHUB_REPOSITORY: 'owner/repo',
-        GITHUB_SHA: 'abc123',
-      },
-      encoding: 'utf8',
+      CONCLUSION: conclusion === undefined ? '' : `${conclusion}\n`,
+      GH_FAILS: ghFails ? '1' : '',
+      GITHUB_REPOSITORY: 'owner/repo',
+      GITHUB_SHA: 'abc123',
     },
   )
-  const args = readFileSync(join(dir, 'args'), 'utf8').trim().split('\n')
-  return { status: run.status, output: run.stdout, args }
+  return { status, output, args: recorded(dir, 'args') }
 }
 
 test('a release goes ahead only once the check workflow has passed on its commit', () => {

@@ -74,21 +74,18 @@ runs:
     - uses: asdf-vm/actions/setup@b7bcd026f18772e44fe1026d729e1611cc435d47 # v4.0.1
       with:
         asdf_version: 0.20.0
-    # The plugins' scripts, and the node-build the Node plugin would clone, run in
-    # main's jobs, whose caches every branch restores, so each is pinned to a commit as
-    # the actions are. Cloned into asdf's plugin folder, they are what asdf uses, and
-    # the install action adds only plugins still missing.
+    # Third-party plugin scripts and node-build run in main's jobs, whose caches every
+    # branch restores, so each is pinned to a commit, as the actions are. asdf uses
+    # the plugins in its folder, and the install action adds only missing ones.
     - name: Add the asdf plugins at pinned commits
       shell: bash
       run: |
         pin() { git clone --quiet "$2" "$1" && git -C "$1" checkout --quiet "$3"; }
         plugins="$ASDF_DATA_DIR/plugins"
-        pin "$plugins/nodejs" https://github.com/asdf-vm/asdf-nodejs.git 779c8dc84b3bdab38c2c80622d315c2c3267f74b # 2026-02-24
-        pin "$plugins/rust" https://github.com/code-lever/asdf-rust.git 6b521d15017696e8faf1c6bc4be789656e538ea3 # 2025-08-05
+        pin "$plugins/nodejs" https://github.com/asdf-vm/asdf-nodejs.git 779c8dc84b3bdab38c2c80622d315c2c3267f74b # commit of 2026-02-24
+        pin "$plugins/rust" https://github.com/code-lever/asdf-rust.git 6b521d15017696e8faf1c6bc4be789656e538ea3 # commit of 2025-08-05
         pin "$plugins/nodejs/.node-build" https://github.com/nodenv/node-build.git 6e19e3f0a93180746b68511a0399df099aa57fbe # v5.4.58
     - uses: asdf-vm/actions/install@b7bcd026f18772e44fe1026d729e1611cc435d47 # v4.0.1
-      with:
-        skip_install: true
       env:
         # Rust with only the components the checks use.
         ASDF_RUST_PROFILE: minimal
