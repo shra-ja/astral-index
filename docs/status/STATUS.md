@@ -52,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Rust cache key (2026-10-25)
+### Pinned asdf plugins (2026-10-25)
 
-`ci/drop-dead-rust-cache-key`: both setup actions gave rust-cache a `key:` hashing `.tool-versions` and the action file, meant to renew the cache when a tool version changed. The pinned rust-cache ignores `key` beside `shared-key` (its source, and CI logs: after #144 changed both setup files, every Rust cache still restored on the same key), so it never did. Removed, with the setup action's description and TESTING corrected; a new `tauri-driver` version is now documented as compiled over the cached one until the lockfile or toolchain next changes (the prebuilt tools are never cached). Red first: the cache step's inputs are pinned exactly, so an ignored input fails the test.
+`ci/pin-asdf-plugins`: CI's asdf plugins for Node and Rust, cloned at their default branch on every run, pinned to a commit; under way.
 
 ## Known limitations
 
@@ -195,4 +195,4 @@ research, under a "From" heading.
   cache file picker, CI's OS package cache, the History Unavailable screen,
   the shared status card and icon tile, CI tests that parse the workflows and
   the setup actions owning their jobs' environment and the release gated on
-  the check workflow's run.
+  the check workflow's run, and the Rust cache key that did nothing.

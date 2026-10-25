@@ -62,3 +62,9 @@ Integrated through PR #144.
 Integrated through PR #145.
 
 `ci/release-gate-on-check-run`: a release kept its own list of the five check jobs' names, which a test kept in step, and filtered out check runs not made by GitHub Actions. It now asks for the check workflow's latest push run on the commit (`gh run list`, needing `actions: read` instead of `checks: read`), whose result covers every job and which only Actions can make; a failed publish now stops a release too. Red first: a test runs the gate's real script against a stand-in `gh` for a passed, failed, cancelled, unfinished and missing run; a wrong condition, a missing push filter, a missing `exit 1` or the old permission each fail it. The gate first runs for real at the next release.
+
+## Rust cache key (2026-10-25)
+
+Integrated through PR #146.
+
+`ci/drop-dead-rust-cache-key`: both setup actions gave rust-cache a `key:` hashing `.tool-versions` and the action file, meant to renew the cache when a tool version changed. The pinned rust-cache ignores `key` beside `shared-key` (its source, and CI logs: after #144 changed both setup files, every Rust cache still restored on the same key), so it never did. Removed, with the setup action's description and TESTING corrected; a new `tauri-driver` version is now documented as compiled over the cached one until the lockfile or toolchain next changes (the prebuilt tools are never cached). Red first: the cache step's inputs are pinned exactly, so an ignored input fails the test.
