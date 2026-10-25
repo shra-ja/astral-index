@@ -52,9 +52,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release gated on the check run (2026-10-25)
+### Rust cache key (2026-10-25)
 
-`ci/release-gate-on-check-run`: a release kept its own list of the five check jobs' names, which a test kept in step, and filtered out check runs not made by GitHub Actions. It now asks for the check workflow's latest push run on the commit (`gh run list`, needing `actions: read` instead of `checks: read`), whose result covers every job and which only Actions can make; a failed publish now stops a release too. Red first: a test runs the gate's real script against a stand-in `gh` for a passed, failed, cancelled, unfinished and missing run; a wrong condition, a missing push filter, a missing `exit 1` or the old permission each fail it. The gate first runs for real at the next release.
+`ci/drop-dead-rust-cache-key`: the setup actions' Rust cache `key:` has no effect beside `shared-key`; removed, with the docs that relied on it corrected; under way.
 
 ## Known limitations
 
@@ -194,4 +194,5 @@ research, under a "From" heading.
   mock's failing upgrade, the wide-window stall's diagnostics, the native
   cache file picker, CI's OS package cache, the History Unavailable screen,
   the shared status card and icon tile, CI tests that parse the workflows and
-  the setup actions owning their jobs' environment.
+  the setup actions owning their jobs' environment and the release gated on
+  the check workflow's run.
