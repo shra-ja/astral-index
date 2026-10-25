@@ -8,6 +8,7 @@ use super::{
     Failure,
     database::Database,
     dialogs::{Dialogs, ask, file_name},
+    stamp,
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -39,14 +40,9 @@ pub enum Saved {
     Cancelled,
 }
 
-/// The suggested file name for a backup made on `date`, a `YYYY-MM-DD` the webview
-/// sends, as only it knows the user's local date.
-fn suggested_name(date: &str) -> Result<String, Failure> {
-    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
-        .ok()
-        .filter(|parsed| parsed.format("%Y-%m-%d").to_string() == date)
-        .map(|_| format!("Astral-Index-backup-{date}.sqlite"))
-        .ok_or(Failure::InvalidRequest)
+/// The suggested file name for a backup made at the local time `now`: its day.
+fn suggested_name(now: chrono::NaiveDateTime) -> String {
+    format!("Astral-Index-backup-{}.sqlite", now.format("%Y-%m-%d"))
 }
 
 /// Where to save the backup: the user's choice in the save dialog, or the mock's
@@ -151,15 +147,15 @@ pub async fn save_to(database: &Database, target: &Path) -> Result<Saved, Failur
     saved.map(|()| Saved::Saved { name })
 }
 
-/// Ask where to save, off the async workers as the dialog blocks, then save a
-/// checked backup there.
+/// Ask where to save, suggesting a name from the local time `now`, off the async
+/// workers as the dialog blocks, then save a checked backup there.
 async fn save_into<R: Runtime>(
     app: AppHandle<R>,
     dialogs: Dialogs,
     database: &Database,
-    date: &str,
+    now: chrono::NaiveDateTime,
 ) -> Result<Saved, Failure> {
-    let name = suggested_name(date)?;
+    let name = suggested_name(now);
     let folder = database.folder().map(Path::to_owned);
     let chosen = spawn_blocking(move || choose(&app, dialogs, folder.as_deref(), &name))
         .await
@@ -176,9 +172,8 @@ pub async fn save_backup<R: Runtime>(
     app: AppHandle<R>,
     dialogs: State<'_, Dialogs>,
     database: State<'_, Database>,
-    date: String,
 ) -> Result<Saved, Failure> {
-    save_into(app, *dialogs, &database, &date).await
+    save_into(app, *dialogs, &database, stamp::now()).await
 }
 
 #[cfg(test)]
@@ -191,6 +186,13 @@ mod tests {
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 
     const NAME: &str = "Astral-Index-backup-2026-10-16.sqlite";
+    /// The local time a backup is made at in the tests.
+    fn when() -> chrono::NaiveDateTime {
+        chrono::NaiveDate::from_ymd_opt(2026, 10, 16)
+            .unwrap()
+            .and_hms_opt(23, 59, 30)
+            .unwrap()
+    }
 
     fn run<T>(future: impl std::future::Future<Output = T>) -> T {
         tokio::runtime::Builder::new_current_thread()
@@ -288,18 +290,8 @@ mod tests {
     }
 
     #[test]
-    fn the_suggested_name_carries_a_real_calendar_date_only() {
-        assert_eq!(suggested_name("2026-10-16"), Ok(NAME.to_owned()));
-        for date in [
-            "2026-13-01",
-            "2026-02-30",
-            "2026-1-05",
-            "16/10/2026",
-            "2026-10-16/../x",
-            "",
-        ] {
-            assert_eq!(suggested_name(date), Err(Failure::InvalidRequest), "{date}");
-        }
+    fn the_suggested_name_carries_the_local_day() {
+        assert_eq!(suggested_name(when()), NAME);
     }
 
     #[test]
@@ -473,17 +465,11 @@ mod tests {
 
     #[test]
     fn saving_asks_where_then_saves_or_does_nothing_when_cancelled() {
-        // A malformed date is refused before any dialog.
-        chooser::install(Answers::default());
-        assert_eq!(
-            run(save_into(app(), Dialogs::System, &database(), "16/10/2026")),
-            Err(Failure::InvalidRequest)
-        );
-        assert_eq!(asked(), []);
         // Cancelling writes nothing.
+        chooser::install(Answers::default());
         filesystem::install(Files::default());
         assert_eq!(
-            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), when())),
             Ok(Saved::Cancelled)
         );
         assert_eq!(asked().len(), 1);
@@ -494,7 +480,7 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(
-            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), when())),
             Err(Failure::BackupFailed)
         );
         // So does a choice that is not a local file, before anything is written.
@@ -506,7 +492,7 @@ mod tests {
         });
         filesystem::install(Files::default());
         assert_eq!(
-            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), when())),
             Err(Failure::BackupFailed)
         );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
@@ -517,7 +503,7 @@ mod tests {
         });
         sql::expect(saving(&partial(0)));
         assert_eq!(
-            run(save_into(app(), Dialogs::System, &database(), "2026-10-16")),
+            run(save_into(app(), Dialogs::System, &database(), when())),
             Ok(Saved::Saved { name: NAME.into() })
         );
         sql::finish();

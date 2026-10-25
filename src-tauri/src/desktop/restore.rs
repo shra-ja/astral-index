@@ -10,6 +10,7 @@ use super::{
     backup::{publish, real},
     database::{self, Database},
     dialogs::{Dialogs, ask, file_name},
+    stamp,
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
@@ -320,31 +321,19 @@ pub struct Restored {
 }
 
 /// Replaces the history with the held backup, keeping the history as it was in a
-/// safety copy named from `time`, the webview's local time; never contacts
-/// HoYoverse.
+/// safety copy named from the local time; never contacts HoYoverse.
 #[tauri::command]
 pub async fn confirm_restore(
     session: State<'_, Session>,
     restore: State<'_, Restore>,
     database: State<'_, Database>,
-    time: String,
 ) -> Result<Restored, Failure> {
-    restore_into(&session, &restore, &database, &time).await
+    restore_into(&session, &restore, &database, stamp::now()).await
 }
 
-/// The safety copy's name for a restore at `time`, the webview's local time as
-/// `YYYY-MM-DDTHH:MM:SS`, if it is a real time in exactly that form.
-fn safety_name(time: &str) -> Result<String, Failure> {
-    chrono::NaiveDateTime::parse_from_str(time, "%Y-%m-%dT%H:%M:%S")
-        .ok()
-        .filter(|parsed| parsed.format("%Y-%m-%dT%H:%M:%S").to_string() == time)
-        .map(|parsed| {
-            format!(
-                "history-before-restore-{}.sqlite",
-                parsed.format("%Y%m%d-%H%M%S")
-            )
-        })
-        .ok_or(Failure::InvalidRequest)
+/// The safety copy's name for a restore at the local time `now`.
+fn safety_name(now: chrono::NaiveDateTime) -> String {
+    format!("history-before-restore-{}.sqlite", stamp::stamp(now))
 }
 
 /// Keep the history under `safety`, when given, then flush the checked copy and
@@ -395,21 +384,22 @@ fn replace(
     put_in_place(history, &held.copy, kept.then_some(safety))
 }
 
-/// Replace the history with the held copy at `time`, which names the safety copy.
+/// Replace the history with the held copy at the local time `now`, which names the
+/// safety copy.
 /// Confirming uses up the held copy, whatever the outcome; the store reopens the
 /// restored history when next used.
 async fn restore_into(
     session: &Session,
     restore: &Restore,
     database: &Database,
-    time: &str,
+    now: chrono::NaiveDateTime,
 ) -> Result<Restored, Failure> {
     let (held, _confirming) = restore.take().ok_or(Failure::RestoreFailed)?;
     let copy = held.copy.clone();
     let refused = if session.importing() {
         Err(Failure::ImportUnderWay)
     } else {
-        safety_name(time)
+        Ok(safety_name(now))
     };
     let restored = match refused {
         Ok(safety) => database
@@ -1005,7 +995,13 @@ mod tests {
     fn safety() -> PathBuf {
         folder().join("history-before-restore-20261020-143000.sqlite")
     }
-    const TIME: &str = "2026-10-20T14:30:00";
+    /// The local time a restore is confirmed at in the tests.
+    fn time() -> chrono::NaiveDateTime {
+        chrono::NaiveDate::from_ymd_opt(2026, 10, 20)
+            .unwrap()
+            .and_hms_opt(14, 30, 0)
+            .unwrap()
+    }
     const CURRENT: &[u8] = b"the current history";
     /// A data folder with the history, the held copy and the files given.
     fn data(extra: &[(PathBuf, &[u8])]) -> Files {
@@ -1076,7 +1072,12 @@ mod tests {
         // Confirming keeps the history unread, exactly as it is, then puts the
         // backup in its place.
         filesystem::install(data(&[]));
-        let outcome = run(restore_into(&Session::default(), &restore, &failed(), TIME));
+        let outcome = run(restore_into(
+            &Session::default(),
+            &restore,
+            &failed(),
+            time(),
+        ));
         assert_eq!(
             outcome,
             Ok(restored(Some(
@@ -1105,7 +1106,12 @@ mod tests {
             let restore = Restore::default();
             holding_shown(&restore, shown);
             assert_eq!(
-                run(restore_into(&Session::default(), &restore, &database, TIME)),
+                run(restore_into(
+                    &Session::default(),
+                    &restore,
+                    &database,
+                    time()
+                )),
                 Err(Failure::RestoreChanged)
             );
             sql::finish();
@@ -1117,7 +1123,7 @@ mod tests {
     }
 
     fn restore_now(session: &Session, restore: &Restore) -> Result<Restored, Failure> {
-        run(restore_into(session, restore, &database(), TIME))
+        run(restore_into(session, restore, &database(), time()))
     }
     fn restored(safety_copy: Option<&str>) -> Restored {
         Restored {
@@ -1279,7 +1285,7 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_replaced_while_importing_without_a_held_copy_or_at_an_unreal_time() {
+    fn nothing_is_replaced_while_importing_or_without_a_held_copy_or_a_data_folder() {
         // A held import refuses the restore and uses up the held copy.
         filesystem::install(data(&[]));
         sql::expect(vec![]);
@@ -1298,34 +1304,6 @@ mod tests {
             restore_now(&Session::default(), &restore),
             Err(Failure::RestoreFailed)
         );
-        // The time names the safety copy, so it must be a real one, exactly so.
-        for time in [
-            "",
-            "2026-10-20 14:30:00",
-            "2026-02-30T14:30:00",
-            "2026-10-20T24:00:00",
-            "2026-10-20T14:30",
-            "2026-10-20T14:30:00Z",
-        ] {
-            filesystem::install(data(&[]));
-            holding_copy(&restore, contents(1));
-            assert_eq!(
-                run(restore_into(
-                    &Session::default(),
-                    &restore,
-                    &database(),
-                    time
-                )),
-                Err(Failure::InvalidRequest),
-                "{time}"
-            );
-            assert_eq!(holding(&restore), None);
-        }
-        sql::finish();
-        filesystem::inspect(|state| {
-            assert_eq!(state.files.len(), 1);
-            assert_eq!(state.files[&history()], CURRENT);
-        });
         // Without a data folder nothing is read.
         filesystem::install(data(&[]));
         holding_copy(&restore, contents(1));
@@ -1334,7 +1312,7 @@ mod tests {
                 &Session::default(),
                 &restore,
                 &Database::new(None),
-                TIME
+                time()
             )),
             Err(Failure::Storage)
         );
