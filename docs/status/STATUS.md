@@ -54,7 +54,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Release gated on the check run (2026-10-25)
 
-`ci/release-gate-on-check-run`: a release asks whether the check workflow passed on its commit, instead of keeping its own list of the checks' names; under way.
+`ci/release-gate-on-check-run`: a release kept its own list of the five check jobs' names, which a test kept in step, and filtered out check runs not made by GitHub Actions. It now asks for the check workflow's latest push run on the commit (`gh run list`, needing `actions: read` instead of `checks: read`), whose result covers every job and which only Actions can make; a failed publish now stops a release too. Red first: a test runs the gate's real script against a stand-in `gh` for a passed, failed, cancelled, unfinished and missing run; a wrong condition, a missing push filter, a missing `exit 1` or the old permission each fail it. The gate first runs for real at the next release.
 
 ## Known limitations
 
