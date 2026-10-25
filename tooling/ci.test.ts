@@ -104,7 +104,7 @@ function expectInOrder(steps: Step[], ...each: Step[]) {
 /** The permissions listed one by one; none for a blanket grant or a bare `permissions:`. */
 const listed = (permissions: Permissions | undefined) =>
   typeof permissions === 'object' && permissions !== null ? permissions : {}
-const requiredChecks = () =>
+const checksGate = () =>
   named(release.jobs.prepare.steps, 'Require the checks to have passed on this commit')
 /** Each string in a workflow, with its path, to find where an expression is used. */
 function* strings(value: unknown, path: string): Generator<[string, string]> {
@@ -615,31 +615,36 @@ test('a release starts only by hand, from main, once every check has passed on i
   expect(fromMain.run).toContain('exit 1')
   // It reads the check workflow's runs, and nothing else about the checks.
   expect(prepare.permissions).toEqual({ contents: 'read', actions: 'read' })
-  expect(requiredChecks().env).toEqual({ GH_TOKEN: '${{ github.token }}' })
+  expect(checksGate().env).toEqual({ GH_TOKEN: '${{ github.token }}' })
 })
 
 /**
  * Run the release's checks gate with a stand-in gh, which prints `conclusion` as
- * gh would for the latest check run on the commit, or nothing for none. Returns its
- * exit status, what it printed and the arguments gh was given.
+ * gh would for the check workflow's latest run on the commit, or nothing for none,
+ * or fails as gh does when it can't ask. Returns its exit status, what it printed and
+ * the arguments gh was given.
  */
-function gateOn(conclusion: string | undefined) {
+function gateOn(conclusion: string | undefined, ghFails = false) {
   const dir = mkdtempSync(join(tmpdir(), 'gate-'))
   writeFileSync(
     join(dir, 'gh'),
-    ['#!/usr/bin/env bash', 'printf "%s\\n" "$@" > "$STUB/args"', 'printf "%s" "$CONCLUSION"'].join(
-      '\n',
-    ),
+    [
+      '#!/usr/bin/env bash',
+      'printf "%s\\n" "$@" > "$STUB/args"',
+      'if [[ -n $GH_FAILS ]]; then echo "HTTP 403: Resource not accessible" >&2; exit 1; fi',
+      'printf "%s" "$CONCLUSION"',
+    ].join('\n'),
     { mode: 0o755 },
   )
   const run = spawnSync(
     'bash',
-    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', requiredChecks().run!],
+    ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', checksGate().run!],
     {
       env: {
         PATH: `${dir}:${process.env.PATH}`,
         STUB: dir,
         CONCLUSION: conclusion === undefined ? '' : `${conclusion}\n`,
+        GH_FAILS: ghFails ? '1' : '',
         GITHUB_REPOSITORY: 'owner/repo',
         GITHUB_SHA: 'abc123',
       },
@@ -651,8 +656,7 @@ function gateOn(conclusion: string | undefined) {
 }
 
 test('a release goes ahead only once the check workflow has passed on its commit', () => {
-  // The check workflow's latest run for the push to main: its result covers every job
-  // in it, so no list of checks needs keeping in step, and only GitHub Actions makes runs.
+  // The check workflow's latest push run, as the step's comment explains.
   const passed = gateOn('success')
   expect(passed.status).toBe(0)
   expect(passed.args).toEqual([
@@ -687,6 +691,8 @@ test('a release goes ahead only once the check workflow has passed on its commit
       `::error::The checks have not passed on abc123 (${reason})\n`,
     )
   }
+  // If gh can't ask, say for want of a permission, the release stops too.
+  expect(gateOn('success', true).status).not.toBe(0)
 })
 
 test('a release’s version and notes come from the commits or the inputs, which never reach a script', () => {

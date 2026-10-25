@@ -322,7 +322,8 @@ release with it attached, unless a release or draft for that tag already
 exists. Only that last job can write to the repository, and
 its inputs reach scripts only through environment variables;
 `tooling/ci.test.ts` checks all of this, running the gate's script against a
-stand-in `gh` for a passed, failed, unfinished and missing run.
+stand-in `gh` for a passed, failed, cancelled, unfinished and missing run, and
+for `gh` failing.
 
 Each Linux job ends by writing one summary for its run, even after a failure
 (`npm run ci:summary`, from `tooling/job-summary.ts`): its name and result, what

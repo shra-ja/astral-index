@@ -41,8 +41,9 @@ jobs:
             echo "::error::Releases are made from main, not $GITHUB_REF"
             exit 1
           fi
-      # The check workflow's latest run for the push to main: its result covers every
-      # job in it, so no list of checks is kept here, and only GitHub Actions makes runs.
+      # The check workflow's latest run for the push to main. Its result covers every
+      # job in it, publishing included, and unlike check runs, only GitHub Actions can
+      # create workflow runs, so no other app can report a pass.
       - name: Require the checks to have passed on this commit
         env:
           GH_TOKEN: ${{ github.token }}
