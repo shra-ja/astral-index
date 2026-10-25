@@ -1,7 +1,8 @@
 name: Set up the Windows jobs
 description: >-
   Installs Node and the Rust nightly named in .tool-versions and the locked
-  dependencies, restoring the caches main saved. Needs Git Bash as the shell.
+  dependencies, restoring the caches main saved, and makes Git Bash npm's script
+  shell for the rest of the job.
 inputs:
   rust-cache:
     description: The Rust cache to share; jobs that build the same way share one.
@@ -15,6 +16,12 @@ inputs:
 runs:
   using: composite
   steps:
+    # npm runs scripts through cmd.exe on Windows, which splits the quoted arguments
+    # the package scripts use; Git Bash reads them as on Linux. Set first, it holds
+    # for every later step of the job.
+    - name: Run npm's scripts through Git Bash
+      shell: bash
+      run: echo 'npm_config_script_shell=C:\Program Files\Git\bin\bash.exe' >> "$GITHUB_ENV"
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version-file: .tool-versions

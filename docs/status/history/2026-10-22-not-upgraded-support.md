@@ -44,3 +44,9 @@ Integrated through PR #141.
 Integrated through PR #142.
 
 `refactor/icon-tile`: the 44px icon tile repeated by `ActionCard`, `FailureSummary` and `HistoryFailed` is one `IconTile` with a neutral, accent or error tone, hidden from screen readers. From the review, it takes the icon itself and draws it at the tile's size, so the six cards passing an icon no longer each repeat that size; `ActionCard`'s icon slot is now a prop. `ImportSaved`'s 56px round badge stays its own. Red first: the tile's test, then the three cards' tests asking for it; no visual change.
+
+## CI tests that parse the workflows (2026-10-24)
+
+Integrated through PR #143.
+
+`test/parse-ci-workflows`: `tooling/ci.test.ts` reads the workflows and actions with the `yaml` package (2.9.1, a new dev dependency with none of its own) and checks what each job and step does: conditions, inputs, cache keys, step order and which job runs what, finding steps by name, action or command. The redundant `always()` survived because the old tests matched exact text, so a cleanup failed them while a leftover with the same meaning passed. Evidence: an `always()` or a hand check of needed jobs' results on the publish job, `delete-merged`, a quoted boolean and an `always()` on the build step each fail the new tests; a block-style `needs` list, a folded `if` and quoted strings pass them, while each failed the old tests. Text is still read only for the pinned actions' version comments and for things that must appear nowhere. From the reviews: the release upload's path is checked again (the rewrite had dropped it), every use of a pin needs its own `# v<digit>` comment, inputs are traced through the whole release workflow in any form, every setup input's boolean must be unquoted, the status-function rule catches hyphenated job names, and two new checks refuse `continue-on-error` and `write-all`/`read-all` permissions; each was confirmed by breaking it.
