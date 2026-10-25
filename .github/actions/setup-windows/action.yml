@@ -45,7 +45,6 @@ runs:
       with:
         workspaces: src-tauri -> target
         shared-key: ${{ inputs.rust-cache }}
-        key: ${{ hashFiles('.tool-versions', '.github/actions/setup-windows/action.yml') }}
         cache-bin: true
         cache-workspace-crates: false
         # Pull requests restore main's caches; only main saves.

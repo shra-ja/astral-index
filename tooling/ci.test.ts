@@ -201,17 +201,16 @@ test('the gates and probes share one instrumented Rust cache; the static checks 
 
 test('only main saves caches, which pull requests restore, keyed by toolchain and lockfiles', () => {
   // v2.9.2 is the first release that keeps hyphenated crates under Cargo's new
-  // build-dir layout. Tool versions live in the setup actions, so changing them
-  // invalidates the cache.
-  for (const [setup, file] of [
-    [linuxSetup, files.linuxSetup],
-    [windowsSetup, files.windowsSetup],
-  ] as const) {
+  // build-dir layout. The cache keys itself on the job's name for it, the Rust
+  // version, Cargo's environment and the lockfiles; beside `shared-key` it ignores a
+  // `key`, so none is given. A pinned tool's new version replaces the cached one
+  // on install, and is saved once the lockfile or toolchain next changes.
+  for (const setup of [linuxSetup, windowsSetup]) {
     const rust = using(setup.runs.steps, 'Swatinem/rust-cache@')
     expect(rust.uses).toBe('Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6')
-    expect(rust.with).toMatchObject({
+    expect(rust.with).toEqual({
       workspaces: 'src-tauri -> target',
-      key: `\${{ hashFiles('.tool-versions', '${file}') }}`,
+      'shared-key': '${{ inputs.rust-cache }}',
       'cache-bin': true,
       'cache-workspace-crates': false,
       'save-if': "${{ inputs.save-rust-cache == 'true' && github.ref == 'refs/heads/main' }}",

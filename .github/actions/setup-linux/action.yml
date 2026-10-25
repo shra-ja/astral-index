@@ -1,8 +1,7 @@
 name: Set up the Linux checks
 description: >-
   Installs the OS packages, the pinned toolchains from .tool-versions and the
-  locked dependencies, restoring the caches main saved. Tool versions live here, so
-  changing them invalidates the Rust cache.
+  locked dependencies, restoring the caches main saved.
 inputs:
   rust-cache:
     description: The Rust cache to share; jobs that build the same way share one.
@@ -93,7 +92,6 @@ runs:
       with:
         workspaces: src-tauri -> target
         shared-key: ${{ inputs.rust-cache }}
-        key: ${{ hashFiles('.tool-versions', '.github/actions/setup-linux/action.yml') }}
         cache-bin: true
         cache-workspace-crates: false
         # Pull requests restore main's caches; only main saves, so the repository's
