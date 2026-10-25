@@ -1,8 +1,8 @@
 // Restoring a backup: the native side asks which file, copies it into the data
 // folder and checks it there, then holds it while the confirmation compares it with
 // the current history (decision 0031). Confirming replaces the history, keeping it
-// as a safety copy first; only the local time leaves the webview, to name that
-// copy, and nothing is fetched. The Backup & Restore screen owns it: leaving the
+// as a safety copy first, which the native side names from the local time; nothing
+// is fetched. The Backup & Restore screen owns it: leaving the
 // screen ends the restore.
 import { getCurrentScope, onScopeDispose, readonly, shallowRef } from 'vue'
 import { cancelRestore, chooseRestore, confirmRestore, type CheckedBackup } from '../commands'
