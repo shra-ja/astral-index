@@ -350,20 +350,20 @@ test('the data folder and issues page open with no arguments, failing by kind al
   expect(await openIssuesPage()).toEqual({ kind: 'open_failed' })
 })
 
-test('a backup sends only the day’s date, and gets back the file’s name or a cancellation', async () => {
+test('a backup sends nothing, and gets back the file’s name or a cancellation', async () => {
   const calls: [string, unknown][] = []
   mockIPC((cmd, args) => {
     calls.push([cmd, args])
     return { kind: 'saved', name: 'Astral-Index-backup-2026-10-16.sqlite' }
   })
-  expect(await saveBackup('2026-10-16')).toEqual({
+  expect(await saveBackup()).toEqual({
     saved: 'Astral-Index-backup-2026-10-16.sqlite',
   })
-  expect(calls).toEqual([['save_backup', { date: '2026-10-16' }]])
+  expect(calls).toEqual([['save_backup', {}]])
   mockIPC(() => ({ kind: 'cancelled' }))
-  expect(await saveBackup('2026-10-16')).toEqual({ cancelled: true })
+  expect(await saveBackup()).toEqual({ cancelled: true })
   mockIPC(() => reject({ kind: 'backup_failed' }))
-  expect(await saveBackup('2026-10-16')).toEqual({ failure: { kind: 'backup_failed' } })
+  expect(await saveBackup()).toEqual({ failure: { kind: 'backup_failed' } })
 })
 
 test('a refused restore says why, with one of the known reasons', async () => {
@@ -416,21 +416,21 @@ test('choosing a backup to restore returns its name and both histories, or a can
   expect(calls).toEqual(['cancel_restore'])
 })
 
-test('confirming a restore sends the local time and names the safety copy, if any', async () => {
+test('confirming a restore sends nothing and names the safety copy, if any', async () => {
   const calls: unknown[] = []
   mockIPC((cmd, args) => {
     calls.push([cmd, args])
     return { safety_copy: 'history-before-restore-20261020-143000.sqlite' }
   })
-  expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({
+  expect(await confirmRestore()).toEqual({
     safetyCopy: 'history-before-restore-20261020-143000.sqlite',
   })
-  expect(calls).toEqual([['confirm_restore', { time: '2026-10-20T14:30:00' }]])
+  expect(calls).toEqual([['confirm_restore', {}]])
   // An empty history keeps no safety copy.
   mockIPC(() => ({ safety_copy: null }))
-  expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({ safetyCopy: null })
+  expect(await confirmRestore()).toEqual({ safetyCopy: null })
   mockIPC(() => reject({ kind: 'restore_changed' }))
-  expect(await confirmRestore('2026-10-20T14:30:00')).toEqual({
+  expect(await confirmRestore()).toEqual({
     failure: { kind: 'restore_changed' },
   })
 })

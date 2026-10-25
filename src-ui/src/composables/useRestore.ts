@@ -6,7 +6,6 @@
 // screen ends the restore.
 import { getCurrentScope, onScopeDispose, readonly, shallowRef } from 'vue'
 import { cancelRestore, chooseRestore, confirmRestore, type CheckedBackup } from '../commands'
-import { localTime } from '../format'
 import { replaceFailure, restoreFailure } from '../messages'
 import { forgetAccountChoices } from './useHistory'
 
@@ -19,19 +18,13 @@ export type RestoreOutcome =
 export type Restored = Extract<RestoreOutcome, { kind: 'restored' }>
 
 export interface RestoreOptions {
-  /** The clock that names the safety copy. */
-  now?: () => Date
   /** How a restore made elsewhere went, for the Restore card to show. */
   initial?: RestoreOutcome | null
   /** Told of every restore that replaced the history. */
   onRestored?: (restored: Restored) => void
 }
 
-export function useRestore({
-  now = () => new Date(),
-  initial = null,
-  onRestored,
-}: RestoreOptions = {}) {
+export function useRestore({ initial = null, onRestored }: RestoreOptions = {}) {
   // While a backup is being chosen and checked.
   const checking = shallowRef(false)
   // The checked backup the confirmation shows, while it is held.
@@ -70,7 +63,7 @@ export function useRestore({
     const held = checked.value
     if (!held || restoring.value) return
     restoring.value = true
-    const result = await confirmRestore(localTime(now()))
+    const result = await confirmRestore()
     restoring.value = false
     checked.value = null
     if ('failure' in result) {
