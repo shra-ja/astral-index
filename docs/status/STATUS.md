@@ -54,7 +54,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Pinned asdf plugins (2026-10-25)
 
-`ci/pin-asdf-plugins`: CI's asdf plugins for Node and Rust, cloned at their default branch on every run, pinned to a commit; under way.
+`ci/pin-asdf-plugins`: the asdf action cloned the Node and Rust plugins at their default branches on every run, and the Node plugin cloned and updated node-build from its own, so third-party scripts ran unpinned in main's jobs, whose caches every branch restores. asdf is now set up first and each is cloned into asdf's plugin folder at a pinned commit (node-build at v5.4.58, the newest at least two weeks old); the install action keeps them, with node-build's update switched off. (`asdf plugin update <sha>` can't do this: asdf clones plugins one commit deep and fetches the ref as a branch.) Red first: a test runs the step's script with a stand-in git, deriving the plugins from `.tool-versions`; removing the checkout, the update switch, the setup step or a plugin fails it. Checked for real in a throwaway asdf folder: asdf lists both plugins at their commits and the pinned node-build knows Node 26.10.0. Also: the tooling tests' config imports its outputs with the extension Node needs, ending a warning on every run.
 
 ## Known limitations
 

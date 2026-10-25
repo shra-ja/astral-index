@@ -357,7 +357,10 @@ every invocation. Some details matter:
   outside the cache, in the install action's own folder, and are fetched each
   run.
 - Every action is pinned to a commit, and updated by hand to releases at least
-  two weeks old.
+  two weeks old. So are the asdf plugins for Node and Rust, and the node-build
+  the Node plugin uses: the Linux setup clones each into asdf's plugin folder at
+  its commit before asdf installs, and stops the Node plugin updating
+  node-build.
 
 Compare cold and warm hosted runs before claiming a speedup.
 
