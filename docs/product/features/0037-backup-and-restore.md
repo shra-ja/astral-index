@@ -1,6 +1,6 @@
 # 0037 — Backup and restore
 
-Status: In progress · Milestone 11, Backup, restore and file import
+Status: Done · Milestone 11, Backup, restore and file import
 
 A backup file holding the whole history, which a fresh profile can restore,
 on a new **Backup & Restore** screen in the sidebar
@@ -112,7 +112,7 @@ Backup and restore stay local and never make a network request.
     filesystem fake records every write; About's backup advice points here.
     The Backup card and the Import screen's source cards share their styles,
     to be extracted into one card component when the Restore card arrives.
-- [ ] **Restore, checking and preview** (one PR). Choosing a backup, checking
+- [x] **Restore, checking and preview** (one PR). Choosing a backup, checking
   it as untrusted input and showing what it holds, without changing anything:
   - [x] Extract one card component from the Import screen's source cards and
     the Backup card, which share their markup and styles, with no change in
@@ -387,7 +387,7 @@ Backup and restore stay local and never make a network request.
     `invalid_request` stays for history requests. Test first: the stamp's tests,
     then backup's and restore's against a fixed time, the commands over IPC with
     no arguments, and the frontend sending none.
-- [ ] **Verification** (one PR, with the user's Windows check):
+- [x] **Verification** (one PR, with the user's Windows check):
   - [x] A round trip through a fresh profile: back up, restore into a new data
     folder, and find the same accounts, rolls and imports.
   - [x] The 1.0.0 fixture restored as a backup.
@@ -403,9 +403,15 @@ Backup and restore stay local and never make a network request.
     The tests cover existing behaviour, so they passed on their first run;
     each failed when restore was changed to never put its checked copy in
     place.
-  - [ ] The user checks the release executable on Windows: the real save and
+  - [x] The user checks the release executable on Windows: the real save and
     open dialogs, a backup to another folder or drive, a restore into a fresh
     profile, portable mode and the data-folder refusal, and the Import screen's
     cache file dialog ([decision 0034](../../architecture/decisions/0034-native-cache-file-dialog.md)):
     choosing a file, cancelling, and where keyboard focus lands afterwards; the
     result is recorded here and in STATUS.
+  - On 2026-10-26 the user checked the dev build of `3487c09` on Windows, and
+    every item worked. Cancelling the cache file dialog leaves focus on
+    Choose cache file…, as one Tab reaches the next control, the file card's
+    unavailable Choose file…. Choosing a file opens the progress, whose Cancel
+    takes focus; one Tab from it, the screen's last control, wraps to the
+    sidebar's first, the Honkai: Star Rail button.
