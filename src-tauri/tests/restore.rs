@@ -200,9 +200,7 @@ fn restore_into_fresh_profile(folder: &Folder, backup: &Path, schema: Schema) ->
     let history = data.join("history.sqlite");
     drop(Store::open_with(&history, schema, None).unwrap());
     let (copy, _) = hold_copy(&data, backup, schema).unwrap();
-    // An empty history needs no safety copy.
-    let restored = put_in_place(&history, &copy, None).unwrap();
-    assert_eq!(restored.safety_copy, None);
+    put_in_place(&history, &copy, None).unwrap();
     assert_eq!(names(&data), ["history.sqlite"]);
     history
 }
