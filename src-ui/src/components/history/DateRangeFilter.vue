@@ -2,8 +2,7 @@
 // Presentational: the rolls panel's date filter, a button naming the days shown
 // that opens a popover of quick ranges and From and To fields. Every change is
 // emitted at once; Done, Escape, a press outside or Tab out close it.
-// Floating UI's `offset` is renamed, as `offset` here is the server's time offset.
-import { autoUpdate, flip, offset as gap, shift, useFloating } from '@floating-ui/vue'
+import { autoUpdate, flip, hide, offset, shift, useFloating } from '@floating-ui/vue'
 import { CalendarDays } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from 'vue'
 import { dateRangeLabel, quickRanges, type DateRange } from '../../format'
@@ -14,7 +13,7 @@ const props = defineProps<{
   /** Today's server date, which quick ranges count back from. */
   today: string
   /** The server's offset, such as "UTC+8", or "server time" when unknown. */
-  offset: string
+  serverOffset: string
   /** The saved rolls' period, when there are any. */
   span?: string
 }>()
@@ -28,10 +27,10 @@ const ranges = useTemplateRef<HTMLButtonElement[]>('ranges')
 const popover = useTemplateRef('popover')
 // Fixed to the window, so the rolls panel's clipped corners never cut it off; it
 // follows the button while shown and opens above it when there is no room below.
-const { floatingStyles } = useFloating(toggle, popover, {
+const { floatingStyles, middlewareData } = useFloating(toggle, popover, {
   placement: 'bottom-start',
   strategy: 'fixed',
-  middleware: [gap(8), flip(), shift({ padding: 8 })],
+  middleware: [offset(8), flip(), shift({ padding: 8 }), hide()],
   whileElementsMounted: autoUpdate,
 })
 
@@ -43,7 +42,8 @@ const quick = computed(() =>
   })),
 )
 const note = computed(() => {
-  const zone = props.offset === 'server time' ? 'Server time.' : `Server time (${props.offset}).`
+  const zone =
+    props.serverOffset === 'server time' ? 'Server time.' : `Server time (${props.serverOffset}).`
   return props.span ? `${zone} Saved rolls span ${props.span}.` : zone
 })
 
@@ -76,6 +76,14 @@ function onFocusOut(event: FocusEvent) {
 function onOutside(event: Event) {
   if (!event.composedPath().some((target) => target === root.value)) close(false)
 }
+// The screen scrolling the button out of view closes it too, rather than leave it
+// floating over the header with nothing to point at.
+watch(
+  () => middlewareData.value.hide?.referenceHidden,
+  (hidden) => {
+    if (hidden) close(false)
+  },
+)
 watch(open, (now) => {
   if (now) document.addEventListener('pointerdown', onOutside, true)
   else document.removeEventListener('pointerdown', onOutside, true)
