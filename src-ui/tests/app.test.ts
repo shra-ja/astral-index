@@ -45,6 +45,7 @@ beforeEach(async () => {
 afterEach(() => {
   clearMocks()
   vi.unstubAllEnvs()
+  vi.useRealTimers()
 })
 
 const sidebar = () => document.querySelector<HTMLElement>('nav[aria-label="Main"]')!
@@ -618,6 +619,10 @@ test('searching item names narrows the list once typing pauses, keeping roll num
 })
 
 test('choosing days in the date popover reads only rolls on and after them', async () => {
+  // A fixed today, on which 28 Sep starts no quick range, as on 27 Oct it starts the
+  // last 30 days. Only the date is fixed; timers still run.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-16T12:00:00Z'))
   const { reads } = await openHistory(savedHistory)
   const dates = main().querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!
   expect(dates.textContent?.trim()).toBe('All dates')
