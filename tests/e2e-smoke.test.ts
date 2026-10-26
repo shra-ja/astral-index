@@ -7,7 +7,7 @@ import {
   mkdirSync,
   existsSync,
 } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
@@ -56,6 +56,21 @@ const environment = (extra: NodeJS.ProcessEnv = {}) => ({
 const textOf = (app: AppSession, selector: string) =>
   app.execute<string | undefined>(`return document.querySelector("${selector}")?.textContent`)
 const heading = (app: AppSession) => textOf(app, 'h1')
+/** Open Backup & Restore from the sidebar. */
+const toBackup = async (app: AppSession) => {
+  await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+  await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+}
+/** The History screen's account switcher's name, which names the current account. */
+const switcherLabel = (app: AppSession) =>
+  app.execute<string | null>(
+    'return document.querySelector("button[aria-haspopup=menu]")?.getAttribute("aria-label")',
+  )
+/** Each account in the open account menu: its UID, server and roll count. */
+const accountMenu = (app: AppSession) =>
+  app.execute<string[][]>(
+    'return [...document.querySelectorAll("[role=menuitemradio]")].map((item) => [".uid", ".server", ".rolls"].map((part) => item.querySelector(part).textContent))',
+  )
 /** The tooltip of the element matching `selector`: its text, whether it shows, and where. */
 const tooltipFor = (app: AppSession, selector: string) =>
   app.execute<{ text: string; shown: boolean; inWindow: boolean; overlaps: boolean }>(`
@@ -299,6 +314,14 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
 // flow runs with no network. Its history goes to its own folder in a data home that
 // starts fresh, unless `keep` relaunches it on the data saved so far, as a restart.
 const mockData = resolve(results, 'mock-data')
+/** 1.0.0's database, frozen once committed (decision 0029). */
+const history100 = resolve(
+  import.meta.dirname,
+  '../src-tauri/tests/fixtures/storage/history-1.0.0.sqlite',
+)
+/** The databases in a folder, held copies of a restore included. */
+const databaseFiles = (folder: string) =>
+  readdirSync(folder).filter((name) => name.endsWith('.sqlite') || name.endsWith('.partial'))
 async function launchMock(
   scenario: string,
   { env = {}, keep = false }: { env?: NodeJS.ProcessEnv; keep?: boolean } = {},
@@ -561,8 +584,7 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
     await expect.poll(() => textOf(app, '.review h2'), { timeout: 30000 }).toMatch(/^Ready to save/)
     await click(app, '.review', 'Save 2,060 rolls')
     await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
-    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
-    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    await toBackup(app)
     // The screen is app-wide (decision 0033): its address and the sidebar name no game.
     expect(await app.execute('return location.hash')).toBe('#/backup')
     expect(
@@ -628,8 +650,7 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
     await click(app, 'dialog.leave-restore', 'Leave')
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
     await expect.poll(() => existsSync(held), { timeout: 5000 }).toBe(false)
-    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
-    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    await toBackup(app)
     // A file that isn't a backup is refused, and nothing is left in the data folder.
     const notes = resolve(results, 'e2e-not-a-backup.sqlite')
     writeFileSync(notes, 'not a database, just some text that is long enough')
@@ -663,10 +684,6 @@ test('Restore replaces the history with a backup, keeping the history as a safet
   const folder = resolve(mockData, 'astral-index-mock')
   const restoreStatus = "#restore-title ~ .actions [role='status']"
   const firstTab = "[aria-label='Category summary'] .tile .value"
-  const toBackup = async (app: AppSession) => {
-    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
-    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
-  }
   let removed = 0
   let safety = ''
   await withMock('history', {}, async (app) => {
@@ -758,9 +775,7 @@ test('Restore replaces the history with a backup, keeping the history as a safet
   })
   // The data folder holds the history restored from the first safety copy, that copy
   // unchanged, and the second restore's safety copy, and nothing else.
-  const saved = readdirSync(folder).filter(
-    (name) => name.endsWith('.sqlite') || name.endsWith('.partial'),
-  )
+  const saved = databaseFiles(folder)
   const second = saved.find(
     (name) => name.startsWith('history-before-restore-') && name !== safety,
   )!
@@ -785,12 +800,8 @@ test('an older history the mock cannot upgrade is copied first, left as it was a
   mkdirSync(folder, { recursive: true })
   // 1.0.0's history holds two accounts on one server, which the mock's test-only
   // migration refuses.
-  const fixture = resolve(
-    import.meta.dirname,
-    '../src-tauri/tests/fixtures/storage/history-1.0.0.sqlite',
-  )
-  copyFileSync(fixture, resolve(folder, 'history.sqlite'))
-  const original = readFileSync(fixture)
+  copyFileSync(history100, resolve(folder, 'history.sqlite'))
+  const original = readFileSync(history100)
   // Ready resolves; a history that can't be used rejects with the failure.
   const status = (app: AppSession) =>
     app.executeAsync<{ kind: string; code?: string | null } | null>(
@@ -816,18 +827,14 @@ test('a history the mock can’t upgrade opens History Unavailable, and a restor
   const folder = resolve(mockData, 'astral-index-mock')
   rmSync(mockData, { recursive: true, force: true })
   mkdirSync(folder, { recursive: true })
-  const fixture = resolve(
-    import.meta.dirname,
-    '../src-tauri/tests/fixtures/storage/history-1.0.0.sqlite',
-  )
-  copyFileSync(fixture, resolve(folder, 'history.sqlite'))
+  copyFileSync(history100, resolve(folder, 'history.sqlite'))
   // A backup of that history without its second account on Asia, so one account per
   // server: the mock's test-only migration takes it.
   const backups = resolve(results, 'e2e-unavailable')
   rmSync(backups, { recursive: true, force: true })
   mkdirSync(backups, { recursive: true })
   const backup = resolve(backups, 'one-per-server.sqlite')
-  copyFileSync(fixture, backup)
+  copyFileSync(history100, backup)
   const trimmed = new DatabaseSync(backup)
   try {
     for (const table of ['rolls', 'batches', 'accounts']) {
@@ -869,13 +876,83 @@ test('a history the mock can’t upgrade opens History Unavailable, and a restor
   })
   // The data folder holds the restored history, the copy kept before the failed
   // upgrade, and the unread history kept as it was, byte for byte.
-  const original = readFileSync(fixture)
+  const original = readFileSync(history100)
   const names = readdirSync(folder).filter((name) => name.endsWith('.sqlite'))
   const copy = names.find((name) => name.startsWith('history-v2-'))!
   const safety = names.find((name) => name.startsWith('history-before-restore-'))!
   expect(names.toSorted()).toEqual([copy, safety, 'history.sqlite'].toSorted())
   expect(readFileSync(resolve(folder, copy))).toEqual(original)
   expect(readFileSync(resolve(folder, safety))).toEqual(original)
+  rmSync(backups, { recursive: true, force: true })
+}, 120000)
+
+test('1.0.0’s history restores into a fresh profile, and a backup of it into another, with the same accounts, rolls and imports', async () => {
+  const original = readFileSync(history100)
+  const backups = resolve(results, 'e2e-fresh-profile')
+  rmSync(backups, { recursive: true, force: true })
+  mkdirSync(backups, { recursive: true })
+  const backup = resolve(backups, 'round-trip.sqlite')
+  const folder = resolve(mockData, 'astral-index-mock')
+  // Every stored account, roll and import, row for row.
+  const tables = (path: string) => {
+    const database = new DatabaseSync(path, { readOnly: true })
+    try {
+      return ['accounts', 'batches', 'rolls'].map((table) =>
+        database.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+      )
+    } finally {
+      database.close()
+    }
+  }
+  // Restore `from` into the fresh profile's empty history, which needs no safety
+  // copy, then find its three accounts in the History screen's account menu.
+  const restoreIntoFreshProfile = async (app: AppSession, from: string) => {
+    await expect
+      .poll(() => textOf(app, '[role=status]'), { timeout: 10000 })
+      .toContain('No Warp History Yet')
+    await toBackup(app)
+    writeFileSync(resolve(folder, 'restore-from.txt'), `${from}\n`)
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(await textOf(app, 'main .footnote')).toBe('Restoring saves 22 rolls in 3 accounts.')
+    await click(app, 'main footer', 'Restore backup')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Backup & Restore')
+    expect(
+      (await textOf(app, "#restore-title ~ .actions [role='status']"))!.replace(/\s+/g, ' ').trim(),
+    ).toBe(`Restored ${basename(from)}.`)
+    await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
+    await expect
+      .poll(() => switcherLabel(app), { timeout: 10000 })
+      .toBe('Switch account. Current: UID 100000003, Asia server')
+    await app.execute('document.querySelector("button[aria-haspopup=menu]").focus()')
+    await app.press(DOWN)
+    await expect
+      .poll(() => accountMenu(app), { timeout: 10000 })
+      .toEqual([
+        ['100000003', 'Asia', '2 rolls'],
+        ['100000002', 'Asia', '17 rolls'],
+        ['100000002', 'America', '3 rolls'],
+      ])
+    await app.press(ESCAPE)
+  }
+  await withMock('history', {}, async (app) => {
+    await restoreIntoFreshProfile(app, history100)
+    await toBackup(app)
+    writeFileSync(resolve(folder, 'save-as.txt'), `${backup}\n`)
+    await click(app, 'main', 'Save backup…')
+    await expect
+      .poll(() => textOf(app, "main [role='status']"), { timeout: 10000 })
+      .toContain('Saved round-trip.sqlite')
+  })
+  expect(databaseFiles(folder)).toEqual(['history.sqlite'])
+  expect(tables(resolve(folder, 'history.sqlite'))).toEqual(tables(history100))
+  // Another fresh profile, as on a new device, restores the backup.
+  await withMock('history', {}, async (app) => {
+    await restoreIntoFreshProfile(app, backup)
+  })
+  expect(databaseFiles(folder)).toEqual(['history.sqlite'])
+  expect(tables(resolve(folder, 'history.sqlite'))).toEqual(tables(history100))
+  expect(readFileSync(history100)).toEqual(original)
   rmSync(backups, { recursive: true, force: true })
 }, 120000)
 
@@ -1278,7 +1355,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       `const box = document.querySelector('input[type="search"]'); box.value = ''; box.dispatchEvent(new Event('input'))`,
     )
     // With the keyboard, the date button opens its popover at All dates; choosing
-    // 7 Sep onwards keeps only that day's 5★ and 4★ rolls, and Escape closes it.
+    // 7 Sep to 7 Sep keeps only that day's 5★ and 4★ rolls, and Escape closes it. A
+    // closed range, as every quick range is open, so its name never depends on today.
     await app.execute('document.querySelector(\'main button[aria-haspopup="dialog"]\').focus()')
     await app.press(ENTER)
     await expect
@@ -1306,9 +1384,18 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       ['Clear', 32],
       ['Done', 32],
     ])
-    await app.execute(
-      `const from = [...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === 'From').querySelector('input'); from.value = '2026-09-07'; from.dispatchEvent(new Event('change'))`,
-    )
+    const dayField = (label: string) =>
+      `[...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === '${label}').querySelector('input')`
+    const chooseDay = (label: string, day: string) =>
+      app.execute(
+        `const field = ${dayField(label)}; field.value = '${day}'; field.dispatchEvent(new Event('change'))`,
+      )
+    // Each field sends the other's day with its own, so To waits for From to reach it.
+    await chooseDay('From', '2026-09-07')
+    await expect
+      .poll(() => app.execute(`return ${dayField('To')}.min`), { timeout: 10000 })
+      .toBe('2026-09-07')
+    await chooseDay('To', '2026-09-07')
     await expect
       .poll(
         () =>
@@ -1323,7 +1410,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.press(ESCAPE)
     await expect
       .poll(() => textOf(app, "main button[aria-haspopup='dialog']"), { timeout: 10000 })
-      .toMatch(/^\s*From 7 Sep 2026\s*$/)
+      .toMatch(/^\s*7 Sep 2026 – 7 Sep 2026\s*$/)
     expect(await app.execute('return document.querySelector("[role=dialog]") === null')).toBe(true)
     expect(
       await app.execute(
@@ -1962,12 +2049,8 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     // saved its header switches between them.
     expect(await stored(app)).toEqual({ ...savedHistory, uid: '100000002' })
     await app.execute('document.querySelector("nav a[aria-label=\'Warp History\']").click()')
-    const switcherLabel = () =>
-      app.execute<string | null>(
-        'return document.querySelector("button[aria-haspopup=menu]")?.getAttribute("aria-label")',
-      )
     await expect
-      .poll(switcherLabel, { timeout: 10000 })
+      .poll(() => switcherLabel(app), { timeout: 10000 })
       .toBe('Switch account. Current: UID 100000002, America server')
     await app.screenshot('e2e-mock-second-account')
     // With the keyboard: open the menu at the current account, move to the other one
@@ -1975,13 +2058,7 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     await app.execute('document.querySelector("button[aria-haspopup=menu]").focus()')
     await app.press(DOWN)
     await expect
-      .poll(
-        () =>
-          app.execute<string[]>(
-            'return [...document.querySelectorAll("[role=menuitemradio]")].map((item) => [".uid", ".server", ".rolls"].map((part) => item.querySelector(part).textContent))',
-          ),
-        { timeout: 10000 },
-      )
+      .poll(() => accountMenu(app), { timeout: 10000 })
       .toEqual([
         ['100000002', 'America', '2,060 rolls'],
         ['100000001', 'Asia', '2,210 rolls'],
@@ -1990,7 +2067,7 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     await app.screenshot('e2e-mock-account-menu')
     await app.press(DOWN, ENTER)
     await expect
-      .poll(switcherLabel, { timeout: 10000 })
+      .poll(() => switcherLabel(app), { timeout: 10000 })
       .toBe('Switch account. Current: UID 100000001, Asia server')
     // Its own Character Event Warp rolls, including the 25 the quick refresh added.
     await expect

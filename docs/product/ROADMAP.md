@@ -169,7 +169,7 @@ documented formats.
 
 ### 11 — Backup, restore and file import
 
-- [ ] [0037 — Backup and restore](features/0037-backup-and-restore.md)
+- [x] [0037 — Backup and restore](features/0037-backup-and-restore.md)
 - [ ] [0030 — History-file import](features/0030-history-file-import.md)
 - [ ] [0055 — UIGF export](features/0055-uigf-export.md)
 
