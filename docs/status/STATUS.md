@@ -37,24 +37,21 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
   app version.
   On Windows, CI also runs the Rust unit tests and backup's and restore's
-  real-file tests, and smoke-tests the release
-  executable (decision 0029). A frozen 1.0.0 database shows each schema change
-  keeps saved history.
-- **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of the whole
-  history where the user chooses, never inside the data folder, and shows where
-  history is stored, as the About dialog does. Restore checks a chosen backup
-  as untrusted input, shows its accounts beside the current history's, and
-  replaces the history with it, keeping the old one as a safety copy, which can
-  itself be restored from the data folder.
+  real-file tests, and smoke-tests the release executable (decision 0029). A
+  frozen 1.0.0 database shows each schema change keeps saved history.
+- **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of
+  the whole history where the user chooses, never inside the data folder, and
+  shows where history is stored, as the About dialog does. Restore checks a
+  chosen backup as untrusted input, shows its accounts beside the current
+  history's, and replaces the history with it, keeping the old one as a safety
+  copy, which can itself be restored from the data folder. A fresh profile
+  restores a backup, 1.0.0's included, with the same history, as checked on
+  Windows on 2026-10-26.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
-
-### Backup and restore verification (2026-10-26)
-
-`test/backup-restore-verification`: 0037's Verification. `restore.rs` restores a backup of two accounts and three imports, and the 1.0.0 file under the app's schema and a later one, into a new data folder with the same accounts, rolls and imports. An end-to-end test restores the 1.0.0 file into the mock's fresh profile, backs it up and restores that into another fresh profile, with no safety copy and the 1.0.0 file's rows both times. The tests cover existing behaviour, so they passed on their first run; each failed when restore was changed to never put its copy in place. On Windows, the user checked the dev build of `3487c09`: the save and open dialogs, a backup to another folder or drive, a restore into a fresh profile, portable mode and the data-folder refusal, and the cache file dialog, where focus stays on its button after cancelling and moves to the progress's Cancel after choosing. 0037 is done.
 
 ## Known limitations
 
@@ -199,3 +196,6 @@ research, under a "From" heading.
   asdf plugins.
 - [2026-10-25: native times](history/2026-10-25-native-times.md): backup and
   restore reading the local time natively, with no date or time from the webview.
+- [2026-10-26: backup and restore verification](history/2026-10-26-backup-restore-verification.md):
+  restoring into fresh profiles, 1.0.0's history as a backup, and the Windows
+  check that finished 0037.
