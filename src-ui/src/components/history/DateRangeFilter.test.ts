@@ -150,5 +150,7 @@ test('the popover closes once the screen scrolls its button out of view', async 
   window.dispatchEvent(new Event('scroll'))
   await placed()
   expect(dialog().exists()).toBe(false)
+  // Focus returns to the button, keeping its place in the tab order.
+  expect(document.activeElement).toBe(toggle().element)
   expect(wrapper.emitted('change')).toBeUndefined()
 })

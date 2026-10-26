@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Presentational: the rolls panel's date filter, a button naming the days shown
 // that opens a popover of quick ranges and From and To fields. Every change is
-// emitted at once; Done, Escape, a press outside or Tab out close it.
+// emitted at once; Done, Escape, a press outside, Tab out or scrolling the button
+// out of view close it.
 import { autoUpdate, flip, hide, offset, shift, useFloating } from '@floating-ui/vue'
 import { CalendarDays } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from 'vue'
@@ -55,9 +56,10 @@ async function show() {
   ;(shown[quick.value.findIndex((range) => range.pressed)] ?? shown[0])?.focus()
 }
 
+// Returning focus never scrolls the screen, which a scroll-away close would undo.
 function close(refocus: boolean) {
   open.value = false
-  if (refocus) toggle.value?.focus()
+  if (refocus) toggle.value?.focus({ preventScroll: true })
 }
 
 function onKey(event: KeyboardEvent) {
@@ -77,11 +79,11 @@ function onOutside(event: Event) {
   if (!event.composedPath().some((target) => target === root.value)) close(false)
 }
 // The screen scrolling the button out of view closes it too, rather than leave it
-// floating over the header with nothing to point at.
+// floating over the header with nothing to point at, and focus returns to the button.
 watch(
   () => middlewareData.value.hide?.referenceHidden,
   (hidden) => {
-    if (hidden) close(false)
+    if (hidden) close(true)
   },
 )
 watch(open, (now) => {
