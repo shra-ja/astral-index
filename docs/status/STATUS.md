@@ -55,7 +55,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Date popover clipping (2026-10-26)
 
-`fix/date-popover-clipping`: with only a few rolls in the chosen dates, the rolls panel's clipped corners cut the date popover off below its quick ranges, hiding From, To, Clear and Done. The popover now floats with `@floating-ui/vue`, fixed to the window as the tooltips are: below the button, above it without room, following it while shown. Red first: the end-to-end test's two-row date step found Done unpressable at its centre, and passes with the fix; its screenshot shows the whole popover.
+`fix/date-popover-clipping`: with only a few rolls in the chosen dates, the rolls panel's clipped corners cut the date popover off below its quick ranges, hiding From, To, Clear and Done. The popover now floats with `@floating-ui/vue`, fixed to the window as the tooltips are: below the button, above it without room, following it while shown, and closing once the screen scrolls the button out of view, as the user chose, rather than float over the header. Red first: the end-to-end test's two-row date step found Done unpressable at its centre, and the popover open after scrolling its button away, which the component's test also showed; all pass with the fix. The date filter's `offset` prop is now `serverOffset`, apart from Floating UI's `offset`.
 
 ## Known limitations
 
