@@ -191,3 +191,108 @@ fn a_backup_is_upgraded_in_its_held_copy_with_the_schema_it_is_restored_into() {
         .unwrap();
     assert_eq!(version, 3);
 }
+
+/// Restore `backup` into a fresh profile's data folder, where the app has just made
+/// an empty history, and return the history it leaves there.
+fn restore_into_fresh_profile(folder: &Folder, backup: &Path, schema: Schema) -> PathBuf {
+    let data = folder.path("fresh");
+    std::fs::create_dir(&data).unwrap();
+    let history = data.join("history.sqlite");
+    drop(Store::open_with(&history, schema, None).unwrap());
+    let (copy, _) = hold_copy(&data, backup, schema).unwrap();
+    // An empty history needs no safety copy.
+    let restored = put_in_place(&history, &copy, None).unwrap();
+    assert_eq!(restored.safety_copy, None);
+    assert_eq!(names(&data), ["history.sqlite"]);
+    history
+}
+
+/// Every import's account and counts, in order.
+fn imports(history: &Path) -> Vec<(String, String, i64, i64, i64)> {
+    let connection = rusqlite::Connection::open(history).unwrap();
+    let mut batches = connection
+        .prepare("SELECT uid,server,imported_at,inserted,duplicates FROM batches ORDER BY id")
+        .unwrap();
+    batches
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+}
+
+/// The restored history holds the original's accounts, every account's rolls and
+/// every import.
+fn assert_same_history(restored: &Path, original: &Path, schema: Schema) {
+    let restored_store = Store::open_with(restored, schema, None).unwrap();
+    let original_store = Store::open_with(original, schema, None).unwrap();
+    let contents = original_store.contents().unwrap();
+    assert_eq!(restored_store.contents().unwrap(), contents);
+    for account in &contents.accounts {
+        assert_eq!(
+            restored_store
+                .history(&account.uid, &account.server)
+                .unwrap(),
+            original_store
+                .history(&account.uid, &account.server)
+                .unwrap()
+        );
+    }
+    assert_eq!(imports(restored), imports(original));
+}
+
+#[test]
+fn a_backup_restores_into_a_fresh_profile_with_the_same_accounts_rolls_and_imports() {
+    let folder = Folder::new();
+    let history = folder.data().join("history.sqlite");
+    let mut store = Store::open(&history).unwrap();
+    // Two accounts, the same UID on two servers, and a repeated import.
+    let other = std::str::from_utf8(PAGE)
+        .unwrap()
+        .replace("synthetic-server", "other-server");
+    for (server, page, at) in [
+        ("synthetic-server", PAGE, 1234),
+        ("other-server", other.as_bytes(), 1300),
+        ("synthetic-server", PAGE, 1400),
+    ] {
+        let preview = store.preview("100000002", server, &[page]).unwrap();
+        store.commit(preview, at).unwrap();
+    }
+    let backup = folder.path("backup.sqlite");
+    store.write_snapshot(&backup).unwrap();
+    drop(store);
+    let restored = restore_into_fresh_profile(&folder, &backup, Schema::CURRENT);
+    assert_eq!(imports(&restored).len(), 3);
+    assert_same_history(&restored, &history, Schema::CURRENT);
+}
+
+#[test]
+fn the_1_0_0_fixture_restores_as_a_backup_into_a_fresh_profile() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/storage/history-1.0.0.sqlite");
+    let before = std::fs::read(&fixture).unwrap();
+    let upgraded = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
+    // Under the app's schema, and a later one's, which upgrades the restored copy.
+    for schema in [Schema::CURRENT, upgraded] {
+        let folder = Folder::new();
+        let restored = restore_into_fresh_profile(&folder, &fixture, schema);
+        // Compared with a copy of the fixture, opened under the same schema.
+        let original = folder.path("original.sqlite");
+        std::fs::copy(&fixture, &original).unwrap();
+        assert_same_history(&restored, &original, schema);
+        let contents = Store::open_with(&restored, schema, None)
+            .unwrap()
+            .contents()
+            .unwrap();
+        assert_eq!(contents.accounts.len(), 3);
+        assert_eq!(imports(&restored).len(), 4);
+    }
+    assert_eq!(std::fs::read(&fixture).unwrap(), before);
+}
