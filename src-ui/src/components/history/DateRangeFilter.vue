@@ -2,6 +2,8 @@
 // Presentational: the rolls panel's date filter, a button naming the days shown
 // that opens a popover of quick ranges and From and To fields. Every change is
 // emitted at once; Done, Escape, a press outside or Tab out close it.
+// Floating UI's `offset` is renamed, as `offset` here is the server's time offset.
+import { autoUpdate, flip, offset as gap, shift, useFloating } from '@floating-ui/vue'
 import { CalendarDays } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from 'vue'
 import { dateRangeLabel, quickRanges, type DateRange } from '../../format'
@@ -23,6 +25,15 @@ const dialogId = useId()
 const root = useTemplateRef('root')
 const toggle = useTemplateRef('toggle')
 const ranges = useTemplateRef<HTMLButtonElement[]>('ranges')
+const popover = useTemplateRef('popover')
+// Fixed to the window, so the rolls panel's clipped corners never cut it off; it
+// follows the button while shown and opens above it when there is no room below.
+const { floatingStyles } = useFloating(toggle, popover, {
+  placement: 'bottom-start',
+  strategy: 'fixed',
+  middleware: [gap(8), flip(), shift({ padding: 8 })],
+  whileElementsMounted: autoUpdate,
+})
 
 const label = computed(() => dateRangeLabel(props.from, props.to, props.today))
 const quick = computed(() =>
@@ -93,7 +104,9 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
     <div
       v-if="open"
       :id="dialogId"
+      ref="popover"
       class="popover"
+      :style="floatingStyles"
       role="dialog"
       aria-label="Date range"
       @keydown="onKey"
@@ -141,9 +154,6 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
 </template>
 
 <style scoped>
-.dates {
-  position: relative;
-}
 .toggle {
   display: flex;
   align-items: center;
@@ -169,10 +179,7 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
   color: var(--accent);
 }
 .popover {
-  position: absolute;
   z-index: 30;
-  top: calc(100% + 8px);
-  left: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
