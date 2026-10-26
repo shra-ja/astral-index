@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-22
+Updated: 2026-10-26
 
 ## Current state
 
@@ -51,10 +51,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   how to download and run the app.
 
 ## In progress
-
-### Native times (2026-10-25)
-
-`feat/native-times`: 0037's Native times. A desktop `local_time` module reads the local time for the upgrade's copy, the restore's safety copy and the backup's suggested name, and formats the kept copies' stamp (the backup's name takes its day); `save_backup` and `confirm_restore` take no arguments and lose their date and time checks and `invalid_request` (which stays for history requests), and the webview's `localDate` and `localTime` went with them. Each layer red first: the stamp's tests, backup's and restore's against a fixed time, the commands over IPC with no arguments, the frontend sending none.
 
 ## Known limitations
 
@@ -197,3 +193,5 @@ research, under a "From" heading.
   the setup actions owning their jobs' environment and the release gated on
   the check workflow's run, the Rust cache key that did nothing, and pinned
   asdf plugins.
+- [2026-10-25: native times](history/2026-10-25-native-times.md): backup and
+  restore reading the local time natively, with no date or time from the webview.
