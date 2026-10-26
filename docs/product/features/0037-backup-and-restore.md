@@ -393,15 +393,16 @@ Backup and restore stay local and never make a network request.
   - [x] The 1.0.0 fixture restored as a backup.
   - `restore.rs` restores a backup of two accounts and three imports, and the
     1.0.0 file under the app's schema and a later test-only one, into a new
-    data folder whose history the app has just created: no safety copy is
-    kept, and the accounts, each account's rolls and every import match the
-    original. An end-to-end test restores the 1.0.0 file through the screen
-    into the mock's fresh profile, finds its three accounts in the History
-    screen's account menu, backs that history up, and restores the backup into
-    another fresh profile; both times the data folder holds only the history,
-    whose accounts, imports and rolls match the 1.0.0 file's row for row. As
-    they verify what exists, all passed at once; with restore never putting
-    its checked copy in place, each failed.
+    data folder whose history the app has just created; the accounts, each
+    account's rolls and every import match the original. An end-to-end test
+    restores the 1.0.0 file through the screen into the mock's fresh profile,
+    finds its three accounts in the History screen's account menu, backs that
+    history up, and restores the backup into another fresh profile. Both times
+    no safety copy is kept, the data folder holds no other database, and the
+    history's accounts, imports and rolls match the 1.0.0 file's row for row.
+    The tests cover existing behaviour, so they passed on their first run;
+    each failed when restore was changed to never put its checked copy in
+    place.
   - [ ] The user checks the release executable on Windows: the real save and
     open dialogs, a backup to another folder or drive, a restore into a fresh
     profile, portable mode and the data-folder refusal, and the Import screen's

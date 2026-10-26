@@ -54,7 +54,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Backup and restore verification (2026-10-26)
 
-`test/backup-restore-verification`: 0037's Verification. `restore.rs` restores a backup of two accounts and three imports, and the 1.0.0 file under the app's schema and a later one, into a new data folder with no safety copy and the same accounts, rolls and imports. An end-to-end test restores the 1.0.0 file into the mock's fresh profile, backs it up and restores that into another fresh profile, matching the 1.0.0 file's rows both times. Verifying existing behaviour, both passed at once and failed with restore never putting its copy in place. The user's Windows check of the dev build at `3487c09` is pending.
+`test/backup-restore-verification`: 0037's Verification. `restore.rs` restores a backup of two accounts and three imports, and the 1.0.0 file under the app's schema and a later one, into a new data folder with the same accounts, rolls and imports. An end-to-end test restores the 1.0.0 file into the mock's fresh profile, backs it up and restores that into another fresh profile, with no safety copy and the 1.0.0 file's rows both times. The tests cover existing behaviour, so they passed on their first run; each failed when restore was changed to never put its copy in place. The user's Windows check of the dev build at `3487c09` is pending.
 
 ## Known limitations
 
