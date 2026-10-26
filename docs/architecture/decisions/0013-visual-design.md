@@ -91,7 +91,8 @@ repository; this record holds what the implementation must follow.
   or a press outside close it. (Amended 2026-10-26:) the popover floats below
   the button, or above it without room below, positioned by `@floating-ui/vue`
   as the tooltips are, so the rolls panel never cuts it off; it follows the
-  button as the screen scrolls, and closes once the button scrolls out of view.
+  button as the screen scrolls, and closes once the button scrolls out of view,
+  returning focus to the button without scrolling back to it.
 - **Summary strip** (amended 2026-10-06): rates are shares of the category's
   stored rolls to two decimals ("1.48%"), and a share above zero too small to
   show reads "<0.01%". A category without rolls keeps the strip, with zero
