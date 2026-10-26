@@ -1405,6 +1405,13 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         { timeout: 10000 },
       )
       .toSatisfy((days: string[]) => days.length > 0 && days.every((day) => day === '7 Sep 2026'))
+    // Below the two rows left, the popover shows whole, never cut off by the rolls
+    // panel: its last control, Done, can be pressed at its centre.
+    expect(
+      await app.execute(`const done = [...document.querySelectorAll('[role=dialog] button')].find(button => button.textContent.trim() === 'Done');
+        const box = done.getBoundingClientRect();
+        return document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2) === done`),
+    ).toBe(true)
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history-dates')
     await app.press(ESCAPE)
