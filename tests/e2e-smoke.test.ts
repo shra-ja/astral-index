@@ -1433,7 +1433,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     // Scrolling the date button out of view closes its popover, which would otherwise
-    // float over the screen's header; scrolling back leaves it closed.
+    // float over the screen's header. Focus returns to the button without scrolling
+    // the screen back to it.
     await app.execute(`document.querySelector('main button[aria-haspopup="dialog"]').click()`)
     await expect
       .poll(() => app.execute('return document.querySelector("[role=dialog]") !== null'), {
@@ -1447,6 +1448,11 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         timeout: 5000,
       })
       .toBe(true)
+    expect(
+      await app.execute(`const screen = document.querySelector('main .body');
+        return [document.activeElement === document.querySelector('main button[aria-haspopup="dialog"]'),
+          screen.scrollTop + screen.clientHeight >= screen.scrollHeight - 1]`),
+    ).toEqual([true, true])
     await app.execute(`document.querySelector('main .body').scrollTop = 0`)
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history')
