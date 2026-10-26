@@ -1355,7 +1355,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       `const box = document.querySelector('input[type="search"]'); box.value = ''; box.dispatchEvent(new Event('input'))`,
     )
     // With the keyboard, the date button opens its popover at All dates; choosing
-    // 7 Sep onwards keeps only that day's 5★ and 4★ rolls, and Escape closes it.
+    // 7 Sep to 7 Sep keeps only that day's 5★ and 4★ rolls, and Escape closes it. A
+    // closed range, as every quick range is open, so its name never depends on today.
     await app.execute('document.querySelector(\'main button[aria-haspopup="dialog"]\').focus()')
     await app.press(ENTER)
     await expect
@@ -1383,9 +1384,18 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       ['Clear', 32],
       ['Done', 32],
     ])
-    await app.execute(
-      `const from = [...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === 'From').querySelector('input'); from.value = '2026-09-07'; from.dispatchEvent(new Event('change'))`,
-    )
+    const dayField = (label: string) =>
+      `[...document.querySelectorAll('[role=dialog] label')].find(label => label.textContent.trim() === '${label}').querySelector('input')`
+    const chooseDay = (label: string, day: string) =>
+      app.execute(
+        `const field = ${dayField(label)}; field.value = '${day}'; field.dispatchEvent(new Event('change'))`,
+      )
+    // Each field sends the other's day with its own, so To waits for From to reach it.
+    await chooseDay('From', '2026-09-07')
+    await expect
+      .poll(() => app.execute(`return ${dayField('To')}.min`), { timeout: 10000 })
+      .toBe('2026-09-07')
+    await chooseDay('To', '2026-09-07')
     await expect
       .poll(
         () =>
@@ -1400,7 +1410,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.press(ESCAPE)
     await expect
       .poll(() => textOf(app, "main button[aria-haspopup='dialog']"), { timeout: 10000 })
-      .toMatch(/^\s*From 7 Sep 2026\s*$/)
+      .toMatch(/^\s*7 Sep 2026 – 7 Sep 2026\s*$/)
     expect(await app.execute('return document.querySelector("[role=dialog]") === null')).toBe(true)
     expect(
       await app.execute(
