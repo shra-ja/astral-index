@@ -7,7 +7,7 @@ import {
   mkdirSync,
   existsSync,
 } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
@@ -876,6 +876,96 @@ test('a history the mock can’t upgrade opens History Unavailable, and a restor
   expect(names.toSorted()).toEqual([copy, safety, 'history.sqlite'].toSorted())
   expect(readFileSync(resolve(folder, copy))).toEqual(original)
   expect(readFileSync(resolve(folder, safety))).toEqual(original)
+  rmSync(backups, { recursive: true, force: true })
+}, 120000)
+
+test('1.0.0’s history restores into a fresh profile, and a backup of it into another, with the same accounts, rolls and imports', async () => {
+  const fixture = resolve(
+    import.meta.dirname,
+    '../src-tauri/tests/fixtures/storage/history-1.0.0.sqlite',
+  )
+  const original = readFileSync(fixture)
+  const backups = resolve(results, 'e2e-fresh-profile')
+  rmSync(backups, { recursive: true, force: true })
+  mkdirSync(backups, { recursive: true })
+  const backup = resolve(backups, 'round-trip.sqlite')
+  const folder = resolve(mockData, 'astral-index-mock')
+  // Every stored account, roll and import, row for row.
+  const tables = (path: string) => {
+    const database = new DatabaseSync(path, { readOnly: true })
+    try {
+      return ['accounts', 'batches', 'rolls'].map((table) =>
+        database.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+      )
+    } finally {
+      database.close()
+    }
+  }
+  // Restore `from` into the fresh profile's empty history, which needs no safety
+  // copy, then find its three accounts in the History screen's account menu.
+  const restoreIntoFreshProfile = async (app: AppSession, from: string) => {
+    await expect
+      .poll(() => textOf(app, '[role=status]'), { timeout: 10000 })
+      .toContain('No Warp History Yet')
+    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    writeFileSync(resolve(folder, 'restore-from.txt'), `${from}\n`)
+    await click(app, 'main', 'Restore from backup…')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
+    expect(await textOf(app, 'main .footnote')).toBe('Restoring saves 22 rolls in 3 accounts.')
+    await click(app, 'main footer', 'Restore backup')
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Backup & Restore')
+    expect(
+      (await textOf(app, "#restore-title ~ .actions [role='status']"))!.replace(/\s+/g, ' ').trim(),
+    ).toBe(`Restored ${basename(from)}.`)
+    await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
+    await expect
+      .poll(
+        () =>
+          app.execute<string | null>(
+            'return document.querySelector("button[aria-haspopup=menu]")?.getAttribute("aria-label")',
+          ),
+        { timeout: 10000 },
+      )
+      .toBe('Switch account. Current: UID 100000003, Asia server')
+    await app.execute('document.querySelector("button[aria-haspopup=menu]").focus()')
+    await app.press(DOWN)
+    await expect
+      .poll(
+        () =>
+          app.execute<string[]>(
+            'return [...document.querySelectorAll("[role=menuitemradio]")].map((item) => [".uid", ".server", ".rolls"].map((part) => item.querySelector(part).textContent))',
+          ),
+        { timeout: 10000 },
+      )
+      .toEqual([
+        ['100000003', 'Asia', '2 rolls'],
+        ['100000002', 'Asia', '17 rolls'],
+        ['100000002', 'America', '3 rolls'],
+      ])
+    await app.press(ESCAPE)
+  }
+  const restoredFiles = () =>
+    readdirSync(folder).filter((name) => name.endsWith('.sqlite') || name.endsWith('.partial'))
+  await withMock('history', {}, async (app) => {
+    await restoreIntoFreshProfile(app, fixture)
+    await app.execute(`document.querySelector('nav a[aria-label="Backup & Restore"]').click()`)
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Backup & Restore')
+    writeFileSync(resolve(folder, 'save-as.txt'), `${backup}\n`)
+    await click(app, 'main', 'Save backup…')
+    await expect
+      .poll(() => textOf(app, "main [role='status']"), { timeout: 10000 })
+      .toContain('Saved round-trip.sqlite')
+  })
+  expect(restoredFiles()).toEqual(['history.sqlite'])
+  expect(tables(resolve(folder, 'history.sqlite'))).toEqual(tables(fixture))
+  // Another fresh profile, as on a new device, restores the backup.
+  await withMock('history', {}, async (app) => {
+    await restoreIntoFreshProfile(app, backup)
+  })
+  expect(restoredFiles()).toEqual(['history.sqlite'])
+  expect(tables(resolve(folder, 'history.sqlite'))).toEqual(tables(fixture))
+  expect(readFileSync(fixture)).toEqual(original)
   rmSync(backups, { recursive: true, force: true })
 }, 120000)
 
