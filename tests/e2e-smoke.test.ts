@@ -1404,7 +1404,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
           ),
         { timeout: 10000 },
       )
-      .toSatisfy((days: string[]) => days.length > 0 && days.every((day) => day === '7 Sep 2026'))
+      .toEqual(['7 Sep 2026', '7 Sep 2026'])
     // Below the two rows left, the popover shows whole, never cut off by the rolls
     // panel: its last control, Done, can be pressed at its centre.
     expect(
@@ -1432,6 +1432,22 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await expect
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
+    // Scrolling the date button out of view closes its popover, which would otherwise
+    // float over the screen's header; scrolling back leaves it closed.
+    await app.execute(`document.querySelector('main button[aria-haspopup="dialog"]').click()`)
+    await expect
+      .poll(() => app.execute('return document.querySelector("[role=dialog]") !== null'), {
+        timeout: 5000,
+      })
+      .toBe(true)
+    await app.execute(`const screen = document.querySelector('main .body');
+      screen.scrollTop = screen.scrollHeight`)
+    await expect
+      .poll(() => app.execute('return document.querySelector("[role=dialog]") === null'), {
+        timeout: 5000,
+      })
+      .toBe(true)
+    await app.execute(`document.querySelector('main .body').scrollTop = 0`)
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-history')
     // The rolls panel ends at its last roll, and only the screen scrolls: the rolls never
