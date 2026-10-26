@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Date popover clipping (2026-10-26)
+
+`fix/date-popover-clipping`: with only a few rolls in the chosen dates, the rolls panel's clipped corners cut the date popover off below its quick ranges, hiding From, To, Clear and Done. The popover now floats with `@floating-ui/vue`, fixed to the window as the tooltips are: below the button, above it without room, following it while shown. Red first: the end-to-end test's two-row date step found Done unpressable at its centre, and passes with the fix; its screenshot shows the whole popover.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
