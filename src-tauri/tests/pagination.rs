@@ -3,9 +3,11 @@ use astral_index::acquisition::{
     Transport, TransportError, extract_request_contexts, fetch_history,
 };
 use astral_index::storage::{Store, Summary};
+use common::{Folder, PAGE, SERVER, UID};
 use std::{collections::VecDeque, sync::Mutex};
 
-const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
+mod common;
+
 const EMPTY: &[u8] =
     br#"{"retcode":0,"message":"OK","data":{"region":"synthetic-server","region_time_zone":8,"list":[]}}"#;
 
@@ -43,16 +45,11 @@ fn retrieved_history_previews_and_commits_through_storage() {
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
 
-    let directory =
-        std::env::temp_dir().join(format!("astral-index-pagination-{}", std::process::id()));
-    std::fs::create_dir(&directory).unwrap();
-    let mut store = Store::open(&directory.join("history.sqlite")).unwrap();
+    let folder = Folder::new();
+    let mut store = Store::open(&folder.path("history.sqlite")).unwrap();
     // Preview under the account and server resolved from the responses.
     let account = history.account().unwrap();
-    assert_eq!(
-        (account.uid(), account.server()),
-        ("100000002", "synthetic-server")
-    );
+    assert_eq!((account.uid(), account.server()), (UID, SERVER));
     let preview = store
         .preview(account.uid(), account.server(), &history.responses())
         .unwrap();
@@ -68,13 +65,7 @@ fn retrieved_history_previews_and_commits_through_storage() {
     assert_eq!(review["earliest"], "2024-02-29 12:34:56");
     assert_eq!(review["conflicts"], serde_json::json!([]));
     assert_eq!(store.commit(preview, 1).unwrap(), expected);
-    assert_eq!(
-        store
-            .history("100000002", "synthetic-server")
-            .unwrap()
-            .len(),
-        2
-    );
+    assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
     // A quick refresh stops at the saved rolls: the character event page holds
     // them, so its trailing empty page is never requested.
     let saved = store.saved_rolls().unwrap();
@@ -84,9 +75,7 @@ fn retrieved_history_previews_and_commits_through_storage() {
         .block_on(fetch_history(&transport, &context, &|_| {}, Some(&stop)))
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
-    let preview = store
-        .preview("100000002", "synthetic-server", &refreshed.responses())
-        .unwrap();
+    let preview = store.preview(UID, SERVER, &refreshed.responses()).unwrap();
     assert_eq!(
         preview.summary(),
         Summary {
@@ -94,6 +83,4 @@ fn retrieved_history_previews_and_commits_through_storage() {
             ..Default::default()
         }
     );
-    drop(store);
-    std::fs::remove_dir_all(directory).unwrap();
 }

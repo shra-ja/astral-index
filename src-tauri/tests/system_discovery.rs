@@ -5,6 +5,7 @@ use astral_index::discovery::{
     LogError,
     system::{DiscoveryError, discover_current_user_logs},
 };
+use common::Folder;
 use std::{
     fs,
     os::unix::fs::PermissionsExt,
@@ -12,6 +13,8 @@ use std::{
     process::Command,
     time::{Duration, Instant},
 };
+
+mod common;
 
 fn runtime<T>(future: impl std::future::Future<Output = T>) -> T {
     tokio::runtime::Builder::new_current_thread()
@@ -39,7 +42,8 @@ fn current_user_discovery_uses_real_process_pipes_and_only_the_two_logs() {
         return;
     }
 
-    let root = std::env::temp_dir().join(format!("astral-index-system-{}", std::process::id()));
+    let folder = Folder::new();
+    let root = folder.root();
     let bin = root.join("bin");
     let logs = root.join("AppData/LocalLow/Cognosphere/Star Rail");
     fs::create_dir_all(&bin).unwrap();
@@ -68,20 +72,18 @@ esac
             "current_user_discovery_uses_real_process_pipes_and_only_the_two_logs",
             "--nocapture",
         ])
-        .env("ASTRAL_INDEX_SYSTEM_FIXTURE", &root)
+        .env("ASTRAL_INDEX_SYSTEM_FIXTURE", root)
         .env("WSL_DISTRO_NAME", "Synthetic")
         .env("PATH", &bin)
         .output()
         .unwrap();
-    let unchanged = fs::read(logs.join("Player-prev.log")).unwrap() == previous
-        && fs::read(logs.join("Player.log")).unwrap() == [0xff];
-    fs::remove_dir_all(root).unwrap();
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(unchanged);
+    assert_eq!(fs::read(logs.join("Player-prev.log")).unwrap(), previous);
+    assert_eq!(fs::read(logs.join("Player.log")).unwrap(), [0xff]);
 }
 
 #[test]
@@ -116,11 +118,8 @@ fn failed_oversized_and_stalled_helpers_fail_safely_and_are_terminated() {
         return;
     }
 
-    let root = std::env::temp_dir().join(format!(
-        "astral-index-system-failure-{}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&root).unwrap();
+    let folder = Folder::new();
+    let root = folder.root();
     let pid = root.join("pid");
     executable(
         &root.join("powershell.exe"),
@@ -134,30 +133,24 @@ esac
 exec /bin/sleep 60
 "#,
     );
-    let result = std::panic::catch_unwind(|| {
-        for mode in ["failure", "oversize", "stall"] {
-            let output = Command::new(std::env::current_exe().unwrap())
-                .args([
-                    "--exact",
-                    "failed_oversized_and_stalled_helpers_fail_safely_and_are_terminated",
-                    "--nocapture",
-                ])
-                .env("ASTRAL_INDEX_HELPER_MODE", mode)
-                .env("ASTRAL_INDEX_HELPER_PID", &pid)
-                .env("WSL_DISTRO_NAME", "Synthetic")
-                .env("PATH", &root)
-                .output()
-                .unwrap();
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            assert!(
-                !String::from_utf8_lossy(&output.stderr).contains("synthetic private diagnostic")
-            );
-        }
-    });
-    fs::remove_dir_all(root).unwrap();
-    result.unwrap();
+    for mode in ["failure", "oversize", "stall"] {
+        let output = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "failed_oversized_and_stalled_helpers_fail_safely_and_are_terminated",
+                "--nocapture",
+            ])
+            .env("ASTRAL_INDEX_HELPER_MODE", mode)
+            .env("ASTRAL_INDEX_HELPER_PID", &pid)
+            .env("WSL_DISTRO_NAME", "Synthetic")
+            .env("PATH", root)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("synthetic private diagnostic"));
+    }
 }

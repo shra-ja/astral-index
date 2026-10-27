@@ -3,40 +3,29 @@ use astral_index::storage::{
     Account, CategorySummary, Error, Filter, HistoryPage, LastImport, Rarities, SavedAccount,
     Source, Store, Summary,
 };
+use common::{Folder, PAGE, SERVER, UID};
 use rusqlite::Connection;
 use serde_json::{Value, json};
-use std::{
-    path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
-};
-const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
-const UID: &str = "100000002";
-const SERVER: &str = "synthetic-server";
-static NEXT: AtomicU64 = AtomicU64::new(0);
+use std::path::PathBuf;
+
+mod common;
+
 // Own an isolated on-disk database and its cleanup for persistence and rollback tests.
-struct Database(PathBuf);
+struct Database(Folder);
 impl Database {
     // Give parallel tests independent directories without touching application data.
     fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
-            "astral-index-storage-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir(&path).unwrap();
-        Self(path.join("history.sqlite"))
+        Self(Folder::new())
+    }
+    fn path(&self) -> PathBuf {
+        self.0.path("history.sqlite")
     }
     fn store(&self) -> Store {
-        Store::open(&self.0).unwrap()
+        Store::open(&self.path()).unwrap()
     }
     // Inspect or perturb durable state independently of the service under test.
     fn connection(&self) -> Connection {
-        Connection::open(&self.0).unwrap()
-    }
-}
-impl Drop for Database {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(self.0.parent().unwrap()).unwrap();
+        Connection::open(self.path()).unwrap()
     }
 }
 // Derive a focused input variation while preserving the rest of the valid synthetic page.
@@ -247,16 +236,19 @@ fn migration_rejects_unrelated_future_and_corrupt_databases_without_overwriting(
     ] {
         let db = Database::new();
         db.connection().execute_batch(sql).unwrap();
-        let before = std::fs::read(&db.0).unwrap();
-        assert!(matches!(Store::open(&db.0), Err(Error::Schema)));
-        assert_eq!(std::fs::read(&db.0).unwrap(), before);
+        let before = std::fs::read(db.path()).unwrap();
+        assert!(matches!(Store::open(&db.path()), Err(Error::Schema)));
+        assert_eq!(std::fs::read(db.path()).unwrap(), before);
     }
     let db = Database::new();
-    std::fs::write(&db.0, b"synthetic corrupt database").unwrap();
-    assert!(matches!(Store::open(&db.0), Err(Error::Database)));
-    assert_eq!(std::fs::read(&db.0).unwrap(), b"synthetic corrupt database");
+    std::fs::write(db.path(), b"synthetic corrupt database").unwrap();
+    assert!(matches!(Store::open(&db.path()), Err(Error::Database)));
+    assert_eq!(
+        std::fs::read(db.path()).unwrap(),
+        b"synthetic corrupt database"
+    );
     assert!(matches!(
-        Store::open(&db.0.join("missing")),
+        Store::open(&db.path().join("missing")),
         Err(Error::Database)
     ));
 }
@@ -534,18 +526,18 @@ fn initial_schema_creates_compact_storage_directly() {
         ),
         0
     );
-    let before = std::fs::read(&db.0).unwrap();
+    let before = std::fs::read(db.path()).unwrap();
     db.store();
-    assert_eq!(std::fs::read(&db.0).unwrap(), before);
+    assert_eq!(std::fs::read(db.path()).unwrap(), before);
 }
 
 #[test]
 fn obsolete_prerelease_schema_is_rejected_without_modification() {
     let db = Database::new();
     db.connection().execute_batch("PRAGMA application_id=1381257795; PRAGMA user_version=1; CREATE TABLE metadata(singleton,database_id,revision); INSERT INTO metadata VALUES(1,'synthetic',0);").unwrap();
-    let before = std::fs::read(&db.0).unwrap();
-    assert!(matches!(Store::open(&db.0), Err(Error::Schema)));
-    assert_eq!(std::fs::read(&db.0).unwrap(), before);
+    let before = std::fs::read(db.path()).unwrap();
+    assert!(matches!(Store::open(&db.path()), Err(Error::Schema)));
+    assert_eq!(std::fs::read(db.path()).unwrap(), before);
 }
 
 #[test]
@@ -584,13 +576,13 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
     let began = Instant::now();
     assert_eq!(run(&mut store, 0), summary(6000, 0, 0));
     let initial_time = began.elapsed();
-    let initial_size = std::fs::metadata(&db.0).unwrap().len();
+    let initial_size = std::fs::metadata(db.path()).unwrap().len();
     let began = Instant::now();
     for _ in 0..24 {
         assert_eq!(run(&mut store, 0), summary(0, 6000, 0));
     }
     let repeats_time = began.elapsed();
-    let repeats_size = std::fs::metadata(&db.0).unwrap().len();
+    let repeats_size = std::fs::metadata(db.path()).unwrap().len();
     assert_eq!(
         scalar(&conn, "SELECT count(*) FROM rolls WHERE first_batch=1"),
         6000
@@ -606,7 +598,7 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
         assert_eq!(run(&mut store, start), summary(500, 5500, 0));
     }
     let rolling_time = began.elapsed();
-    let final_size = std::fs::metadata(&db.0).unwrap().len();
+    let final_size = std::fs::metadata(db.path()).unwrap().len();
     assert_eq!(scalar(&conn, "SELECT count(*) FROM rolls"), 12000);
     assert_eq!(scalar(&conn, "SELECT sum(inserted) FROM batches"), 12000);
     assert_eq!(scalar(&conn, "SELECT sum(duplicates) FROM batches"), 210000);
@@ -615,13 +607,13 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
     let mut conflict: Value = serde_json::from_slice(&pages[23]).unwrap();
     conflict["data"]["list"][0]["name"] = json!("changed synthetic name");
     let conflict = serde_json::to_vec(&conflict).unwrap();
-    let before = std::fs::read(&db.0).unwrap();
+    let before = std::fs::read(db.path()).unwrap();
     let began = Instant::now();
     let preview = store.preview(UID, SERVER, &[&conflict]).unwrap();
     assert_eq!(preview.summary(), summary(0, 499, 1));
     assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
     let conflict_time = began.elapsed();
-    assert_eq!(std::fs::read(&db.0).unwrap(), before);
+    assert_eq!(std::fs::read(db.path()).unwrap(), before);
     drop(store);
     assert_eq!(db.store().history(UID, SERVER).unwrap().len(), 12000);
     println!(

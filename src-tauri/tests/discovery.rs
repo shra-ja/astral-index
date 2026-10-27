@@ -4,11 +4,15 @@ use astral_index::{
         LogError, MAX_LOG_HEADER_BYTES, PathMapping, discover_appdata_logs, read_selected_log,
     },
 };
+use common::Folder;
 use std::fs;
+
+mod common;
 
 #[test]
 fn real_appdata_logs_are_read_only_and_previous_survives_current_failure() {
-    let directory = std::env::temp_dir().join(format!("astral-index-logs-{}", std::process::id()));
+    let folder = Folder::new();
+    let directory = folder.root();
     let app_data = directory.join("AppData/Roaming");
     let logs = directory.join("AppData/LocalLow/Cognosphere/Star Rail");
     fs::create_dir_all(&logs).unwrap();
@@ -41,14 +45,14 @@ fn real_appdata_logs_are_read_only_and_previous_survives_current_failure() {
             CacheError::NotRegularFile | CacheError::Unreadable
         ))
     ));
-    fs::remove_dir_all(directory).unwrap();
 }
 
 #[cfg(unix)]
 #[test]
 fn explicit_wsl_mapping_connects_log_candidates_to_selected_cache_reading() {
     use astral_index::acquisition::{discover_cache_files, read_selected_cache};
-    let mount = std::env::temp_dir().join(format!("astral-index-mount-{}", std::process::id()));
+    let folder = Folder::new();
+    let mount = folder.root();
     let game = mount.join("d/Games/Star Rail");
     let cache = game.join("webCaches/2.10.0.0/Cache/Cache_Data/data_2");
     fs::create_dir_all(cache.parent().unwrap()).unwrap();
@@ -60,11 +64,10 @@ fn explicit_wsl_mapping_connects_log_candidates_to_selected_cache_reading() {
         b"Loading player data from D:/Games/Star Rail/data.unity3d\n",
     )
     .unwrap();
-    let candidates = read_selected_log(&log, PathMapping::Wsl { mount_root: &mount }).unwrap();
+    let candidates = read_selected_log(&log, PathMapping::Wsl { mount_root: mount }).unwrap();
     assert_eq!(candidates, [game]);
     let files = discover_cache_files(&candidates[0]).unwrap();
     assert_eq!(files, std::slice::from_ref(&cache));
     assert_eq!(read_selected_cache(&files[0]).unwrap().len(), 1);
     assert_eq!(fs::read(cache).unwrap(), bytes);
-    fs::remove_dir_all(mount).unwrap();
 }
