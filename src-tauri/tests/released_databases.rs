@@ -6,7 +6,7 @@ use astral_index::storage::{
     Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
     Source, Store, StoredRoll, Summary, check_database,
 };
-use common::{Folder, imports, release_1_0_0};
+use common::{BANNER, Folder, UID, UPGRADED, imports, release_1_0_0};
 use rusqlite::Connection;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -17,13 +17,9 @@ mod common;
 const RELEASE_1_0_0_SHA256: &str =
     "54c32e1cb6d3589e8389726268b2f796652d51a895951f87fa9898932a186727";
 
-const UID: &str = "100000002";
 const OTHER_UID: &str = "100000003";
 const ASIA: &str = "prod_official_asia";
 const AMERICA: &str = "prod_official_usa";
-/// A test-only migration after 1.0.0's schema, as the first real one will be.
-const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
-const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
 /// A test-only rebuild of a table others refer to, by SQLite's procedure for schema
 /// changes `ALTER TABLE` can't make: a new table, its rows copied, the old one
 /// dropped and the new one renamed into its place.

@@ -3,16 +3,13 @@ use astral_index::storage::{
     Account, CategorySummary, Error, Filter, HistoryPage, LastImport, Rarities, SavedAccount,
     Source, Store, Summary,
 };
-use common::Folder;
+use common::{Folder, PAGE, SERVER, UID};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
 mod common;
 
-const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
-const UID: &str = "100000002";
-const SERVER: &str = "synthetic-server";
 // Own an isolated on-disk database and its cleanup for persistence and rollback tests.
 struct Database(Folder);
 impl Database {

@@ -6,29 +6,18 @@ use astral_index::desktop::{
     restore::{hold_copy, is_history, put_in_place},
 };
 use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Schema, Store};
-use common::{Folder, imports, names, release_1_0_0};
+use common::{
+    Folder, PAGE, SERVER, UID, UPGRADED, imports, names, release_1_0_0, store_with_history,
+};
 use std::path::{Path, PathBuf};
 
 mod common;
 
-const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
-
-/// A folder of its own for the test, with a data folder inside.
-fn folder_with_data() -> (Folder, PathBuf) {
-    let folder = Folder::new();
-    let data = folder.path("data");
-    std::fs::create_dir(&data).unwrap();
-    (folder, data)
-}
-
 #[test]
 fn a_backup_is_copied_into_the_data_folder_checked_and_read_there() {
-    let (folder, data) = folder_with_data();
-    let mut store = Store::open(&folder.path("history.sqlite")).unwrap();
-    let preview = store
-        .preview("100000002", "synthetic-server", &[PAGE])
-        .unwrap();
-    store.commit(preview, 1234).unwrap();
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
+    let store = store_with_history(&folder.path("history.sqlite"));
     let backup = folder.path("backup.sqlite");
     store.write_snapshot(&backup).unwrap();
     let before = std::fs::read(&backup).unwrap();
@@ -44,7 +33,8 @@ fn a_backup_is_copied_into_the_data_folder_checked_and_read_there() {
 
 #[test]
 fn a_refused_backup_leaves_nothing_in_the_data_folder() {
-    let (folder, data) = folder_with_data();
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
     let text = folder.path("notes.sqlite");
     std::fs::write(&text, b"not a database, just some text that is long enough").unwrap();
     assert_eq!(
@@ -70,18 +60,14 @@ fn a_refused_backup_leaves_nothing_in_the_data_folder() {
 
 #[test]
 fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
-    let (folder, data) = folder_with_data();
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
     let history = data.join("history.sqlite");
     // The backup holds one import; the history, made later, holds nothing.
     let backup = folder.path("backup.sqlite");
-    {
-        let mut store = Store::open(&folder.path("source.sqlite")).unwrap();
-        let preview = store
-            .preview("100000002", "synthetic-server", &[PAGE])
-            .unwrap();
-        store.commit(preview, 1234).unwrap();
-        store.write_snapshot(&backup).unwrap();
-    }
+    store_with_history(&folder.path("source.sqlite"))
+        .write_snapshot(&backup)
+        .unwrap();
     let current = Store::open(&history).unwrap().contents().unwrap();
     let before = std::fs::read(&history).unwrap();
     let (copy, contents) = hold_copy(&data, &backup, Schema::CURRENT).unwrap();
@@ -111,7 +97,8 @@ fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
 
 #[test]
 fn only_the_history_itself_is_refused_in_any_form_of_its_path() {
-    let (folder, data) = folder_with_data();
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
     let history = data.join("history.sqlite");
     drop(Store::open(&history).unwrap());
     let safety = data.join("history-before-restore-20261020-143000.sqlite");
@@ -138,16 +125,12 @@ fn only_the_history_itself_is_refused_in_any_form_of_its_path() {
 
 #[test]
 fn a_backup_is_upgraded_in_its_held_copy_with_the_schema_it_is_restored_into() {
-    let upgraded = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
-    let (folder, data) = folder_with_data();
-    let mut store = Store::open(&folder.path("history.sqlite")).unwrap();
-    let preview = store
-        .preview("100000002", "synthetic-server", &[PAGE])
-        .unwrap();
-    store.commit(preview, 1234).unwrap();
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
+    let store = store_with_history(&folder.path("history.sqlite"));
     let backup = folder.path("backup.sqlite");
     store.write_snapshot(&backup).unwrap();
-    let (copy, contents) = hold_copy(&data, &backup, upgraded).unwrap();
+    let (copy, contents) = hold_copy(&data, &backup, UPGRADED).unwrap();
     assert_eq!(contents, store.contents().unwrap());
     let version: i32 = rusqlite::Connection::open(&copy)
         .unwrap()
@@ -159,8 +142,7 @@ fn a_backup_is_upgraded_in_its_held_copy_with_the_schema_it_is_restored_into() {
 /// Restore `backup` into a fresh profile's data folder, where the app has just made
 /// an empty history, and return the history it leaves there.
 fn restore_into_fresh_profile(folder: &Folder, backup: &Path, schema: Schema) -> PathBuf {
-    let data = folder.path("fresh");
-    std::fs::create_dir(&data).unwrap();
+    let data = folder.subfolder("fresh");
     let history = data.join("history.sqlite");
     drop(Store::open_with(&history, schema, None).unwrap());
     let (copy, _) = hold_copy(&data, backup, schema).unwrap();
@@ -191,19 +173,20 @@ fn assert_same_history(restored: &Path, original: &Path, schema: Schema) {
 
 #[test]
 fn a_backup_restores_into_a_fresh_profile_with_the_same_accounts_rolls_and_imports() {
-    let (folder, data) = folder_with_data();
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
     let history = data.join("history.sqlite");
     let mut store = Store::open(&history).unwrap();
     // Two accounts, the same UID on two servers, and a repeated import.
     let other = std::str::from_utf8(PAGE)
         .unwrap()
-        .replace("synthetic-server", "other-server");
+        .replace(SERVER, "other-server");
     for (server, page, at) in [
-        ("synthetic-server", PAGE, 1234),
+        (SERVER, PAGE, 1234),
         ("other-server", other.as_bytes(), 1300),
-        ("synthetic-server", PAGE, 1400),
+        (SERVER, PAGE, 1400),
     ] {
-        let preview = store.preview("100000002", server, &[page]).unwrap();
+        let preview = store.preview(UID, server, &[page]).unwrap();
         store.commit(preview, at).unwrap();
     }
     let backup = folder.path("backup.sqlite");
@@ -218,9 +201,8 @@ fn a_backup_restores_into_a_fresh_profile_with_the_same_accounts_rolls_and_impor
 fn the_1_0_0_fixture_restores_as_a_backup_into_a_fresh_profile() {
     let fixture = release_1_0_0();
     let before = std::fs::read(&fixture).unwrap();
-    let upgraded = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
     // Under the app's schema, and a later one's, which upgrades the restored copy.
-    for schema in [Schema::CURRENT, upgraded] {
+    for schema in [Schema::CURRENT, UPGRADED] {
         let folder = Folder::new();
         let restored = restore_into_fresh_profile(&folder, &fixture, schema);
         // Compared with a copy of the fixture, opened under the same schema.

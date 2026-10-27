@@ -41,9 +41,8 @@ fn creates_the_folder_and_database_on_first_use_then_reuses_them() {
 fn a_data_folder_beside_the_executable_holds_the_portable_database() {
     use astral_index::desktop::database::location;
     let root = Folder::new();
-    let data = root.path("data");
+    let data = root.subfolder("data");
     let local = root.path("local");
-    std::fs::create_dir(&data).unwrap();
     // The executable itself is never read, so a synthetic path suffices.
     let executable = root.path("astral-index.exe");
     let folder = location(Some(&executable), Some(local.clone()));

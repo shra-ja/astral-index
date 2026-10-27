@@ -6,22 +6,11 @@ use astral_index::desktop::{
     database::Database,
 };
 use astral_index::storage::{Error, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
-use common::{Folder, names, release_1_0_0};
+use common::{Folder, SERVER, UID, UPGRADED, names, release_1_0_0, store_with_history};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
 mod common;
-
-const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
-const UID: &str = "100000002";
-const SERVER: &str = "synthetic-server";
-/// A store holding the synthetic page's rolls.
-fn store_with_history(path: &Path) -> Store {
-    let mut store = Store::open(path).unwrap();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
-    store.commit(preview, 1234).unwrap();
-    store
-}
 
 /// A snapshot of a store with history, for a check to refuse once changed.
 fn snapshot(folder: &Folder) -> PathBuf {
@@ -167,8 +156,7 @@ fn save(data: &Path, target: &Path) -> Result<Saved, Failure> {
 }
 /// A data folder holding the synthetic page's history, closed again.
 fn data_with_history(folder: &Folder) -> PathBuf {
-    let data = folder.path("data");
-    std::fs::create_dir(&data).unwrap();
+    let data = folder.subfolder("data");
     drop(store_with_history(&data.join("history.sqlite")));
     data
 }
@@ -228,17 +216,16 @@ fn a_backup_into_the_data_folder_is_refused_and_the_history_left_as_it_was() {
 
 #[test]
 fn a_history_opened_with_a_newer_schema_is_backed_up_and_checked_against_it() {
-    let upgraded = Schema::with_migrations(&["ALTER TABLE rolls ADD COLUMN banner TEXT"]);
     let folder = Folder::new();
     let data = data_with_history(&folder);
-    let database = Database::with_schema(Some(data), upgraded);
+    let database = Database::with_schema(Some(data), UPGRADED);
     let target = folder.path("backup.sqlite");
     let saved = tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap()
         .block_on(save_to(&database, &target));
     assert!(saved.is_ok(), "{saved:?}");
-    assert_eq!(check_database(&target, upgraded), Ok(()));
+    assert_eq!(check_database(&target, UPGRADED), Ok(()));
     assert_eq!(
         check_database(&target, Schema::CURRENT),
         Err(Refusal::Newer)

@@ -2,11 +2,21 @@
 //! uses only some of them, so the others would be reported as dead code there.
 #![allow(dead_code)]
 
+use astral_index::storage::{Schema, Store};
 use rusqlite::Connection;
 use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
+
+/// A synthetic page of two rolls, and the account and server it belongs to.
+pub const PAGE: &[u8] = include_bytes!("../fixtures/hsr-api/page.json");
+pub const UID: &str = "100000002";
+pub const SERVER: &str = "synthetic-server";
+
+/// A test-only migration after 1.0.0's schema, as the first real one will be.
+pub const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
+pub const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -30,11 +40,30 @@ impl Folder {
     pub fn path(&self, name: &str) -> PathBuf {
         self.0.join(name)
     }
+    /// A new, empty folder inside this one.
+    pub fn subfolder(&self, name: &str) -> PathBuf {
+        let path = self.path(name);
+        std::fs::create_dir(&path).unwrap();
+        path
+    }
 }
 impl Drop for Folder {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
+        let removed = std::fs::remove_dir_all(&self.0);
+        // A test that already failed reports its own failure, not a second one that
+        // would abort the rest of its crate's tests.
+        if !std::thread::panicking() {
+            removed.unwrap();
+        }
     }
+}
+
+/// A store holding the synthetic page's rolls.
+pub fn store_with_history(path: &Path) -> Store {
+    let mut store = Store::open(path).unwrap();
+    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    store.commit(preview, 1234).unwrap();
+    store
 }
 
 /// The names in a folder, sorted.
