@@ -53,7 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-None.
+### Shared Rust test helpers (2026-10-27)
+
+`test/shared-rust-test-helpers`: the Rust integration tests share `tests/common/`: one temporary folder per test, named after its test crate and removed on drop, in place of four copies and nine hand-made folders removed only at a test's end; the folder-listing helper; the 1.0.0 fixture's path; and the import counts query that restore's and the released databases' tests both ran. A test that panics now leaves no folder behind, as one injected panic showed, where it used to leave its folder in the system's temporary folder. Each crate keeps its test count, and all pass, with clippy clean.
 
 ## Known limitations
 
