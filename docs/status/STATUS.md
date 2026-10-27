@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-26
+Updated: 2026-10-27
 
 ## Current state
 
@@ -53,9 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Date popover clipping (2026-10-26)
-
-`fix/date-popover-clipping`: with only a few rolls in the chosen dates, the rolls panel's clipped corners cut the date popover off below its quick ranges, hiding From, To, Clear and Done. The popover now floats with `@floating-ui/vue`, fixed to the window as the tooltips are: below the button, above it without room, following it while shown, and closing once the screen scrolls the button out of view, as the user chose, rather than floating over the header; focus then returns to the button without scrolling back. Red first: the end-to-end test's two-row date step found Done unpressable at its centre, and the popover open after scrolling its button away, which the component's test also showed, as it did focus left on the page; all pass with the fix, and the end-to-end test fails if returning focus scrolls the screen back. The date filter's `offset` prop is now `serverOffset`, so it no longer shares a name with Floating UI's `offset`.
+None.
 
 ## Known limitations
 
@@ -201,5 +199,6 @@ research, under a "From" heading.
 - [2026-10-25: native times](history/2026-10-25-native-times.md): backup and
   restore reading the local time natively, with no date or time from the webview.
 - [2026-10-26: backup and restore verification](history/2026-10-26-backup-restore-verification.md):
-  restoring into fresh profiles, 1.0.0's history as a backup, and the Windows
-  check that finished 0037.
+  restoring into fresh profiles, 1.0.0's history as a backup, the Windows
+  check that finished 0037, and the date popover floating clear of the rolls
+  panel.
