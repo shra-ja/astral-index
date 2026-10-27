@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // Presentational: the rolls panel's date filter, a button naming the days shown
 // that opens a popover of quick ranges and From and To fields. Every change is
-// emitted at once; Done, Escape, a press outside or Tab out close it.
+// emitted at once; Done, Escape, a press outside, Tab out or scrolling the button
+// out of view close it.
+import { autoUpdate, flip, hide, offset, shift, useFloating } from '@floating-ui/vue'
 import { CalendarDays } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from 'vue'
 import { dateRangeLabel, quickRanges, type DateRange } from '../../format'
@@ -12,7 +14,7 @@ const props = defineProps<{
   /** Today's server date, which quick ranges count back from. */
   today: string
   /** The server's offset, such as "UTC+8", or "server time" when unknown. */
-  offset: string
+  serverOffset: string
   /** The saved rolls' period, when there are any. */
   span?: string
 }>()
@@ -23,6 +25,15 @@ const dialogId = useId()
 const root = useTemplateRef('root')
 const toggle = useTemplateRef('toggle')
 const ranges = useTemplateRef<HTMLButtonElement[]>('ranges')
+const popover = useTemplateRef('popover')
+// Fixed to the window, so the rolls panel's clipped corners never cut it off; it
+// follows the button while shown and opens above it when there is no room below.
+const { floatingStyles, middlewareData } = useFloating(toggle, popover, {
+  placement: 'bottom-start',
+  strategy: 'fixed',
+  middleware: [offset(8), flip(), shift({ padding: 8 }), hide()],
+  whileElementsMounted: autoUpdate,
+})
 
 const label = computed(() => dateRangeLabel(props.from, props.to, props.today))
 const quick = computed(() =>
@@ -32,7 +43,8 @@ const quick = computed(() =>
   })),
 )
 const note = computed(() => {
-  const zone = props.offset === 'server time' ? 'Server time.' : `Server time (${props.offset}).`
+  const zone =
+    props.serverOffset === 'server time' ? 'Server time.' : `Server time (${props.serverOffset}).`
   return props.span ? `${zone} Saved rolls span ${props.span}.` : zone
 })
 
@@ -44,9 +56,10 @@ async function show() {
   ;(shown[quick.value.findIndex((range) => range.pressed)] ?? shown[0])?.focus()
 }
 
+// Returning focus never scrolls the screen, which a scroll-away close would undo.
 function close(refocus: boolean) {
   open.value = false
-  if (refocus) toggle.value?.focus()
+  if (refocus) toggle.value?.focus({ preventScroll: true })
 }
 
 function onKey(event: KeyboardEvent) {
@@ -65,6 +78,14 @@ function onFocusOut(event: FocusEvent) {
 function onOutside(event: Event) {
   if (!event.composedPath().some((target) => target === root.value)) close(false)
 }
+// The screen scrolling the button out of view closes it too, rather than leave it
+// floating over the header with nothing to point at, and focus returns to the button.
+watch(
+  () => middlewareData.value.hide?.referenceHidden,
+  (hidden) => {
+    if (hidden) close(true)
+  },
+)
 watch(open, (now) => {
   if (now) document.addEventListener('pointerdown', onOutside, true)
   else document.removeEventListener('pointerdown', onOutside, true)
@@ -93,7 +114,9 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
     <div
       v-if="open"
       :id="dialogId"
+      ref="popover"
       class="popover"
+      :style="floatingStyles"
       role="dialog"
       aria-label="Date range"
       @keydown="onKey"
@@ -141,9 +164,6 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
 </template>
 
 <style scoped>
-.dates {
-  position: relative;
-}
 .toggle {
   display: flex;
   align-items: center;
@@ -169,10 +189,7 @@ const day = (event: Event) => (event.target as HTMLInputElement).value || undefi
   color: var(--accent);
 }
 .popover {
-  position: absolute;
   z-index: 30;
-  top: calc(100% + 8px);
-  left: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;

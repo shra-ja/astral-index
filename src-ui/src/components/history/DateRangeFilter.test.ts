@@ -1,15 +1,36 @@
 import { mount } from '@vue/test-utils'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import DateRangeFilter from './DateRangeFilter.vue'
 
-type Props = { from?: string; to?: string; offset: string; span?: string }
+type Props = { from?: string; to?: string; serverOffset: string; span?: string }
 let wrapper: ReturnType<typeof render>
 const render = (props: Props) =>
   mount(DateRangeFilter, {
     props: { today: '2026-10-06', ...props },
     attachTo: document.body,
   })
-afterEach(() => wrapper.unmount())
+afterEach(() => {
+  wrapper.unmount()
+  vi.restoreAllMocks()
+})
+
+// jsdom lays nothing out, so the window and every element get a size: the button
+// at `buttonTop`, in view unless a test scrolls it away.
+let buttonTop = 100
+beforeEach(() => {
+  buttonTop = 100
+  vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1024)
+  vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(768)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    const top = this.matches('button[aria-haspopup="dialog"]') ? buttonTop : 0
+    const box = { x: 100, y: top, left: 100, top, width: 120, height: 32 }
+    return { ...box, right: 220, bottom: top + 32, toJSON: () => box }
+  })
+})
+// Floating UI places the popover after the current task.
+const placed = () => new Promise((done) => setTimeout(done))
 
 const toggle = () => wrapper.get('button[aria-haspopup="dialog"]')
 const dialog = () => wrapper.find('[role="dialog"]')
@@ -22,7 +43,7 @@ const field = (name: string) =>
     .get<HTMLInputElement>('input[type="date"]')
 
 test('the button names the range shown and opens the date popover', async () => {
-  wrapper = render({ offset: 'UTC+8', span: '26 Apr 2023 – 28 Sep 2026' })
+  wrapper = render({ serverOffset: 'UTC+8', span: '26 Apr 2023 – 28 Sep 2026' })
   expect(toggle().text()).toBe('All dates')
   expect(toggle().classes()).not.toContain('active')
   expect(toggle().attributes('aria-expanded')).toBe('false')
@@ -48,7 +69,7 @@ test('the button names the range shown and opens the date popover', async () => 
 })
 
 test('a chosen range is named and marked, and each change applies at once', async () => {
-  wrapper = render({ from: '2026-09-30', offset: 'UTC+8' })
+  wrapper = render({ from: '2026-09-30', serverOffset: 'UTC+8' })
   expect(toggle().text()).toBe('Last 7 days')
   expect(toggle().classes()).toContain('active')
   await toggle().trigger('click')
@@ -73,7 +94,7 @@ test('a chosen range is named and marked, and each change applies at once', asyn
 })
 
 test('days chosen by hand are named by their dates, with no quick range marked', async () => {
-  wrapper = render({ from: '2026-04-26', to: '2026-09-28', offset: 'UTC+8' })
+  wrapper = render({ from: '2026-04-26', to: '2026-09-28', serverOffset: 'UTC+8' })
   expect(toggle().text()).toBe('26 Apr 2026 – 28 Sep 2026')
   expect(toggle().attributes('aria-label')).toBe('Dates shown: 26 Apr 2026 – 28 Sep 2026')
   await toggle().trigger('click')
@@ -83,14 +104,14 @@ test('days chosen by hand are named by their dates, with no quick range marked',
 })
 
 test('without a known offset or saved rolls the note says only server time', async () => {
-  wrapper = render({ to: '2026-09-28', offset: 'server time' })
+  wrapper = render({ to: '2026-09-28', serverOffset: 'server time' })
   await toggle().trigger('click')
   expect(wrapper.get('.note').text()).toBe('Server time.')
   expect(field('From').attributes('max')).toBe('2026-09-28')
 })
 
 test('Done and Escape close the popover and return focus; Tab out or a press outside close it', async () => {
-  wrapper = render({ offset: 'UTC+8' })
+  wrapper = render({ serverOffset: 'UTC+8' })
   await toggle().trigger('click')
   await wrapper.get('button.done').trigger('click')
   expect(dialog().exists()).toBe(false)
@@ -117,5 +138,19 @@ test('Done and Escape close the popover and return focus; Tab out or a press out
   document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
   await wrapper.vm.$nextTick()
   expect(dialog().exists()).toBe(false)
+  expect(wrapper.emitted('change')).toBeUndefined()
+})
+
+test('the popover closes once the screen scrolls its button out of view', async () => {
+  wrapper = render({ serverOffset: 'UTC+8' })
+  await toggle().trigger('click')
+  await placed()
+  expect(dialog().exists()).toBe(true)
+  buttonTop = -100
+  window.dispatchEvent(new Event('scroll'))
+  await placed()
+  expect(dialog().exists()).toBe(false)
+  // Focus returns to the button, keeping its place in the tab order.
+  expect(document.activeElement).toBe(toggle().element)
   expect(wrapper.emitted('change')).toBeUndefined()
 })

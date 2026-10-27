@@ -125,7 +125,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
                 :from="dates.from"
                 :to="dates.to"
                 :today="serverToday(account.timezone)"
-                :offset="utcOffset(account.timezone)"
+                :server-offset="utcOffset(account.timezone)"
                 :span="history.summary.first ? spanOf(history.summary) : undefined"
                 @change="setDates"
               />
