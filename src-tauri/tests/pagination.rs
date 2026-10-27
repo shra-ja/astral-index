@@ -3,7 +3,10 @@ use astral_index::acquisition::{
     Transport, TransportError, extract_request_contexts, fetch_history,
 };
 use astral_index::storage::{Store, Summary};
+use common::Folder;
 use std::{collections::VecDeque, sync::Mutex};
+
+mod common;
 
 const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
 const EMPTY: &[u8] =
@@ -43,10 +46,8 @@ fn retrieved_history_previews_and_commits_through_storage() {
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
 
-    let directory =
-        std::env::temp_dir().join(format!("astral-index-pagination-{}", std::process::id()));
-    std::fs::create_dir(&directory).unwrap();
-    let mut store = Store::open(&directory.join("history.sqlite")).unwrap();
+    let folder = Folder::new();
+    let mut store = Store::open(&folder.path("history.sqlite")).unwrap();
     // Preview under the account and server resolved from the responses.
     let account = history.account().unwrap();
     assert_eq!(
@@ -94,6 +95,4 @@ fn retrieved_history_previews_and_commits_through_storage() {
             ..Default::default()
         }
     );
-    drop(store);
-    std::fs::remove_dir_all(directory).unwrap();
 }

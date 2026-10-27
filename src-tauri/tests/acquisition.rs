@@ -1,7 +1,10 @@
 use astral_index::acquisition::{
     CacheError, MAX_CACHE_BYTES, discover_cache_files, read_selected_cache,
 };
+use common::Folder;
 use std::fs;
+
+mod common;
 
 // Run potentially blocking regressions in a child so failures cannot hang the suite.
 fn bounded_child(name: &str, seconds: u64, path: Option<&std::path::Path>) {
@@ -43,9 +46,8 @@ fn selected_fifo_is_rejected_without_waiting_for_a_writer() {
         );
         return;
     }
-    let directory = std::env::temp_dir().join(format!("astral-index-fifo-{}", std::process::id()));
-    fs::create_dir(&directory).unwrap();
-    let path = directory.join("data_2");
+    let folder = Folder::new();
+    let path = folder.path("data_2");
     assert!(
         std::process::Command::new("mkfifo")
             .arg(&path)
@@ -53,15 +55,11 @@ fn selected_fifo_is_rejected_without_waiting_for_a_writer() {
             .unwrap()
             .success()
     );
-    let result = std::panic::catch_unwind(|| {
-        bounded_child(
-            "selected_fifo_is_rejected_without_waiting_for_a_writer",
-            3,
-            Some(&path),
-        )
-    });
-    fs::remove_dir_all(directory).unwrap();
-    result.unwrap();
+    bounded_child(
+        "selected_fifo_is_rejected_without_waiting_for_a_writer",
+        3,
+        Some(&path),
+    );
 }
 
 #[test]
@@ -106,15 +104,15 @@ fn cache(urls: &[String]) -> Vec<u8> {
 
 #[test]
 fn selected_file_is_read_only_and_bounded() {
-    let directory = std::env::temp_dir().join(format!("astral-index-cache-{}", std::process::id()));
-    fs::create_dir_all(&directory).unwrap();
+    let folder = Folder::new();
+    let directory = folder.root();
     let path = directory.join("data_2");
     let bytes = cache(&[url("synthetic")]);
     fs::write(&path, &bytes).unwrap();
     assert_eq!(read_selected_cache(&path).unwrap().len(), 1);
     assert_eq!(fs::read(&path).unwrap(), bytes);
     assert_eq!(
-        read_selected_cache(&directory),
+        read_selected_cache(directory),
         Err(CacheError::NotRegularFile)
     );
     assert_eq!(
@@ -126,22 +124,17 @@ fn selected_file_is_read_only_and_bounded() {
         .set_len((MAX_CACHE_BYTES + 1) as u64)
         .unwrap();
     assert_eq!(read_selected_cache(&path), Err(CacheError::TooLarge));
-    fs::remove_dir_all(directory).unwrap();
 }
 
 #[test]
 fn discovers_only_the_two_newest_windows_cache_versions() {
-    let directory =
-        std::env::temp_dir().join(format!("astral-index-discovery-{}", std::process::id()));
-    fs::create_dir_all(&directory).unwrap();
-    assert_eq!(
-        discover_cache_files(&directory),
-        Err(CacheError::Unreadable)
-    );
+    let folder = Folder::new();
+    let directory = folder.root();
+    assert_eq!(discover_cache_files(directory), Err(CacheError::Unreadable));
     let root = directory.join("webCaches");
     fs::create_dir(&root).unwrap();
     assert_eq!(
-        discover_cache_files(&directory),
+        discover_cache_files(directory),
         Err(CacheError::NoCacheFound)
     );
     let layouts = [
@@ -165,13 +158,12 @@ fn discovers_only_the_two_newest_windows_cache_versions() {
     }
     fs::write(root.join("7.0.0.0"), b"not a directory").unwrap();
     // 6.0.0.0 and 2.10.0.0 are the two newest version folders; 6.0.0.0 has no cache.
-    let paths = discover_cache_files(&directory).unwrap();
+    let paths = discover_cache_files(directory).unwrap();
     assert_eq!(paths, [root.join(layouts[2])]);
     assert_eq!(read_selected_cache(&paths[0]).unwrap().len(), 1);
     fs::remove_dir(root.join("6.0.0.0")).unwrap();
     assert_eq!(
-        discover_cache_files(&directory).unwrap(),
+        discover_cache_files(directory).unwrap(),
         [root.join(layouts[2]), root.join(layouts[1])]
     );
-    fs::remove_dir_all(directory).unwrap();
 }

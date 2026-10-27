@@ -6,39 +6,15 @@ use astral_index::desktop::{
     database::Database,
 };
 use astral_index::storage::{Error, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
+use common::{Folder, names, release_1_0_0};
 use rusqlite::Connection;
-use std::{
-    path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::path::{Path, PathBuf};
+
+mod common;
 
 const PAGE: &[u8] = include_bytes!("fixtures/hsr-api/page.json");
 const UID: &str = "100000002";
 const SERVER: &str = "synthetic-server";
-static NEXT: AtomicU64 = AtomicU64::new(0);
-
-/// A folder of its own for each test, removed afterwards.
-struct Folder(PathBuf);
-impl Folder {
-    fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
-            "astral-index-backup-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir(&path).unwrap();
-        Self(path)
-    }
-    fn path(&self, name: &str) -> PathBuf {
-        self.0.join(name)
-    }
-}
-impl Drop for Folder {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
-    }
-}
-
 /// A store holding the synthetic page's rolls.
 fn store_with_history(path: &Path) -> Store {
     let mut store = Store::open(path).unwrap();
@@ -87,8 +63,7 @@ fn a_snapshot_never_overwrites_an_existing_file() {
 
 #[test]
 fn the_released_1_0_0_database_passes_the_check_unchanged() {
-    let fixture =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/storage/history-1.0.0.sqlite");
+    let fixture = release_1_0_0();
     let before = std::fs::read(&fixture).unwrap();
     assert_eq!(check_database(&fixture, Schema::CURRENT), Ok(()));
     assert_eq!(std::fs::read(&fixture).unwrap(), before);
@@ -197,16 +172,6 @@ fn data_with_history(folder: &Folder) -> PathBuf {
     drop(store_with_history(&data.join("history.sqlite")));
     data
 }
-/// The names in a folder, sorted.
-fn names(folder: &Path) -> Vec<String> {
-    let mut names: Vec<String> = std::fs::read_dir(folder)
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
-        .collect();
-    names.sort();
-    names
-}
-
 #[test]
 fn saving_replaces_a_file_the_user_chose_to_replace_with_a_checked_backup() {
     let folder = Folder::new();
@@ -227,7 +192,7 @@ fn saving_replaces_a_file_the_user_chose_to_replace_with_a_checked_backup() {
     let saved = Store::open(&target).unwrap();
     assert_eq!(saved.history(UID, SERVER).unwrap().len(), 2);
     // Nothing else was left beside it.
-    assert_eq!(names(&folder.0), ["backup.sqlite", "data"]);
+    assert_eq!(names(folder.root()), ["backup.sqlite", "data"]);
 }
 
 #[test]
@@ -242,7 +207,7 @@ fn a_failed_rename_leaves_no_partial_file_and_the_users_own_files_untouched() {
     std::fs::write(&own, b"the user's own file").unwrap();
     assert_eq!(save(&data, &target), Err(Failure::BackupFailed));
     assert_eq!(
-        names(&folder.0),
+        names(folder.root()),
         ["backup.sqlite", "backup.sqlite.partial", "data"]
     );
     assert_eq!(std::fs::read(&own).unwrap(), b"the user's own file");
