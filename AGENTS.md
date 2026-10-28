@@ -20,6 +20,7 @@ limitations and the next task. Then open what the task needs:
 | Adding a game or import source | [GAMES](docs/games/GAMES.md) and [imports](docs/architecture/imports.md) |
 | Designing UIGF storage, import or export | The `uigf` skill in `.agents/skills/uigf/` |
 | Setting up, running or checking the app | [DEVELOPMENT](docs/development/DEVELOPMENT.md) |
+| Preparing or publishing a release | The Releasing section of [DEVELOPMENT](docs/development/DEVELOPMENT.md#releasing) |
 | Working on tests, coverage gates, probes or CI | [TESTING](docs/development/TESTING.md) and [tests/README.md](tests/README.md) |
 | Finding files in the frontend or backend | [src-ui/README.md](src-ui/README.md) and [src-tauri/README.md](src-tauri/README.md) |
 | Branching, committing, testing first, handing off | [CONTRIBUTING](CONTRIBUTING.md) |

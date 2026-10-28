@@ -220,12 +220,16 @@ are outward-facing.
    for users, such as titles about tooling or tests, or when there is no
    earlier tag, write Markdown that replaces the generated sections: one or two
    sentences summarising the release, then `### Breaking changes`,
-   `### Features` and `### Fixes`, as needed and in that order, each entry one
-   sentence in the present tense about what the app now does, ending with its
-   pull request, such as `(#117)`. Write each paragraph and entry on one
-   line: the workflow passes the notes through verbatim, and a release page
-   turns every newline into a line break. Preview them as a release page
-   renders them with
+   `### Features` and `### Fixes`, as needed and in that order. Keep the
+   entries close to the generated ones, so that a release whose generated notes
+   are kept reads much the same: each is a pull request's title with its verb
+   in the present tense, as in "Saves …" for "Save …", reworded only where
+   users would not understand it, and ends with its pull request, such as
+   `(#117)`. Related pull requests can share an entry, as in `(#128, #131)`,
+   and ones users would not notice are left out. Write each paragraph and
+   entry on one line: the workflow passes the notes through verbatim, and a
+   release page turns every newline into a line break. Preview them as a
+   release page renders them with
    `gh api -X POST markdown -f mode=gfm -f text="$(cat notes.md)"`. The
    workflow adds "Usage" itself.
 4. **Start the workflow:**
