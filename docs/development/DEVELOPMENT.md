@@ -218,20 +218,20 @@ are outward-facing.
 3. **Write the notes if the generated ones won't do.** Step 2's notes list the
    pull request titles as written. When they don't describe the release well
    for users, such as titles about tooling or tests, or when there is no
-   earlier tag, write Markdown that replaces the generated sections: one or two
-   sentences summarising the release, then `### Breaking changes`,
-   `### Features` and `### Fixes`, as needed and in that order. Keep the
-   entries close to the generated ones, so that a release whose generated notes
-   are kept reads much the same: each is a pull request's title with its verb
-   in the present tense, as in "Saves …" for "Save …", reworded only where
-   users would not understand it, and ends with its pull request, such as
-   `(#117)`. Related pull requests can share an entry, as in `(#128, #131)`,
-   and ones users would not notice are left out. Write each paragraph and
-   entry on one line: the workflow passes the notes through verbatim, and a
-   release page turns every newline into a line break. Preview them as a
-   release page renders them with
-   `gh api -X POST markdown -f mode=gfm -f text="$(cat notes.md)"`. The
-   workflow adds "Usage" itself.
+   earlier tag, write Markdown that replaces the generated sections:
+   - **Structure:** one or two sentences summarising the release, then
+     `### Breaking changes`, `### Features` and `### Fixes`, as needed and in
+     that order. The workflow adds "Usage" itself.
+   - **Entries:** base each on its pull request's title without the type
+     prefix, as the generated ones are, with the verb in the third-person
+     present tense ("Saves …" for "Save …"), reworded only where users would
+     not understand it, and ending with its pull request, such as `(#117)`.
+     Related pull requests can share an entry, as in `(#128, #131)`. Leave out
+     pull requests users would not notice.
+   - **Formatting:** write each paragraph and entry on one line: the workflow
+     passes the notes through verbatim, and a release page turns every newline
+     into a line break. Preview them as a release page renders them with
+     `gh api -X POST markdown -f mode=gfm -f text="$(cat notes.md)"`.
 4. **Start the workflow:**
    `gh workflow run release.yml --ref main` with `-f version=1.2.0` to choose
    the version and `-f notes="$(cat notes.md)"` to give the notes, or the "Run

@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-27
+Updated: 2026-10-28
 
 ## Current state
 
@@ -55,7 +55,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Release routing (2026-10-28)
 
-`docs/release-routing`: AGENTS.md routes releases to DEVELOPMENT's Releasing section, which nothing pointed to before, so an agent drafting 1.1.0's notes missed it. That section's step 3 now keeps hand-written entries close to the generated ones: each pull request's title with its verb in the present tense, related pull requests sharing an entry and ones users would not notice left out. Docs only; markdownlint and the docs check pass.
+`docs/release-routing`: AGENTS.md routes releases to DEVELOPMENT's Releasing section, which nothing pointed to before, so an agent drafting 1.1.0's notes missed it. That section's step 3 now keeps hand-written entries close to the generated ones: each pull request's title with its verb in the third-person present tense, related pull requests sharing an entry and ones users would not notice left out. Docs only; markdownlint and the docs check pass.
 
 ## Known limitations
 
