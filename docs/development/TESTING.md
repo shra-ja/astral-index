@@ -110,7 +110,11 @@ text, as CI keeps `test-results/` but not the window. The text also holds
 whether IPC still answers (`app_info` within 3 seconds) and each IPC command the
 mock's webview sent, with when it was sent and answered: only names and times,
 recorded by wrapping the `fetch` that Tauri's IPC uses, as `invoke` can't be
-replaced. Each run first removes an earlier run's snapshots.
+replaced, and when the page loaded. The mock's own IPC trace, in the test's log,
+shows when each command reached the native side and when its answer was handed
+back, by the clock, so a stalled command shows which side waited
+([decision 0014](../architecture/decisions/0014-mock-debug-binary.md)). Each run
+first removes an earlier run's snapshots.
 
 Bubblewrap provides the network namespace; only loopback exists, for WebDriver.
 Ubuntu's hosted runners restrict unprivileged user namespaces, so CI loads a

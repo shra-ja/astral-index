@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Native IPC trace (2026-10-29)
+
+`test/wide-window-ipc-stall`: the mock writes a line to stderr, with the time, as each command reaches the native side and as its answer is handed back to the webview, from Tauri's own IPC spans (its `tracing` feature, on only with the `mock` feature); a failure snapshot adds when the page loaded, so the webview's times line up with the trace. If the next wide-window stall recurs, the CI log shows whether the command arrived late, answered late or was answered on time but reached the webview late. Red: the trace's unit test wrote nothing, and `register_mock` installed no subscriber; green: all 273 unit tests pass, and the wide-window e2e test's log has an arrival and an answer line for each of its commands, with no arguments or answers. `npm run check` passes, run in its three stages, with the trace at 100% unit coverage.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -70,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: log on the native side when the mock receives and answers each command, beside the webview's trace, so the next wide-window stall shows which side waited; then [0030](../product/features/0030-history-file-import.md), history-file import, starting with its facts-based duplicates.
+Next: [0030](../product/features/0030-history-file-import.md), history-file import, starting with its facts-based duplicates.
 
 ## Keeping this file current
 
