@@ -69,7 +69,7 @@ The About dialog shows the folder in use.
 
 If a folder named `data` sits next to the executable, the history and browser
 cache are kept there instead, for example `D:\AstralIndex\data\history.sqlite`
-beside `D:\AstralIndex\Astral-Index-v1.0.0.exe`. Creating or removing the folder
+beside `D:\AstralIndex\Astral-Index-v1.1.0.exe`. Creating or removing the folder
 switches modes on the next start. If both locations hold a history, the portable
 one is used and the other is left untouched; to move history across, close the
 app and copy `history.sqlite`.
