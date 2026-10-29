@@ -124,7 +124,9 @@ table took 380 ms and the copy 41 ms in a measurement on 2026-10-21.
 
 A backup is a snapshot of the database
 ([decision 0031](decisions/0031-sqlite-snapshot-backups.md)):
-`Store::write_snapshot` writes one with `VACUUM INTO`, and `check_database`
+`Store::write_snapshot` writes one with `VACUUM INTO`, which rebuilds the
+tables and indexes packed, so a backup, and a history restored from it, is
+usually smaller than its source with the same contents. `check_database`
 checks a database file as restore will, as untrusted input. It refuses a file
 over `MAX_DATABASE_BYTES` (256 MiB) before opening it, then opens it read-only in
 SQLite's defensive mode, with `trusted_schema` off, no memory mapping, checked
