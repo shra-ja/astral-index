@@ -28,6 +28,7 @@ pub mod backup;
 pub mod cache_file;
 pub mod database;
 pub mod dialogs;
+pub mod ipc_trace;
 pub mod local_time;
 pub mod restore;
 pub use database::Database;
@@ -361,8 +362,10 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
 /// HoYoverse, and history stays in its own folder, never in portable mode, so
 /// synthetic history cannot mix with real history. Its webview profile is cleared
 /// at each start, since a development webview can otherwise reuse modules cached
-/// from an older dev server. It records what it would open instead of launching it.
+/// from an older dev server. It records what it would open instead of launching
+/// it, and writes its IPC trace to stderr.
 pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Builder<R> {
+    ipc_trace::install();
     let settings = Settings {
         folder_name: database::MOCK_FOLDER_NAME,
         portable: false,
@@ -1530,6 +1533,8 @@ mod tests {
         assert_eq!(database.folder(), Some(folder.as_path()));
         assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
         assert_eq!(database.schema(), storage::Schema::CURRENT);
+        // Its IPC trace is installed for the whole process.
+        assert!(tracing::dispatcher::has_been_set());
         assert!(matches!(
             *app.state::<Network>(),
             Network::Mock(mock::Scenario::History)
