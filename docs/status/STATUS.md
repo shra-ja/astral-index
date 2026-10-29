@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release 1.1.0 (2026-10-29)
-
-`docs/status-1.1.0`: [1.1.0](https://github.com/shra-ja/astral-index/releases/tag/v1.1.0) is released from `3ee421e`, with backup and restore, safe upgrades and the native cache-file dialog. On Windows, its executable retrieved live history from a chosen cache file, and backed up and restored it with the same contents. The wide-window stall that decision 0034 aimed to remove recurred once in CI on `3ee421e`: `extract_from_file` answered after 20 s, against 0.6 s locally, and it didn't reproduce locally on two loaded cores; a re-run passed. Beyond its 0.5 s request pacing, no app code waits there; wry finishes WebKitGTK's IPC responses on the GTK main thread, so the stall is likely specific to WebKitGTK, and Windows uses WebView2 instead. Docs only; markdownlint and the docs check pass.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -210,3 +206,6 @@ research, under a "From" heading.
 - [2026-10-28: release routing](history/2026-10-28-release-routing.md):
   AGENTS.md routing releases to DEVELOPMENT, and release notes' entries kept
   close to the generated ones.
+- [2026-10-29: release 1.1.0](history/2026-10-29-release-1-1-0.md):
+  1.1.0 released and checked on Windows, and the wide-window stall's
+  recurrence in CI.
