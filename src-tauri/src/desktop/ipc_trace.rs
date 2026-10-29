@@ -6,9 +6,11 @@
 //! never a request's arguments or a command's answer.
 
 use tracing::Subscriber;
+use tracing_subscriber::Layer;
 use tracing_subscriber::filter::filter_fn;
 use tracing_subscriber::fmt::{MakeWriter, format::FmtSpan};
 use tracing_subscriber::prelude::*;
+use tracing_subscriber::registry::LookupSpan;
 
 /// The spans Tauri opens as a command arrives, naming it, and as it answers.
 const SPANS: [&str; 2] = ["ipc::request::handle", "ipc::request::respond"];
@@ -19,14 +21,20 @@ pub fn subscriber<W>(writer: W) -> impl Subscriber + Send + Sync
 where
     W: for<'w> MakeWriter<'w> + Send + Sync + 'static,
 {
-    let layer = tracing_subscriber::fmt::layer()
+    let only_spans = filter_fn(|metadata| metadata.is_span() && SPANS.contains(&metadata.name()));
+    tracing_subscriber::registry().with(lines(writer).with_filter(only_spans))
+}
+
+/// Writes a line, starting with the time, as any span opens or any event occurs.
+fn lines<S, W>(writer: W) -> impl Layer<S>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    W: for<'w> MakeWriter<'w> + Send + Sync + 'static,
+{
+    tracing_subscriber::fmt::layer()
         .with_writer(writer)
         .with_ansi(false)
         .with_span_events(FmtSpan::NEW)
-        .with_filter(filter_fn(|metadata| {
-            metadata.is_span() && SPANS.contains(&metadata.name())
-        }));
-    tracing_subscriber::registry().with(layer)
 }
 
 /// Write the trace to stderr, which the end-to-end tests' log keeps, for the
@@ -38,33 +46,30 @@ pub fn install() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
+    use std::io::{PipeWriter, Read};
+    use std::sync::Mutex;
     use tracing::trace_span;
 
+    /// Held while a test's subscriber is its thread's default: with more than one
+    /// at a time, tracing can cache whether a span is enabled from the wrong one.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
     /// What `subscriber`, given a writer, writes while `steps` run.
-    fn written<S, F>(subscriber: F, steps: impl FnOnce()) -> String
-    where
-        S: Subscriber + Send + Sync,
-        F: FnOnce(Box<dyn Fn() -> std::io::PipeWriter + Send + Sync>) -> S,
-    {
+    fn written<S: Subscriber + Send + Sync>(
+        subscriber: impl FnOnce(Mutex<PipeWriter>) -> S,
+        steps: impl FnOnce(),
+    ) -> String {
+        let _turn = ONE_AT_A_TIME.lock().unwrap();
         let (mut reader, writer) = std::io::pipe().unwrap();
-        let writers = Box::new(move || writer.try_clone().unwrap());
-        tracing::subscriber::with_default(subscriber(writers), steps);
+        tracing::subscriber::with_default(subscriber(Mutex::new(writer)), steps);
         let mut text = String::new();
         reader.read_to_string(&mut text).unwrap();
         text
     }
 
     /// Writes every span and event, as the trace would without its filter.
-    fn unfiltered(
-        writer: Box<dyn Fn() -> std::io::PipeWriter + Send + Sync>,
-    ) -> impl Subscriber + Send + Sync {
-        tracing_subscriber::fmt()
-            .with_writer(writer)
-            .with_ansi(false)
-            .with_max_level(tracing::Level::TRACE)
-            .with_span_events(FmtSpan::NEW)
-            .finish()
+    fn unfiltered(writer: Mutex<PipeWriter>) -> impl Subscriber + Send + Sync {
+        tracing_subscriber::registry().with(lines(writer))
     }
 
     /// The spans Tauri 2.12's custom protocol opens for one command, as in its
@@ -94,7 +99,7 @@ mod tests {
 
     #[test]
     fn the_trace_never_writes_arguments_answers_or_other_spans() {
-        let hidden = [
+        let secrets = [
             "synthetic-argument",
             "synthetic-answer",
             "cacheFile",
@@ -102,18 +107,20 @@ mod tests {
         ];
         let text = written(subscriber, handle_one_command);
         let everything = written(unfiltered, handle_one_command);
-        for hidden in hidden {
-            assert!(!text.contains(hidden), "{hidden} in {text}");
+        for secret in secrets {
+            assert!(!text.contains(secret), "{secret} in {text}");
             // Without the filter, it would be written.
-            assert!(everything.contains(hidden), "{hidden} not in {everything}");
+            assert!(everything.contains(secret), "{secret} not in {everything}");
         }
     }
 
     #[test]
     fn each_line_starts_with_the_time() {
         let text = written(subscriber, handle_one_command);
-        let year = chrono::Utc::now().format("%Y-").to_string();
         assert!(!text.is_empty());
-        assert!(text.lines().all(|line| line.starts_with(&year)));
+        for line in text.lines() {
+            let time = line.split_whitespace().next().unwrap();
+            assert!(chrono::DateTime::parse_from_rfc3339(time).is_ok(), "{line}");
+        }
     }
 }

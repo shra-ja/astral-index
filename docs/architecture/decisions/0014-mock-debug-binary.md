@@ -18,8 +18,8 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   calls `desktop::register_mock`; it adds no behaviour of its own. The shipped
   binary, `main.rs`, is unchanged and has no test hooks or switches. The mock
   binary is built only with the `mock` Cargo feature (`required-features`), so
-  release builds do not produce it; the feature gates nothing in the library
-  (since 2026-10-29 it also turns on Tauri's IPC spans; see "IPC trace").
+  release builds do not produce it; the feature gates none of the library's code;
+  since 2026-10-29 it also turns on Tauri's IPC spans (see "IPC trace").
   Cargo's `default-run` keeps `cargo run` and `tauri dev` on the real app.
 - **An in-process mock transport,** `acquisition::mock::MockTransport`, answers the
   history endpoints from the request alone (category, cursor, size), so nothing
