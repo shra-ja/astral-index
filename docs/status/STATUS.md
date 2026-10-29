@@ -1,11 +1,11 @@
 # Project status
 
-Updated: 2026-10-28
+Updated: 2026-10-29
 
 ## Current state
 
 Astral Index is a Tauri 2 desktop app with a Vue webview, released as
-[1.0.0](https://github.com/shra-ja/astral-index/releases/tag/v1.0.0) on 2026-10-16. Honkai: Star Rail
+[1.1.0](https://github.com/shra-ja/astral-index/releases/tag/v1.1.0) on 2026-10-29 (first, 1.0.0, on 2026-10-16). Honkai: Star Rail
 history import works end to end; Genshin Impact, with no import yet, shows only in development builds (decision 0026).
 
 - **Retrieval, on request only:** the app finds the warp history link by
@@ -53,14 +53,14 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release routing (2026-10-28)
+### Release 1.1.0 (2026-10-29)
 
-`docs/release-routing`: AGENTS.md routes releases to DEVELOPMENT's Releasing section, which nothing pointed to before, so an agent drafting 1.1.0's notes missed it. That section's step 3 now keeps hand-written entries close to the generated ones: each pull request's title with its verb in the third-person present tense, related pull requests sharing an entry and ones users would not notice left out. Docs only; markdownlint and the docs check pass.
+`docs/status-1.1.0`: [1.1.0](https://github.com/shra-ja/astral-index/releases/tag/v1.1.0) is released from `3ee421e`, with backup and restore, safe upgrades and the native cache-file dialog. On Windows, its executable retrieved live history from a chosen cache file, and backed up and restored it. The restored file was 120 KiB smaller than its safety copy with the same contents: `VACUUM INTO` rebuilds the rolls index packed (95% full, against 63% after imports). The wide-window end-to-end test stalled once in CI on `3ee421e`: `extract_from_file` answered after 20 s, against 0.6 s locally, unreproduced on two loaded cores; a re-run passed. No app code waits there, and wry answers WebKitGTK's IPC on the GTK main thread, which Windows doesn't use.
 
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
-  native side. Live retrieval last worked on Windows on 2026-10-15.
+  native side, and the wide-window test stalls in about 1 in 30 CI runs. Live retrieval last worked on Windows on 2026-10-29.
 - Browsers may flag the unsigned executable until it is signed
   ([0053](../product/features/0053-code-signing.md)).
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, starting with its facts-based duplicates.
+Next: log when the mock receives and answers each command, so the next wide-window stall shows which side waited; then [0030](../product/features/0030-history-file-import.md), history-file import, starting with its facts-based duplicates.
 
 ## Keeping this file current
 
@@ -207,3 +207,6 @@ research, under a "From" heading.
 - [2026-10-27: shared Rust test helpers](history/2026-10-27-shared-rust-test-helpers.md):
   the Rust integration tests' shared temporary folders, synthetic page,
   test-only migration and helpers.
+- [2026-10-28: release routing](history/2026-10-28-release-routing.md):
+  AGENTS.md routing releases to DEVELOPMENT, and release notes' entries kept
+  close to the generated ones.
