@@ -55,8 +55,9 @@ impl Schema {
         }
     }
     /// This schema with test-only migrations after its own, as a later release's
-    /// would be.
+    /// would be. It has none already: they would be replaced, not added to.
     pub const fn then(self, later: &'static [&'static str]) -> Self {
+        assert!(self.later.is_empty(), "test-only migrations replaced");
         Self {
             migrations: self.migrations,
             later,
@@ -66,26 +67,25 @@ impl Schema {
     fn steps(self) -> impl Iterator<Item = &'static str> {
         self.migrations.iter().chain(self.later).copied()
     }
-    /// How many migrations the newest version has.
-    fn len(self) -> usize {
-        self.migrations.len() + self.later.len()
-    }
     /// How many of these migrations a database at schema `version` already has:
     /// none unless `version` is one of this schema's released versions, from the
     /// first release's to the newest.
     fn applied(self, version: i32) -> Option<usize> {
         let applied = usize::try_from(version.saturating_sub(FIRST_RELEASED)).ok()?;
-        (applied <= self.len()).then_some(applied)
+        (applied <= self.steps().count()).then_some(applied)
     }
     /// Whether a database with `applied` of these migrations needs none more.
     fn is_newest(self, applied: usize) -> bool {
-        applied == self.len()
+        applied == self.steps().count()
     }
     /// This schema as it was with only its first `applied` migrations, as
     /// `applied` gives them.
     fn at(self, applied: usize) -> Self {
         match applied.checked_sub(self.migrations.len()) {
-            Some(later) => self.then(&self.later[..later]),
+            Some(later) => Self {
+                later: &self.later[..later],
+                ..self
+            },
             None => Self::with_migrations(&self.migrations[..applied]),
         }
     }
@@ -530,7 +530,7 @@ impl Store {
             return Err(Error::Empty);
         }
         if !crate::hsr::digits(&uid)
-            || server.trim().is_empty()
+            || !crate::hsr::valid_server(&server)
             || timezone.is_some_and(|offset| !crate::hsr::valid_offset(offset))
             || rolls
                 .iter()
@@ -1475,7 +1475,11 @@ pub(crate) mod tests {
     pub(crate) const UPGRADED: Schema = Schema::CURRENT.then(&[BANNER]);
     /// The SQL for upgrading a database at the first release's version to `UPGRADED`.
     pub(crate) fn upgrading() -> Vec<Step> {
-        upgrade(FIRST_RELEASED, &UPGRADED.steps().collect::<Vec<_>>())
+        upgrade(FIRST_RELEASED, &upgraded_steps())
+    }
+    /// The SQL of `UPGRADED`'s migrations, in order.
+    fn upgraded_steps() -> Vec<&'static str> {
+        UPGRADED.steps().collect()
     }
     /// The first migration's SQL, which upgrading runs first.
     pub(crate) const FIRST_MIGRATION: &str = MIGRATIONS[0];
@@ -1489,6 +1493,11 @@ pub(crate) mod tests {
         assert_eq!(steps(3), ["A", "B", "C"]);
         assert_eq!(schema.applied(FIRST_RELEASED + 3), Some(3));
         assert_eq!(schema.applied(FIRST_RELEASED + 4), None);
+    }
+    #[test]
+    #[should_panic(expected = "test-only migrations replaced")]
+    fn test_only_migrations_are_never_replaced() {
+        let _ = UPGRADED.then(&["REPLACING"]);
     }
     #[test]
     fn an_older_release_s_database_is_upgraded_after_it_is_kept() {
@@ -1514,10 +1523,7 @@ pub(crate) mod tests {
     #[test]
     fn an_upgrade_that_breaks_a_reference_is_rolled_back() {
         let mut steps = reading(FIRST_RELEASED, APPLICATION_ID);
-        steps.extend(migrating(
-            FIRST_RELEASED,
-            &UPGRADED.steps().collect::<Vec<_>>(),
-        ));
+        steps.extend(migrating(FIRST_RELEASED, &upgraded_steps()));
         steps.extend([
             rows(BROKEN_REFERENCES, vec![], vec![vec![Value::Integer(1)]]),
             done("ROLLBACK"),
@@ -1562,10 +1568,7 @@ pub(crate) mod tests {
     #[test]
     fn a_new_or_current_database_is_built_or_opened_by_the_same_steps() {
         let mut steps = creating();
-        steps.extend(migrating(
-            FIRST_RELEASED,
-            &UPGRADED.steps().collect::<Vec<_>>(),
-        ));
+        steps.extend(migrating(FIRST_RELEASED, &upgraded_steps()));
         steps.extend(finishing());
         database::expect(steps);
         let store = Store::initialize(Connection, UPGRADED, None);

@@ -137,7 +137,11 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
     }
     let page: Page = serde_json::from_str(envelope.data.ok_or(ParseError::InvalidResponse)?.get())
         .map_err(|_| ParseError::InvalidResponse)?;
-    if page.region.as_deref() == Some("") {
+    if page
+        .region
+        .as_deref()
+        .is_some_and(|server| !valid_server(server))
+    {
         return Err(ParseError::InvalidContext);
     }
     if page
@@ -161,6 +165,11 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
 /// Validate decimal identity text while retaining leading zeros and avoiding numeric conversion.
 pub(crate) fn digits(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// Whether `server` names a server: not empty or only spaces.
+pub(crate) fn valid_server(server: &str) -> bool {
+    !server.trim().is_empty()
 }
 
 /// Whether `offset` is a real UTC offset in whole hours.
@@ -359,8 +368,10 @@ mod tests {
             assert_eq!(parse(&page), Err(ParseError::InvalidContext));
         }
         let mut page = fixture();
-        page["data"]["region"] = json!("");
-        assert_eq!(parse(&page), Err(ParseError::InvalidContext));
+        for blank in ["", " "] {
+            page["data"]["region"] = json!(blank);
+            assert_eq!(parse(&page), Err(ParseError::InvalidContext), "{blank:?}");
+        }
         for offset in [-12, 0, 14] {
             let mut page = fixture();
             page["data"]["region_time_zone"] = json!(offset);

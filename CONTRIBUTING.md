@@ -105,9 +105,11 @@ A schema change takes these steps:
    copy the rows, drop the old table, then rename the new one into its place.
    The runner holds references unenforced during the upgrade and checks them
    all before committing, so never set `PRAGMA foreign_keys` in a migration.
-2. Raise the versions the tests expect. The test-only schemas that stand in for
-   a later release (`Schema::CURRENT.then(...)`, such as `UPGRADED`) run their
-   migrations after the app's, so they follow the new one themselves. The released fixtures' tests then show
+2. Raise the versions the tests expect of the files they write, such as those in
+   `src-tauri/tests/storage.rs`, `released_databases.rs` and `backup.rs`, and in
+   `tests/e2e-smoke.test.ts`. The test-only schemas that stand in for a later
+   release, built with `Schema::CURRENT.then(...)` such as `UPGRADED`, run
+   their migrations after the app's, so they need no change. The released fixtures' tests then show
    the real migration keeps each fixture's history; add tests for what it
    changes.
 3. Update the queries and their tests for the new schema.
