@@ -6,7 +6,7 @@ use astral_index::storage::{
     Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
     Source, Store, StoredRoll, Summary, check_database,
 };
-use common::{BANNER, Folder, UID, UPGRADED, batch, imports, release_1_0_0};
+use common::{BANNER, Folder, OPTIONAL_POOL_ID, UID, UPGRADED, batch, imports, release_1_0_0};
 use rusqlite::Connection;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -35,7 +35,7 @@ INSERT INTO accounts_new(game, uid, server, timezone)
     SELECT game, uid, server, timezone FROM accounts;
 DROP TABLE accounts;
 ALTER TABLE accounts_new RENAME TO accounts;";
-const REBUILT: Schema = Schema::with_migrations(&[REBUILD_ACCOUNTS]);
+const REBUILT: Schema = Schema::with_migrations(&[OPTIONAL_POOL_ID, REBUILD_ACCOUNTS]);
 /// The app's schema, and migrations newer, which must keep every history too.
 const SCHEMAS: [Schema; 3] = [Schema::CURRENT, UPGRADED, REBUILT];
 
@@ -270,7 +270,7 @@ fn a_1_0_0_database_takes_new_imports_and_skips_saved_rolls() {
             Summary {
                 inserted: 1,
                 duplicates: 12,
-                conflicts: 0,
+                ..Default::default()
             }
         );
         let page = store
@@ -286,6 +286,35 @@ fn a_1_0_0_database_takes_new_imports_and_skips_saved_rolls() {
         assert_eq!(page.total, 13);
         assert_eq!(page.rolls, [character_event(13)]);
     }
+}
+
+/// The 1.0.0 and 1.1.0 releases' schema: the first release's, with no migrations.
+const RELEASE_1_1_0: Schema = Schema::with_migrations(&[]);
+
+#[test]
+fn rolls_without_a_pool_id_make_1_1_0_refuse_the_history_as_newer() {
+    let copy = Copy::of(&release_1_0_0());
+    let objects = |path: &Path| -> Vec<String> {
+        let connection = Connection::open(path).unwrap();
+        let mut statement = connection
+            .prepare("SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name")
+            .unwrap();
+        statement
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    let tables = objects(&copy.path());
+    drop(Store::open(&copy.path()).unwrap());
+    // 1.1.0 would read a roll without a pool ID as damage, so the version rises,
+    // though the tables are as they were.
+    assert_eq!(objects(&copy.path()), tables);
+    assert_eq!(
+        check_database(&copy.path(), RELEASE_1_1_0),
+        Err(Refusal::Newer)
+    );
+    assert_eq!(check_database(&copy.path(), Schema::CURRENT), Ok(()));
 }
 
 #[test]
@@ -307,7 +336,7 @@ fn upgrading_a_1_0_0_database_lets_the_caller_keep_it_unchanged_first() {
         .unwrap()
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
     // Once upgraded, it opens as it is, with nothing more to keep.
     Store::open_with(
         &copy.path(),
@@ -320,7 +349,11 @@ fn upgrading_a_1_0_0_database_lets_the_caller_keep_it_unchanged_first() {
 #[test]
 fn a_failed_migration_or_keep_leaves_a_1_0_0_database_unchanged() {
     let fixture = std::fs::read(release_1_0_0()).unwrap();
-    let failing = Schema::with_migrations(&[BANNER, "ALTER TABLE missing ADD COLUMN x TEXT"]);
+    let failing = Schema::with_migrations(&[
+        OPTIONAL_POOL_ID,
+        BANNER,
+        "ALTER TABLE missing ADD COLUMN x TEXT",
+    ]);
     let copy = Copy::of(&release_1_0_0());
     assert!(Store::open_with(&copy.path(), failing, None).is_err());
     assert_eq!(std::fs::read(copy.path()).unwrap(), fixture);
@@ -359,7 +392,7 @@ fn the_check_expects_each_version_s_schema_as_its_migrations_build_it() {
     let unmigrated = Copy::of(&release_1_0_0());
     Connection::open(unmigrated.path())
         .unwrap()
-        .execute_batch("PRAGMA user_version=3")
+        .execute_batch("PRAGMA user_version=4")
         .unwrap();
     assert_eq!(
         check_database(&unmigrated.path(), UPGRADED),

@@ -76,7 +76,10 @@ pub struct Roll {
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
     pub uid: String,
     pub id: String,
-    pub gacha_id: String,
+    /// The banner's pool ID. HoYoverse always gives it; other sources may not, and
+    /// a roll saved without one keeps no key for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gacha_id: Option<String>,
     pub gacha_type: String,
     pub item_id: String,
     pub count: String,
@@ -144,7 +147,8 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
         return Err(ParseError::InvalidContext);
     }
     for roll in &page.list {
-        if !valid_roll(roll) {
+        // HoYoverse always gives a pool ID.
+        if !valid_roll(roll) || roll.gacha_id.is_none() {
             return Err(ParseError::InvalidRecord);
         }
         if roll.uid != page.list[0].uid {
@@ -160,11 +164,12 @@ pub(crate) fn digits(value: &str) -> bool {
 }
 
 /// Enforce the supported HSR record contract before any record can enter an import.
+/// A roll may lack a pool ID, but one it has is not empty.
 pub(crate) fn valid_roll(roll: &Roll) -> bool {
     digits(&roll.id)
         && roll.id.len() <= 19
         && digits(&roll.uid)
-        && !roll.gacha_id.is_empty()
+        && roll.gacha_id.as_deref().is_none_or(|id| !id.is_empty())
         && !roll.item_id.is_empty()
         && Category::ALL
             .iter()
@@ -246,7 +251,7 @@ mod tests {
         assert_eq!(
             (&r.gacha_id, &r.gacha_type, &r.item_id),
             (
-                &"1001".to_owned(),
+                &Some("1001".to_owned()),
                 &"11".to_owned(),
                 &"synthetic-item".to_owned()
             )
@@ -314,10 +319,10 @@ mod tests {
         let mut exact = EMPTY.to_vec();
         exact.resize(MAX_RESPONSE_BYTES, b' ');
         assert!(parse_response(&exact).is_ok());
+        // A missing pool ID parses, but HoYoverse's records need one.
         for field in [
             "uid",
             "id",
-            "gacha_id",
             "gacha_type",
             "item_id",
             "count",
@@ -400,6 +405,29 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn hoyoverse_records_need_a_pool_id_but_saved_rolls_may_lack_one() {
+        for missing in [None, Some(Value::Null)] {
+            let mut page = fixture();
+            let roll = page["data"]["list"][1].as_object_mut().unwrap();
+            roll.remove("gacha_id");
+            if let Some(value) = missing {
+                roll.insert("gacha_id".into(), value);
+            }
+            assert_eq!(parse(&page), Err(ParseError::InvalidRecord));
+        }
+        let mut page = fixture();
+        page["data"]["list"][1]["gacha_id"] = json!(1001);
+        assert_eq!(parse(&page), Err(ParseError::InvalidResponse));
+        let mut roll = parse(&fixture()).unwrap().list.remove(1);
+        roll.gacha_id = None;
+        assert!(valid_roll(&roll));
+        // Saved without the key, not with an empty value.
+        let saved = serde_json::to_value(&roll).unwrap();
+        assert!(saved.get("gacha_id").is_none());
+        assert_eq!(serde_json::from_value::<Roll>(saved).unwrap(), roll);
     }
 
     #[test]

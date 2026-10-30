@@ -12,7 +12,8 @@ use serde::Serialize;
 #[cfg(not(test))]
 use std::fs;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    borrow::Cow,
+    collections::{BTreeMap, HashMap, HashSet, hash_map::Entry},
     path::Path,
 };
 
@@ -24,8 +25,8 @@ const APPLICATION_ID: i32 = 1381257795;
 const FIRST_RELEASED: i32 = 2;
 const FIRST_SQL: &str = include_str!("../migrations/001_initial.sql");
 /// The migrations after the first release, in order, each upgrading the schema
-/// version before it by one. None yet: the schema has not changed since 1.0.0.
-const MIGRATIONS: &[&str] = &[];
+/// version before it by one.
+pub(crate) const MIGRATIONS: &[&str] = &[include_str!("../migrations/002_optional_pool_id.sql")];
 /// How many references a database holds to rows that don't exist.
 const BROKEN_REFERENCES: &str = "SELECT count(*) FROM pragma_foreign_key_check";
 /// A database's schema objects, as compared between a file and its version's SQL.
@@ -127,12 +128,18 @@ pub struct Summary {
     pub inserted: usize,
     pub duplicates: usize,
     pub conflicts: usize,
+    /// Duplicates that give their pool ID to a saved roll without one.
+    pub pool_ids_added: usize,
 }
 impl Summary {
     fn count(&mut self, status: Status) {
         match status {
             Status::New => self.inserted += 1,
             Status::Duplicate => self.duplicates += 1,
+            Status::PoolIdAdded => {
+                self.duplicates += 1;
+                self.pool_ids_added += 1;
+            }
             Status::Conflict => self.conflicts += 1,
         }
     }
@@ -150,6 +157,8 @@ impl Summary {
 enum Status {
     New,
     Duplicate,
+    /// A duplicate whose pool ID the saved roll lacks, and so gets.
+    PoolIdAdded,
     Conflict,
 }
 
@@ -195,7 +204,7 @@ pub struct Preview {
     uid: String,
     server: String,
     timezone: Option<i32>,
-    records: Vec<(String, String)>,
+    rolls: Vec<Roll>,
     snapshot: (String, i64),
 }
 impl Preview {
@@ -505,9 +514,6 @@ impl Store {
         if rolls.is_empty() {
             return Err(Error::Empty);
         }
-        let mut records = Vec::new();
-        // Each record's category, time and rarity, for the review.
-        let mut details = Vec::new();
         for roll in &rolls {
             if roll.uid != uid {
                 return Err(Error::Context);
@@ -515,26 +521,21 @@ impl Store {
             if !crate::hsr::valid_roll(roll) {
                 return Err(Error::InvalidRecord);
             }
-            records.push((roll.id.clone(), serde_json::json!(roll).to_string()));
-            details.push((
-                roll.gacha_type.clone(),
-                roll.time.clone(),
-                roll.rank_type.clone(),
-            ));
         }
         let tx = self.connection.transaction()?;
         check_timezone(&tx, &uid, &server, timezone)?;
-        let statuses = classify(&tx, &uid, &server, &records)?;
+        let statuses = classify(&tx, &uid, &server, &rolls)?.statuses;
         let summary = Summary::of(&statuses);
         let mut by_category: BTreeMap<&str, Summary> = BTreeMap::new();
         let mut conflicts = Vec::new();
         let (mut new_five_star, mut new_four_star) = (0, 0);
-        for (((id, _), (gacha_type, time, rarity)), status) in
-            records.iter().zip(&details).zip(statuses)
-        {
-            by_category.entry(gacha_type).or_default().count(status);
+        for (roll, status) in rolls.iter().zip(statuses) {
+            by_category
+                .entry(&roll.gacha_type)
+                .or_default()
+                .count(status);
             if status == Status::New {
-                match rarity.as_str() {
+                match roll.rank_type.as_str() {
                     "5" => new_five_star += 1,
                     "4" => new_four_star += 1,
                     _ => {}
@@ -542,15 +543,15 @@ impl Store {
             }
             if status == Status::Conflict {
                 conflicts.push(Conflict {
-                    id: id.clone(),
-                    gacha_type: gacha_type.clone(),
-                    time: time.clone(),
+                    id: roll.id.clone(),
+                    gacha_type: roll.gacha_type.clone(),
+                    time: roll.time.clone(),
                 });
             }
         }
         // Validated times share one canonical format and offset, so text order is
         // time order.
-        let times = details.iter().map(|(_, time, _)| time);
+        let times = rolls.iter().map(|roll| &roll.time);
         let review = Review {
             uid: uid.clone(),
             server: server.clone(),
@@ -579,7 +580,7 @@ impl Store {
             uid,
             server,
             timezone,
-            records,
+            rolls,
             snapshot: snapshot(&tx)?,
         };
         tx.commit()?;
@@ -598,8 +599,8 @@ impl Store {
             return Err(Error::StalePreview);
         }
         check_timezone(&tx, &preview.uid, &preview.server, preview.timezone)?;
-        let statuses = classify(&tx, &preview.uid, &preview.server, &preview.records)?;
-        let current = Summary::of(&statuses);
+        let classified = classify(&tx, &preview.uid, &preview.server, &preview.rolls)?;
+        let current = Summary::of(&classified.statuses);
         if current != preview.summary {
             return Err(Error::StalePreview);
         }
@@ -612,16 +613,29 @@ impl Store {
         let batch = tx.last_insert_rowid();
         {
             let mut insert = tx.prepare("INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)")?;
-            let new_records = preview.records.iter().zip(&statuses);
-            for ((id, payload), _) in new_records.filter(|(_, status)| **status == Status::New) {
-                insert.execute(params![
-                    GAME,
-                    preview.uid,
-                    preview.server,
-                    id,
-                    payload,
-                    batch
-                ])?;
+            let mut update = tx.prepare(
+                "UPDATE rolls SET payload=?5 WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4",
+            )?;
+            for kept in classified.writes {
+                let payload = serde_json::json!(kept.roll).to_string();
+                if kept.saved {
+                    update.execute(params![
+                        GAME,
+                        preview.uid,
+                        preview.server,
+                        kept.roll.id,
+                        payload
+                    ])?;
+                } else {
+                    insert.execute(params![
+                        GAME,
+                        preview.uid,
+                        preview.server,
+                        kept.roll.id,
+                        payload,
+                        batch
+                    ])?;
+                }
             }
         }
         tx.execute(
@@ -1052,44 +1066,93 @@ fn snapshot(connection: &Connection) -> Result<(String, i64), Error> {
     )?)
 }
 
-/// Compare scoped identities with stored and earlier incoming rolls to expose conflicts
-/// and identify which records need insertion, without writing any state.
-fn classify(
+/// A roll as it is or will be saved, while an import is classified.
+struct Kept<'a> {
+    roll: Cow<'a, Roll>,
+    /// Saved before this import, rather than new in it.
+    saved: bool,
+}
+
+/// How an import's rolls compare with saved rolls and each other, and what saving
+/// them writes.
+struct Classified<'a> {
+    /// Each incoming roll's status, in order.
+    statuses: Vec<Status>,
+    /// The new rolls, and the saved rolls that gain a pool ID, in the order their
+    /// IDs first appear, as they are to be saved.
+    writes: Vec<Kept<'a>>,
+}
+
+/// Compare each incoming roll with the saved roll of its ID, or an earlier incoming
+/// one, to find which are new, already saved or in conflict, without writing any
+/// state. Rolls of one ID are the same roll when their facts agree; other fields
+/// may differ, and the first seen is kept, except that one without a pool ID
+/// takes a later duplicate's.
+fn classify<'a>(
     connection: &Connection,
     uid: &str,
     server: &str,
-    records: &[(String, String)],
-) -> Result<Vec<Status>, Error> {
+    rolls: &'a [Roll],
+) -> Result<Classified<'a>, Error> {
     let mut statuses = Vec::new();
     let mut query = connection
         .prepare("SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4")?;
-    let mut seen: BTreeMap<&String, String> = BTreeMap::new();
-    for (id, payload) in records {
-        let previous = if let Some(previous) = seen.get(id) {
-            Some(previous.clone())
-        } else {
-            query
-                .query_row(params![GAME, uid, server, id], |row| {
-                    row.get::<_, String>(0)
+    let mut kept: HashMap<&str, Kept<'a>> = HashMap::new();
+    // The IDs to write, in the order they first need writing.
+    let mut writes: Vec<&str> = Vec::new();
+    for roll in rolls {
+        let earlier = match kept.entry(&roll.id) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let saved = query
+                    .query_row(params![GAME, uid, server, roll.id], |row| {
+                        row.get::<_, String>(0)
+                    })
+                    .optional()?;
+                let Some(saved) = saved else {
+                    statuses.push(Status::New);
+                    writes.push(&roll.id);
+                    entry.insert(Kept {
+                        roll: Cow::Borrowed(roll),
+                        saved: false,
+                    });
+                    continue;
+                };
+                entry.insert(Kept {
+                    roll: Cow::Owned(stored(uid, &roll.id, &saved)?),
+                    saved: true,
                 })
-                .optional()?
+            }
         };
-        match previous {
-            Some(previous) => {
-                statuses.push(if previous == *payload {
-                    Status::Duplicate
-                } else {
-                    Status::Conflict
-                });
-                seen.insert(id, previous);
+        statuses.push(if !same_facts(&earlier.roll, roll) {
+            Status::Conflict
+        } else if earlier.roll.gacha_id.is_none() && roll.gacha_id.is_some() {
+            earlier.roll.to_mut().gacha_id.clone_from(&roll.gacha_id);
+            if earlier.saved {
+                writes.push(&roll.id);
+                Status::PoolIdAdded
+            } else {
+                Status::Duplicate
             }
-            None => {
-                statuses.push(Status::New);
-                seen.insert(id, payload.clone());
-            }
-        }
+        } else {
+            Status::Duplicate
+        });
     }
-    Ok(statuses)
+    let writes = writes
+        .into_iter()
+        .filter_map(|id| kept.remove(id))
+        .collect();
+    Ok(Classified { statuses, writes })
+}
+
+/// Whether two rolls of one account and ID record the same roll: the same category,
+/// item, time and rarity. Names, languages and other fields may differ between
+/// sources and over time.
+fn same_facts(first: &Roll, second: &Roll) -> bool {
+    first.gacha_type == second.gacha_type
+        && first.item_id == second.item_id
+        && first.time == second.time
+        && first.rank_type == second.rank_type
 }
 
 #[cfg(test)]
@@ -1176,8 +1239,13 @@ pub(crate) mod tests {
             rolls: pages.into_iter().flat_map(|page| page.list).collect(),
         }
     }
+    /// The fixture page's first roll.
+    fn roll() -> Roll {
+        parse_response(PAGE).unwrap().list.remove(0)
+    }
+    /// The first roll's ID and payload, as saved.
     fn record() -> (String, String) {
-        let roll = parse_response(PAGE).unwrap().list.remove(0);
+        let roll = roll();
         (roll.id.clone(), serde_json::json!(roll).to_string())
     }
     /// The SQL for looking up a roll's payload, answered with `payload` when found.
@@ -1201,14 +1269,13 @@ pub(crate) mod tests {
             review: Review::default(),
             summary: Summary {
                 inserted: 1,
-                duplicates: 0,
-                conflicts: 0,
+                ..Default::default()
             },
             source: Source::Hoyoverse,
             uid: UID.into(),
             server: SERVER.into(),
             timezone: Some(8),
-            records: vec![record()],
+            rolls: vec![roll()],
             snapshot: ("database".into(), 0),
         }
     }
@@ -1248,12 +1315,16 @@ pub(crate) mod tests {
     fn finishing() -> [Step; 3] {
         [identity(), done("COMMIT"), done("PRAGMA foreign_keys=ON")]
     }
+    /// The app's schema version.
+    const CURRENT: i32 = FIRST_RELEASED + MIGRATIONS.len() as i32;
     /// The SQL for initializing a new or existing database after it is opened.
     pub(crate) fn setup(existing: bool) -> Vec<Step> {
         let mut steps = if existing {
-            reading(FIRST_RELEASED, APPLICATION_ID)
+            reading(CURRENT, APPLICATION_ID)
         } else {
-            creating()
+            let mut steps = creating();
+            steps.extend(migrating(FIRST_RELEASED, MIGRATIONS));
+            steps
         };
         steps.extend(finishing());
         steps
@@ -1346,6 +1417,8 @@ pub(crate) mod tests {
     const BATCH: &str = "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,?4,?5,?6,?7,0)";
     const INSERT: &str =
         "INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)";
+    const FILL: &str =
+        "UPDATE rolls SET payload=?5 WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
     const REVISION: &str = "UPDATE metadata SET revision=revision+1 WHERE singleton=1";
     /// The SQL for committing `preview()`, imported at 1234.
     pub(crate) fn commit_script(duplicate: bool) -> Vec<Step> {
@@ -1369,6 +1442,7 @@ pub(crate) mod tests {
             step(BATCH, batch_bindings, Reply::Count(1)),
             step("LAST INSERT ID", vec![], Reply::Id(7)),
             done(&format!("PREPARE {INSERT}")),
+            done(&format!("PREPARE {FILL}")),
         ];
         if !duplicate {
             let mut bindings = scope();
@@ -1379,14 +1453,18 @@ pub(crate) mod tests {
         steps
     }
 
-    /// A test-only migration after the first release's schema.
+    /// A test-only migration after the app's.
     pub(crate) const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
+    /// The app's migrations, then the test-only one.
+    const UPGRADED_MIGRATIONS: &[&str] = &[MIGRATIONS[0], BANNER];
     /// A schema one test-only migration newer than the app's.
-    pub(crate) const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
+    pub(crate) const UPGRADED: Schema = Schema::with_migrations(UPGRADED_MIGRATIONS);
     /// The SQL for upgrading a database at the first release's version to `UPGRADED`.
     pub(crate) fn upgrading() -> Vec<Step> {
-        upgrade(FIRST_RELEASED, &[BANNER])
+        upgrade(FIRST_RELEASED, UPGRADED_MIGRATIONS)
     }
+    /// The first migration's SQL, which upgrading runs first.
+    pub(crate) const FIRST_MIGRATION: &str = UPGRADED_MIGRATIONS[0];
     #[test]
     fn an_older_release_s_database_is_upgraded_after_it_is_kept() {
         database::expect(upgrading());
@@ -1402,7 +1480,7 @@ pub(crate) mod tests {
         );
         assert!(store.is_ok());
         database::finish();
-        assert_eq!(kept, [(2, Some(BANNER.into()))]);
+        assert_eq!(kept, [(2, Some(FIRST_MIGRATION.into()))]);
         // Each failure rolls the whole upgrade back, kept first or not.
         fail_each(&upgrading, Some(1), &mut || {
             Store::initialize(Connection, UPGRADED, None).map(|_| ())
@@ -1411,7 +1489,7 @@ pub(crate) mod tests {
     #[test]
     fn an_upgrade_that_breaks_a_reference_is_rolled_back() {
         let mut steps = reading(FIRST_RELEASED, APPLICATION_ID);
-        steps.extend(migrating(FIRST_RELEASED, &[BANNER]));
+        steps.extend(migrating(FIRST_RELEASED, UPGRADED_MIGRATIONS));
         steps.extend([
             rows(BROKEN_REFERENCES, vec![], vec![vec![Value::Integer(1)]]),
             done("ROLLBACK"),
@@ -1448,7 +1526,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn a_failed_keep_stops_the_upgrade_before_anything_changes() {
-        database::expect(stopping_before(upgrading(), BANNER));
+        database::expect(stopping_before(upgrading(), FIRST_MIGRATION));
         let store = Store::initialize(Connection, UPGRADED, Some(&mut |_| Err(Error::Database)));
         assert!(matches!(store, Err(Error::Database)));
         database::finish();
@@ -1456,14 +1534,14 @@ pub(crate) mod tests {
     #[test]
     fn a_new_or_current_database_is_built_or_opened_by_the_same_steps() {
         let mut steps = creating();
-        steps.extend(migrating(FIRST_RELEASED, &[BANNER]));
+        steps.extend(migrating(FIRST_RELEASED, UPGRADED_MIGRATIONS));
         steps.extend(finishing());
         database::expect(steps);
         let store = Store::initialize(Connection, UPGRADED, None);
         assert!(store.is_ok());
         database::finish();
         // A current database is opened as it is.
-        let mut steps = reading(3, APPLICATION_ID);
+        let mut steps = reading(CURRENT + 1, APPLICATION_ID);
         steps.extend(finishing());
         database::expect(steps);
         let store = Store::initialize(Connection, UPGRADED, None);
@@ -1490,7 +1568,7 @@ pub(crate) mod tests {
     #[test]
     fn initialization_rejects_incompatible_or_claimed_databases() {
         for (version, app) in [
-            (3, APPLICATION_ID),
+            (CURRENT + 1, APPLICATION_ID),
             (2, 0),
             (0, APPLICATION_ID),
             (1, APPLICATION_ID),
@@ -1552,43 +1630,135 @@ pub(crate) mod tests {
         );
         database::finish();
     }
+    /// A roll of the fixture's first roll's ID, changed by `change`.
+    fn variant(change: impl FnOnce(&mut Roll)) -> Roll {
+        let mut roll = roll();
+        change(&mut roll);
+        roll
+    }
+    /// The SQL classifying rolls of the first roll's ID, answered with `saved`.
+    fn classifying(saved: Option<&Roll>) -> Vec<Step> {
+        let payload = saved.map(|roll| serde_json::json!(roll).to_string());
+        vec![
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup(&roll().id, payload.as_deref()),
+        ]
+    }
+    /// What classifying `rolls` against `saved` finds, and what it would write: each
+    /// roll's pool ID, and whether it was saved before.
+    fn classified(
+        saved: Option<&Roll>,
+        rolls: &[Roll],
+    ) -> (Vec<Status>, Vec<(Option<String>, bool)>) {
+        database::expect(classifying(saved));
+        let classified = classify(&Connection, UID, SERVER, rolls).unwrap();
+        database::finish();
+        let writes = classified
+            .writes
+            .iter()
+            .map(|kept| (kept.roll.gacha_id.clone(), kept.saved))
+            .collect();
+        (classified.statuses, writes)
+    }
     #[test]
-    fn classification_reuses_first_seen_identity_and_never_writes() {
-        database::expect(vec![
-            done(&format!("PREPARE {LOOKUP}")),
-            lookup("001", None),
-        ]);
-        let records = vec![
-            ("001".into(), "a".into()),
-            ("001".into(), "a".into()),
-            ("001".into(), "b".into()),
-        ];
+    fn classification_matches_facts_and_keeps_the_first_seen_roll() {
+        let renamed = variant(|roll| {
+            roll.name = "renamed".into();
+            roll.lang = "de-de".into();
+        });
+        let other_item = variant(|roll| roll.item_id = "other".into());
+        let rolls = [roll(), renamed, other_item];
+        let pool = roll().gacha_id;
+        // New, then the same roll in another language, then another item.
         assert_eq!(
-            classify(&Connection, UID, SERVER, &records).unwrap(),
-            [Status::New, Status::Duplicate, Status::Conflict]
+            classified(None, &rolls),
+            (
+                vec![Status::New, Status::Duplicate, Status::Conflict],
+                vec![(pool.clone(), false)]
+            )
         );
-        database::finish();
-        database::expect(vec![
-            done(&format!("PREPARE {LOOKUP}")),
-            lookup("001", Some("a")),
-        ]);
+        // Each fact decides.
+        for change in [
+            |roll: &mut Roll| roll.gacha_type = "1".into(),
+            |roll: &mut Roll| roll.item_id = "other".into(),
+            |roll: &mut Roll| roll.time = "2024-02-29 12:34:57".into(),
+            |roll: &mut Roll| roll.rank_type = "3".into(),
+        ] as [fn(&mut Roll); 4]
+        {
+            assert!(!same_facts(&roll(), &variant(change)));
+        }
+        // Saved already: nothing to write.
         assert_eq!(
-            classify(&Connection, UID, SERVER, &records).unwrap(),
-            [Status::Duplicate, Status::Duplicate, Status::Conflict]
+            classified(Some(&roll()), &rolls),
+            (
+                vec![Status::Duplicate, Status::Duplicate, Status::Conflict],
+                vec![]
+            )
         );
-        database::finish();
+    }
+    #[test]
+    fn a_missing_pool_id_is_taken_from_the_first_duplicate_that_has_one() {
+        let without = variant(|roll| roll.gacha_id = None);
+        let other = variant(|roll| roll.gacha_id = Some("other".into()));
+        let pool = roll().gacha_id;
+        let rolls = [without.clone(), roll(), other.clone()];
+        // A saved roll without one gets the first, once.
+        assert_eq!(
+            classified(Some(&without), &rolls[1..]),
+            (
+                vec![Status::PoolIdAdded, Status::Duplicate],
+                vec![(pool.clone(), true)]
+            )
+        );
+        // A new roll without one is saved with it.
+        assert_eq!(
+            classified(None, &rolls),
+            (
+                vec![Status::New, Status::Duplicate, Status::Duplicate],
+                vec![(pool.clone(), false)]
+            )
+        );
+        // A saved pool ID stays, whatever the duplicates give, and a missing one
+        // stays missing until a duplicate gives one.
+        assert_eq!(
+            classified(Some(&roll()), &[without.clone(), other]),
+            (vec![Status::Duplicate, Status::Duplicate], vec![])
+        );
+        assert_eq!(
+            classified(Some(&without), &[without.clone()]),
+            (vec![Status::Duplicate], vec![])
+        );
+        let filled = Summary::of(&[Status::PoolIdAdded, Status::Duplicate]);
+        assert_eq!(
+            filled,
+            Summary {
+                duplicates: 2,
+                pool_ids_added: 1,
+                ..Default::default()
+            }
+        );
     }
     #[test]
     fn lookup_decode_failures_are_safe() {
         let mut bindings = scope();
-        bindings.push(text("001"));
+        bindings.push(text(&roll().id));
         database::expect(vec![
             done(&format!("PREPARE {LOOKUP}")),
             rows(LOOKUP, bindings, vec![vec![Value::Integer(3)]]),
         ]);
         assert_eq!(
-            classify(&Connection, UID, SERVER, &[("001".into(), "a".into())]),
+            classify(&Connection, UID, SERVER, &[roll()]).map(|_| ()),
             Err(Error::Database)
+        );
+        database::finish();
+        // A saved roll that isn't one is damage.
+        database::expect(vec![
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup(&roll().id, Some("{}")),
+        ]);
+        assert_eq!(
+            classify(&Connection, UID, SERVER, &[roll()]).map(|_| ()),
+            Err(Error::InvalidStoredData)
         );
         database::finish();
     }
@@ -1607,6 +1777,9 @@ pub(crate) mod tests {
         });
         let rolls = parse_response(&bytes).unwrap().list;
         let payload = |index: usize| serde_json::json!(rolls[index]).to_string();
+        let mut other_item = rolls[1].clone();
+        other_item.item_id = "other".into();
+        let conflicting = serde_json::json!(other_item).to_string();
         // The first record is already stored, the second differs from its stored
         // copy, and the rest are new: a 5-star, a 4-star and a 3-star.
         database::expect(vec![
@@ -1614,7 +1787,7 @@ pub(crate) mod tests {
             timezone(None),
             done(&format!("PREPARE {LOOKUP}")),
             lookup(&rolls[0].id, Some(&payload(0))),
-            lookup(&rolls[1].id, Some("stored differently")),
+            lookup(&rolls[1].id, Some(&conflicting)),
             lookup(&rolls[2].id, None),
             lookup(&rolls[3].id, None),
             lookup(&rolls[4].id, None),
@@ -1628,14 +1801,14 @@ pub(crate) mod tests {
         let counts = |gacha_type, inserted, duplicates, conflicts| {
             serde_json::json!({
                 "gacha_type": gacha_type, "inserted": inserted,
-                "duplicates": duplicates, "conflicts": conflicts,
+                "duplicates": duplicates, "conflicts": conflicts, "pool_ids_added": 0,
             })
         };
         assert_eq!(
             serde_json::to_value(preview.review()).unwrap(),
             serde_json::json!({
                 "uid": UID, "server": SERVER, "timezone": 8,
-                "summary": { "inserted": 3, "duplicates": 1, "conflicts": 1 },
+                "summary": { "inserted": 3, "duplicates": 1, "conflicts": 1, "pool_ids_added": 0 },
                 // Only new rows count: the stored and conflicting 5-stars do not.
                 "new_five_star": 1,
                 "new_four_star": 1,
@@ -1661,10 +1834,11 @@ pub(crate) mod tests {
             Summary {
                 inserted: 2,
                 duplicates: 0,
-                conflicts: 0
+                conflicts: 0,
+                ..Default::default()
             }
         );
-        assert_eq!(preview.records[0], record());
+        assert_eq!(preview.rolls[0], roll());
         assert_eq!(preview.source, Source::Hoyoverse);
         assert_eq!(preview.timezone, Some(8));
         assert_eq!(preview.snapshot, ("database".into(), 0));
@@ -1703,7 +1877,7 @@ pub(crate) mod tests {
         batch.timezone = None;
         let preview = store().preview(Source::Hoyoverse, batch).unwrap();
         assert_eq!(preview.timezone, None);
-        assert_eq!(preview.records.len(), 2);
+        assert_eq!(preview.rolls.len(), 2);
         database::finish();
     }
     #[test]
@@ -1732,7 +1906,8 @@ pub(crate) mod tests {
             Ok(Summary {
                 inserted: 1,
                 duplicates: 0,
-                conflicts: 0
+                conflicts: 0,
+                ..Default::default()
             })
         );
         database::finish();
@@ -1744,6 +1919,7 @@ pub(crate) mod tests {
             inserted: 0,
             duplicates: 1,
             conflicts: 0,
+            ..Default::default()
         };
         database::expect(commit_script(true));
         assert_eq!(
@@ -1751,10 +1927,61 @@ pub(crate) mod tests {
             Ok(Summary {
                 inserted: 0,
                 duplicates: 1,
-                conflicts: 0
+                conflicts: 0,
+                ..Default::default()
             })
         );
         database::finish();
+    }
+    /// A preview of the first roll, saved without the pool ID it brings.
+    fn filling() -> Preview {
+        let mut preview = preview();
+        preview.summary = Summary {
+            duplicates: 1,
+            pool_ids_added: 1,
+            ..Default::default()
+        };
+        preview
+    }
+    /// The SQL for committing `filling()`, imported at 1234.
+    fn filling_script() -> Vec<Step> {
+        let (id, payload) = record();
+        let without = serde_json::json!(variant(|roll| roll.gacha_id = None)).to_string();
+        let mut account_bindings = scope();
+        account_bindings.push(Value::Integer(8));
+        let mut batch_bindings = scope();
+        batch_bindings.extend([
+            text("hsr-api-v1"),
+            Value::Integer(1234),
+            Value::Integer(0),
+            Value::Integer(1),
+        ]);
+        let mut fill_bindings = scope();
+        fill_bindings.extend([text(&id), text(&payload)]);
+        vec![
+            done("BEGIN Immediate"),
+            identity(),
+            timezone(Some(Some(8))),
+            done(&format!("PREPARE {LOOKUP}")),
+            lookup(&id, Some(&without)),
+            step(ACCOUNTS, account_bindings, Reply::Count(1)),
+            step(BATCH, batch_bindings, Reply::Count(1)),
+            step("LAST INSERT ID", vec![], Reply::Id(7)),
+            done(&format!("PREPARE {INSERT}")),
+            done(&format!("PREPARE {FILL}")),
+            step(FILL, fill_bindings, Reply::Count(1)),
+            step(REVISION, vec![], Reply::Count(1)),
+            done("COMMIT"),
+        ]
+    }
+    #[test]
+    fn commit_gives_a_saved_roll_the_pool_id_a_duplicate_brings() {
+        database::expect(filling_script());
+        assert_eq!(store().commit(filling(), 1234), Ok(filling().summary));
+        database::finish();
+        fail_each(&filling_script, Some(0), &mut || {
+            store().commit(filling(), 1234).map(|_| ())
+        });
     }
     /// The SQL for a commit refused because the database is not the previewed one.
     pub(crate) fn stale_commit_script() -> Vec<Step> {
@@ -2631,7 +2858,7 @@ pub(crate) mod tests {
             let bindings = vec![Value::Integer(limit as i64), Value::Integer(value)];
             step("LIMIT", bindings, Reply::Done)
         };
-        vec![
+        let mut steps = vec![
             step(
                 "OPEN WITH FLAGS",
                 vec![
@@ -2660,16 +2887,24 @@ pub(crate) mod tests {
                 vec![],
                 vec![vec![Value::Integer(APPLICATION_ID.into())]],
             ),
-            rows("PRAGMA user_version", vec![], vec![vec![Value::Integer(2)]]),
+            rows(
+                "PRAGMA user_version",
+                vec![],
+                vec![vec![Value::Integer(CURRENT.into())]],
+            ),
             done(&format!("PREPARE {SCHEMA}")),
             rows(SCHEMA, vec![], schema.clone()),
             step("OPEN IN MEMORY", vec![], Reply::Done),
-            done(include_str!("../migrations/001_initial.sql")),
+            done(FIRST_SQL),
+        ];
+        steps.extend(migrating(FIRST_RELEASED, MIGRATIONS));
+        steps.extend([
             done(&format!("PREPARE {SCHEMA}")),
             rows(SCHEMA, vec![], schema),
             done("PREPARE PRAGMA integrity_check"),
             rows("PRAGMA integrity_check", vec![], vec![vec![text("ok")]]),
-        ]
+        ]);
+        steps
     }
     /// A file system holding the checked file, `length` bytes long.
     fn holding(length: u64) {
@@ -2806,10 +3041,10 @@ pub(crate) mod tests {
             assert_eq!(check(), Err(Refusal::OtherApp), "application ID {app}");
             database::finish();
         }
-        // 3 is newer than this app; version 1 was a pre-release layout, and 0 was
-        // never written with this app's ID, so neither can be trusted.
+        // One past the app's version is newer; version 1 was a pre-release layout,
+        // and 0 was never written with this app's ID, so neither can be trusted.
         for (version, refusal) in [
-            (3, Refusal::Newer),
+            (i64::from(CURRENT + 1), Refusal::Newer),
             (1, Refusal::Damaged),
             (0, Refusal::Damaged),
         ] {

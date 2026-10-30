@@ -136,7 +136,7 @@ fn a_backup_is_upgraded_in_its_held_copy_with_the_schema_it_is_restored_into() {
         .unwrap()
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 }
 
 /// Restore `backup` into a fresh profile's data folder, where the app has just made

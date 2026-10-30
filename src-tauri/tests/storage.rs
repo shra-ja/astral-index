@@ -39,6 +39,7 @@ fn summary(inserted: usize, duplicates: usize, conflicts: usize) -> Summary {
         inserted,
         duplicates,
         conflicts,
+        ..Default::default()
     }
 }
 // Exercise the normal preview/commit flow with fixed context and time.
@@ -110,6 +111,106 @@ fn repeats_overlaps_and_same_second_distinct_ids_are_safe() {
 }
 
 #[test]
+fn a_saved_roll_is_matched_by_its_facts_and_kept_as_saved() {
+    let db = Database::new();
+    let mut store = db.store();
+    import(&mut store, PAGE);
+    let saved = store.history(UID, SERVER).unwrap();
+    // The same rolls retrieved in another language, with a field added: the roll
+    // ID, category, item ID, time and rarity still match.
+    let translated = page(|p| {
+        for roll in p["data"]["list"].as_array_mut().unwrap() {
+            roll["name"] = json!("Synthetischer Name");
+            roll["item_type"] = json!("Lichtkegel");
+            roll["lang"] = json!("de-de");
+            roll["added_later"] = json!(true);
+        }
+    });
+    assert_eq!(import(&mut store, &translated), summary(0, 2, 0));
+    assert_eq!(store.history(UID, SERVER).unwrap(), saved);
+    // Any fact that differs is a conflict.
+    for (field, value) in [
+        ("gacha_type", json!("1")),
+        ("item_id", json!("different-item")),
+        ("time", json!("2024-02-29 12:34:57")),
+        ("rank_type", json!("3")),
+    ] {
+        let changed = page(|p| p["data"]["list"][1][field] = value);
+        let preview = store
+            .preview(Source::Hoyoverse, batch(UID, SERVER, &[&changed]))
+            .unwrap();
+        assert_eq!(preview.summary(), summary(0, 1, 1), "{field}");
+    }
+}
+
+/// The synthetic page's rolls with their pool IDs, as `history` returns them, in
+/// roll ID order.
+fn with_pool_ids() -> Vec<astral_index::Roll> {
+    let mut rolls = batch(UID, SERVER, &[PAGE]).rolls;
+    rolls.reverse();
+    rolls
+}
+
+/// The synthetic page's rolls as a source without pool IDs gives them.
+fn without_pool_ids() -> astral_index::hsr::Batch {
+    let mut batch = batch(UID, SERVER, &[PAGE]);
+    for roll in &mut batch.rolls {
+        roll.gacha_id = None;
+    }
+    batch
+}
+
+#[test]
+fn a_duplicate_gives_its_pool_id_to_a_saved_roll_without_one() {
+    let db = Database::new();
+    let mut store = db.store();
+    let preview = store
+        .preview(Source::Hoyoverse, without_pool_ids())
+        .unwrap();
+    assert_eq!(store.commit(preview, 1234), Ok(summary(2, 0, 0)));
+    // Saved without one, not with an empty one.
+    assert_eq!(
+        scalar(
+            &db.connection(),
+            "SELECT count(*) FROM rolls WHERE json_type(payload,'$.gacha_id') IS NULL"
+        ),
+        2
+    );
+    let saved = store.history(UID, SERVER).unwrap();
+    assert!(saved.iter().all(|roll| roll.gacha_id.is_none()));
+    // The same rolls with pool IDs fill them in, as skipped duplicates.
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
+    let filled = Summary {
+        pool_ids_added: 2,
+        ..summary(0, 2, 0)
+    };
+    assert_eq!(preview.summary(), filled);
+    assert_eq!(store.commit(preview, 1234), Ok(filled));
+    assert_eq!(store.history(UID, SERVER).unwrap(), with_pool_ids());
+    // A saved pool ID stays, whether a duplicate lacks one or gives another.
+    let preview = store
+        .preview(Source::Hoyoverse, without_pool_ids())
+        .unwrap();
+    assert_eq!(store.commit(preview, 1234), Ok(summary(0, 2, 0)));
+    let other = page(|p| p["data"]["list"][0]["gacha_id"] = json!("9999"));
+    assert_eq!(import(&mut store, &other), summary(0, 2, 0));
+    assert_eq!(store.history(UID, SERVER).unwrap(), with_pool_ids());
+}
+
+#[test]
+fn a_later_roll_in_the_same_batch_gives_its_pool_id_to_a_new_one() {
+    let db = Database::new();
+    let mut store = db.store();
+    let mut rolls = without_pool_ids();
+    rolls.rolls.extend(batch(UID, SERVER, &[PAGE]).rolls);
+    let preview = store.preview(Source::Hoyoverse, rolls).unwrap();
+    assert_eq!(store.commit(preview, 1234), Ok(summary(2, 2, 0)));
+    assert_eq!(store.history(UID, SERVER).unwrap(), with_pool_ids());
+}
+
+#[test]
 fn conflicting_records_block_the_whole_batch() {
     let db = Database::new();
     let mut store = db.store();
@@ -126,7 +227,7 @@ fn conflicting_records_block_the_whole_batch() {
     assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
     let conflicting_pair = page(|p| {
         p["data"]["list"][1]["id"] = p["data"]["list"][0]["id"].clone();
-        p["data"]["list"][1]["name"] = json!("different-label");
+        p["data"]["list"][1]["rank_type"] = json!("3");
     });
     let db2 = Database::new();
     let mut fresh = db2.store();
@@ -416,7 +517,9 @@ fn commit_rechecks_payloads_even_if_external_writer_did_not_update_revision() {
         .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
         .unwrap();
     db.connection()
-        .execute_batch("UPDATE rolls SET payload=json_set(payload,'$.name','changed externally')")
+        .execute_batch(
+            "UPDATE rolls SET payload=json_set(payload,'$.item_id','changed externally')",
+        )
         .unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::StalePreview));
     assert_eq!(
@@ -551,6 +654,9 @@ fn initial_schema_creates_compact_storage_directly() {
         ),
         0
     );
+    // Opening upgrades it once; then it opens as it is.
+    db.store();
+    assert_eq!(scalar(&conn, "PRAGMA user_version"), 3);
     let before = std::fs::read(db.path()).unwrap();
     db.store();
     assert_eq!(std::fs::read(db.path()).unwrap(), before);
@@ -632,7 +738,7 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
     assert_eq!(scalar(&conn, "SELECT count(*) FROM batches"), 37);
     assert!(final_size <= 2 * initial_size + 64 * 1024);
     let mut conflict: Value = serde_json::from_slice(&pages[23]).unwrap();
-    conflict["data"]["list"][0]["name"] = json!("changed synthetic name");
+    conflict["data"]["list"][0]["item_id"] = json!("changed synthetic item");
     let conflict = serde_json::to_vec(&conflict).unwrap();
     let before = std::fs::read(db.path()).unwrap();
     let began = Instant::now();
@@ -651,7 +757,7 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
 }
 
 #[test]
-fn precise_extensions_survive_restart_and_conflict_on_changed_values() {
+fn precise_extensions_survive_restart_and_a_duplicate_keeps_the_saved_values() {
     let db = Database::new();
     let a = include_bytes!("fixtures/hsr-api/numeric-extensions-a.json");
     let b = include_bytes!("fixtures/hsr-api/numeric-extensions-b.json");
@@ -660,11 +766,11 @@ fn precise_extensions_survive_restart_and_conflict_on_changed_values() {
     let stored = serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap();
     assert!(stored.contains("18446744073709551616"));
     assert!(stored.contains("0.123456789012345678901"));
-    let preview = store
-        .preview(Source::Hoyoverse, batch(UID, SERVER, &[b]))
-        .unwrap();
-    assert_eq!(preview.summary(), summary(0, 1, 1));
-    assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
+    assert_eq!(import(&mut store, b), summary(0, 2, 0));
+    assert_eq!(
+        serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap(),
+        stored
+    );
 }
 
 #[test]

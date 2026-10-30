@@ -110,7 +110,7 @@ fn another_apps_or_a_newer_versions_database_is_refused_as_such() {
     let newer = snapshot(&folder);
     Connection::open(&newer)
         .unwrap()
-        .execute_batch("PRAGMA user_version = 3;")
+        .execute_batch("PRAGMA user_version = 4;")
         .unwrap();
     assert_eq!(check_database(&newer, Schema::CURRENT), Err(Refusal::Newer));
 }

@@ -377,12 +377,14 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
     register_with(builder, Network::Mock(scenario.network), settings)
 }
 
-/// The mock debug binary's test-only migration for its `failing-upgrade`
-/// scenario: one account per game and server, which a history with two accounts
-/// on one server, such as the 1.0.0 fixture's, fails.
-const FAILING_UPGRADE: storage::Schema = storage::Schema::with_migrations(&[
+/// The mock debug binary's schema for its `failing-upgrade` scenario: the app's
+/// migration, then a test-only one: one account per game and server, which a
+/// history with two accounts on one server, such as the 1.0.0 fixture's, fails.
+const FAILING_UPGRADE: storage::Schema = storage::Schema::with_migrations(FAILING_MIGRATIONS);
+const FAILING_MIGRATIONS: &[&str] = &[
+    storage::MIGRATIONS[0],
     "CREATE UNIQUE INDEX one_account_per_server ON accounts(game, server)",
-]);
+];
 
 /// What the mock debug binary simulates: how its synthetic HoYoverse answers,
 /// and the schema it opens its history with.
@@ -2300,7 +2302,9 @@ mod tests {
         sql::finish();
         assert_eq!(
             json(summary),
-            serde_json::json!({ "inserted": 1, "duplicates": 0, "conflicts": 0 })
+            serde_json::json!({
+                "inserted": 1, "duplicates": 0, "conflicts": 0, "pool_ids_added": 0,
+            })
         );
         assert_eq!(holds(&session), (false, false));
         // Nothing is left to commit.

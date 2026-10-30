@@ -1027,7 +1027,7 @@ mod tests {
         // the history, at the schema's newest, opens as it is.
         let mut steps = check_script(&held().to_string_lossy());
         steps.extend(opened_then_read(&held(), upgrading(), vec![accounts_row()]));
-        steps.extend(opened_then_read(&history(), opened_at(3), vec![]));
+        steps.extend(opened_then_read(&history(), opened_at(4), vec![]));
         sql::expect(steps);
         let restore = Restore::default();
         let chosen = run(choose_into(
