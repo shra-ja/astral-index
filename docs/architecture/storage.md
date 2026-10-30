@@ -25,7 +25,7 @@ blocking pool. Durable history never goes to browser storage or game folders.
 | --- | --- | --- |
 | Account | Game, UID and server as text, time-zone evidence | Implemented |
 | Roll | Game, account, source roll ID as text, the source record as JSON with its extensions, first batch | Implemented |
-| Import batch | Adapter, import time, new, duplicate and conflict counts | Implemented |
+| Import batch | Adapter naming its source, import time, new, duplicate and conflict counts | Implemented |
 | Metadata | Database identity and revision | Implemented |
 | Coverage | Known history boundaries, gaps and source limitations per account and banner group | Tentative |
 | Game metadata | Versioned item and banner mappings and verified rule sets | Tentative |
@@ -38,9 +38,11 @@ associations for unchanged rolls are deliberately not kept (decision 0004).
 
 ## Import: preview, then commit
 
-1. **Preview** (`Store::preview`): validates every page of a batch against the
-   resolved account, server and time zone, then classifies each record as new,
-   duplicate or conflict in a read transaction. The preview is immutable, owns
+1. **Preview** (`Store::preview`): takes one account's rolls, parsed and checked
+   by their source, which names itself: retrieval's pages, which must agree on
+   their account, server and offset. It checks the account, offset and every
+   roll again, then classifies each roll as new, duplicate or conflict in a read
+   transaction. The preview is immutable, owns
    its validated values and carries the `Review` DTO: account, counts overall
    and per category (all six, in fetch order), the server-local time range and
    each conflict's ID, category and time, but no payloads. Nothing is reread on
@@ -51,8 +53,15 @@ associations for unchanged rolls are deliberately not kept (decision 0004).
    blocks the whole batch. A successful import makes every outstanding preview
    stale. Any failure rolls everything back.
 
-Repeating an import adds only a batch summary; overlapping imports add only new
-rolls. Opening refuses unrelated, future or obsolete schemas without changing them.
+Rolls of one ID are the same roll when their facts agree: category, item ID,
+time and rarity ([decision 0032](decisions/0032-history-file-import-rules.md)).
+Names, languages and other fields may differ, as between retrievals in two
+languages, and the saved record is kept. A roll may lack a pool ID; a duplicate
+that brings one gives it to the saved roll, which the review counts as a
+duplicate and as a pool ID added, and a new roll without one takes it from a
+later duplicate in the same batch. Repeating an import adds only a batch
+summary; overlapping imports add only new rolls. Opening refuses unrelated,
+future or obsolete schemas without changing them.
 
 ## Reads
 
@@ -148,10 +157,9 @@ reopens the file.
 ## Planned
 
 A history that can't be upgraded will get one app-wide screen naming the copy
-([0037](../product/features/0037-backup-and-restore.md)). Imports will
-compare a roll's facts rather than its whole record
-([decision 0032](decisions/0032-history-file-import-rules.md)).
+([0037](../product/features/0037-backup-and-restore.md)).
 
 A derived UTC time per roll, from its record's local time and its account's
-offset, joins the next schema migration another feature needs; it stays empty
-where the offset is unknown. Records keep their source's local time.
+offset, joins the schema migration of the first feature that needs it, such as
+statistics or export; it stays empty where the offset is unknown. Records keep
+their source's local time.

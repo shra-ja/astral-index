@@ -48,7 +48,7 @@ File import stays local and never makes a network request.
 
 One PR each, in order:
 
-- [ ] **Facts-based duplicates.** Storage previews rolls already parsed, from
+- [x] **Facts-based duplicates.** Storage previews rolls already parsed, from
   any source, which names itself; the pool ID becomes optional; duplicates and
   conflicts compare facts rather than whole records, for retrieval as well; a
   duplicate fills a missing pool ID. Migration 002 changes no tables but raises
@@ -68,5 +68,6 @@ One PR each, in order:
   reusing retrieval's review, save and discard, with narrow permissions and the
   mock's scenarios. A second account means choosing the file again.
 - [ ] **Import screen.** File import as a second source, its account picker,
-  review and errors, by keyboard, from an approved mockup; then the docs, and a
+  review and errors, by keyboard, from an approved mockup; a review that only
+  adds pool IDs can still be saved, and shows how many; then the docs, and a
   real StarDB export imported on Windows over retrieved history.

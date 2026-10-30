@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Facts-based duplicates (2026-10-30)
+
+`feat/facts-based-duplicates`, 0030's first task: retrieval hands storage the rolls it parsed as one account's batch, and storage previews a batch from a named source. Rolls of one ID are the same roll when their category, item ID, time and rarity agree, so retrieval in another language no longer conflicts; a roll may lack a pool ID, and a duplicate bringing one fills it, counted as a duplicate and a pool ID added (the Import screen shows that count with file import). Migration 002 changes no tables but raises the schema version to 3, so 1.1.0 refuses such a history as newer. Red: the facts, pool ID and version tests failed (a translated page conflicted, filling switched off left the pool IDs missing, 1.1.0's schema accepted the history); green: all 276 unit and every integration test pass, at 100% unit coverage. `npm run check` passes in its three stages.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
