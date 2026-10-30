@@ -1,10 +1,10 @@
 //! Local SQLite storage and immutable import previews. No acquisition or UI access.
 #[cfg(test)]
 use self::tests::database::Connection;
+use crate::Roll;
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
-use crate::hsr::{Category, SoftPity};
-use crate::{MAX_BATCH_BYTES, ParseError, Roll, parse_response};
+use crate::hsr::{Batch, Category, SoftPity};
 #[cfg(not(test))]
 use rusqlite::Connection;
 use rusqlite::{OpenFlags, OptionalExtension, TransactionBehavior, params};
@@ -98,8 +98,8 @@ pub enum Error {
     Schema,
     Context,
     Empty,
-    TooLarge,
-    Parse(ParseError),
+    /// A roll the source should have refused: its checks and storage's disagree.
+    InvalidRecord,
     Conflict,
     StalePreview,
     InvalidStoredData,
@@ -118,11 +118,6 @@ impl From<serde_json::Error> for Error {
     // Report unreadable stored records without leaking their contents.
     fn from(_: serde_json::Error) -> Self {
         Self::InvalidStoredData
-    }
-}
-impl From<ParseError> for Error {
-    fn from(error: ParseError) -> Self {
-        Self::Parse(error)
     }
 }
 
@@ -196,6 +191,7 @@ struct Conflict {
 pub struct Preview {
     review: Review,
     summary: Summary,
+    source: Source,
     uid: String,
     server: String,
     timezone: Option<i32>,
@@ -255,11 +251,20 @@ pub struct Contents {
 }
 
 /// Where an import came from, without exposing internal adapter names.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
     /// Retrieved from HoYoverse's history API.
     Hoyoverse,
+}
+impl Source {
+    const ALL: [Self; 1] = [Self::Hoyoverse];
+    /// The adapter name a batch records for its source.
+    fn adapter(self) -> &'static str {
+        match self {
+            Self::Hoyoverse => "hsr-api-v1",
+        }
+    }
 }
 
 /// Saved roll IDs of the game by account, for a quick refresh's stop check
@@ -481,55 +486,45 @@ impl Store {
         Ok(Self { connection })
     }
 
-    /// Preview all pages atomically; ambiguous or mismatched context blocks the batch.
-    pub fn preview(&mut self, uid: &str, server: &str, bytes: &[&[u8]]) -> Result<Preview, Error> {
-        if !crate::hsr::digits(uid) || server.trim().is_empty() {
+    /// Preview a batch from `source` atomically. An invalid account or offset, a
+    /// roll of another account or an offset unlike the saved account's blocks the
+    /// batch.
+    pub fn preview(&mut self, source: Source, batch: Batch) -> Result<Preview, Error> {
+        let Batch {
+            uid,
+            server,
+            timezone,
+            rolls,
+        } = batch;
+        if !crate::hsr::digits(&uid)
+            || server.trim().is_empty()
+            || timezone.is_some_and(|offset| !(-12..=14).contains(&offset))
+        {
             return Err(Error::Context);
         }
-        if bytes
-            .iter()
-            .fold(0usize, |size, page| size.saturating_add(page.len()))
-            > MAX_BATCH_BYTES
-        {
-            return Err(Error::TooLarge);
+        if rolls.is_empty() {
+            return Err(Error::Empty);
         }
-        // None means no page seen; Some(None) means a page with unknown offset.
-        let mut timezone: Option<Option<i32>> = None;
         let mut records = Vec::new();
         // Each record's category, time and rarity, for the review.
         let mut details = Vec::new();
-        for bytes in bytes {
-            let page = parse_response(bytes)?;
-            if page
-                .region
-                .as_deref()
-                .is_some_and(|region| region != server)
-            {
+        for roll in &rolls {
+            if roll.uid != uid {
                 return Err(Error::Context);
             }
-            if timezone.is_some_and(|first| first != page.region_time_zone) {
-                return Err(Error::Context);
+            if !crate::hsr::valid_roll(roll) {
+                return Err(Error::InvalidRecord);
             }
-            for roll in &page.list {
-                if roll.uid != uid {
-                    return Err(Error::Context);
-                }
-                records.push((roll.id.clone(), serde_json::json!(roll).to_string()));
-                details.push((
-                    roll.gacha_type.clone(),
-                    roll.time.clone(),
-                    roll.rank_type.clone(),
-                ));
-            }
-            timezone = Some(page.region_time_zone);
+            records.push((roll.id.clone(), serde_json::json!(roll).to_string()));
+            details.push((
+                roll.gacha_type.clone(),
+                roll.time.clone(),
+                roll.rank_type.clone(),
+            ));
         }
-        if records.is_empty() {
-            return Err(Error::Empty);
-        }
-        let timezone = timezone.flatten();
         let tx = self.connection.transaction()?;
-        check_timezone(&tx, uid, server, timezone)?;
-        let statuses = classify(&tx, uid, server, &records)?;
+        check_timezone(&tx, &uid, &server, timezone)?;
+        let statuses = classify(&tx, &uid, &server, &records)?;
         let summary = Summary::of(&statuses);
         let mut by_category: BTreeMap<&str, Summary> = BTreeMap::new();
         let mut conflicts = Vec::new();
@@ -557,8 +552,8 @@ impl Store {
         // time order.
         let times = details.iter().map(|(_, time, _)| time);
         let review = Review {
-            uid: uid.to_owned(),
-            server: server.to_owned(),
+            uid: uid.clone(),
+            server: server.clone(),
             timezone,
             summary,
             new_five_star,
@@ -580,8 +575,9 @@ impl Store {
         let preview = Preview {
             review,
             summary,
-            uid: uid.to_owned(),
-            server: server.to_owned(),
+            source,
+            uid,
+            server,
             timezone,
             records,
             snapshot: snapshot(&tx)?,
@@ -610,8 +606,8 @@ impl Store {
         tx.execute("INSERT INTO accounts(game,uid,server,timezone) VALUES (?1,?2,?3,?4) ON CONFLICT DO NOTHING",
             params![GAME, preview.uid, preview.server, preview.timezone])?;
         tx.execute(
-            "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,'hsr-api-v1',?4,?5,?6,0)",
-            params![GAME, preview.uid, preview.server, imported_at, current.inserted as i64, current.duplicates as i64],
+            "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,?4,?5,?6,?7,0)",
+            params![GAME, preview.uid, preview.server, preview.source.adapter(), imported_at, current.inserted as i64, current.duplicates as i64],
         )?;
         let batch = tx.last_insert_rowid();
         {
@@ -704,12 +700,13 @@ impl Store {
             return Ok(None);
         };
         // Only known adapters write batches, so another is damage.
-        if adapter != "hsr-api-v1" {
-            return Err(Error::InvalidStoredData);
-        }
+        let source = Source::ALL
+            .into_iter()
+            .find(|source| source.adapter() == adapter)
+            .ok_or(Error::InvalidStoredData)?;
         Ok(Some(LastImport {
             imported_at,
-            source: Source::Hoyoverse,
+            source,
             uid,
             server,
             // The schema keeps counts non-negative.
@@ -1100,6 +1097,7 @@ pub(crate) mod tests {
     use super::*;
     pub(crate) mod database;
     use crate::acquisition::tests::filesystem;
+    use crate::parse_response;
     use database::{Reply, Step};
     use rusqlite::types::Value;
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
@@ -1164,6 +1162,20 @@ pub(crate) mod tests {
                 .collect(),
         )
     }
+    /// The rolls of synthetic API pages as this account's batch, with the first
+    /// page's offset, as retrieval hands them over.
+    fn batch(pages: &[&[u8]]) -> Batch {
+        let pages: Vec<_> = pages
+            .iter()
+            .map(|page| parse_response(page).unwrap())
+            .collect();
+        Batch {
+            uid: UID.into(),
+            server: SERVER.into(),
+            timezone: pages.first().and_then(|page| page.region_time_zone),
+            rolls: pages.into_iter().flat_map(|page| page.list).collect(),
+        }
+    }
     fn record() -> (String, String) {
         let roll = parse_response(PAGE).unwrap().list.remove(0);
         (roll.id.clone(), serde_json::json!(roll).to_string())
@@ -1192,6 +1204,7 @@ pub(crate) mod tests {
                 duplicates: 0,
                 conflicts: 0,
             },
+            source: Source::Hoyoverse,
             uid: UID.into(),
             server: SERVER.into(),
             timezone: Some(8),
@@ -1330,7 +1343,7 @@ pub(crate) mod tests {
         steps
     }
     const ACCOUNTS: &str = "INSERT INTO accounts(game,uid,server,timezone) VALUES (?1,?2,?3,?4) ON CONFLICT DO NOTHING";
-    const BATCH: &str = "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,'hsr-api-v1',?4,?5,?6,0)";
+    const BATCH: &str = "INSERT INTO batches(game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (?1,?2,?3,?4,?5,?6,?7,0)";
     const INSERT: &str =
         "INSERT INTO rolls(game,uid,server,id,payload,first_batch) VALUES (?1,?2,?3,?4,?5,?6)";
     const REVISION: &str = "UPDATE metadata SET revision=revision+1 WHERE singleton=1";
@@ -1341,6 +1354,7 @@ pub(crate) mod tests {
         account_bindings.push(Value::Integer(8));
         let mut batch_bindings = scope();
         batch_bindings.extend([
+            text("hsr-api-v1"),
             Value::Integer(1234),
             Value::Integer(i64::from(!duplicate)),
             Value::Integer(i64::from(duplicate)),
@@ -1607,7 +1621,9 @@ pub(crate) mod tests {
             identity(),
             done("COMMIT"),
         ]);
-        let preview = store().preview(UID, SERVER, &[&bytes]).unwrap();
+        let preview = store()
+            .preview(Source::Hoyoverse, batch(&[&bytes]))
+            .unwrap();
         database::finish();
         let counts = |gacha_type, inserted, duplicates, conflicts| {
             serde_json::json!({
@@ -1639,9 +1655,7 @@ pub(crate) mod tests {
     #[test]
     fn preview_owns_validated_records_and_has_no_write_operations() {
         database::expect(preview_script());
-        let mut bytes = PAGE.to_vec();
-        let preview = store().preview(UID, SERVER, &[&bytes]).unwrap();
-        bytes.fill(0);
+        let preview = store().preview(Source::Hoyoverse, batch(&[PAGE])).unwrap();
         assert_eq!(
             preview.summary(),
             Summary {
@@ -1651,63 +1665,43 @@ pub(crate) mod tests {
             }
         );
         assert_eq!(preview.records[0], record());
+        assert_eq!(preview.source, Source::Hoyoverse);
         assert_eq!(preview.timezone, Some(8));
         assert_eq!(preview.snapshot, ("database".into(), 0));
         database::finish();
     }
     #[test]
-    fn preview_rejects_invalid_context_before_database_access() {
+    fn preview_rejects_invalid_context_and_rolls_before_database_access() {
         database::expect(vec![]);
-        for (uid, server) in [
-            ("invalid", SERVER),
-            (UID, " "),
-            ("100000001", SERVER),
-            (UID, "different"),
-        ] {
-            assert!(matches!(
-                store().preview(uid, server, &[PAGE]),
-                Err(Error::Context)
-            ));
+        let with = |change: &dyn Fn(&mut Batch)| {
+            let mut batch = batch(&[PAGE]);
+            change(&mut batch);
+            store().preview(Source::Hoyoverse, batch).map(|_| ())
+        };
+        for change in [
+            &|batch: &mut Batch| batch.uid = "invalid".into(),
+            &|batch: &mut Batch| batch.server = " ".into(),
+            &|batch: &mut Batch| batch.timezone = Some(-13),
+            &|batch: &mut Batch| batch.timezone = Some(15),
+            // A roll of another account.
+            &|batch: &mut Batch| batch.uid = "100000001".into(),
+        ] as [&dyn Fn(&mut Batch); 5]
+        {
+            assert_eq!(with(change), Err(Error::Context));
         }
-        assert!(matches!(
-            store().preview(UID, SERVER, &[b"not json"]),
-            Err(Error::Parse(_))
-        ));
-        assert!(matches!(
-            store().preview(UID, SERVER, &[]),
-            Err(Error::Empty)
-        ));
-        let too_large = vec![0; MAX_BATCH_BYTES + 1];
-        assert!(matches!(
-            store().preview(UID, SERVER, &[&too_large]),
-            Err(Error::TooLarge)
-        ));
+        assert_eq!(
+            with(&|batch| batch.rolls[1].count = "2".into()),
+            Err(Error::InvalidRecord)
+        );
+        assert_eq!(with(&|batch| batch.rolls.clear()), Err(Error::Empty));
         database::finish();
     }
     #[test]
-    fn preview_rejects_cross_page_timezone_changes() {
-        let unknown = page(|value| {
-            value["data"]["region_time_zone"] = serde_json::Value::Null;
-        });
-        database::expect(vec![]);
-        assert!(matches!(
-            store().preview(UID, SERVER, &[PAGE, &unknown]),
-            Err(Error::Context)
-        ));
-        database::finish();
-    }
-    #[test]
-    fn preview_retains_unknown_context_and_empty_terminal_page_evidence() {
-        let unknown = page(|value| {
-            value["data"]["region_time_zone"] = serde_json::Value::Null;
-            value["data"]["region"] = serde_json::Value::Null;
-        });
-        let empty = page(|value| {
-            value["data"]["list"] = serde_json::json!([]);
-            value["data"]["region_time_zone"] = serde_json::Value::Null;
-        });
+    fn preview_keeps_an_unknown_offset_unknown() {
         database::expect(preview_script());
-        let preview = store().preview(UID, SERVER, &[&unknown, &empty]).unwrap();
+        let mut batch = batch(&[PAGE]);
+        batch.timezone = None;
+        let preview = store().preview(Source::Hoyoverse, batch).unwrap();
         assert_eq!(preview.timezone, None);
         assert_eq!(preview.records.len(), 2);
         database::finish();
@@ -1715,7 +1709,9 @@ pub(crate) mod tests {
     #[test]
     fn preview_database_failures_rollback_and_do_not_return_partial_previews() {
         fail_each(&preview_script, Some(0), &mut || {
-            store().preview(UID, SERVER, &[PAGE]).map(|_| ())
+            store()
+                .preview(Source::Hoyoverse, batch(&[PAGE]))
+                .map(|_| ())
         });
         database::expect(vec![
             done("BEGIN Deferred"),
@@ -1723,7 +1719,7 @@ pub(crate) mod tests {
             done("ROLLBACK"),
         ]);
         assert!(matches!(
-            store().preview(UID, SERVER, &[PAGE]),
+            store().preview(Source::Hoyoverse, batch(&[PAGE])),
             Err(Error::Context)
         ));
         database::finish();

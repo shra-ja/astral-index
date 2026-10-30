@@ -70,7 +70,7 @@ pub enum ParseError {
 }
 
 /// Preserve source identity and fields losslessly for validation, merging and later export.
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Roll {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
@@ -95,6 +95,22 @@ pub struct Page {
     pub region: Option<String>,
     pub region_time_zone: Option<i32>,
     pub list: Vec<Roll>,
+}
+
+/// One account's rolls from one source, parsed and checked by that source, for an
+/// import preview. Holds player data: never log or display it.
+#[derive(PartialEq, Eq)]
+pub struct Batch {
+    pub uid: String,
+    pub server: String,
+    /// UTC offset in hours of the rolls' server-local times, when the source gave one.
+    pub timezone: Option<i32>,
+    pub rolls: Vec<Roll>,
+}
+impl std::fmt::Debug for Batch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Batch([redacted])")
+    }
 }
 
 /// Validate one bounded API page. Missing context remains unknown; no deduplication

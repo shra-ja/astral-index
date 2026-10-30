@@ -3,8 +3,8 @@ use super::{
     Category, Cursor, FetchFailure, PAGE_SIZE, RequestContext, Transport, parse_body,
     transport_failure,
 };
-use crate::MAX_BATCH_BYTES;
-use std::{collections::HashSet, fmt, num::NonZeroU32, time::Duration};
+use crate::{MAX_BATCH_BYTES, hsr::Batch};
+use std::{collections::HashSet, num::NonZeroU32, time::Duration};
 
 /// Retrieval progress for the user deciding whether to stop. Categories and counts
 /// only: no IDs, URLs or response text.
@@ -44,56 +44,15 @@ pub enum AcquisitionError {
     MixedAccounts,
     /// A later page names a different server.
     MixedServers,
+    /// A later page gives a different time-zone offset, or gives none where an
+    /// earlier page gave one, or the other way round.
+    MixedTimezones,
     /// Records were retrieved, but no page named their server.
     MissingServer,
 }
 impl From<FetchFailure> for AcquisitionError {
     fn from(failure: FetchFailure) -> Self {
         Self::Fetch(failure)
-    }
-}
-
-/// The account and server retrieved history belongs to, from the responses.
-/// Holds a player identifier: never log it.
-#[derive(PartialEq, Eq)]
-pub struct Account {
-    uid: String,
-    server: String,
-}
-impl fmt::Debug for Account {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Account([redacted])")
-    }
-}
-impl Account {
-    pub fn uid(&self) -> &str {
-        &self.uid
-    }
-    pub fn server(&self) -> &str {
-        &self.server
-    }
-}
-
-/// Every response body retrieved, in request order, for an import preview.
-/// Holds player data: never log or display it.
-pub struct History {
-    responses: Vec<Vec<u8>>,
-    account: Option<Account>,
-}
-impl fmt::Debug for History {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("History([redacted])")
-    }
-}
-impl History {
-    /// The bodies in the form `Store::preview` takes.
-    pub fn responses(&self) -> Vec<&[u8]> {
-        self.responses.iter().map(Vec::as_slice).collect()
-    }
-    /// The account to preview under, or `None` when no records were retrieved:
-    /// no history was found, which is not an error.
-    pub fn account(&self) -> Option<&Account> {
-        self.account.as_ref()
     }
 }
 
@@ -111,16 +70,22 @@ impl History {
 /// With a `stop` check (a quick refresh), a page with records whose server is
 /// named also ends its category when the check finds one of its IDs saved for the
 /// page's account; that page is kept and `Progress::UpToDate` reported.
+///
+/// Returns every record retrieved, in request order, as one account's batch, or
+/// `None` when no records were retrieved: no history was found, which is not an
+/// error.
 pub async fn fetch_history(
     transport: &impl Transport,
     context: &RequestContext,
     report: Report<'_>,
     stop: Option<StopCheck<'_>>,
-) -> Result<History, AcquisitionError> {
-    let mut responses = Vec::new();
+) -> Result<Option<Batch>, AcquisitionError> {
+    let mut rolls = Vec::new();
+    let mut pages = 0;
     let mut total = 0;
-    let mut records_received = 0;
     let (mut uid, mut server) = (None, None);
+    // None means no page seen; Some(None) means a page with no offset.
+    let mut timezone: Option<Option<i32>> = None;
     for category in Category::ALL {
         let mut cursors = HashSet::new();
         let mut last = None;
@@ -129,8 +94,8 @@ pub async fn fetch_history(
             report(Progress::Requesting {
                 category,
                 page,
-                pages: responses.len(),
-                records: records_received,
+                pages,
+                records: rolls.len(),
             });
             let cursor = last.as_ref().map_or(Cursor::Start, Cursor::After);
             let request = context.page_request(category, page, cursor);
@@ -149,31 +114,30 @@ pub async fn fetch_history(
             if !agrees(&mut server, page_data.region.as_deref()) {
                 return Err(AcquisitionError::MixedServers);
             }
+            if *timezone.get_or_insert(page_data.region_time_zone) != page_data.region_time_zone {
+                return Err(AcquisitionError::MixedTimezones);
+            }
             let region = page_data.region;
-            let mut records = page_data.list;
+            let records = page_data.list;
             total += body.len();
             if total > MAX_BATCH_BYTES {
                 return Err(AcquisitionError::TooLarge);
             }
-            responses.push(body);
-            records_received += records.len();
+            pages += 1;
             if records.len() > PAGE_SIZE {
                 return Err(FetchFailure::InvalidResponse.into());
             }
-            let Some(roll) = records.pop() else {
+            let Some(roll) = records.last().cloned() else {
                 break;
             };
             // A quick refresh ends the category here, keeping this page, once the
             // page holds a roll saved for its own account; without a server the
             // account is unknown, so the page never ends it.
             let reached_saved = stop.zip(region.as_deref()).is_some_and(|(stop, server)| {
-                let ids: Vec<&str> = records
-                    .iter()
-                    .chain([&roll])
-                    .map(|record| record.id.as_str())
-                    .collect();
+                let ids: Vec<&str> = records.iter().map(|record| record.id.as_str()).collect();
                 stop(&roll.uid, server, &ids)
             });
+            rolls.extend(records);
             if reached_saved {
                 report(Progress::UpToDate { category });
                 break;
@@ -185,12 +149,16 @@ pub async fn fetch_history(
             page = page.saturating_add(1);
         }
     }
-    let account = match (uid, server) {
-        (None, _) => None,
-        (Some(uid), Some(server)) => Some(Account { uid, server }),
-        (Some(_), None) => return Err(AcquisitionError::MissingServer),
-    };
-    Ok(History { responses, account })
+    match (uid, server) {
+        (None, _) => Ok(None),
+        (Some(uid), Some(server)) => Ok(Some(Batch {
+            uid,
+            server,
+            timezone: timezone.flatten(),
+            rolls,
+        })),
+        (Some(_), None) => Err(AcquisitionError::MissingServer),
+    }
 }
 
 /// Keep the first value seen; a later, different one is a mismatch. Absent values
@@ -296,13 +264,18 @@ mod tests {
             expected.extend([url(category, 1, "0"), url(category, 2, &id(first * 2 - 1))]);
         }
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &ignore, None)).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore, None))
+            .unwrap()
+            .unwrap();
         assert_eq!(transport.requested(), expected);
-        assert_eq!(
-            history.responses(),
-            bodies.iter().map(Vec::as_slice).collect::<Vec<_>>()
-        );
-        assert_eq!(format!("{history:?}"), "History([redacted])");
+        // Every record, in request order, with its page's offset.
+        let rolls: Vec<_> = bodies
+            .iter()
+            .flat_map(|body| crate::parse_response(body).unwrap().list)
+            .collect();
+        assert_eq!(history.rolls, rolls);
+        assert_eq!(history.timezone, Some(8));
+        assert_eq!(format!("{history:?}"), "Batch([redacted])");
     }
 
     #[test]
@@ -361,7 +334,9 @@ mod tests {
         let events = std::sync::Mutex::new(Vec::new());
         let report = |progress| events.lock().unwrap().push(progress);
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &report, Some(&stop))).unwrap();
+        let history = run(fetch_history(&transport, &context(), &report, Some(&stop)))
+            .unwrap()
+            .unwrap();
         let requested = transport.requested();
         assert_eq!(
             requested[..3],
@@ -372,7 +347,7 @@ mod tests {
             ]
         );
         // The page that reached saved rolls is kept for the preview.
-        assert_eq!(history.responses().len(), bodies.len());
+        assert_eq!(history.rolls.len(), 1000 + 2 + 1000);
         // Each page with records is checked, with the page's account and every ID.
         let page = |ids| ("100000001".to_owned(), "synthetic-server".to_owned(), ids);
         assert_eq!(
@@ -453,13 +428,13 @@ mod tests {
                 .into_iter()
                 .map(|page| with_region(page, json!(null))),
         );
-        let history = run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).unwrap();
-        let account = history.account().unwrap();
+        let history = run(fetch_history(&scripted(&bodies), &context(), &ignore, None))
+            .unwrap()
+            .unwrap();
         assert_eq!(
-            (account.uid(), account.server()),
+            (history.uid.as_str(), history.server.as_str()),
             ("100000001", "synthetic-server")
         );
-        assert_eq!(format!("{account:?}"), "Account([redacted])");
     }
 
     #[test]
@@ -467,10 +442,10 @@ mod tests {
         let named = Category::ALL.map(empty).to_vec();
         let unnamed = Category::ALL.map(|category| with_region(empty(category), json!(null)));
         for bodies in [named, unnamed.to_vec()] {
-            let history =
-                run(fetch_history(&scripted(&bodies), &context(), &ignore, None)).unwrap();
-            assert_eq!(history.account(), None);
-            assert_eq!(history.responses().len(), 6);
+            let transport = scripted(&bodies);
+            let history = run(fetch_history(&transport, &context(), &ignore, None));
+            assert_eq!(history, Ok(None));
+            assert_eq!(transport.requested().len(), 6);
         }
     }
 
@@ -485,6 +460,19 @@ mod tests {
             (
                 with_region(empty(Category::Stellar), json!("other-server")),
                 AcquisitionError::MixedServers,
+            ),
+            // Every page gives the same offset, or none does.
+            (
+                edit(empty(Category::Stellar), |data| {
+                    data["region_time_zone"] = json!(9)
+                }),
+                AcquisitionError::MixedTimezones,
+            ),
+            (
+                edit(empty(Category::Stellar), |data| {
+                    data["region_time_zone"] = json!(null)
+                }),
+                AcquisitionError::MixedTimezones,
             ),
         ] {
             let transport = scripted(&[first.clone(), second]);
@@ -542,7 +530,9 @@ mod tests {
         ]);
         bodies.extend(empty_after(category));
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &ignore, None)).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore, None))
+            .unwrap()
+            .unwrap();
         assert_eq!(
             transport.requested()[4..8],
             [
@@ -552,7 +542,7 @@ mod tests {
                 url(category, 4, &id(44)),
             ]
         );
-        assert_eq!(history.responses().len(), bodies.len());
+        assert_eq!(history.rolls.len(), 44);
     }
 
     #[test]
@@ -566,7 +556,9 @@ mod tests {
         ];
         bodies.extend(empty_after(category));
         let transport = scripted(&bodies);
-        let history = run(fetch_history(&transport, &context(), &ignore, None)).unwrap();
+        let history = run(fetch_history(&transport, &context(), &ignore, None))
+            .unwrap()
+            .unwrap();
         let requested = transport.requested();
         assert_eq!(
             requested[..3],
@@ -578,7 +570,7 @@ mod tests {
         );
         // The next category starts again from the first page.
         assert_eq!(requested[3], url(Category::Departure, 1, "0"));
-        assert_eq!(history.responses().len(), bodies.len());
+        assert_eq!(history.rolls.len(), 2000);
     }
 
     #[test]

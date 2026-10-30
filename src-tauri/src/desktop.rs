@@ -12,7 +12,7 @@ use crate::discovery::{
 };
 use crate::storage::{
     self, Account, Filter, HistoryPage, LastImport, Preview, Rarities, Review, SavedAccount,
-    Summary,
+    Source, Summary,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -597,6 +597,7 @@ impl From<AcquisitionError> for Failure {
             AcquisitionError::CursorCycle => Self::InvalidResponse,
             AcquisitionError::TooLarge => Self::HistoryTooLarge,
             AcquisitionError::MixedAccounts | AcquisitionError::MixedServers => Self::MixedAccounts,
+            AcquisitionError::MixedTimezones => Self::ContextMismatch,
             AcquisitionError::MissingServer => Self::MissingServer,
         }
     }
@@ -609,13 +610,11 @@ impl From<storage::Error> for Failure {
             | storage::Error::Schema
             | storage::Error::InvalidStoredData => Self::Storage,
             storage::Error::Context => Self::ContextMismatch,
-            storage::Error::TooLarge => Self::HistoryTooLarge,
-            storage::Error::Parse(_) => Self::InvalidResponse,
             storage::Error::Conflict => Self::Conflict,
             storage::Error::StalePreview => Self::StalePreview,
             storage::Error::NotUpgraded(copy) => Self::HistoryNotUpgraded(copy),
-            // Retrieval previews only when records exist, so this is a defect.
-            storage::Error::Empty => Self::Internal,
+            // Sources preview only rolls they found and checked, so these are defects.
+            storage::Error::Empty | storage::Error::InvalidRecord => Self::Internal,
         }
     }
 }
@@ -753,12 +752,11 @@ async fn retrieve_into(
             page: location.map(|(_, page)| page.get()),
         }
     })?;
-    let Some(account) = history.account() else {
+    let Some(history) = history else {
         return Ok(Retrieved::NoHistory);
     };
-    let (uid, server) = (account.uid().to_owned(), account.server().to_owned());
     let preview = database
-        .run(move |store| store.preview(&uid, &server, &history.responses()))
+        .run(move |store| store.preview(Source::Hoyoverse, history))
         .await
         .and_then(|preview| preview)
         .map_err(Failure::from)?;
@@ -1570,7 +1568,7 @@ mod tests {
         );
         let client = network.client().unwrap();
         let history = run(fetch_history(&client, &context("synthetic"), &|_| {}, None)).unwrap();
-        assert_eq!(history.account().unwrap().uid(), "100000001");
+        assert_eq!(history.unwrap().uid, "100000001");
         let expired = Network::Mock(mock::Scenario::ExpiredLink);
         assert_eq!(
             run(extract_file_into(
@@ -2246,6 +2244,7 @@ mod tests {
             (AcquisitionError::TooLarge, Failure::HistoryTooLarge),
             (AcquisitionError::MixedAccounts, Failure::MixedAccounts),
             (AcquisitionError::MixedServers, Failure::MixedAccounts),
+            (AcquisitionError::MixedTimezones, Failure::ContextMismatch),
             (AcquisitionError::MissingServer, Failure::MissingServer),
         ] {
             assert_eq!(Failure::from(error), failure);
@@ -2255,14 +2254,10 @@ mod tests {
             (storage::Error::Schema, Failure::Storage),
             (storage::Error::InvalidStoredData, Failure::Storage),
             (storage::Error::Context, Failure::ContextMismatch),
-            (storage::Error::TooLarge, Failure::HistoryTooLarge),
-            (
-                storage::Error::Parse(crate::ParseError::InvalidRecord),
-                Failure::InvalidResponse,
-            ),
             (storage::Error::Conflict, Failure::Conflict),
             (storage::Error::StalePreview, Failure::StalePreview),
             (storage::Error::Empty, Failure::Internal),
+            (storage::Error::InvalidRecord, Failure::Internal),
             (
                 storage::Error::NotUpgraded(Some("history-v2-20261021-143000.sqlite".into())),
                 Failure::HistoryNotUpgraded(Some("history-v2-20261021-143000.sqlite".into())),

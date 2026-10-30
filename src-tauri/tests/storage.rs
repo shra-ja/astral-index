@@ -3,7 +3,7 @@ use astral_index::storage::{
     Account, CategorySummary, Error, Filter, HistoryPage, LastImport, Rarities, SavedAccount,
     Source, Store, Summary,
 };
-use common::{Folder, PAGE, SERVER, UID};
+use common::{Folder, PAGE, SERVER, UID, batch};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -43,7 +43,9 @@ fn summary(inserted: usize, duplicates: usize, conflicts: usize) -> Summary {
 }
 // Exercise the normal preview/commit flow with fixed context and time.
 fn import(store: &mut Store, bytes: &[u8]) -> Summary {
-    let preview = store.preview(UID, SERVER, &[bytes]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[bytes]))
+        .unwrap();
     store.commit(preview, 1234).unwrap()
 }
 
@@ -54,7 +56,9 @@ fn preview_does_not_write_and_commit_survives_restart_with_exact_fields() {
     let bytes = page(|p| {
         p["data"]["list"][0]["future"] = json!({"synthetic":true});
     });
-    let preview = store.preview(UID, SERVER, &[&bytes]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[&bytes]))
+        .unwrap();
     assert_eq!(preview.summary(), summary(2, 0, 0));
     assert!(store.history(UID, SERVER).unwrap().is_empty());
     assert_eq!(store.commit(preview, 1234).unwrap(), summary(2, 0, 0));
@@ -97,7 +101,9 @@ fn repeats_overlaps_and_same_second_distinct_ids_are_safe() {
     assert_eq!(import(&mut store, PAGE), summary(2, 0, 0));
     assert_eq!(import(&mut store, PAGE), summary(0, 2, 0));
     let overlap = page(|p| p["data"]["list"][1]["id"] = json!("0007199254740991"));
-    let preview = store.preview(UID, SERVER, &[PAGE, &overlap]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE, &overlap]))
+        .unwrap();
     assert_eq!(preview.summary(), summary(1, 3, 0));
     store.commit(preview, 1234).unwrap();
     assert_eq!(store.history(UID, SERVER).unwrap().len(), 3);
@@ -112,7 +118,9 @@ fn conflicting_records_block_the_whole_batch() {
         p["data"]["list"][0]["id"] = json!("9007199254740994");
         p["data"]["list"][1]["item_id"] = json!("different-item");
     });
-    let preview = store.preview(UID, SERVER, &[&conflict]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[&conflict]))
+        .unwrap();
     assert_eq!(preview.summary(), summary(1, 0, 1));
     assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
     assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
@@ -122,14 +130,16 @@ fn conflicting_records_block_the_whole_batch() {
     });
     let db2 = Database::new();
     let mut fresh = db2.store();
-    let preview = fresh.preview(UID, SERVER, &[&conflicting_pair]).unwrap();
+    let preview = fresh
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[&conflicting_pair]))
+        .unwrap();
     assert_eq!(preview.summary(), summary(1, 0, 1));
     assert_eq!(fresh.commit(preview, 1234), Err(Error::Conflict));
     assert!(fresh.history(UID, SERVER).unwrap().is_empty());
 }
 
 #[test]
-fn validates_all_pages_and_explicit_account_context_before_writes() {
+fn validates_the_account_and_every_roll_before_writes() {
     let db = Database::new();
     let mut store = db.store();
     for (uid, server) in [
@@ -137,42 +147,34 @@ fn validates_all_pages_and_explicit_account_context_before_writes() {
         ("not-digits", SERVER),
         (UID, ""),
         (UID, "   "),
+        // The page's rolls belong to another account.
+        ("100000003", SERVER),
     ] {
         assert!(matches!(
-            store.preview(uid, server, &[PAGE]),
+            store.preview(Source::Hoyoverse, batch(uid, server, &[PAGE])),
             Err(Error::Context)
         ));
     }
     assert!(matches!(
-        store.preview("100000003", SERVER, &[PAGE]),
-        Err(Error::Context)
+        store.preview(Source::Hoyoverse, batch(UID, SERVER, &[])),
+        Err(Error::Empty)
     ));
-    assert!(matches!(
-        store.preview(UID, "other-server", &[PAGE]),
-        Err(Error::Context)
-    ));
-    let offset = page(|p| p["data"]["region_time_zone"] = json!(-5));
-    assert!(matches!(
-        store.preview(UID, SERVER, &[PAGE, &offset]),
-        Err(Error::Context)
-    ));
-    assert!(matches!(
-        store.preview(UID, SERVER, &[PAGE, b"bad"]),
-        Err(Error::Parse(_))
-    ));
-    assert!(matches!(store.preview(UID, SERVER, &[]), Err(Error::Empty)));
     assert!(matches!(
         store.preview(
-            UID,
-            SERVER,
-            &[include_bytes!("fixtures/hsr-api/empty.json")]
+            Source::Hoyoverse,
+            batch(
+                UID,
+                SERVER,
+                &[include_bytes!("fixtures/hsr-api/empty.json")]
+            )
         ),
         Err(Error::Empty)
     ));
-    let oversized = vec![b' '; 16 * 1024 * 1024 + 1];
+    let mut invalid = batch(UID, SERVER, &[PAGE]);
+    invalid.rolls[1].rank_type = "6".into();
     assert!(matches!(
-        store.preview(UID, SERVER, &[&oversized]),
-        Err(Error::TooLarge)
+        store.preview(Source::Hoyoverse, invalid),
+        Err(Error::InvalidRecord)
     ));
     assert!(store.history(UID, SERVER).unwrap().is_empty());
 }
@@ -187,13 +189,18 @@ fn isolates_accounts_servers_and_game_namespace() {
             r["uid"] = json!("100000003");
         }
     });
-    let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch("100000003", SERVER, &[&other]))
+        .unwrap();
     store.commit(preview, 1234).unwrap();
     let no_region = page(|p| {
         p["data"].as_object_mut().unwrap().remove("region");
     });
     let preview = store
-        .preview(UID, "resolved-other-server", &[&no_region])
+        .preview(
+            Source::Hoyoverse,
+            batch(UID, "resolved-other-server", &[&no_region]),
+        )
         .unwrap();
     store.commit(preview, 1234).unwrap();
     assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
@@ -216,11 +223,15 @@ fn isolates_accounts_servers_and_game_namespace() {
 fn stale_previews_and_previews_from_other_databases_cannot_commit() {
     let db = Database::new();
     let mut store = db.store();
-    let stale = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let stale = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     import(&mut db.store(), PAGE);
     assert_eq!(store.commit(stale, 1234), Err(Error::StalePreview));
     let other = Database::new();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     assert_eq!(
         other.store().commit(preview, 1234),
         Err(Error::StalePreview)
@@ -257,7 +268,9 @@ fn migration_rejects_unrelated_future_and_corrupt_databases_without_overwriting(
 fn failed_insert_rolls_back_account_batch_rolls_provenance_and_revision() {
     let db = Database::new();
     let mut store = db.store();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     db.connection().execute_batch("CREATE TRIGGER reject_second BEFORE INSERT ON rolls WHEN NEW.id='9007199254740992' BEGIN SELECT RAISE(ABORT,'synthetic private failure'); END;").unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::Database));
     for table in ["accounts", "rolls", "batches"] {
@@ -294,7 +307,7 @@ fn unknown_timezone_stays_unknown_and_changed_evidence_requires_reconciliation()
     assert_eq!(import(&mut store, &unknown), summary(2, 0, 0));
     assert_eq!(import(&mut store, &unknown), summary(0, 2, 0));
     assert!(matches!(
-        store.preview(UID, SERVER, &[PAGE]),
+        store.preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE])),
         Err(Error::Context)
     ));
     assert_eq!(
@@ -315,11 +328,15 @@ fn preview_owns_input_and_cancellation_leaves_no_batch() {
     let db = Database::new();
     let mut store = db.store();
     let mut bytes = PAGE.to_vec();
-    let preview = store.preview(UID, SERVER, &[&bytes]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[&bytes]))
+        .unwrap();
     bytes.fill(b'x');
     store.commit(preview, 1234).unwrap();
     assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
-    let cancelled = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let cancelled = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     drop(cancelled);
     assert_eq!(
         db.connection()
@@ -368,7 +385,7 @@ fn database_and_decode_errors_are_safe_and_failed_previews_do_not_write() {
         .execute_batch("PRAGMA foreign_keys=OFF; DROP TABLE rolls")
         .unwrap();
     assert!(matches!(
-        store.preview(UID, SERVER, &[PAGE]),
+        store.preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE])),
         Err(Error::Database)
     ));
     assert_eq!(store.history(UID, SERVER), Err(Error::Database));
@@ -379,7 +396,9 @@ fn database_and_decode_errors_are_safe_and_failed_previews_do_not_write() {
 fn locked_database_rejects_commit_and_rolls_back_without_partial_writes() {
     let db = Database::new();
     let mut store = db.store();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     let blocker = db.connection();
     blocker.execute_batch("BEGIN IMMEDIATE").unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::Database));
@@ -393,7 +412,9 @@ fn commit_rechecks_payloads_even_if_external_writer_did_not_update_revision() {
     let db = Database::new();
     let mut store = db.store();
     import(&mut store, PAGE);
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     db.connection()
         .execute_batch("UPDATE rolls SET payload=json_set(payload,'$.name','changed externally')")
         .unwrap();
@@ -410,7 +431,9 @@ fn commit_rechecks_payloads_even_if_external_writer_did_not_update_revision() {
 fn failure_at_transaction_commit_rolls_back_every_table() {
     let db = Database::new();
     let mut store = db.store();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     db.connection().execute_batch("CREATE TABLE deferred_parent(id INTEGER PRIMARY KEY); CREATE TABLE deferred_child(id INTEGER REFERENCES deferred_parent(id) DEFERRABLE INITIALLY DEFERRED); CREATE TRIGGER fail_commit AFTER INSERT ON rolls BEGIN INSERT INTO deferred_child VALUES(1); END;").unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::Database));
     for table in ["accounts", "rolls", "batches", "deferred_child"] {
@@ -449,7 +472,9 @@ fn commit_rechecks_account_timezone_evidence() {
     let db = Database::new();
     let mut store = db.store();
     import(&mut store, PAGE);
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     db.connection()
         .execute_batch("UPDATE accounts SET timezone=-5")
         .unwrap();
@@ -570,7 +595,9 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
         .collect();
     let run = |store: &mut Store, start: usize| {
         let bytes: Vec<&[u8]> = pages[start..start + 12].iter().map(Vec::as_slice).collect();
-        let preview = store.preview(UID, SERVER, &bytes).unwrap();
+        let preview = store
+            .preview(Source::Hoyoverse, batch(UID, SERVER, &bytes))
+            .unwrap();
         store.commit(preview, 1234).unwrap()
     };
     let began = Instant::now();
@@ -609,7 +636,9 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
     let conflict = serde_json::to_vec(&conflict).unwrap();
     let before = std::fs::read(db.path()).unwrap();
     let began = Instant::now();
-    let preview = store.preview(UID, SERVER, &[&conflict]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[&conflict]))
+        .unwrap();
     assert_eq!(preview.summary(), summary(0, 499, 1));
     assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
     let conflict_time = began.elapsed();
@@ -631,7 +660,9 @@ fn precise_extensions_survive_restart_and_conflict_on_changed_values() {
     let stored = serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap();
     assert!(stored.contains("18446744073709551616"));
     assert!(stored.contains("0.123456789012345678901"));
-    let preview = store.preview(UID, SERVER, &[b]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[b]))
+        .unwrap();
     assert_eq!(preview.summary(), summary(0, 1, 1));
     assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
 }
@@ -659,52 +690,6 @@ fn corrupt_payload_identity_and_domain_values_never_escape_history_queries() {
             "{field}"
         );
     }
-}
-
-#[test]
-fn page_timezone_evidence_must_agree_even_on_empty_terminal_pages() {
-    let db = Database::new();
-    let mut store = db.store();
-    let unknown = page(|p| {
-        p["data"]
-            .as_object_mut()
-            .unwrap()
-            .remove("region_time_zone");
-    });
-    let empty_known = page(|p| p["data"]["list"] = json!([]));
-    let empty_unknown = page(|p| {
-        p["data"]["list"] = json!([]);
-        p["data"]
-            .as_object_mut()
-            .unwrap()
-            .remove("region_time_zone");
-    });
-    for pages in [
-        vec![PAGE, unknown.as_slice()],
-        vec![unknown.as_slice(), PAGE],
-        vec![PAGE, empty_unknown.as_slice()],
-        vec![unknown.as_slice(), empty_known.as_slice()],
-    ] {
-        assert!(matches!(
-            store.preview(UID, SERVER, &pages),
-            Err(Error::Context)
-        ));
-        assert!(store.history(UID, SERVER).unwrap().is_empty());
-    }
-    assert_eq!(
-        store
-            .preview(UID, SERVER, &[PAGE, &empty_known])
-            .unwrap()
-            .summary(),
-        summary(2, 0, 0)
-    );
-    assert_eq!(
-        store
-            .preview(UID, SERVER, &[&unknown, &empty_unknown])
-            .unwrap()
-            .summary(),
-        summary(2, 0, 0)
-    );
 }
 
 #[test]
@@ -744,7 +729,9 @@ fn saved_accounts_count_each_accounts_rolls_and_list_the_newest_import_first() {
             .unwrap()
             .remove("region_time_zone");
     });
-    let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch("100000003", SERVER, &[&other]))
+        .unwrap();
     store.commit(preview, 1235).unwrap();
     let saved = |uid: &str, timezone, rolls| SavedAccount {
         uid: uid.into(),
@@ -1087,7 +1074,9 @@ fn pages_list_one_category_newest_first_by_time_then_numeric_id() {
             inserted: 5,
         })
     );
-    let preview = store.preview("100000003", SERVER, &[&other]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch("100000003", SERVER, &[&other]))
+        .unwrap();
     store.commit(preview, 1235).unwrap();
     assert_eq!(store.latest_account().unwrap().unwrap().uid, "100000003");
     // Saved rolls are found per account: the other account's IDs are its own.

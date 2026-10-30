@@ -6,7 +6,7 @@ use astral_index::storage::{
     Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
     Source, Store, StoredRoll, Summary, check_database,
 };
-use common::{BANNER, Folder, UID, UPGRADED, imports, release_1_0_0};
+use common::{BANNER, Folder, UID, UPGRADED, batch, imports, release_1_0_0};
 use rusqlite::Connection;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -262,7 +262,9 @@ fn a_1_0_0_database_takes_new_imports_and_skips_saved_rolls() {
             "data": { "page": "1", "size": "20", "region": ASIA, "region_time_zone": 8, "list": list },
         });
         let bytes = serde_json::to_vec(&page).unwrap();
-        let preview = store.preview(UID, ASIA, &[&bytes]).unwrap();
+        let preview = store
+            .preview(Source::Hoyoverse, batch(UID, ASIA, &[&bytes]))
+            .unwrap();
         assert_eq!(
             store.commit(preview, 1_790_001_200).unwrap(),
             Summary {

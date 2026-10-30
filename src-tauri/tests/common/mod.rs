@@ -2,7 +2,9 @@
 //! uses only some of them, so the others would be reported as dead code there.
 #![allow(dead_code)]
 
-use astral_index::storage::{Schema, Store};
+use astral_index::hsr::Batch;
+use astral_index::parse_response;
+use astral_index::storage::{Schema, Source, Store};
 use rusqlite::Connection;
 use std::{
     path::{Path, PathBuf},
@@ -58,10 +60,27 @@ impl Drop for Folder {
     }
 }
 
+/// The rolls of synthetic HoYoverse pages as one account's batch, with the first
+/// page's offset, as retrieval hands them to storage.
+pub fn batch(uid: &str, server: &str, pages: &[&[u8]]) -> Batch {
+    let pages: Vec<_> = pages
+        .iter()
+        .map(|page| parse_response(page).unwrap())
+        .collect();
+    Batch {
+        uid: uid.into(),
+        server: server.into(),
+        timezone: pages.first().and_then(|page| page.region_time_zone),
+        rolls: pages.into_iter().flat_map(|page| page.list).collect(),
+    }
+}
+
 /// A store holding the synthetic page's rolls.
 pub fn store_with_history(path: &Path) -> Store {
     let mut store = Store::open(path).unwrap();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     store.commit(preview, 1234).unwrap();
     store
 }

@@ -348,8 +348,9 @@ mod tests {
         AcquisitionError, Category, ENDPOINT, FetchFailure, RequestContext,
         extract_request_contexts, fetch_history,
     };
+    use crate::hsr::{Batch, Page, Roll};
     use crate::{ParseError, parse_response};
-    use std::{collections::HashMap, future::Future};
+    use std::{collections::HashMap, future::Future, sync::Mutex};
 
     fn run<T>(future: impl Future<Output = T>) -> T {
         tokio::runtime::Builder::new_current_thread()
@@ -369,13 +370,32 @@ mod tests {
             .remove(0)
             .into_context()
     }
-    fn fetch(scenario: Scenario) -> Result<crate::acquisition::History, AcquisitionError> {
+    fn fetch(scenario: Scenario) -> Result<Option<Batch>, AcquisitionError> {
         run(fetch_history(
             &MockTransport::new(scenario),
             &context(),
             &ignore,
             None,
         ))
+    }
+    /// The scenario's history, which has rolls.
+    fn batch(scenario: Scenario) -> Batch {
+        fetch(scenario).unwrap().unwrap()
+    }
+    /// Keeps every page the mock answers.
+    struct Recording(MockTransport, Mutex<Vec<Page>>);
+    impl Transport for Recording {
+        async fn get(&self, url: &str) -> Result<Vec<u8>, TransportError> {
+            let body = self.0.get(url).await.unwrap();
+            self.1.lock().unwrap().push(parse_response(&body).unwrap());
+            Ok(body)
+        }
+    }
+    /// Every page retrieving the scenario's history receives, in order.
+    fn pages(scenario: Scenario) -> Vec<Page> {
+        let recording = Recording(MockTransport::new(scenario), Mutex::default());
+        run(fetch_history(&recording, &context(), &ignore, None)).unwrap();
+        recording.1.into_inner().unwrap()
     }
 
     #[test]
@@ -419,30 +439,29 @@ mod tests {
 
     #[test]
     fn history_fills_every_category_newest_first_over_several_pages() {
-        let history = fetch(Scenario::History).unwrap();
-        let account = history.account().unwrap();
+        let history = batch(Scenario::History);
         assert_eq!(
-            (account.uid(), account.server()),
-            ("100000001", "prod_official_asia")
+            (
+                history.uid.as_str(),
+                history.server.as_str(),
+                history.timezone
+            ),
+            ("100000001", "prod_official_asia", Some(8))
         );
         let mut counts: HashMap<String, usize> = HashMap::new();
         let mut rarities: HashMap<(String, String), usize> = HashMap::new();
         let mut last: HashMap<String, (u64, String)> = HashMap::new();
-        for body in history.responses() {
-            let page = parse_response(body).unwrap();
-            assert_eq!(page.region_time_zone, Some(8));
-            for roll in page.list {
-                *counts.entry(roll.gacha_type.clone()).or_default() += 1;
-                *rarities
-                    .entry((roll.gacha_type.clone(), roll.rank_type.clone()))
-                    .or_default() += 1;
-                let id: u64 = roll.id.parse().unwrap();
-                if let Some((previous, time)) = last.get(&roll.gacha_type) {
-                    assert!(id < *previous, "IDs descend within a category");
-                    assert!(roll.time <= *time, "times descend within a category");
-                }
-                last.insert(roll.gacha_type.clone(), (id, roll.time));
+        for roll in history.rolls {
+            *counts.entry(roll.gacha_type.clone()).or_default() += 1;
+            *rarities
+                .entry((roll.gacha_type.clone(), roll.rank_type.clone()))
+                .or_default() += 1;
+            let id: u64 = roll.id.parse().unwrap();
+            if let Some((previous, time)) = last.get(&roll.gacha_type) {
+                assert!(id < *previous, "IDs descend within a category");
+                assert!(roll.time <= *time, "times descend within a category");
             }
+            last.insert(roll.gacha_type.clone(), (id, roll.time));
         }
         let expected = [
             ("1", 300),
@@ -460,9 +479,9 @@ mod tests {
         assert_eq!(rarities.get(&("11".into(), "3".into())), Some(&1107));
         // Each category ends on an empty page. Category 11 needs two pages of 1,000,
         // and the collaboration endpoint caps pages at 20, as HoYoverse's does.
-        assert_eq!(history.responses().len(), 2 + 2 + 3 + 2 + 3 + 2);
-        for body in history.responses() {
-            let page = parse_response(body).unwrap();
+        let pages = pages(Scenario::History);
+        assert_eq!(pages.len(), 2 + 2 + 3 + 2 + 3 + 2);
+        for page in pages {
             if page
                 .list
                 .first()
@@ -474,17 +493,15 @@ mod tests {
     }
 
     /// Character Event Warp's rolls from the `History` scenario, newest first.
-    fn character_event() -> Vec<crate::hsr::Roll> {
-        let history = fetch(Scenario::History).unwrap();
-        history
-            .responses()
-            .iter()
-            .flat_map(|body| parse_response(body).unwrap().list)
+    fn character_event() -> Vec<Roll> {
+        batch(Scenario::History)
+            .rolls
+            .into_iter()
             .filter(|roll| roll.gacha_type == "11")
             .collect()
     }
 
-    fn time(roll: &crate::hsr::Roll) -> chrono::NaiveDateTime {
+    fn time(roll: &Roll) -> chrono::NaiveDateTime {
         chrono::NaiveDateTime::parse_from_str(&roll.time, "%Y-%m-%d %H:%M:%S").unwrap()
     }
 
@@ -553,14 +570,11 @@ mod tests {
 
     #[test]
     fn large_history_holds_twenty_thousand_character_event_rolls() {
-        let history = fetch(Scenario::LargeHistory).unwrap();
         let mut counts: HashMap<String, usize> = HashMap::new();
         let mut ids = std::collections::HashSet::new();
-        for body in history.responses() {
-            for roll in parse_response(body).unwrap().list {
-                *counts.entry(roll.gacha_type).or_default() += 1;
-                assert!(ids.insert(roll.id), "roll IDs are unique");
-            }
+        for roll in batch(Scenario::LargeHistory).rolls {
+            *counts.entry(roll.gacha_type).or_default() += 1;
+            assert!(ids.insert(roll.id), "roll IDs are unique");
         }
         let expected = [
             ("1", 300),
@@ -574,7 +588,7 @@ mod tests {
             assert_eq!(counts.get(code), Some(&count), "category {code}");
         }
         // Character Event Warp takes 20 full pages of 1,000, then an empty one.
-        assert_eq!(history.responses().len(), 2 + 2 + 21 + 2 + 3 + 2);
+        assert_eq!(pages(Scenario::LargeHistory).len(), 2 + 2 + 21 + 2 + 3 + 2);
     }
 
     #[test]
@@ -585,8 +599,7 @@ mod tests {
         };
         assert_eq!(validation(Scenario::ExpiredLink), ParseError::Api(-101));
         assert_eq!(validation(Scenario::RateLimited), ParseError::Api(-110));
-        let empty = fetch(Scenario::NoHistory).unwrap();
-        assert!(empty.account().is_none());
+        assert_eq!(fetch(Scenario::NoHistory), Ok(None));
         assert_eq!(
             fetch(Scenario::NetworkFailure).unwrap_err(),
             AcquisitionError::Fetch(FetchFailure::Transient)
@@ -601,26 +614,21 @@ mod tests {
         assert!(run(transport.get(page.url())).is_ok());
     }
 
-    /// Every roll retrieved, as HoYoverse sent it, by roll ID.
-    fn rolls_by_id(history: &crate::acquisition::History) -> HashMap<String, serde_json::Value> {
+    /// Every roll retrieved, with every field HoYoverse sent, by roll ID.
+    fn rolls_by_id(history: &Batch) -> HashMap<String, serde_json::Value> {
         history
-            .responses()
+            .rolls
             .iter()
-            .flat_map(|body| {
-                let page: serde_json::Value = serde_json::from_slice(body).unwrap();
-                page["data"]["list"].as_array().unwrap().clone()
-            })
-            .map(|roll| (roll["id"].as_str().unwrap().to_owned(), roll))
+            .map(|roll| (roll.id.clone(), serde_json::json!(roll)))
             .collect()
     }
 
     #[test]
     fn newer_history_adds_newer_rolls_and_keeps_every_earlier_one_unchanged() {
-        let earlier = rolls_by_id(&fetch(Scenario::History).unwrap());
-        let history = fetch(Scenario::NewerHistory).unwrap();
-        let account = history.account().unwrap();
+        let earlier = rolls_by_id(&batch(Scenario::History));
+        let history = batch(Scenario::NewerHistory);
         assert_eq!(
-            (account.uid(), account.server()),
+            (history.uid.as_str(), history.server.as_str()),
             ("100000001", "prod_official_asia")
         );
         let newer = rolls_by_id(&history);
@@ -655,16 +663,16 @@ mod tests {
 
     #[test]
     fn the_second_account_has_the_same_roll_ids_on_another_server() {
-        let first = rolls_by_id(&fetch(Scenario::History).unwrap());
-        let history = fetch(Scenario::SecondAccount).unwrap();
-        let account = history.account().unwrap();
+        let first = rolls_by_id(&batch(Scenario::History));
+        let history = batch(Scenario::SecondAccount);
         assert_eq!(
-            (account.uid(), account.server()),
-            ("100000002", "prod_official_usa")
+            (
+                history.uid.as_str(),
+                history.server.as_str(),
+                history.timezone
+            ),
+            ("100000002", "prod_official_usa", Some(-5))
         );
-        for body in history.responses() {
-            assert_eq!(parse_response(body).unwrap().region_time_zone, Some(-5));
-        }
         let second = rolls_by_id(&history);
         assert_eq!(second.len(), first.len());
         for (id, roll) in second {

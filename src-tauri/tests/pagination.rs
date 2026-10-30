@@ -2,7 +2,7 @@
 use astral_index::acquisition::{
     Transport, TransportError, extract_request_contexts, fetch_history,
 };
-use astral_index::storage::{Store, Summary};
+use astral_index::storage::{Source, Store, Summary};
 use common::{Folder, PAGE, SERVER, UID};
 use std::{collections::VecDeque, sync::Mutex};
 
@@ -42,17 +42,18 @@ fn retrieved_history_previews_and_commits_through_storage() {
         .unwrap();
     let history = runtime
         .block_on(fetch_history(&transport, &context, &|_| {}, None))
+        .unwrap()
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
 
     let folder = Folder::new();
     let mut store = Store::open(&folder.path("history.sqlite")).unwrap();
-    // Preview under the account and server resolved from the responses.
-    let account = history.account().unwrap();
-    assert_eq!((account.uid(), account.server()), (UID, SERVER));
-    let preview = store
-        .preview(account.uid(), account.server(), &history.responses())
-        .unwrap();
+    // The account and server come from the responses.
+    assert_eq!(
+        (history.uid.as_str(), history.server.as_str()),
+        (UID, SERVER)
+    );
+    let preview = store.preview(Source::Hoyoverse, history).unwrap();
     let expected = Summary {
         inserted: 2,
         ..Default::default()
@@ -73,9 +74,10 @@ fn retrieved_history_previews_and_commits_through_storage() {
     let transport = Scripted(Mutex::new([EMPTY, EMPTY, PAGE, EMPTY, EMPTY, EMPTY].into()));
     let refreshed = runtime
         .block_on(fetch_history(&transport, &context, &|_| {}, Some(&stop)))
+        .unwrap()
         .unwrap();
     assert!(transport.0.lock().unwrap().is_empty());
-    let preview = store.preview(UID, SERVER, &refreshed.responses()).unwrap();
+    let preview = store.preview(Source::Hoyoverse, refreshed).unwrap();
     assert_eq!(
         preview.summary(),
         Summary {
