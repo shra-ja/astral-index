@@ -76,7 +76,7 @@ so integration tests can never fill a unit gap. The stages, composed by
 2. `test:backend-integration` runs the Cargo integration tests (real files,
    SQLite and processes).
 3. `test:e2e-smoke` builds and runs the desktop end-to-end tests, on a
-   2560×1600 virtual screen so they can open very wide windows.
+   2560×1600 virtual screen, so windows up to 1700 pixels wide fit.
 4. `coverage:backend-report` renders the combined report for the delegates.
 
 Rendering never executes tests and cannot establish freshness on its own. The

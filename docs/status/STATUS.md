@@ -53,14 +53,14 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Native IPC trace (2026-10-29)
+### Wide page by zoom (2026-10-30)
 
-`test/wide-window-ipc-stall`: the mock writes a line to stderr, with the time, as each command reaches the native side and as its answer is handed back to the webview, from Tauri's own IPC spans (its `tracing` feature, on only with the `mock` feature); a failure snapshot adds when the page loaded, so the webview's times line up with the trace. If the next wide-window stall recurs, the CI log shows whether the command arrived late, answered late or was answered on time but reached the webview late. Red: the trace's unit test wrote nothing, and `register_mock` installed no subscriber; green: all 273 unit tests pass, and the wide-window e2e test's log has an arrival and an answer line for each of its commands, with no arguments or answers. `npm run check` passes, run in its three stages, with the trace at 100% unit coverage.
+`test/wide-window-zoom`: the wide-window e2e test opens the mock zoomed out to half size, so its window's 1200 pixels hold a page 2400 wide, instead of resizing the window to 2560×1440. Its webview stalled in 2 of 38 CI attempts since decision 0034, both on `main` (7 of 56 since 2026-10-21): the native side answered `extract_from_file` on time, but the webview's fetch never settled. 920 local runs never reproduced it, including CI's desktop services and 4 pinned cores, so the resize and the huge window, the only conditions unique to this test, are gone; the cause is shelved. Red: with the content width uncapped, the test fails with content 2104 wide; green: it passes, and `npm run check` passes in its three stages.
 
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
-  native side, and the wide-window test stalled in 1 of 33 CI runs since decision 0034. Live retrieval last worked on Windows on 2026-10-29.
+  native side, and the wide-window test stalled in 2 of 38 CI attempts after decision 0034, never locally, until it stopped resizing the window on 2026-10-30; the cause is unknown. Live retrieval last worked on Windows on 2026-10-29.
 - Browsers may flag the unsigned executable until it is signed
   ([0053](../product/features/0053-code-signing.md)).
 - No history-file import, Genshin Impact adapter or banner catalogue yet, so
@@ -211,5 +211,6 @@ research, under a "From" heading.
   AGENTS.md routing releases to DEVELOPMENT, and release notes' entries kept
   close to the generated ones.
 - [2026-10-29: release 1.1.0](history/2026-10-29-release-1-1-0.md):
-  1.1.0 released and checked on Windows, and the wide-window stall's
-  recurrence in CI.
+  1.1.0 released and checked on Windows, the wide-window stall's recurrence
+  in CI, and the mock's trace of when each command arrives and answers
+  natively.

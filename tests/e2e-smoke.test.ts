@@ -1702,10 +1702,13 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
   }
 }, 120000)
 
-test('in a very wide window every screen keeps one content width, centred under its header', async () => {
-  const { app } = await launchMock('history')
+test('on a very wide page every screen keeps one content width, centred under its header', async () => {
+  // Zoomed out to half size, the window's 1200 pixels hold a page 2400 wide. A
+  // window resized to 2560×1440 stalled WebKitGTK's IPC answers in CI only
+  // (decision 0034).
+  const { app } = await launchMock('history', { env: { ASTRAL_INDEX_ZOOM: '0.5' } })
   try {
-    await app.command('/window/rect', 'POST', { width: 2560, height: 1440 })
+    expect(await app.execute<number>('return window.innerWidth')).toBe(2400)
     // The content's width and its gaps to the main area's edges, and whether the
     // header's title and trailing item line up with the content's edges.
     const content = (selector: string) =>

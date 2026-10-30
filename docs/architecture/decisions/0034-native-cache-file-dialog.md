@@ -44,6 +44,9 @@ file imports. Choosing and validating are two commands, so the Import screen
 shows its progress only once a file is chosen. The HTML file input and its
 webview-side size check go. Whether the CI stall goes too will show in later
 runs; the end-to-end failure snapshot's IPC trace stays to diagnose it if not.
-(Added 2026-10-29: it recurred once in 33 CI runs, with `extract_from_file`
-answering after 20 s with neither the file read nor a raw body in play, so the
-stall lies elsewhere, likely in WebKitGTK's IPC on the GTK main thread.)
+(Added 2026-10-29, counts corrected 2026-10-30: it recurred in 2 of 38 CI
+attempts, both on `main`, with neither the file read nor a raw body in play, so
+the stall lies elsewhere, likely in WebKitGTK's IPC on the GTK main thread. It
+never reproduced locally. The wide-window test now zooms the page out instead
+of resizing the window to 2560×1440, the only conditions unique to that test,
+so later runs no longer test this decision.)
