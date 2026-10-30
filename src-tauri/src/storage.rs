@@ -99,8 +99,10 @@ pub enum Error {
     Schema,
     Context,
     Empty,
-    /// A roll the source should have refused: its checks and storage's disagree.
-    InvalidRecord,
+    /// A batch the source should have refused, with an invalid account or offset,
+    /// or a roll that is invalid or another account's: its checks and storage's
+    /// disagree.
+    InvalidBatch,
     Conflict,
     StalePreview,
     InvalidStoredData,
@@ -495,9 +497,8 @@ impl Store {
         Ok(Self { connection })
     }
 
-    /// Preview a batch from `source` atomically. An invalid account or offset, a
-    /// roll of another account or an offset unlike the saved account's blocks the
-    /// batch.
+    /// Preview a batch from `source` atomically. An invalid batch, or an offset
+    /// unlike the saved account's, blocks it.
     pub fn preview(&mut self, source: Source, batch: Batch) -> Result<Preview, Error> {
         let Batch {
             uid,
@@ -505,22 +506,17 @@ impl Store {
             timezone,
             rolls,
         } = batch;
-        if !crate::hsr::digits(&uid)
-            || server.trim().is_empty()
-            || timezone.is_some_and(|offset| !(-12..=14).contains(&offset))
-        {
-            return Err(Error::Context);
-        }
         if rolls.is_empty() {
             return Err(Error::Empty);
         }
-        for roll in &rolls {
-            if roll.uid != uid {
-                return Err(Error::Context);
-            }
-            if !crate::hsr::valid_roll(roll) {
-                return Err(Error::InvalidRecord);
-            }
+        if !crate::hsr::digits(&uid)
+            || server.trim().is_empty()
+            || timezone.is_some_and(|offset| !crate::hsr::valid_offset(offset))
+            || rolls
+                .iter()
+                .any(|roll| roll.uid != uid || !crate::hsr::valid_roll(roll))
+        {
+            return Err(Error::InvalidBatch);
         }
         let tx = self.connection.transaction()?;
         check_timezone(&tx, &uid, &server, timezone)?;
@@ -1725,7 +1721,7 @@ pub(crate) mod tests {
             (vec![Status::Duplicate, Status::Duplicate], vec![])
         );
         assert_eq!(
-            classified(Some(&without), &[without.clone()]),
+            classified(Some(&without), std::slice::from_ref(&without)),
             (vec![Status::Duplicate], vec![])
         );
         let filled = Summary::of(&[Status::PoolIdAdded, Status::Duplicate]);
@@ -1857,16 +1853,13 @@ pub(crate) mod tests {
             &|batch: &mut Batch| batch.server = " ".into(),
             &|batch: &mut Batch| batch.timezone = Some(-13),
             &|batch: &mut Batch| batch.timezone = Some(15),
-            // A roll of another account.
+            // A roll of another account, or an invalid one.
             &|batch: &mut Batch| batch.uid = "100000001".into(),
-        ] as [&dyn Fn(&mut Batch); 5]
+            &|batch: &mut Batch| batch.rolls[1].count = "2".into(),
+        ] as [&dyn Fn(&mut Batch); 6]
         {
-            assert_eq!(with(change), Err(Error::Context));
+            assert_eq!(with(change), Err(Error::InvalidBatch));
         }
-        assert_eq!(
-            with(&|batch| batch.rolls[1].count = "2".into()),
-            Err(Error::InvalidRecord)
-        );
         assert_eq!(with(&|batch| batch.rolls.clear()), Err(Error::Empty));
         database::finish();
     }

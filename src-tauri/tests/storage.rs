@@ -253,7 +253,7 @@ fn validates_the_account_and_every_roll_before_writes() {
     ] {
         assert!(matches!(
             store.preview(Source::Hoyoverse, batch(uid, server, &[PAGE])),
-            Err(Error::Context)
+            Err(Error::InvalidBatch)
         ));
     }
     assert!(matches!(
@@ -275,7 +275,7 @@ fn validates_the_account_and_every_roll_before_writes() {
     invalid.rolls[1].rank_type = "6".into();
     assert!(matches!(
         store.preview(Source::Hoyoverse, invalid),
-        Err(Error::InvalidRecord)
+        Err(Error::InvalidBatch)
     ));
     assert!(store.history(UID, SERVER).unwrap().is_empty());
 }

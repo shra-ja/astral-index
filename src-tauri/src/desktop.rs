@@ -616,7 +616,7 @@ impl From<storage::Error> for Failure {
             storage::Error::StalePreview => Self::StalePreview,
             storage::Error::NotUpgraded(copy) => Self::HistoryNotUpgraded(copy),
             // Sources preview only rolls they found and checked, so these are defects.
-            storage::Error::Empty | storage::Error::InvalidRecord => Self::Internal,
+            storage::Error::Empty | storage::Error::InvalidBatch => Self::Internal,
         }
     }
 }
@@ -2259,7 +2259,7 @@ mod tests {
             (storage::Error::Conflict, Failure::Conflict),
             (storage::Error::StalePreview, Failure::StalePreview),
             (storage::Error::Empty, Failure::Internal),
-            (storage::Error::InvalidRecord, Failure::Internal),
+            (storage::Error::InvalidBatch, Failure::Internal),
             (
                 storage::Error::NotUpgraded(Some("history-v2-20261021-143000.sqlite".into())),
                 Failure::HistoryNotUpgraded(Some("history-v2-20261021-143000.sqlite".into())),

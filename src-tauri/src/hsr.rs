@@ -142,7 +142,7 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
     }
     if page
         .region_time_zone
-        .is_some_and(|offset| !(-12..=14).contains(&offset))
+        .is_some_and(|offset| !valid_offset(offset))
     {
         return Err(ParseError::InvalidContext);
     }
@@ -161,6 +161,11 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
 /// Validate decimal identity text while retaining leading zeros and avoiding numeric conversion.
 pub(crate) fn digits(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// Whether `offset` is a real UTC offset in whole hours.
+pub(crate) fn valid_offset(offset: i32) -> bool {
+    (-12..=14).contains(&offset)
 }
 
 /// Enforce the supported HSR record contract before any record can enter an import.
