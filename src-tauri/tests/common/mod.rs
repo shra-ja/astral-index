@@ -16,11 +16,9 @@ pub const PAGE: &[u8] = include_bytes!("../fixtures/hsr-api/page.json");
 pub const UID: &str = "100000002";
 pub const SERVER: &str = "synthetic-server";
 
-/// The app's one migration, which test-only schemas run before their own.
-pub const OPTIONAL_POOL_ID: &str = include_str!("../../migrations/002_optional_pool_id.sql");
 /// A test-only migration after the app's, as the next real one will be.
 pub const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
-pub const UPGRADED: Schema = Schema::with_migrations(&[OPTIONAL_POOL_ID, BANNER]);
+pub const UPGRADED: Schema = Schema::CURRENT.then(&[BANNER]);
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

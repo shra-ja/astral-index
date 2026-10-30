@@ -6,7 +6,7 @@ use astral_index::storage::{
     Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
     Source, Store, StoredRoll, Summary, check_database,
 };
-use common::{BANNER, Folder, OPTIONAL_POOL_ID, UID, UPGRADED, batch, imports, release_1_0_0};
+use common::{BANNER, Folder, UID, UPGRADED, batch, imports, release_1_0_0};
 use rusqlite::Connection;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -35,7 +35,7 @@ INSERT INTO accounts_new(game, uid, server, timezone)
     SELECT game, uid, server, timezone FROM accounts;
 DROP TABLE accounts;
 ALTER TABLE accounts_new RENAME TO accounts;";
-const REBUILT: Schema = Schema::with_migrations(&[OPTIONAL_POOL_ID, REBUILD_ACCOUNTS]);
+const REBUILT: Schema = Schema::CURRENT.then(&[REBUILD_ACCOUNTS]);
 /// The app's schema, and migrations newer, which must keep every history too.
 const SCHEMAS: [Schema; 3] = [Schema::CURRENT, UPGRADED, REBUILT];
 
@@ -349,11 +349,7 @@ fn upgrading_a_1_0_0_database_lets_the_caller_keep_it_unchanged_first() {
 #[test]
 fn a_failed_migration_or_keep_leaves_a_1_0_0_database_unchanged() {
     let fixture = std::fs::read(release_1_0_0()).unwrap();
-    let failing = Schema::with_migrations(&[
-        OPTIONAL_POOL_ID,
-        BANNER,
-        "ALTER TABLE missing ADD COLUMN x TEXT",
-    ]);
+    let failing = Schema::CURRENT.then(&[BANNER, "ALTER TABLE missing ADD COLUMN x TEXT"]);
     let copy = Copy::of(&release_1_0_0());
     assert!(Store::open_with(&copy.path(), failing, None).is_err());
     assert_eq!(std::fs::read(copy.path()).unwrap(), fixture);

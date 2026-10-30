@@ -26,7 +26,7 @@ const FIRST_RELEASED: i32 = 2;
 const FIRST_SQL: &str = include_str!("../migrations/001_initial.sql");
 /// The migrations after the first release, in order, each upgrading the schema
 /// version before it by one.
-pub(crate) const MIGRATIONS: &[&str] = &[include_str!("../migrations/002_optional_pool_id.sql")];
+const MIGRATIONS: &[&str] = &[include_str!("../migrations/002_optional_pool_id.sql")];
 /// How many references a database holds to rows that don't exist.
 const BROKEN_REFERENCES: &str = "SELECT count(*) FROM pragma_foreign_key_check";
 /// A database's schema objects, as compared between a file and its version's SQL.
@@ -40,33 +40,53 @@ const SCHEMA: &str =
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Schema {
     migrations: &'static [&'static str],
+    /// Test-only migrations after these, standing in for later releases'.
+    later: &'static [&'static str],
 }
 impl Schema {
     /// This app's schema.
-    pub const CURRENT: Self = Self {
-        migrations: MIGRATIONS,
-    };
+    pub const CURRENT: Self = Self::with_migrations(MIGRATIONS);
     /// The schema these migrations produce from the first release's. Only tests
     /// use any other than `CURRENT`.
     pub const fn with_migrations(migrations: &'static [&'static str]) -> Self {
-        Self { migrations }
+        Self {
+            migrations,
+            later: &[],
+        }
+    }
+    /// This schema with test-only migrations after its own, as a later release's
+    /// would be.
+    pub const fn then(self, later: &'static [&'static str]) -> Self {
+        Self {
+            migrations: self.migrations,
+            later,
+        }
+    }
+    /// Every migration, in order.
+    fn steps(self) -> impl Iterator<Item = &'static str> {
+        self.migrations.iter().chain(self.later).copied()
+    }
+    /// How many migrations the newest version has.
+    fn len(self) -> usize {
+        self.migrations.len() + self.later.len()
     }
     /// How many of these migrations a database at schema `version` already has:
     /// none unless `version` is one of this schema's released versions, from the
     /// first release's to the newest.
     fn applied(self, version: i32) -> Option<usize> {
         let applied = usize::try_from(version.saturating_sub(FIRST_RELEASED)).ok()?;
-        (applied <= self.migrations.len()).then_some(applied)
+        (applied <= self.len()).then_some(applied)
     }
     /// Whether a database with `applied` of these migrations needs none more.
     fn is_newest(self, applied: usize) -> bool {
-        applied == self.migrations.len()
+        applied == self.len()
     }
     /// This schema as it was with only its first `applied` migrations, as
     /// `applied` gives them.
     fn at(self, applied: usize) -> Self {
-        Self {
-            migrations: &self.migrations[..applied],
+        match applied.checked_sub(self.migrations.len()) {
+            Some(later) => self.then(&self.later[..later]),
+            None => Self::with_migrations(&self.migrations[..applied]),
         }
     }
     /// Bring a database that has `applied` of these migrations, or a new one, to
@@ -79,7 +99,7 @@ impl Schema {
                 0
             }
         };
-        let pending = (FIRST_RELEASED + 1..).zip(self.migrations);
+        let pending = (FIRST_RELEASED + 1..).zip(self.steps());
         for (version, migration) in pending.skip(applied) {
             connection.execute_batch(migration)?;
             connection.execute_batch(&format!("PRAGMA user_version={version}"))?;
@@ -1451,16 +1471,25 @@ pub(crate) mod tests {
 
     /// A test-only migration after the app's.
     pub(crate) const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
-    /// The app's migrations, then the test-only one.
-    const UPGRADED_MIGRATIONS: &[&str] = &[MIGRATIONS[0], BANNER];
     /// A schema one test-only migration newer than the app's.
-    pub(crate) const UPGRADED: Schema = Schema::with_migrations(UPGRADED_MIGRATIONS);
+    pub(crate) const UPGRADED: Schema = Schema::CURRENT.then(&[BANNER]);
     /// The SQL for upgrading a database at the first release's version to `UPGRADED`.
     pub(crate) fn upgrading() -> Vec<Step> {
-        upgrade(FIRST_RELEASED, UPGRADED_MIGRATIONS)
+        upgrade(FIRST_RELEASED, &UPGRADED.steps().collect::<Vec<_>>())
     }
     /// The first migration's SQL, which upgrading runs first.
-    pub(crate) const FIRST_MIGRATION: &str = UPGRADED_MIGRATIONS[0];
+    pub(crate) const FIRST_MIGRATION: &str = MIGRATIONS[0];
+    #[test]
+    fn each_version_has_the_steps_up_to_it_test_only_ones_last() {
+        let schema = Schema::with_migrations(&["A"]).then(&["B", "C"]);
+        let steps = |applied| schema.at(applied).steps().collect::<Vec<_>>();
+        assert_eq!(steps(0), [""; 0]);
+        assert_eq!(steps(1), ["A"]);
+        assert_eq!(steps(2), ["A", "B"]);
+        assert_eq!(steps(3), ["A", "B", "C"]);
+        assert_eq!(schema.applied(FIRST_RELEASED + 3), Some(3));
+        assert_eq!(schema.applied(FIRST_RELEASED + 4), None);
+    }
     #[test]
     fn an_older_release_s_database_is_upgraded_after_it_is_kept() {
         database::expect(upgrading());
@@ -1485,7 +1514,10 @@ pub(crate) mod tests {
     #[test]
     fn an_upgrade_that_breaks_a_reference_is_rolled_back() {
         let mut steps = reading(FIRST_RELEASED, APPLICATION_ID);
-        steps.extend(migrating(FIRST_RELEASED, UPGRADED_MIGRATIONS));
+        steps.extend(migrating(
+            FIRST_RELEASED,
+            &UPGRADED.steps().collect::<Vec<_>>(),
+        ));
         steps.extend([
             rows(BROKEN_REFERENCES, vec![], vec![vec![Value::Integer(1)]]),
             done("ROLLBACK"),
@@ -1530,7 +1562,10 @@ pub(crate) mod tests {
     #[test]
     fn a_new_or_current_database_is_built_or_opened_by_the_same_steps() {
         let mut steps = creating();
-        steps.extend(migrating(FIRST_RELEASED, UPGRADED_MIGRATIONS));
+        steps.extend(migrating(
+            FIRST_RELEASED,
+            &UPGRADED.steps().collect::<Vec<_>>(),
+        ));
         steps.extend(finishing());
         database::expect(steps);
         let store = Store::initialize(Connection, UPGRADED, None);
