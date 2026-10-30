@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Release 1.1.0 (2026-10-29)
+### Native IPC trace (2026-10-29)
 
-`docs/status-1.1.0`: [1.1.0](https://github.com/shra-ja/astral-index/releases/tag/v1.1.0) is released from `3ee421e`, with backup and restore, safe upgrades and the native cache-file dialog. On Windows, its executable retrieved live history from a chosen cache file, and backed up and restored it with the same contents. The wide-window stall that decision 0034 aimed to remove recurred once in CI on `3ee421e`: `extract_from_file` answered after 20 s, against 0.6 s locally, and it didn't reproduce locally on two loaded cores; a re-run passed. Beyond its 0.5 s request pacing, no app code waits there; wry finishes WebKitGTK's IPC responses on the GTK main thread, so the stall is likely specific to WebKitGTK, and Windows uses WebView2 instead. Docs only; markdownlint and the docs check pass.
+`test/wide-window-ipc-stall`: the mock writes a line to stderr, with the time, as each command reaches the native side and as its answer is handed back to the webview, from Tauri's own IPC spans (its `tracing` feature, on only with the `mock` feature); a failure snapshot adds when the page loaded, so the webview's times line up with the trace. If the next wide-window stall recurs, the CI log shows whether the command arrived late, answered late or was answered on time but reached the webview late. Red: the trace's unit test wrote nothing, and `register_mock` installed no subscriber; green: all 273 unit tests pass, and the wide-window e2e test's log has an arrival and an answer line for each of its commands, with no arguments or answers. `npm run check` passes, run in its three stages, with the trace at 100% unit coverage.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: log on the native side when the mock receives and answers each command, beside the webview's trace, so the next wide-window stall shows which side waited; then [0030](../product/features/0030-history-file-import.md), history-file import, starting with its facts-based duplicates.
+Next: [0030](../product/features/0030-history-file-import.md), history-file import, starting with its facts-based duplicates.
 
 ## Keeping this file current
 
@@ -210,3 +210,6 @@ research, under a "From" heading.
 - [2026-10-28: release routing](history/2026-10-28-release-routing.md):
   AGENTS.md routing releases to DEVELOPMENT, and release notes' entries kept
   close to the generated ones.
+- [2026-10-29: release 1.1.0](history/2026-10-29-release-1-1-0.md):
+  1.1.0 released and checked on Windows, and the wide-window stall's
+  recurrence in CI.

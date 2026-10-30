@@ -23,9 +23,10 @@ for how the parts fit together; run commands from the repository root.
   safety copy; `src/desktop/cache_file.rs` holds the Import screen's cache file
   command, which chooses the file in the open dialog and holds its path for
   `extract_from_file` to read; `src/desktop/dialogs.rs` opens those dialogs,
-  or takes the mock's answer from its data folder; and `src/desktop/local_time.rs`
+  or takes the mock's answer from its data folder; `src/desktop/local_time.rs`
   reads the local time that names the copies kept beside the history and the
-  suggested backup.
+  suggested backup; and `src/desktop/ipc_trace.rs` writes the mock's IPC trace
+  to stderr.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its

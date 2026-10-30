@@ -18,7 +18,8 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   calls `desktop::register_mock`; it adds no behaviour of its own. The shipped
   binary, `main.rs`, is unchanged and has no test hooks or switches. The mock
   binary is built only with the `mock` Cargo feature (`required-features`), so
-  release builds do not produce it; the feature gates nothing in the library.
+  release builds do not produce it; the feature gates none of the library's code;
+  since 2026-10-29 it also turns on Tauri's IPC spans (see "IPC trace").
   Cargo's `default-run` keeps `cargo run` and `tauri dev` on the real app.
 - **An in-process mock transport,** `acquisition::mock::MockTransport`, answers the
   history endpoints from the request alone (category, cursor, size), so nothing
@@ -51,6 +52,14 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   that had moved. The app keeps nothing in webview storage, so nothing is lost.
   Incognito mode was tried first, but WebKit's WebDriver cannot open a session
   in an incognito webview, which would end the mock's end-to-end tests.
+- **IPC trace** (added 2026-10-29): the mock writes a line to stderr, with the
+  time, as each command reaches the native side and as its answer is handed
+  back to the webview, so a stalled end-to-end test shows which side waited.
+  The `mock` feature turns on Tauri's `tracing` feature, whose IPC spans the
+  trace writes, keeping only their names and command, never arguments or
+  answers. The trace's code is in the library, unit-tested without the feature;
+  the shipped app never installs it, and without Tauri's spans it has nothing
+  to write.
 - **Verification:** the native smoke test runs the mock binary through retrieval,
   review, saving, a second retrieval that finds everything saved, and a network
   failure, with screenshots of each screen. `npm run tauri:mock` runs it by hand.

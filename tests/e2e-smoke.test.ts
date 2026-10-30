@@ -390,11 +390,13 @@ async function snapshotFailure(app: AppSession) {
     )
     .catch((error: unknown) => `not run: ${String(error)}`)
   const trace = await app
-    .execute<unknown>(`return [window.ipcTrace ?? null, Math.round(performance.now())]`)
+    .execute<unknown>(
+      `return { calls: window.ipcTrace ?? null, now: Math.round(performance.now()), loaded: new Date(performance.timeOrigin).toISOString() }`,
+    )
     .catch(() => null)
   writeFileSync(
     resolve(results, `${name}.txt`),
-    `${text}\n\n--- IPC probe (app_info, 3 s limit): ${probe}\n--- IPC calls and the time now, in ms since the page loaded:\n${JSON.stringify(trace, null, 1)}\n`,
+    `${text}\n\n--- IPC probe (app_info, 3 s limit): ${probe}\n--- IPC calls and the time now, in ms since the page loaded, and when it loaded, to compare with the mock's IPC trace on stderr:\n${JSON.stringify(trace, null, 1)}\n`,
   )
 }
 /** Run `steps` in the mock, then close it as a user would. */
