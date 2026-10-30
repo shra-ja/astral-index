@@ -1704,7 +1704,8 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
 
 test('on a very wide page every screen keeps one content width, centred under its header', async () => {
   // Zoomed out to half size, the window's 1200 pixels hold a page 2400 wide. A
-  // window resized to 2560×1440 stalled WebKitGTK's IPC answers in CI only.
+  // window resized to 2560×1440 stalled WebKitGTK's IPC answers in CI only
+  // (decision 0034).
   const { app } = await launchMock('history', { env: { ASTRAL_INDEX_ZOOM: '0.5' } })
   try {
     expect(await app.execute<number>('return window.innerWidth')).toBe(2400)
