@@ -1,4 +1,5 @@
-//! Pure HSR response parsing; no filesystem, network, or persistence access.
+//! Honkai: Star Rail's rules and response parsing; no filesystem, network, or
+//! persistence access.
 
 use serde::{Deserialize, Serialize};
 
@@ -177,6 +178,43 @@ pub(crate) fn valid_offset(offset: i32) -> bool {
     (-12..=14).contains(&offset)
 }
 
+/// A server, as Star Rail's UID rule infers it for history files.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Server {
+    pub name: &'static str,
+    /// UTC offset in hours of the server's local time.
+    pub offset: i32,
+}
+
+/// Why a UID has no server.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UidError {
+    /// Not a UID: not only digits, or too short to hold a server.
+    Malformed,
+    /// A UID, but no server in the rule takes it.
+    NoServer,
+}
+
+/// The server a UID belongs to, from the digits before its last eight, as
+/// community documentation maps them; only Europe's offset is confirmed
+/// ([file research](../../docs/games/hsr/file-research.md)). Only history files
+/// need this: retrieval keeps the server HoYoverse names.
+pub fn server_of(uid: &str) -> Result<Server, UidError> {
+    if !digits(uid) || uid.len() <= 8 {
+        return Err(UidError::Malformed);
+    }
+    let (name, offset) = match &uid[..uid.len() - 8] {
+        "1" | "2" => ("prod_gf_cn", 8),
+        "5" => ("prod_qd_cn", 8),
+        "6" => ("prod_official_usa", -5),
+        "7" => ("prod_official_eur", 1),
+        "8" => ("prod_official_asia", 8),
+        "9" => ("prod_official_cht", 8),
+        _ => return Err(UidError::NoServer),
+    };
+    Ok(Server { name, offset })
+}
+
 /// Enforce the supported HSR record contract before any record can enter an import.
 /// A roll may lack a pool ID, but one it has is not empty.
 pub(crate) fn valid_roll(roll: &Roll) -> bool {
@@ -227,6 +265,49 @@ mod tests {
 
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");
     const EMPTY: &[u8] = include_bytes!("../tests/fixtures/hsr-api/empty.json");
+
+    #[test]
+    fn a_uid_s_server_comes_from_the_digits_before_its_last_eight() {
+        let servers = [
+            ("100000001", "prod_gf_cn", 8),
+            ("200000001", "prod_gf_cn", 8),
+            ("500000001", "prod_qd_cn", 8),
+            ("600000001", "prod_official_usa", -5),
+            ("700000001", "prod_official_eur", 1),
+            ("800000001", "prod_official_asia", 8),
+            ("900000001", "prod_official_cht", 8),
+        ];
+        for (uid, name, offset) in servers {
+            assert_eq!(server_of(uid), Ok(Server { name, offset }), "{uid}");
+            // A storage batch accepts every server and offset the rule gives.
+            assert!(valid_server(name), "{uid}");
+            assert!(valid_offset(offset), "{uid}");
+        }
+    }
+
+    #[test]
+    fn a_malformed_uid_or_one_outside_the_rule_has_no_server() {
+        for uid in [
+            "",
+            "70000001",
+            "70000000a",
+            " 70000001",
+            "7000000.1",
+            "-70000001",
+        ] {
+            assert_eq!(server_of(uid), Err(UidError::Malformed), "{uid:?}");
+        }
+        // No server starts with 3, 4 or 0, or has two digits before the last eight.
+        for uid in [
+            "300000001",
+            "400000001",
+            "000000001",
+            "1000000001",
+            "8000000001",
+        ] {
+            assert_eq!(server_of(uid), Err(UidError::NoServer), "{uid}");
+        }
+    }
 
     #[test]
     fn soft_pity_follows_each_categorys_hard_pity() {
