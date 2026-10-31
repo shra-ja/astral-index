@@ -2163,7 +2163,7 @@ test('a retrieval with no history creates no account, and an ended retrieval’s
 // Retrieval is paced at 500 ms a request, about 31 of them.
 const largeHistoryBounds = {
   retrieve: 55000, // measured 18,379–18,414
-  save: 600, // 135–176
+  save: 950, // 265–316 (2026-10-31), including serializing each roll
   open: 600, // 121–193
   page: 500, // 5–48
   filter: 700, // 168–215
