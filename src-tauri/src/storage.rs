@@ -633,7 +633,7 @@ impl Store {
                 "UPDATE rolls SET payload=?5 WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4",
             )?;
             for kept in classified.writes {
-                let payload = serde_json::json!(kept.roll).to_string();
+                let payload = payload(&kept.roll);
                 if kept.saved {
                     update.execute(params![
                         GAME,
@@ -925,6 +925,11 @@ impl Store {
             rolls,
         })
     }
+}
+
+/// A roll's payload, as it is saved.
+fn payload(roll: &Roll) -> String {
+    serde_json::to_string(roll).expect("a roll serializes")
 }
 
 /// A stored roll, checked against its row's identity and the roll rules again, so
@@ -1262,7 +1267,7 @@ pub(crate) mod tests {
     /// The first roll's ID and payload, as saved.
     fn record() -> (String, String) {
         let roll = roll();
-        (roll.id.clone(), serde_json::json!(roll).to_string())
+        (roll.id.clone(), payload(&roll))
     }
     /// The SQL for looking up a roll's payload, answered with `payload` when found.
     pub(crate) fn lookup(id: &str, payload: Option<&str>) -> Step {
@@ -1672,7 +1677,7 @@ pub(crate) mod tests {
     }
     /// The SQL classifying rolls of the first roll's ID, answered with `saved`.
     fn classifying(saved: Option<&Roll>) -> Vec<Step> {
-        let payload = saved.map(|roll| serde_json::json!(roll).to_string());
+        let payload = saved.map(payload);
         vec![
             done(&format!("PREPARE {LOOKUP}")),
             lookup(&roll().id, payload.as_deref()),
@@ -1810,17 +1815,16 @@ pub(crate) mod tests {
             }
         });
         let rolls = parse_response(&bytes).unwrap().list;
-        let payload = |index: usize| serde_json::json!(rolls[index]).to_string();
         let mut other_item = rolls[1].clone();
         other_item.item_id = "other".into();
-        let conflicting = serde_json::json!(other_item).to_string();
+        let conflicting = payload(&other_item);
         // The first record is already stored, the second differs from its stored
         // copy, and the rest are new: a 5-star, a 4-star and a 3-star.
         database::expect(vec![
             done("BEGIN Deferred"),
             timezone(None),
             done(&format!("PREPARE {LOOKUP}")),
-            lookup(&rolls[0].id, Some(&payload(0))),
+            lookup(&rolls[0].id, Some(&payload(&rolls[0]))),
             lookup(&rolls[1].id, Some(&conflicting)),
             lookup(&rolls[2].id, None),
             lookup(&rolls[3].id, None),
@@ -1976,8 +1980,8 @@ pub(crate) mod tests {
     }
     /// The SQL for committing `filling()`, imported at 1234.
     fn filling_script() -> Vec<Step> {
-        let (id, payload) = record();
-        let without = serde_json::json!(variant(|roll| roll.gacha_id = None)).to_string();
+        let (id, filled) = record();
+        let without = payload(&variant(|roll| roll.gacha_id = None));
         let mut account_bindings = scope();
         account_bindings.push(Value::Integer(8));
         let mut batch_bindings = scope();
@@ -1988,7 +1992,7 @@ pub(crate) mod tests {
             Value::Integer(1),
         ]);
         let mut fill_bindings = scope();
-        fill_bindings.extend([text(&id), text(&payload)]);
+        fill_bindings.extend([text(&id), text(&filled)]);
         vec![
             done("BEGIN Immediate"),
             identity(),
@@ -2440,19 +2444,19 @@ pub(crate) mod tests {
         ("9007199254740995", "4", "Éclair", "2024-03-02 10:00:00"),
     ];
     /// The stored payload of the category's roll with this ID.
-    pub(crate) fn payload(id: &str) -> String {
+    pub(crate) fn category_payload(id: &str) -> String {
         let (_, rank, name, time) = CATEGORY.iter().find(|(each, ..)| *each == id).unwrap();
         let mut roll = parse_response(PAGE).unwrap().list.remove(0);
         roll.id = id.into();
         roll.rank_type = (*rank).into();
         roll.name = (*name).into();
         roll.time = (*time).into();
-        serde_json::json!(roll).to_string()
+        payload(&roll)
     }
     /// Lookups that find each of these rolls' payloads, in this order.
     pub(crate) fn found(ids: &[&str]) -> Vec<Step> {
         ids.iter()
-            .map(|id| lookup(id, Some(&payload(id))))
+            .map(|id| lookup(id, Some(&category_payload(id))))
             .collect()
     }
     /// The SQL for a Character Event Warp page of the fixture account, which also
@@ -2513,7 +2517,7 @@ pub(crate) mod tests {
             .unwrap()
             .list
             .iter()
-            .map(|roll| vec![text(&roll.id), text(&serde_json::json!(roll).to_string())])
+            .map(|roll| vec![text(&roll.id), text(&payload(roll))])
             .collect()
     }
     fn read(filter: &Filter, offset: usize, limit: usize) -> Result<HistoryPage, Error> {
@@ -2844,7 +2848,7 @@ pub(crate) mod tests {
     fn a_page_rejects_corrupt_rows_and_rows_of_another_category() {
         let mut other = parse_response(PAGE).unwrap().list.remove(0);
         other.gacha_type = "1".into();
-        let other = serde_json::json!(other).to_string();
+        let other = payload(&other);
         for corrupt in [other.as_str(), "{"] {
             database::expect(page_script(vec![lookup("9007199254740993", Some(corrupt))]));
             assert_eq!(
