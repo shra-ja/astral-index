@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Server rule (2026-10-31)
+
+`feat/uid-server-rule`, 0030's second task: `hsr::server_of` gives a UID's server and offset from the digits before its last eight, as the file research's community mapping gives them, or says the UID is malformed or has no server in the rule. A function in the game's module is the per-game interface until a second game's rule shapes a shared one; retrieval keeps the server HoYoverse names. Red: both rule tests failed against a stub that found no server; green: all 279 unit tests pass.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the

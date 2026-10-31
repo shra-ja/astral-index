@@ -56,7 +56,7 @@ One PR each, in order:
   pool ID as newer rather than damaged; the schema policy in
   [CONTRIBUTING](../../../CONTRIBUTING.md) says versions also cover the stored
   records' rules.
-- [ ] **Server rule.** The per-game interface turning a UID into its server and
+- [x] **Server rule.** The per-game interface turning a UID into its server and
   offset, or the reason it can't, with Star Rail's rule from the
   [file research](../../games/hsr/file-research.md).
 - [ ] **UIGF reading.** Detection, typed validation and normalisation in Rust,
@@ -66,7 +66,7 @@ One PR each, in order:
   dev-only JSON Schema validator, so both give the same verdict.
 - [ ] **File import commands.** Choosing the file and previewing one account,
   reusing retrieval's review, save and discard, with narrow permissions and the
-  mock's scenarios. A second account means choosing the file again.
+  mock's scenarios, whose UIDs then follow the server rule. A second account means choosing the file again.
 - [ ] **Import screen.** File import as a second source, its account picker,
   review and errors, by keyboard, from an approved mockup; a review that only
   adds pool IDs can still be saved, and shows how many; then the docs, and a

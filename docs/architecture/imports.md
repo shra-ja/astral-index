@@ -10,7 +10,10 @@ Each game adapter is concrete; there is no general plugin framework. An adapter
 describes its supported format versions, detection evidence, required account and
 server context, record identity, timestamp semantics, ordering, banner mapping and
 known history limitations. Detection rejects ambiguous formats rather than
-choosing an adapter because a file name matches. Pity and guarantee rules also
+choosing an adapter because a file name matches. A source without a server
+takes it from its game's UID rule, a function in the game's module such as
+`hsr::server_of`, which gives the server and its offset or why a UID has none
+([decision 0032](decisions/0032-history-file-import-rules.md)). Pity and guarantee rules also
 belong to the adapter ([statistics](statistics.md)).
 
 ## Pipeline

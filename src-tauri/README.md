@@ -34,7 +34,9 @@ for how the parts fit together; run commands from the repository root.
   outcomes (`outcome.rs`), validate keys (`validation.rs`), paginate
   (`pagination.rs`), retry (`retry.rs`), pace (`pace.rs`) and cancel
   (`cancel.rs`). `mock.rs` is the mock binary's synthetic HoYoverse.
-- `src/hsr.rs` parses and validates HSR API response pages.
+- `src/hsr.rs` parses and validates HSR API response pages, and holds Star
+  Rail's rules: categories, soft pity, roll checks and the UID→server rule
+  for history files.
 - `src/storage.rs` holds SQLite storage: previews, commits and history reads,
   with the single schema in `migrations/001_initial.sql`.
 - `tauri.conf.json` sets bundled assets, the dev URL and the production CSP;
