@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Save speed (2026-10-31)
-
-`fix/save-speed`: #156 moved serializing each roll from retrieval into saving, where `json!` built a value tree per roll, and main's large-history test exceeded its 600 ms save bound in CI. Saving now serializes each roll straight to text. Red: CI run 41197683613 failed the save bound, and main's save took 468 ms locally; green: 291, 265 and 316 ms. The save bound is now 950 ms, three times the slowest run, as the other bounds are; the work it times includes what retrieval did before #156.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -218,3 +214,5 @@ research, under a "From" heading.
   the wide-window test zoomed out instead of resizing, with the stall's cause
   shelved, and duplicates matched by their facts, with missing pool IDs
   filled.
+- [2026-10-31: save speed](history/2026-10-31-save-speed.md): saved rolls
+  serialized straight to text after #156 slowed the large history's save.
