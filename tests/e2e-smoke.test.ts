@@ -664,13 +664,13 @@ test('Backup & Restore saves a checked backup and checks one to restore, where t
     expect(existsSync(held)).toBe(false)
     rmSync(notes)
   })
-  // The backup is the closed app's history, checked: this app's, version 2, intact.
+  // The backup is the closed app's history, checked: this app's, version 3, intact.
   expect(readdirSync(backups)).toEqual(['history-copy.sqlite'])
   const copy = new DatabaseSync(backup, { readOnly: true })
   try {
     const value = (sql: string) => Object.values(copy.prepare(sql).get()!)[0]
     expect(value('PRAGMA application_id')).toBe(1381257795)
-    expect(value('PRAGMA user_version')).toBe(2)
+    expect(value('PRAGMA user_version')).toBe(3)
     expect(value('PRAGMA integrity_check')).toBe('ok')
     expect(value('SELECT count(*) FROM rolls')).toBe(2060)
   } finally {

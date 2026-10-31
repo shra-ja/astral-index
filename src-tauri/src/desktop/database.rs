@@ -309,7 +309,8 @@ mod tests {
         });
     }
     use crate::storage::tests::{
-        BANNER, UPGRADED, failing_at, setup, step, stopping_before, text, upgrading,
+        BANNER, FIRST_MIGRATION, UPGRADED, failing_at, setup, step, stopping_before, text,
+        upgrading,
     };
     use std::future::Future;
 
@@ -573,7 +574,7 @@ mod tests {
         };
         filesystem::install(unwritable);
         let mut script = vec![open(&folder().join(FILE_NAME))];
-        script.extend(stopping_before(upgrading(), BANNER));
+        script.extend(stopping_before(upgrading(), FIRST_MIGRATION));
         sql::expect(script);
         let store = Mutex::default();
         assert_eq!(

@@ -1,0 +1,3 @@
+-- Rolls may be saved without a pool ID (`gacha_id`), which 1.0.0 and 1.1.0 read as
+-- damage. The tables stay as they are; raising the version makes those releases
+-- refuse such a history as newer instead.

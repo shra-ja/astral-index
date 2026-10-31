@@ -70,13 +70,16 @@ pub enum ParseError {
 }
 
 /// Preserve source identity and fields losslessly for validation, merging and later export.
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Roll {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
     pub uid: String,
     pub id: String,
-    pub gacha_id: String,
+    /// The banner's pool ID. HoYoverse always gives it; other sources may not, and
+    /// a roll saved without one keeps no key for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gacha_id: Option<String>,
     pub gacha_type: String,
     pub item_id: String,
     pub count: String,
@@ -95,6 +98,22 @@ pub struct Page {
     pub region: Option<String>,
     pub region_time_zone: Option<i32>,
     pub list: Vec<Roll>,
+}
+
+/// One account's rolls from one source, parsed and checked by that source, for an
+/// import preview. Holds player data: never log or display it.
+#[derive(PartialEq, Eq)]
+pub struct Batch {
+    pub uid: String,
+    pub server: String,
+    /// UTC offset in hours of the rolls' server-local times, when the source gave one.
+    pub timezone: Option<i32>,
+    pub rolls: Vec<Roll>,
+}
+impl std::fmt::Debug for Batch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Batch([redacted])")
+    }
 }
 
 /// Validate one bounded API page. Missing context remains unknown; no deduplication
@@ -118,17 +137,22 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
     }
     let page: Page = serde_json::from_str(envelope.data.ok_or(ParseError::InvalidResponse)?.get())
         .map_err(|_| ParseError::InvalidResponse)?;
-    if page.region.as_deref() == Some("") {
+    if page
+        .region
+        .as_deref()
+        .is_some_and(|server| !valid_server(server))
+    {
         return Err(ParseError::InvalidContext);
     }
     if page
         .region_time_zone
-        .is_some_and(|offset| !(-12..=14).contains(&offset))
+        .is_some_and(|offset| !valid_offset(offset))
     {
         return Err(ParseError::InvalidContext);
     }
     for roll in &page.list {
-        if !valid_roll(roll) {
+        // HoYoverse always gives a pool ID.
+        if !valid_roll(roll) || roll.gacha_id.is_none() {
             return Err(ParseError::InvalidRecord);
         }
         if roll.uid != page.list[0].uid {
@@ -143,12 +167,23 @@ pub(crate) fn digits(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
+/// Whether `server` names a server: not empty or only spaces.
+pub(crate) fn valid_server(server: &str) -> bool {
+    !server.trim().is_empty()
+}
+
+/// Whether `offset` is a real UTC offset in whole hours.
+pub(crate) fn valid_offset(offset: i32) -> bool {
+    (-12..=14).contains(&offset)
+}
+
 /// Enforce the supported HSR record contract before any record can enter an import.
+/// A roll may lack a pool ID, but one it has is not empty.
 pub(crate) fn valid_roll(roll: &Roll) -> bool {
     digits(&roll.id)
         && roll.id.len() <= 19
         && digits(&roll.uid)
-        && !roll.gacha_id.is_empty()
+        && roll.gacha_id.as_deref().is_none_or(|id| !id.is_empty())
         && !roll.item_id.is_empty()
         && Category::ALL
             .iter()
@@ -230,7 +265,7 @@ mod tests {
         assert_eq!(
             (&r.gacha_id, &r.gacha_type, &r.item_id),
             (
-                &"1001".to_owned(),
+                &Some("1001".to_owned()),
                 &"11".to_owned(),
                 &"synthetic-item".to_owned()
             )
@@ -298,10 +333,10 @@ mod tests {
         let mut exact = EMPTY.to_vec();
         exact.resize(MAX_RESPONSE_BYTES, b' ');
         assert!(parse_response(&exact).is_ok());
+        // A missing pool ID parses, but HoYoverse's records need one.
         for field in [
             "uid",
             "id",
-            "gacha_id",
             "gacha_type",
             "item_id",
             "count",
@@ -333,8 +368,10 @@ mod tests {
             assert_eq!(parse(&page), Err(ParseError::InvalidContext));
         }
         let mut page = fixture();
-        page["data"]["region"] = json!("");
-        assert_eq!(parse(&page), Err(ParseError::InvalidContext));
+        for blank in ["", " "] {
+            page["data"]["region"] = json!(blank);
+            assert_eq!(parse(&page), Err(ParseError::InvalidContext), "{blank:?}");
+        }
         for offset in [-12, 0, 14] {
             let mut page = fixture();
             page["data"]["region_time_zone"] = json!(offset);
@@ -384,6 +421,29 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn hoyoverse_records_need_a_pool_id_but_saved_rolls_may_lack_one() {
+        for missing in [None, Some(Value::Null)] {
+            let mut page = fixture();
+            let roll = page["data"]["list"][1].as_object_mut().unwrap();
+            roll.remove("gacha_id");
+            if let Some(value) = missing {
+                roll.insert("gacha_id".into(), value);
+            }
+            assert_eq!(parse(&page), Err(ParseError::InvalidRecord));
+        }
+        let mut page = fixture();
+        page["data"]["list"][1]["gacha_id"] = json!(1001);
+        assert_eq!(parse(&page), Err(ParseError::InvalidResponse));
+        let mut roll = parse(&fixture()).unwrap().list.remove(1);
+        roll.gacha_id = None;
+        assert!(valid_roll(&roll));
+        // Saved without the key, not with an empty value.
+        let saved = serde_json::to_value(&roll).unwrap();
+        assert!(saved.get("gacha_id").is_none());
+        assert_eq!(serde_json::from_value::<Roll>(saved).unwrap(), roll);
     }
 
     #[test]

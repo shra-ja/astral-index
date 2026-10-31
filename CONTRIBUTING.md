@@ -83,14 +83,18 @@ changes; treat this as the default review practice.
 
 ## Database schemas
 
-Since 1.0.0, every change to persisted data is a versioned migration. Its tests
-open a copy of every released database in `src-tauri/tests/fixtures/storage/`
-and show that the history it holds survives, alongside recovery tests for a
-migration that fails. A release that changes the schema adds its own frozen
-database there, written by that release from synthetic history. Reject
-unrelated, future and incompatible databases without modifying them, and keep
-the initialization, persistence, constraint and rollback tests. Before 1.0.0,
-one initial schema was kept without migrations.
+Since 1.0.0, every change to persisted data is a versioned migration, and so is
+a change to which stored records an older release accepts, even when no table
+changes: migration 002 changes no table, but raises the version so that 1.1.0
+refuses a history holding rolls without a pool ID as newer, rather than reading
+them as damage. Migrations' tests open a copy of every released database in
+`src-tauri/tests/fixtures/storage/` and show that the history it holds
+survives, alongside recovery tests for a migration that fails. A release that
+changes the schema adds its own frozen database there, written by that release
+from synthetic history. Reject unrelated, future and incompatible databases
+without modifying them, and keep the initialization, persistence, constraint
+and rollback tests. Before 1.0.0, one initial schema was kept without
+migrations.
 
 A schema change takes these steps:
 
@@ -101,11 +105,11 @@ A schema change takes these steps:
    copy the rows, drop the old table, then rename the new one into its place.
    The runner holds references unenforced during the upgrade and checks them
    all before committing, so never set `PRAGMA foreign_keys` in a migration.
-2. Update the tests that stand in for a migration. Their test-only schemas
-   (`UPGRADED` and `REBUILT` in `src-tauri/tests/released_databases.rs`,
-   `UPGRADED` in `src-tauri/src/storage.rs`) replace `MIGRATIONS` rather than
-   add to it, so add the new migration before their own, and raise the versions
-   the unit tests' opening scripts read. The released fixtures' tests then show
+2. Raise the versions the tests expect of the files they write, such as those in
+   `src-tauri/tests/storage.rs`, `released_databases.rs` and `backup.rs`, and in
+   `tests/e2e-smoke.test.ts`. The test-only schemas that stand in for a later
+   release, built with `Schema::CURRENT.then(...)` such as `UPGRADED`, run
+   their migrations after the app's, so they need no change. The released fixtures' tests then show
    the real migration keeps each fixture's history; add tests for what it
    changes.
 3. Update the queries and their tests for the new schema.

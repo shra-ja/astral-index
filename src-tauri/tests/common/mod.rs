@@ -2,7 +2,9 @@
 //! uses only some of them, so the others would be reported as dead code there.
 #![allow(dead_code)]
 
-use astral_index::storage::{Schema, Store};
+use astral_index::hsr::Batch;
+use astral_index::parse_response;
+use astral_index::storage::{Schema, Source, Store};
 use rusqlite::Connection;
 use std::{
     path::{Path, PathBuf},
@@ -14,9 +16,9 @@ pub const PAGE: &[u8] = include_bytes!("../fixtures/hsr-api/page.json");
 pub const UID: &str = "100000002";
 pub const SERVER: &str = "synthetic-server";
 
-/// A test-only migration after 1.0.0's schema, as the first real one will be.
+/// A test-only migration after the app's, as the next real one will be.
 pub const BANNER: &str = "ALTER TABLE rolls ADD COLUMN banner TEXT";
-pub const UPGRADED: Schema = Schema::with_migrations(&[BANNER]);
+pub const UPGRADED: Schema = Schema::CURRENT.then(&[BANNER]);
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -58,10 +60,27 @@ impl Drop for Folder {
     }
 }
 
+/// The rolls of synthetic HoYoverse pages as one account's batch, with the first
+/// page's offset, as retrieval hands them to storage.
+pub fn batch(uid: &str, server: &str, pages: &[&[u8]]) -> Batch {
+    let pages: Vec<_> = pages
+        .iter()
+        .map(|page| parse_response(page).unwrap())
+        .collect();
+    Batch {
+        uid: uid.into(),
+        server: server.into(),
+        timezone: pages.first().and_then(|page| page.region_time_zone),
+        rolls: pages.into_iter().flat_map(|page| page.list).collect(),
+    }
+}
+
 /// A store holding the synthetic page's rolls.
 pub fn store_with_history(path: &Path) -> Store {
     let mut store = Store::open(path).unwrap();
-    let preview = store.preview(UID, SERVER, &[PAGE]).unwrap();
+    let preview = store
+        .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
+        .unwrap();
     store.commit(preview, 1234).unwrap();
     store
 }

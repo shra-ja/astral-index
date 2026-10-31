@@ -5,9 +5,9 @@ use astral_index::desktop::{
     Failure,
     restore::{hold_copy, is_history, put_in_place},
 };
-use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Schema, Store};
+use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Schema, Source, Store};
 use common::{
-    Folder, PAGE, SERVER, UID, UPGRADED, imports, names, release_1_0_0, store_with_history,
+    Folder, PAGE, SERVER, UID, UPGRADED, batch, imports, names, release_1_0_0, store_with_history,
 };
 use std::path::{Path, PathBuf};
 
@@ -136,7 +136,7 @@ fn a_backup_is_upgraded_in_its_held_copy_with_the_schema_it_is_restored_into() {
         .unwrap()
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 }
 
 /// Restore `backup` into a fresh profile's data folder, where the app has just made
@@ -186,7 +186,9 @@ fn a_backup_restores_into_a_fresh_profile_with_the_same_accounts_rolls_and_impor
         ("other-server", other.as_bytes(), 1300),
         (SERVER, PAGE, 1400),
     ] {
-        let preview = store.preview(UID, server, &[page]).unwrap();
+        let preview = store
+            .preview(Source::Hoyoverse, batch(UID, server, &[page]))
+            .unwrap();
         store.commit(preview, at).unwrap();
     }
     let backup = folder.path("backup.sqlite");
