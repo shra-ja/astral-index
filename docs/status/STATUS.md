@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Server rule (2026-10-31)
-
-`feat/uid-server-rule`, 0030's second task: `hsr::server_of` gives a UID's server and offset from the digits before its last eight, as the file research's community mapping gives them, or says the UID is malformed or has no server in the rule. A function in the game's module is the per-game interface until a second game's rule shapes a shared one; retrieval keeps the server HoYoverse names. Red: both rule tests failed against a stub that found no server; green: all 279 unit tests pass.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -74,7 +70,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, continuing with the per-game rule for which server a UID belongs to.
+Next: [0030](../product/features/0030-history-file-import.md), history-file import, continuing with reading UIGF files.
 
 ## Keeping this file current
 
@@ -219,4 +215,5 @@ research, under a "From" heading.
   shelved, and duplicates matched by their facts, with missing pool IDs
   filled.
 - [2026-10-31: save speed](history/2026-10-31-save-speed.md): saved rolls
-  serialized straight to text after #156 slowed the large history's save.
+  serialized straight to text after #156 slowed the large history's save, and
+  Star Rail's rule for the server a UID belongs to.
