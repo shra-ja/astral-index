@@ -69,8 +69,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
   grey in an empty field.
-- Server names other than Asia (`prod_official_asia`) have not been seen in a
-  real retrieval.
+- Server names other than Asia (`prod_official_asia`) and Europe
+  (`prod_official_eur`) have not been seen in a real retrieval.
 
 ## Next
 

@@ -57,9 +57,11 @@ XLSX. The files were compared with each other by roll ID.
 Community documentation maps a Star Rail UID to its server by the digits before
 its last eight: 1 and 2 for `prod_gf_cn`, 5 for `prod_qd_cn`, 6 for
 `prod_official_usa`, 7 for `prod_official_eur`, 8 for `prod_official_asia` and
-9 for `prod_official_cht`. The inspected Europe account agrees. Community
-reports give the offsets as −5 for America, +1 for Europe and +8 for the rest,
-of which only Europe's is confirmed above.
+9 for `prod_official_cht`. The inspected Europe account agrees: its UID begins
+with 7, and on 2026-11-02 the app showed its retrieved server as Europe, a label
+it gives only to `prod_official_eur`, so HoYoverse's `region` matches the rule's
+name. Community reports give the offsets as −5 for America, +1 for Europe and +8
+for the rest, of which only Europe's is confirmed above.
 
 ## Pools over time (2026-10-16)
 
@@ -72,8 +74,9 @@ pools of a category at once.
 
 - Whether manual entries in Star Rail Station carry HoYoverse's roll IDs; none of
   the inspected rolls were manual.
-- Whether HoYoverse's `region` for each server is the name the UID rule gives;
-  no retrieved `region` is recorded beside these files. A file account whose UID
-  is saved keeps its saved server, but a file imported before any retrieval
-  takes the rule's name, and a retrieval naming another server would then keep
-  that account's rolls apart.
+- Whether HoYoverse's `region` for each server other than Europe is the name the
+  UID rule gives. A file account whose UID is saved keeps its saved server, but a
+  file imported before any retrieval takes the rule's name, and a retrieval
+  naming another server would then keep that account's rolls apart. No account
+  on those servers is available to check them; a mismatch is corrected when a
+  user reports it.
