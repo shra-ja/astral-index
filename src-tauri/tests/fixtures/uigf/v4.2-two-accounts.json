@@ -1,0 +1,73 @@
+{
+  "info": {
+    "export_timestamp": 1767225600,
+    "export_app": "Synthetic Exporter",
+    "export_app_version": "0.0.0",
+    "version": "v4.2"
+  },
+  "hk4e": [
+    {
+      "uid": "800000009",
+      "timezone": 8,
+      "list": []
+    }
+  ],
+  "hkrpg": [
+    {
+      "uid": "800000001",
+      "timezone": 8,
+      "lang": "en-us",
+      "list": [
+        {
+          "gacha_id": "2003",
+          "gacha_type": "11",
+          "item_id": "1001",
+          "count": "1",
+          "time": "2026-01-01 12:00:00",
+          "name": "Synthetic Character",
+          "item_type": "Character",
+          "rank_type": "5",
+          "id": "9007199254740993123"
+        },
+        {
+          "gacha_id": "2003",
+          "gacha_type": "11",
+          "item_id": "20001",
+          "time": "2026-01-01 12:00:00",
+          "name": "Synthetic Light Cone",
+          "item_type": "Light Cone",
+          "rank_type": "3",
+          "id": "9007199254740993124",
+          "synthetic_note": { "kept": [1, 2.50] }
+        },
+        {
+          "gacha_id": "1001",
+          "gacha_type": "1",
+          "item_id": "20002",
+          "count": "1",
+          "time": "2025-12-31 23:59:59",
+          "name": "Another Light Cone",
+          "item_type": "Light Cone",
+          "rank_type": "4",
+          "id": "1"
+        }
+      ]
+    },
+    {
+      "uid": "600000002",
+      "timezone": -5,
+      "list": [
+        {
+          "gacha_id": "3002",
+          "gacha_type": "12",
+          "item_id": "20003",
+          "time": "2026-01-02 08:30:00",
+          "name": "Synthetic Light Cone",
+          "item_type": "Light Cone",
+          "rank_type": "5",
+          "id": "9007199254740995000"
+        }
+      ]
+    }
+  ]
+}
