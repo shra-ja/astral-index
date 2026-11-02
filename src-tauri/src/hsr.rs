@@ -77,16 +77,18 @@ pub struct Roll {
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
     pub uid: String,
     pub id: String,
-    /// The banner's pool ID. HoYoverse always gives it; other sources may not, and
-    /// a roll saved without one keeps no key for it.
+    /// The banner's pool ID. HoYoverse always gives it, a count and a language;
+    /// other sources may not, and a roll saved without one keeps no key for it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gacha_id: Option<String>,
     pub gacha_type: String,
     pub item_id: String,
-    pub count: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<String>,
     pub time: String,
     pub name: String,
-    pub lang: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
     pub item_type: String,
     pub rank_type: String,
 }
@@ -152,8 +154,12 @@ pub fn parse_response(bytes: &[u8]) -> Result<Page, ParseError> {
         return Err(ParseError::InvalidContext);
     }
     for roll in &page.list {
-        // HoYoverse always gives a pool ID.
-        if !valid_roll(roll) || roll.gacha_id.is_none() {
+        // HoYoverse always gives a pool ID, count and language.
+        if !valid_roll(roll)
+            || roll.gacha_id.is_none()
+            || roll.count.is_none()
+            || roll.lang.is_none()
+        {
             return Err(ParseError::InvalidRecord);
         }
         if roll.uid != page.list[0].uid {
@@ -216,7 +222,7 @@ pub fn server_of(uid: &str) -> Result<Server, UidError> {
 }
 
 /// Enforce the supported HSR record contract before any record can enter an import.
-/// A roll may lack a pool ID, but one it has is not empty.
+/// A roll may lack a pool ID, count or language, but one it has is valid.
 pub(crate) fn valid_roll(roll: &Roll) -> bool {
     digits(&roll.id)
         && roll.id.len() <= 19
@@ -226,9 +232,9 @@ pub(crate) fn valid_roll(roll: &Roll) -> bool {
         && Category::ALL
             .iter()
             .any(|category| category.code() == roll.gacha_type)
-        && roll.count == "1"
+        && roll.count.as_deref().is_none_or(|count| count == "1")
         && ["3", "4", "5"].contains(&roll.rank_type.as_str())
-        && !roll.lang.is_empty()
+        && roll.lang.as_deref().is_none_or(|lang| !lang.is_empty())
         && valid_time(&roll.time)
 }
 
@@ -361,10 +367,10 @@ mod tests {
                 &r.rank_type
             ),
             (
-                &"1".to_owned(),
+                &Some("1".to_owned()),
                 &"2024-02-29 12:34:56".to_owned(),
                 &"Synthetic item".to_owned(),
-                &"en".to_owned(),
+                &Some("en".to_owned()),
                 &"Synthetic category".to_owned(),
                 &"5".to_owned()
             )
@@ -414,16 +420,15 @@ mod tests {
         let mut exact = EMPTY.to_vec();
         exact.resize(MAX_RESPONSE_BYTES, b' ');
         assert!(parse_response(&exact).is_ok());
-        // A missing pool ID parses, but HoYoverse's records need one.
+        // A missing pool ID, count or language parses, but HoYoverse's records need
+        // them.
         for field in [
             "uid",
             "id",
             "gacha_type",
             "item_id",
-            "count",
             "time",
             "name",
-            "lang",
             "item_type",
             "rank_type",
         ] {
@@ -505,26 +510,28 @@ mod tests {
     }
 
     #[test]
-    fn hoyoverse_records_need_a_pool_id_but_saved_rolls_may_lack_one() {
-        for missing in [None, Some(Value::Null)] {
-            let mut page = fixture();
-            let roll = page["data"]["list"][1].as_object_mut().unwrap();
-            roll.remove("gacha_id");
-            if let Some(value) = missing {
-                roll.insert("gacha_id".into(), value);
+    fn hoyoverse_records_need_a_pool_id_language_and_count_but_saved_rolls_may_lack_them() {
+        for field in ["gacha_id", "lang", "count"] {
+            for missing in [None, Some(Value::Null)] {
+                let mut page = fixture();
+                let roll = page["data"]["list"][1].as_object_mut().unwrap();
+                roll.remove(field);
+                if let Some(value) = missing {
+                    roll.insert(field.into(), value);
+                }
+                assert_eq!(parse(&page), Err(ParseError::InvalidRecord), "{field}");
             }
-            assert_eq!(parse(&page), Err(ParseError::InvalidRecord));
+            let mut page = fixture();
+            page["data"]["list"][1][field] = json!(1);
+            assert_eq!(parse(&page), Err(ParseError::InvalidResponse), "{field}");
+            // Saved without the key, not with an empty value.
+            let roll = parse(&fixture()).unwrap().list.remove(1);
+            let mut saved = serde_json::to_value(&roll).unwrap();
+            saved.as_object_mut().unwrap().remove(field);
+            let roll: Roll = serde_json::from_value(saved.clone()).unwrap();
+            assert!(valid_roll(&roll), "{field}");
+            assert_eq!(serde_json::to_value(&roll).unwrap(), saved, "{field}");
         }
-        let mut page = fixture();
-        page["data"]["list"][1]["gacha_id"] = json!(1001);
-        assert_eq!(parse(&page), Err(ParseError::InvalidResponse));
-        let mut roll = parse(&fixture()).unwrap().list.remove(1);
-        roll.gacha_id = None;
-        assert!(valid_roll(&roll));
-        // Saved without the key, not with an empty value.
-        let saved = serde_json::to_value(&roll).unwrap();
-        assert!(saved.get("gacha_id").is_none());
-        assert_eq!(serde_json::from_value::<Roll>(saved).unwrap(), roll);
     }
 
     #[test]
