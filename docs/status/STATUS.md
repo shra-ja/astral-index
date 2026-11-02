@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Save speed (2026-10-31)
+### Server rule (2026-10-31)
 
-`fix/save-speed`: #156 moved serializing each roll from retrieval into saving, where `json!` built a value tree per roll, and main's large-history test exceeded its 600 ms save bound in CI. Saving now serializes each roll straight to text. Red: CI run 41197683613 failed the save bound, and main's save took 468 ms locally; green: 291, 265 and 316 ms. The save bound is now 950 ms, three times the slowest run, as the other bounds are; the work it times includes what retrieval did before #156.
+`feat/uid-server-rule`, 0030's second task: `hsr::server_of` gives a UID's server and offset from the digits before its last eight, as the file research's community mapping gives them, or says the UID is malformed or has no server in the rule. A function in the game's module is the per-game interface until a second game's rule shapes a shared one; retrieval keeps the server HoYoverse names. Red: both rule tests failed against a stub that found no server; green: all 279 unit tests pass.
 
 ## Known limitations
 
@@ -69,8 +69,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
   grey in an empty field.
-- Server names other than Asia (`prod_official_asia`) have not been seen in a
-  real retrieval.
+- Server names other than Asia (`prod_official_asia`) and Europe
+  (`prod_official_eur`) have not been seen in a real retrieval.
 
 ## Next
 
@@ -218,3 +218,5 @@ research, under a "From" heading.
   the wide-window test zoomed out instead of resizing, with the stall's cause
   shelved, and duplicates matched by their facts, with missing pool IDs
   filled.
+- [2026-10-31: save speed](history/2026-10-31-save-speed.md): saved rolls
+  serialized straight to text after #156 slowed the large history's save.

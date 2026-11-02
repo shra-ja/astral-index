@@ -37,7 +37,10 @@ over retrieved history. The evidence is in the
   UID into its server and the server's time-zone offset; Honkai: Star Rail's
   reads the digits before the UID's last eight. An account whose UID is malformed
   or has no server in the rule cannot be imported. Correcting a wrongly inferred
-  server can come later as its own feature.
+  server can come later as its own feature. (Added 2026-11-02: a UID belongs to
+  one server, so a file account whose UID is saved keeps its saved server, the
+  one HoYoverse named, and the rule names only new accounts. Storage keeps
+  accounts keyed by UID and server, with no migration.)
 - **Records keep their source's text; screens prefer item metadata.** A roll's
   record keeps the name, item type and language its source gave. Once the banner
   catalogue's item metadata exists

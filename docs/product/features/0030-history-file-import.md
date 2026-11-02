@@ -21,10 +21,12 @@ File import stays local and never makes a network request.
   not; importing the file again covers another. An account whose UID is
   malformed or has no server in the game's rule is listed as not importable,
   with the reason.
-- **Accounts:** a UID given as a number is kept exactly as text. The server comes
-  from Honkai: Star Rail's UID rule, kept behind a per-game interface. The
-  account's `timezone` must equal its server's offset, or the account is listed
-  as not importable. Its `lang` is kept with each record; a missing `lang` or
+- **Accounts:** a UID given as a number is kept exactly as text. A UID belongs to
+  one server, so a saved UID keeps its saved server; a new UID takes its server
+  from Honkai: Star Rail's UID rule, kept behind a per-game interface. A UID
+  saved on more than one server, which only synthetic histories hold, is listed
+  as not importable. The account's `timezone` must equal its server's offset, or
+  a saved account's stored one, or the account is listed as not importable. Its `lang` is kept with each record; a missing `lang` or
   `count` stays absent, and a `count` present must be `"1"`.
 - **Records:** each needs the fields UIGF requires for Star Rail and a name, item
   type and rarity; without them the import is refused, saying how many records
@@ -56,7 +58,7 @@ One PR each, in order:
   pool ID as newer rather than damaged; the schema policy in
   [CONTRIBUTING](../../../CONTRIBUTING.md) says versions also cover the stored
   records' rules.
-- [ ] **Server rule.** The per-game interface turning a UID into its server and
+- [x] **Server rule.** The per-game interface turning a UID into its server and
   offset, or the reason it can't, with Star Rail's rule from the
   [file research](../../games/hsr/file-research.md).
 - [ ] **UIGF reading.** Detection, typed validation and normalisation in Rust,
@@ -66,7 +68,7 @@ One PR each, in order:
   dev-only JSON Schema validator, so both give the same verdict.
 - [ ] **File import commands.** Choosing the file and previewing one account,
   reusing retrieval's review, save and discard, with narrow permissions and the
-  mock's scenarios. A second account means choosing the file again.
+  mock's scenarios, whose UIDs then follow the server rule. A second account means choosing the file again.
 - [ ] **Import screen.** File import as a second source, its account picker,
   review and errors, by keyboard, from an approved mockup; a review that only
   adds pool IDs can still be saved, and shows how many; then the docs, and a
