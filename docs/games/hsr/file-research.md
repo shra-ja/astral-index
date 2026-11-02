@@ -73,6 +73,7 @@ pools of a category at once.
 - Whether manual entries in Star Rail Station carry HoYoverse's roll IDs; none of
   the inspected rolls were manual.
 - Whether HoYoverse's `region` for each server is the name the UID rule gives;
-  no retrieved `region` is recorded beside these files. Storage keeps accounts
-  by UID and server, so a different name would keep a file's rolls and the same
-  account's retrieved rolls apart.
+  no retrieved `region` is recorded beside these files. A file account whose UID
+  is saved keeps its saved server, but a file imported before any retrieval
+  takes the rule's name, and a retrieval naming another server would then keep
+  that account's rolls apart.

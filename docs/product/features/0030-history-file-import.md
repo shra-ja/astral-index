@@ -21,10 +21,12 @@ File import stays local and never makes a network request.
   not; importing the file again covers another. An account whose UID is
   malformed or has no server in the game's rule is listed as not importable,
   with the reason.
-- **Accounts:** a UID given as a number is kept exactly as text. The server comes
-  from Honkai: Star Rail's UID rule, kept behind a per-game interface. The
-  account's `timezone` must equal its server's offset, or the account is listed
-  as not importable. Its `lang` is kept with each record; a missing `lang` or
+- **Accounts:** a UID given as a number is kept exactly as text. A UID belongs to
+  one server, so a saved UID keeps its saved server; a new UID takes its server
+  from Honkai: Star Rail's UID rule, kept behind a per-game interface. A UID
+  saved on more than one server, which only synthetic histories hold, is listed
+  as not importable. The account's `timezone` must equal its server's offset, or
+  a saved account's stored one, or the account is listed as not importable. Its `lang` is kept with each record; a missing `lang` or
   `count` stays absent, and a `count` present must be `"1"`.
 - **Records:** each needs the fields UIGF requires for Star Rail and a name, item
   type and rarity; without them the import is refused, saying how many records
