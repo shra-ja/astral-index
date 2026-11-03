@@ -183,7 +183,7 @@ fn history_file(folder: &Path) -> PathBuf {
 /// Copy `from` to `to`, a name claimed new so that no file is ever replaced, and
 /// flush it to disk through the handle it was written with, as Windows refuses to
 /// flush one opened for reading. A failure removes what was written.
-pub(super) fn copy_new(from: &Path, to: &Path) -> std::io::Result<()> {
+fn copy_new(from: &Path, to: &Path) -> std::io::Result<()> {
     let mut written = fs::File::create_new(to)?;
     let copied = fs::File::open(from)
         .and_then(|mut source| std::io::copy(&mut source, &mut written))
@@ -194,15 +194,31 @@ pub(super) fn copy_new(from: &Path, to: &Path) -> std::io::Result<()> {
     copied
 }
 
+/// How many names a kept copy tries before giving up.
+const COPY_NAMES: usize = 8;
+
+/// Copy `from` beside it as `<stem>.sqlite`, or as `<stem>-1.sqlite` and on while
+/// that name is taken, so no file is ever replaced; returns the name claimed.
+pub(super) fn keep_copy(from: &Path, stem: &str) -> std::io::Result<String> {
+    for attempt in 0..COPY_NAMES {
+        let name = match attempt {
+            0 => format!("{stem}.sqlite"),
+            _ => format!("{stem}-{attempt}.sqlite"),
+        };
+        match copy_new(from, &from.with_file_name(&name)) {
+            Ok(()) => return Ok(name),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(std::io::ErrorKind::AlreadyExists.into())
+}
+
 /// Copy the history in `file`, at schema `version`, beside it before it is
 /// upgraded, named from the local time; returns the copy's name.
 fn keep_before_upgrade(file: &Path, version: i32) -> std::io::Result<String> {
-    let name = format!(
-        "history-v{version}-{}.sqlite",
-        local_time::stamp(local_time::now())
-    );
-    copy_new(file, &file.with_file_name(&name))?;
-    Ok(name)
+    let stamp = local_time::stamp(local_time::now());
+    keep_copy(file, &format!("history-v{version}-{stamp}"))
 }
 
 /// The open store, or else the store opened from the database file in `folder`,
@@ -616,6 +632,53 @@ mod tests {
         sql::finish();
         assert_eq!(handed, Ok(Ok(true)));
         assert!(matches!(*store.lock().unwrap(), State::Closed));
+    }
+
+    #[test]
+    fn a_kept_copy_takes_the_next_numbered_name_and_never_replaces_a_file() {
+        let history = folder().join(FILE_NAME);
+        let stem = "history-v2-20261021-143000";
+        let named = |name: &str| folder().join(name);
+        let taken = |names: Vec<String>| Fixture {
+            files: names
+                .into_iter()
+                .map(|name| (named(&name), b"theirs".to_vec()))
+                .chain([(history.clone(), b"history".to_vec())])
+                .collect(),
+            ..Default::default()
+        };
+        filesystem::install(taken(vec![]));
+        assert_eq!(keep_copy(&history, stem).unwrap(), format!("{stem}.sqlite"));
+        filesystem::install(taken(vec![
+            format!("{stem}.sqlite"),
+            format!("{stem}-1.sqlite"),
+        ]));
+        assert_eq!(
+            keep_copy(&history, stem).unwrap(),
+            format!("{stem}-2.sqlite")
+        );
+        filesystem::inspect(|state| {
+            assert_eq!(state.files[&named(&format!("{stem}-2.sqlite"))], b"history");
+            assert_eq!(state.files[&named(&format!("{stem}.sqlite"))], b"theirs");
+            assert_eq!(state.files[&named(&format!("{stem}-1.sqlite"))], b"theirs");
+        });
+        // With every name taken, nothing is copied.
+        let all: Vec<_> = std::iter::once(format!("{stem}.sqlite"))
+            .chain((1..COPY_NAMES).map(|n| format!("{stem}-{n}.sqlite")))
+            .collect();
+        filesystem::install(taken(all.clone()));
+        assert!(keep_copy(&history, stem).is_err());
+        filesystem::inspect(|state| assert_eq!(state.files.len(), all.len() + 1));
+        // Any other failure stops at the first name, leaving nothing behind.
+        filesystem::install(Fixture {
+            write_failure: true,
+            ..taken(vec![])
+        });
+        assert!(keep_copy(&history, stem).is_err());
+        filesystem::inspect(|state| {
+            assert_eq!(state.files.len(), 1);
+            assert_eq!(state.removed_files, [named(&format!("{stem}.sqlite"))]);
+        });
     }
 
     #[test]

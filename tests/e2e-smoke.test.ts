@@ -761,8 +761,8 @@ test('Restore replaces the history with a backup, keeping the history as a safet
     expect(await heading(app)).toBe('Backup & Restore')
     safety = readdirSync(folder).find((name) => name.startsWith('history-before-restore-'))!
     writeFileSync(resolve(folder, 'restore-from.txt'), `${resolve(folder, safety)}\n`)
-    // Safety copies are named to the second, so this restore's gets a name of its own.
-    await new Promise((done) => setTimeout(done, 1000))
+    // Safety copies are named to the second; one made in the same second as the
+    // first takes a numbered name of its own.
     await click(app, 'main', 'Restore from backup…')
     await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Restore Backup')
     expect(await textOf(app, 'main .footnote')).toBe(
@@ -772,7 +772,7 @@ test('Restore replaces the history with a backup, keeping the history as a safet
     await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Backup & Restore')
     expect((await textOf(app, restoreStatus))!.replace(/\s+/g, ' ').trim()).toMatch(
       new RegExp(
-        `^Restored ${safety.replace(/\./g, '\\.')}\\. Your previous history is kept in the data folder as history-before-restore-\\d{8}-\\d{6}\\.sqlite\\.$`,
+        `^Restored ${safety.replace(/\./g, '\\.')}\\. Your previous history is kept in the data folder as history-before-restore-\\d{8}-\\d{6}(-\\d+)?\\.sqlite\\.$`,
       ),
     )
     await app.execute(`document.querySelector('nav a[aria-label="Warp History"]').click()`)
