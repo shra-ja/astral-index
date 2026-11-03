@@ -53,9 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### File import commands (2026-11-03)
-
-`feat/file-import-commands`, 0030's fourth task: `choose_history_file` holds a file chosen in the open dialog (UIGF's JSON, or the mock's `history-from.txt` answer), `read_history_file` reads it within 64 MiB and lists its Star Rail accounts with the server each goes into or why it can't, and `preview_file_account` previews one as a `uigf` import for `commit_import` or `discard_import`, using the file up. A saved UID keeps its saved server; a new one takes the rule's, and its time zone must match. The cache file's chooser now chooses either file. The mock's accounts are now `800000001` (Asia) and `600000002` (America), following the rule; README screenshots keep the old UIDs until next retaken. The webview does not call the commands yet. Red: the mock's UIDs failed the rule, a UIGF batch read as damage, the history chooser and both registration tests failed, and the read and preview tests failed against stubs; green: all 299 unit tests pass at 100% unit coverage, and an end-to-end test imports a StarDB-shaped file through the mock into its retrieved account, adding only the new roll.
+Nothing in progress.
 
 ## Known limitations
 
@@ -224,4 +222,5 @@ research, under a "From" heading.
 - [2026-11-02: UIGF reading](history/2026-11-02-uigf-reading.md): UIGF files'
   Star Rail accounts read as rolls, checked against UIGF's pinned schema.
 - [2026-11-03: Windows first start](history/2026-11-03-windows-first-start.md):
-  the Windows smoke test's cold first start given 90 s, with its time logged.
+  the Windows smoke test's cold first start given 90 s, with its time logged,
+  and the native commands that read a history file and preview its accounts.
