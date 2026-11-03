@@ -7,7 +7,7 @@ import {
   mkdirSync,
   existsSync,
 } from 'node:fs'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
@@ -261,6 +261,8 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
         invoke('commit_import').then(() => 'resolved', JSON.stringify),
         invoke('discard_import').then(() => 'resolved', String),
         invoke('history_page', { category: '99', page: 1, pageSize: 20 }).then(() => 'resolved', JSON.stringify),
+        invoke('read_history_file').then(() => 'resolved', JSON.stringify),
+        invoke('preview_file_account', { uid: '800000001' }).then(() => 'resolved', JSON.stringify),
       ]).then(done);
     `)
     // The file is chosen in the system's dialog, which only the mock's tests can
@@ -278,6 +280,9 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     expect(commands[6]).toBe('resolved')
     // Stored history is readable through the capability; bad requests are refused.
     expect(commands[7]).toBe('{"kind":"invalid_request"}')
+    // No history file was chosen, so none is read, and no account of one previewed.
+    expect(commands[8]).toBe('{"kind":"invalid_file"}')
+    expect(commands[9]).toBe('{"kind":"invalid_request"}')
     // The About dialog's details: the version and the data folder in use. Opening is
     // left to the mock binary's test, so this run never launches a file manager.
     const info = await app.executeAsync<{ version: string; folder: string; portable: boolean }>(
@@ -2156,6 +2161,119 @@ test('a retrieval with no history creates no account, and an ended retrieval’s
     expect(await stored(app)).toEqual(savedHistory)
   })
   expect(Object.keys(storedAccounts())).toEqual(['800000001 prod_official_asia'])
+}, 120000)
+
+test('the mock imports a history file over IPC into the retrieved account, adding only its new rolls', async () => {
+  await withMock('history', {}, async (app) => {
+    await retrieveFromFile(app)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
+      .toBe('Ready to save 2,060 new rolls')
+    await click(app, '.review', 'Save 2,060 rolls')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
+  })
+  const before = storedAccounts()
+  const history = new DatabaseSync(resolve(mockData, 'astral-index-mock/history.sqlite'), {
+    readOnly: true,
+  })
+  const { id, payload } = history
+    .prepare(
+      "SELECT id, payload FROM rolls WHERE json_extract(payload, '$.gacha_type') = '11' ORDER BY id LIMIT 1",
+    )
+    .get() as { id: string; payload: string }
+  history.close()
+  // A StarDB-shaped file: the UID as a number, a pool ID repeating the category,
+  // and the saved roll renamed, beside one new roll.
+  // UIGF records carry neither the account's UID nor its language.
+  const saved = JSON.parse(payload) as Record<string, string>
+  delete saved.uid
+  delete saved.lang
+  const file = {
+    info: {
+      export_timestamp: 0,
+      export_app: 'Synthetic Exporter',
+      export_app_version: '0.0.0',
+      version: 'v4.1',
+    },
+    hkrpg: [
+      {
+        uid: 800000001,
+        timezone: 8,
+        lang: 'de-de',
+        list: [
+          { ...saved, gacha_id: '11', name: 'Umbenannt' },
+          {
+            id: '1000000000000000001',
+            gacha_id: '1001',
+            gacha_type: '1',
+            item_id: '20000',
+            count: '1',
+            time: '2020-01-01 00:00:00',
+            name: 'Synthetischer Lichtkegel',
+            item_type: 'Lichtkegel',
+            rank_type: '3',
+          },
+        ],
+      },
+    ],
+  }
+  const exported = resolve(mockData, 'exports/history.json')
+  mkdirSync(dirname(exported), { recursive: true })
+  writeFileSync(exported, JSON.stringify(file))
+  // The mock answers the open dialog from its data folder (decision 0034).
+  writeFileSync(resolve(mockData, 'astral-index-mock/history-from.txt'), `${exported}\n`)
+  await withMock('history', { keep: true }, async (app) => {
+    const replies = await app.executeAsync<unknown[]>(`
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      (async () => [
+        await invoke('choose_history_file'),
+        await invoke('read_history_file'),
+        await invoke('preview_file_account', { uid: '800000001' }),
+        await invoke('commit_import'),
+      ])().then(done, (error) => done([JSON.stringify(error)]));
+    `)
+    expect(replies[0]).toEqual({ kind: 'chosen', name: 'history.json' })
+    // The UID is saved on the mock's server, so the file's rolls go there.
+    expect(replies[1]).toEqual({
+      accounts: [{ uid: '800000001', kind: 'importable', server: 'prod_official_asia', rolls: 2 }],
+      malformed_uids: 0,
+      other_games: [],
+    })
+    expect(replies[2]).toMatchObject({
+      uid: '800000001',
+      server: 'prod_official_asia',
+      timezone: 8,
+      summary: { inserted: 1, duplicates: 1, conflicts: 0, pool_ids_added: 0 },
+    })
+    expect(replies[3]).toEqual({ inserted: 1, duplicates: 1, conflicts: 0, pool_ids_added: 0 })
+  })
+  // One roll more in the same account; the saved roll keeps its name and pool ID.
+  expect(Object.keys(storedAccounts())).toEqual(Object.keys(before))
+  expect(storedAccounts()['800000001 prod_official_asia'].rolls).toBe(2061)
+  const after = new DatabaseSync(resolve(mockData, 'astral-index-mock/history.sqlite'), {
+    readOnly: true,
+  })
+  try {
+    const kept = after.prepare('SELECT payload FROM rolls WHERE id = ?').get(id) as {
+      payload: string
+    }
+    expect(kept.payload).toBe(payload)
+    const added = after
+      .prepare("SELECT payload FROM rolls WHERE id = '1000000000000000001'")
+      .get() as { payload: string }
+    expect(JSON.parse(added.payload)).toMatchObject({
+      uid: '800000001',
+      gacha_id: '1001',
+      lang: 'de-de',
+    })
+    const batch = after
+      .prepare('SELECT adapter, inserted, duplicates FROM batches ORDER BY id DESC LIMIT 1')
+      .get()
+    expect(batch).toEqual({ adapter: 'uigf-v4', inserted: 1, duplicates: 1 })
+  } finally {
+    after.close()
+  }
 }, 120000)
 
 // Bounds for a 20,000-roll history, in ms: about three times the slowest of three

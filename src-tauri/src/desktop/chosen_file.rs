@@ -23,17 +23,22 @@ use tauri_plugin_dialog as chooser;
 use tokio::task::spawn_blocking;
 
 /// What a chosen file is for, which sets how it is asked for.
-pub struct Purpose {
+struct Purpose {
     /// The file in which the mock debug binary's tests name the file to choose;
     /// without it, the open dialog counts as cancelled.
-    pub answer: &'static str,
+    answer: &'static str,
     /// The open dialog's filter name and extensions; none offers any file.
     filter: Option<(&'static str, &'static [&'static str])>,
 }
 /// The game's web cache, `data_2`, which has no extension to filter by.
-pub const CACHE: Purpose = Purpose {
+const CACHE: Purpose = Purpose {
     answer: "cache-from.txt",
     filter: None,
+};
+/// A UIGF history file, which is JSON.
+const HISTORY: Purpose = Purpose {
+    answer: "history-from.txt",
+    filter: Some(("UIGF history file", &["json"])),
 };
 
 /// A file chosen last, until a command reads it.
@@ -53,6 +58,16 @@ impl ChosenFile {
 #[derive(Default)]
 pub struct CacheFile(ChosenFile);
 impl Deref for CacheFile {
+    type Target = ChosenFile;
+    fn deref(&self) -> &ChosenFile {
+        &self.0
+    }
+}
+
+/// The history file chosen last, until the import reads it.
+#[derive(Default)]
+pub struct HistoryFile(ChosenFile);
+impl Deref for HistoryFile {
     type Target = ChosenFile;
     fn deref(&self) -> &ChosenFile {
         &self.0
@@ -124,6 +139,17 @@ pub async fn choose_cache_file<R: Runtime>(
     cache: State<'_, CacheFile>,
 ) -> Result<FileChoice, Failure> {
     choose_into(app, *dialogs, &database, &cache, &CACHE).await
+}
+
+/// Chooses the history file to import from; reads nothing.
+#[tauri::command]
+pub async fn choose_history_file<R: Runtime>(
+    app: AppHandle<R>,
+    dialogs: State<'_, Dialogs>,
+    database: State<'_, Database>,
+    history: State<'_, HistoryFile>,
+) -> Result<FileChoice, Failure> {
+    choose_into(app, *dialogs, &database, &history, &HISTORY).await
 }
 
 #[cfg(test)]
@@ -199,6 +225,39 @@ mod tests {
             .unwrap(),
             serde_json::json!({ "kind": "chosen", "name": "data_2" })
         );
+    }
+
+    #[test]
+    fn the_history_file_dialog_offers_uigf_files_and_the_mock_has_its_own_answer() {
+        filesystem::install(Files::default());
+        let file = PathBuf::from("/exports/history.json");
+        answering(Some(FilePath::Path(file.clone())));
+        let held = HistoryFile::default();
+        let chosen = run(choose_into(
+            app(),
+            Dialogs::System,
+            &Database::new(Some(folder())),
+            &held,
+            &HISTORY,
+        ));
+        assert_eq!(
+            chosen,
+            Ok(FileChoice::Chosen {
+                name: "history.json".into()
+            })
+        );
+        assert_eq!(
+            chooser::inspect(|state| state.asked.clone()),
+            [Asked {
+                opening: true,
+                filter: "UIGF history file".into(),
+                extensions: vec!["json".into()],
+                ..Default::default()
+            }]
+        );
+        filesystem::inspect(|state| assert!(state.accessed.is_empty()));
+        assert_eq!(held.take(), Some(file));
+        assert_ne!(HISTORY.answer, CACHE.answer);
     }
 
     #[test]

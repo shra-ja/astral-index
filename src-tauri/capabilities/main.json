@@ -1,13 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Extraction, acquisition, stored-history, About, backup and restore commands for the main window only.",
+  "description": "Extraction, acquisition, history-file, stored-history, About, backup and restore commands for the main window only.",
   "local": true,
   "windows": ["main"],
   "permissions": [
     "allow-extract-automatically",
     "allow-choose-cache-file",
     "allow-extract-from-file",
+    "allow-choose-history-file",
+    "allow-read-history-file",
+    "allow-preview-file-account",
     "allow-cancel-acquisition",
     "allow-retrieve-history",
     "allow-commit-import",
