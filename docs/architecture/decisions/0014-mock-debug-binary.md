@@ -40,7 +40,9 @@ retrieval against HoYoverse. Tests must stay local and never call live APIs.
   backup passes. The desktop's own `Scenario` pairs a HoYoverse scenario with the
   schema the history is opened with, so the acquisition module knows nothing of
   storage. A roll's fields depend only on its ID, so every scenario serves a
-  saved roll identically.
+  saved roll identically. Changed 2026-11-03 so history files of the mock's
+  accounts import into them: the UIDs follow Star Rail's UID server rule,
+  `800000001` on Asia and `600000002` on America.
 - **Selection by managed state:** commands take their transport from a managed
   `Network`: `Https` in the real app, `Mock(scenario)` only from the mock binary.
 - **Separate history:** the mock binary keeps its database in its own

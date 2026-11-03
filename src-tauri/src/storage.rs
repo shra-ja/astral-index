@@ -287,13 +287,16 @@ pub struct Contents {
 pub enum Source {
     /// Retrieved from HoYoverse's history API.
     Hoyoverse,
+    /// Read from a UIGF v4 history file.
+    Uigf,
 }
 impl Source {
-    const ALL: [Self; 1] = [Self::Hoyoverse];
+    const ALL: [Self; 2] = [Self::Hoyoverse, Self::Uigf];
     /// The adapter name a batch records for its source.
     fn adapter(self) -> &'static str {
         match self {
             Self::Hoyoverse => "hsr-api-v1",
+            Self::Uigf => "uigf-v4",
         }
     }
 }
@@ -2302,9 +2305,14 @@ pub(crate) mod tests {
             })
         );
         assert_eq!(last(vec![]), Ok(None));
+        // A history file's import names its own source.
+        let mut file = last_import_row();
+        file[1] = text("uigf-v4");
+        let file = serde_json::to_value(last(vec![file]).unwrap().unwrap()).unwrap();
+        assert_eq!(file["source"], "uigf");
         // Only known adapters write batches, so another is damage.
         let mut unknown = last_import_row();
-        unknown[1] = text("uigf-v4");
+        unknown[1] = text("uigf-v5");
         assert_eq!(last(vec![unknown]), Err(Error::InvalidStoredData));
         for column in 0..5 {
             let mut unreadable = last_import_row();

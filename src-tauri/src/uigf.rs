@@ -2,6 +2,7 @@
 //! accounts into rolls; no filesystem, network, or persistence access.
 
 use crate::hsr::{self, Roll};
+use serde::Serialize;
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap};
 
@@ -44,12 +45,11 @@ pub enum Error {
 }
 
 /// The unsupported format a file declares.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "format", rename_all = "snake_case")]
 pub enum Found {
-    Version {
-        major: u64,
-        minor: u64,
-    },
+    #[serde(rename = "uigf")]
+    Version { major: u64, minor: u64 },
     /// UIGF up to v3.0, which declares `uigf_version`.
     LegacyUigf,
     /// SRGF, Star Rail's format before UIGF v4.0.
@@ -99,11 +99,11 @@ pub enum Problem {
     InvalidTimezone,
     /// The account holds no records.
     NoRolls,
-    RecordFaults(RecordFaults),
+    Records(RecordFaults),
 }
 
 /// How many of an account's records fail, and how.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize)]
 pub struct RecordFaults {
     /// RecordFaults lacking each field a Star Rail roll needs.
     pub missing: BTreeMap<&'static str, usize>,
@@ -273,7 +273,7 @@ impl<'a> Source<'a> {
         if problems == RecordFaults::default() {
             Ok(History { timezone, rolls })
         } else {
-            Err(Problem::RecordFaults(problems))
+            Err(Problem::Records(problems))
         }
     }
 }
@@ -373,7 +373,7 @@ mod tests {
     }
     /// RecordFaults lacking these fields, each counted that many times.
     fn missing(fields: &[(&'static str, usize)]) -> Problem {
-        Problem::RecordFaults(RecordFaults {
+        Problem::Records(RecordFaults {
             missing: fields.iter().copied().collect(),
             ..RecordFaults::default()
         })
@@ -679,7 +679,7 @@ mod tests {
             ("lang", json!(7)),
         ];
         for (field, value) in changes {
-            let invalid = Problem::RecordFaults(RecordFaults {
+            let invalid = Problem::Records(RecordFaults {
                 invalid: 1,
                 ..RecordFaults::default()
             });
@@ -700,7 +700,7 @@ mod tests {
     fn categories_21_and_22_need_uigf_v4_1() {
         let mut file = fixture(STARDB);
         file["info"]["version"] = json!("v4.0");
-        let newer = Problem::RecordFaults(RecordFaults {
+        let newer = Problem::Records(RecordFaults {
             newer_categories: 2,
             ..RecordFaults::default()
         });

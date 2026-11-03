@@ -71,10 +71,11 @@ One PR each, in order:
   of the schema, through a dev-only JSON Schema validator. Rolls may lack a
   count or language, as they may a pool ID; migration 002's version already
   keeps 1.1.0 from reading them, so no migration is needed.
-- [ ] **File import commands.** Choosing the file and previewing one account,
+- [x] **File import commands.** Choosing the file and previewing one account,
   reusing retrieval's review, save and discard, with narrow permissions and the
   mock's scenarios, whose UIDs then follow the server rule. A second account means choosing the file again.
 - [ ] **Import screen.** File import as a second source, its account picker,
   review and errors, by keyboard, from an approved mockup; a review that only
-  adds pool IDs can still be saved, and shows how many; then the docs, and a
+  adds pool IDs can still be saved, and shows how many; the webview's types and
+  messages gain the `uigf` source, the new failures and `pool_ids_added`; then the docs, and a
   real StarDB export imported on Windows over retrieved history.

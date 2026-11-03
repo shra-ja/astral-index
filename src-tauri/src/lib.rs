@@ -2,6 +2,7 @@
 pub mod acquisition;
 pub mod desktop;
 pub mod discovery;
+pub mod file_import;
 pub mod hsr;
 pub mod storage;
 pub mod uigf;

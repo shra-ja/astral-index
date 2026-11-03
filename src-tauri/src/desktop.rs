@@ -25,9 +25,10 @@ use tokio_util::sync::CancellationToken;
 
 pub mod about;
 pub mod backup;
-pub mod cache_file;
+pub mod chosen_file;
 pub mod database;
 pub mod dialogs;
+pub mod history_file;
 pub mod ipc_trace;
 pub mod local_time;
 pub mod restore;
@@ -107,6 +108,11 @@ pub enum Failure {
     HistoryNotUpgraded(Option<String>),
     /// An import is under way or awaits the user, so nothing is restored.
     ImportUnderWay,
+    /// The chosen file is not a UIGF history file, or not one that can be read.
+    NotHistoryFile,
+    /// The chosen file is a history format or version that can't be imported:
+    /// what it declares.
+    UnsupportedFile(crate::uigf::Found),
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -189,14 +195,34 @@ pub struct Session {
 struct Operation {
     /// Cancels the operation now running; each operation gets a new one.
     token: CancellationToken,
+    held: Held,
+    /// How many validations, retrievals and file reads and previews are running; a
+    /// cancelled one counts until it has stopped.
+    running: usize,
+}
+
+/// What an import holds between its steps, awaiting the user or the next step.
+#[derive(Default)]
+enum Held {
+    #[default]
+    Nothing,
     /// The validated context and the retry budget its acquisition started, which
     /// retrieval continues with.
-    acquisition: Option<(RequestContext, RetryBudget)>,
+    Acquisition(RequestContext, RetryBudget),
+    /// A history file's importable accounts, until one is previewed.
+    File(Vec<crate::hsr::Batch>),
     /// The preview awaiting commit or discard. It holds no auth key.
-    preview: Option<Preview>,
-    /// How many validations and retrievals are running; a cancelled one counts
-    /// until it has stopped.
-    running: usize,
+    Preview(Box<Preview>),
+}
+
+impl Operation {
+    /// Stop the running operation and drop what it held, for a new one.
+    fn restart(&mut self) -> CancellationToken {
+        self.token.cancel();
+        self.token = CancellationToken::new();
+        self.held = Held::Nothing;
+        self.token.clone()
+    }
 }
 
 /// Counts an import as running until dropped, however it ends.
@@ -211,33 +237,35 @@ impl Session {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
     /// Start an operation: stop any earlier one, so its late result cannot
-    /// replace this one's, and drop the held context.
+    /// replace this one's, and drop what was held.
     fn begin(&self) -> CancellationToken {
-        let mut state = self.state();
-        state.token.cancel();
-        state.token = CancellationToken::new();
-        state.acquisition = None;
-        state.preview = None;
-        state.token.clone()
+        self.state().restart()
     }
     /// Start retrieval: stop any earlier operation and take the validated context,
     /// so the session holds no auth key from here on.
     fn take_validated(&self) -> Result<(CancellationToken, RequestContext, RetryBudget), Failure> {
         let mut state = self.state();
-        state.token.cancel();
-        state.token = CancellationToken::new();
-        state.preview = None;
-        let (context, budget) = state.acquisition.take().ok_or(Failure::NoContext)?;
-        Ok((state.token.clone(), context, budget))
+        let held = std::mem::take(&mut state.held);
+        let token = state.restart();
+        let Held::Acquisition(context, budget) = held else {
+            return Err(Failure::NoContext);
+        };
+        Ok((token, context, budget))
     }
-    /// Hold a preview for commit or discard, unless its retrieval was cancelled.
-    fn keep_preview(&self, token: &CancellationToken, preview: Preview) -> Result<(), Failure> {
+    /// Hold what an operation's step produced, unless the operation was cancelled
+    /// meanwhile.
+    fn keep(&self, token: &CancellationToken, held: Held) -> Result<(), Failure> {
+        // Check under the lock that `cancel` takes, so no cancel can slip between.
         let mut state = self.state();
         if token.is_cancelled() {
             return Err(Failure::Cancelled);
         }
-        state.preview = Some(preview);
+        state.held = held;
         Ok(())
+    }
+    /// Hold a preview for commit or discard, unless its operation was cancelled.
+    fn keep_preview(&self, token: &CancellationToken, preview: Preview) -> Result<(), Failure> {
+        self.keep(token, Held::Preview(Box::new(preview)))
     }
     /// Keep a validated context, unless its operation was cancelled meanwhile.
     fn finish(
@@ -246,21 +274,50 @@ impl Session {
         context: RequestContext,
         budget: RetryBudget,
     ) -> Result<(), Failure> {
-        // Check under the lock that `cancel` takes, so no cancel can slip between.
+        self.keep(token, Held::Acquisition(context, budget))
+    }
+    /// Hold a history file's importable accounts, if it has any, unless reading it
+    /// was cancelled.
+    fn keep_file(
+        &self,
+        token: &CancellationToken,
+        accounts: Vec<crate::hsr::Batch>,
+    ) -> Result<(), Failure> {
+        let held = if accounts.is_empty() {
+            Held::Nothing
+        } else {
+            Held::File(accounts)
+        };
+        self.keep(token, held)
+    }
+    /// Take the held file's accounts to preview one; the session no longer holds them.
+    fn take_file(&self) -> Option<Vec<crate::hsr::Batch>> {
         let mut state = self.state();
-        if token.is_cancelled() {
-            return Err(Failure::Cancelled);
+        match std::mem::take(&mut state.held) {
+            Held::File(accounts) => Some(accounts),
+            other => {
+                state.held = other;
+                None
+            }
         }
-        state.acquisition = Some((context, budget));
-        Ok(())
     }
     /// Take the held preview for commit; the session no longer holds it.
     fn take_preview(&self) -> Result<Preview, Failure> {
-        self.state().preview.take().ok_or(Failure::NoPreview)
+        let mut state = self.state();
+        match std::mem::take(&mut state.held) {
+            Held::Preview(preview) => Ok(*preview),
+            other => {
+                state.held = other;
+                Err(Failure::NoPreview)
+            }
+        }
     }
-    /// Drop the held preview, if any.
+    /// Drop the held preview or file, if any.
     fn discard(&self) {
-        self.state().preview = None;
+        let mut state = self.state();
+        if matches!(state.held, Held::Preview(_) | Held::File(_)) {
+            state.held = Held::Nothing;
+        }
     }
     /// Mark an import as running until the returned guard is dropped.
     fn running(&self) -> Running<'_> {
@@ -268,17 +325,17 @@ impl Session {
         Running(self)
     }
     /// Whether an import is under way or awaits the user: a link being validated
-    /// or held, history being retrieved, or a review held.
+    /// or held, history being retrieved or a file read, a file's accounts held, or
+    /// a review held.
     fn importing(&self) -> bool {
         let state = self.state();
-        state.running > 0 || state.acquisition.is_some() || state.preview.is_some()
+        state.running > 0 || !matches!(state.held, Held::Nothing)
     }
-    /// Stop the running operation and drop the held context.
+    /// Stop the running operation and drop what it held.
     fn cancel(&self) {
         let mut state = self.state();
         state.token.cancel();
-        state.acquisition = None;
-        state.preview = None;
+        state.held = Held::Nothing;
     }
 }
 
@@ -319,8 +376,11 @@ impl Transport for Client {
 fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
         extract_automatically,
-        cache_file::choose_cache_file,
+        chosen_file::choose_cache_file,
         extract_from_file,
+        chosen_file::choose_history_file,
+        history_file::read_history_file,
+        history_file::preview_file_account,
         cancel_acquisition,
         retrieve_history,
         commit_import,
@@ -434,7 +494,8 @@ fn register_with<R: Runtime>(
 ) -> Builder<R> {
     let builder = builder
         .manage(Session::default())
-        .manage(cache_file::CacheFile::default())
+        .manage(chosen_file::CacheFile::default())
+        .manage(chosen_file::HistoryFile::default())
         .manage(restore::Restore::default())
         .plugin(restore::clean_up_on_exit())
         .manage(network);
@@ -664,7 +725,7 @@ async fn extract_into(session: &Session, network: &Network) -> Result<(), Failur
 async fn extract_file_into(
     session: &Session,
     network: &Network,
-    cache: &cache_file::CacheFile,
+    cache: &chosen_file::CacheFile,
 ) -> Result<(), Failure> {
     let extracted = cache.take().ok_or(Failure::InvalidFile).and_then(|path| {
         read_selected_cache(&path).map_err(|error| match error {
@@ -1048,7 +1109,7 @@ async fn retrieve_history(
 async fn extract_from_file(
     session: State<'_, Session>,
     network: State<'_, Network>,
-    cache: State<'_, cache_file::CacheFile>,
+    cache: State<'_, chosen_file::CacheFile>,
 ) -> Result<(), Failure> {
     extract_file_into(&session, &network, &cache).await
 }
@@ -1184,7 +1245,10 @@ mod tests {
         .unwrap()
     }
     fn held(session: &Session) -> Option<(RequestContext, RetryBudget)> {
-        session.state().acquisition.take()
+        match std::mem::take(&mut session.state().held) {
+            Held::Acquisition(context, budget) => Some((context, budget)),
+            _ => None,
+        }
     }
     fn stored(session: &Session) -> Option<RequestContext> {
         held(session).map(|(context, _)| context)
@@ -1193,13 +1257,13 @@ mod tests {
         InvokeBody::Raw(bytes)
     }
     /// A cache file holding `bytes`, chosen and held for the import.
-    fn chosen_cache(bytes: Vec<u8>) -> cache_file::CacheFile {
+    fn chosen_cache(bytes: Vec<u8>) -> chosen_file::CacheFile {
         let path = PathBuf::from("/games/StarRail_Data/data_2");
         filesystem::install(filesystem::Fixture {
             files: [(path.clone(), bytes)].into(),
             ..Default::default()
         });
-        let cache = cache_file::CacheFile::default();
+        let cache = chosen_file::CacheFile::default();
         cache.hold(path);
         cache
     }
@@ -1247,6 +1311,9 @@ mod tests {
                 "extract_automatically",
                 "choose_cache_file",
                 "extract_from_file",
+                "choose_history_file",
+                "read_history_file",
+                "preview_file_account",
                 "cancel_acquisition",
                 "retrieve_history",
                 "commit_import",
@@ -1567,7 +1634,7 @@ mod tests {
         );
         let client = network.client().unwrap();
         let history = run(fetch_history(&client, &context("synthetic"), &|_| {}, None)).unwrap();
-        assert_eq!(history.unwrap().uid, "100000001");
+        assert_eq!(history.unwrap().uid, "800000001");
         let expired = Network::Mock(mock::Scenario::ExpiredLink);
         assert_eq!(
             run(extract_file_into(
@@ -1711,7 +1778,7 @@ mod tests {
         let managed = mock_builder()
             .manage(dialogs::Dialogs::System)
             .manage(Database::new(None))
-            .manage(cache_file::CacheFile::default());
+            .manage(chosen_file::CacheFile::default());
         assert_eq!(
             reply_to(&window(managed), "choose_cache_file"),
             serde_json::json!({ "kind": "cancelled" })
@@ -1722,6 +1789,72 @@ mod tests {
             .manage(Network::Https);
         let missing = invoke(&window(session), "extract_from_file", InvokeBody::default());
         assert!(missing.unwrap_err().contains("state not managed"));
+    }
+
+    #[test]
+    fn the_history_file_commands_need_their_state_over_ipc() {
+        let window = |builder: Builder<MockRuntime>| {
+            let app = handle_commands(builder)
+                .build(mock_context(noop_assets()))
+                .unwrap();
+            WebviewWindowBuilder::new(&app, "main", Default::default())
+                .build()
+                .unwrap()
+        };
+        // Choosing needs the dialogs, the database and somewhere to hold the file.
+        for builder in [
+            mock_builder(),
+            mock_builder().manage(dialogs::Dialogs::System),
+            mock_builder()
+                .manage(dialogs::Dialogs::System)
+                .manage(Database::new(None)),
+        ] {
+            let missing = invoke(
+                &window(builder),
+                "choose_history_file",
+                InvokeBody::default(),
+            );
+            assert!(missing.unwrap_err().contains("state not managed"));
+        }
+        let managed = mock_builder()
+            .manage(dialogs::Dialogs::System)
+            .manage(Database::new(None))
+            .manage(chosen_file::HistoryFile::default());
+        assert_eq!(
+            reply_to(&window(managed), "choose_history_file"),
+            serde_json::json!({ "kind": "cancelled" })
+        );
+        // Reading needs the session, the database and the held file; with nothing
+        // chosen there is nothing to read.
+        let partial = mock_builder()
+            .manage(Session::default())
+            .manage(Database::new(None));
+        let missing = invoke(&window(partial), "read_history_file", InvokeBody::default());
+        assert!(missing.unwrap_err().contains("state not managed"));
+        let managed = mock_builder()
+            .manage(Session::default())
+            .manage(Database::new(None))
+            .manage(chosen_file::HistoryFile::default());
+        let nothing = invoke(&window(managed), "read_history_file", InvokeBody::default());
+        assert!(nothing.unwrap_err().contains("invalid_file"));
+        // Previewing needs the session and the database; with no file read there is
+        // no account to preview.
+        let uid = || InvokeBody::Json(serde_json::json!({ "uid": "800000001" }));
+        let missing = invoke(
+            &window(mock_builder().manage(Session::default())),
+            "preview_file_account",
+            uid(),
+        );
+        assert!(missing.unwrap_err().contains("state not managed"));
+        let managed = mock_builder()
+            .manage(Session::default())
+            .manage(Database::new(None));
+        let window = window(managed);
+        let nothing = invoke(&window, "preview_file_account", uid());
+        assert!(nothing.unwrap_err().contains("invalid_request"));
+        // The account must be named.
+        let unnamed = invoke(&window, "preview_file_account", InvokeBody::default());
+        assert!(unnamed.unwrap_err().contains("uid"));
     }
 
     #[test]
@@ -1864,7 +1997,7 @@ mod tests {
         filesystem::install(Default::default());
         Database::new(Some(PathBuf::from("/data")))
     }
-    fn opening() -> Vec<sql::Step> {
+    pub(super) fn opening() -> Vec<sql::Step> {
         let mut steps = vec![step(
             "OPEN",
             vec![text(
@@ -1890,9 +2023,13 @@ mod tests {
         serde_json::to_value(value).unwrap()
     }
     /// Whether the session holds a validated context, and a preview.
+    /// Whether the session holds a validated context, and a preview.
     fn holds(session: &Session) -> (bool, bool) {
         let state = session.state();
-        (state.acquisition.is_some(), state.preview.is_some())
+        (
+            matches!(state.held, Held::Acquisition(..)),
+            matches!(state.held, Held::Preview(_)),
+        )
     }
 
     #[test]
@@ -2539,17 +2676,17 @@ mod tests {
         // nothing chosen at all.
         let gone = || {
             filesystem::install(filesystem::Fixture::default());
-            let cache = cache_file::CacheFile::default();
+            let cache = chosen_file::CacheFile::default();
             cache.hold(PathBuf::from("/games/gone/data_2"));
             cache
         };
         let nothing = || {
             filesystem::install(filesystem::Fixture::default());
-            cache_file::CacheFile::default()
+            chosen_file::CacheFile::default()
         };
         let too_large = || chosen_cache(vec![0; MAX_CACHE_BYTES + 1]);
         let no_request = || chosen_cache(b"no request".to_vec());
-        let cases: [(&dyn Fn() -> cache_file::CacheFile, Failure); 4] = [
+        let cases: [(&dyn Fn() -> chosen_file::CacheFile, Failure); 4] = [
             (&no_request, Failure::NoRequest),
             (&too_large, Failure::FileTooLarge),
             (&gone, Failure::InvalidFile),

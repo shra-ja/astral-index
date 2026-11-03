@@ -4,8 +4,9 @@ Status: implemented. See decisions
 [0006](decisions/0006-desktop-extraction-commands.md),
 [0007](decisions/0007-validate-during-extraction.md),
 [0014](decisions/0014-mock-debug-binary.md),
-[0024](decisions/0024-about-opening.md) and
-[0031](decisions/0031-sqlite-snapshot-backups.md).
+[0024](decisions/0024-about-opening.md),
+[0031](decisions/0031-sqlite-snapshot-backups.md) and
+[0032](decisions/0032-history-file-import-rules.md).
 
 The webview reaches native code only through these commands, listed once in
 `src-tauri/src/desktop/commands.in` for both the library and the `build.rs` app
@@ -24,10 +25,13 @@ refused commands, so the webview must not use them.
 | `extract_automatically` | Discover, extract and validate a context for the current user | Yes |
 | `choose_cache_file` | Ask which cache file to read in the system's open dialog, with no file-type filter as `data_2` has no extension, and hold its path natively; returns the file's name or a cancellation, and reads nothing. A choice that is not a local file, or a failed dialog, is `invalid_file`. The mock debug binary answers from `cache-from.txt` in its data folder ([decision 0034](decisions/0034-native-cache-file-dialog.md)) | No |
 | `extract_from_file` | Read the held cache file natively within its 16 MiB bound, then extract and validate a context from it, as `extract_automatically` does: too large is `file_too_large`, no request is `no_request`, and nothing chosen or a file that can't be read is `invalid_file` | Yes |
+| `choose_history_file` | Ask which history file to read in the system's open dialog, offering UIGF's JSON files, and hold its path natively; returns the file's name or a cancellation, and reads nothing. A choice that is not a local file, or a failed dialog, is `invalid_file`. The mock debug binary answers from `history-from.txt` in its data folder | No |
+| `read_history_file` | Stop any other import, read the held history file natively within its 64 MiB bound and check it as UIGF v4.0 to v4.2, then list its Star Rail accounts: each one's UID with the server it goes into and its roll count (`importable`), or why it can't be imported (`repeated`, `invalid_timezone`, `no_rolls`, `records` with the missing fields' counts and the invalid and newer-category records, `no_server`, `several_servers`, `timezone_mismatch`), with how many UIDs were malformed and which other games' sections were left out. A saved UID keeps its saved server and offset; a new one takes Star Rail's UID rule's (`file_import.rs`). Holds the importable accounts unless cancelled meanwhile. Too large is `file_too_large`, not UIGF is `not_history_file`, another format or version is `unsupported_file` with what it declares, and nothing chosen or a file that can't be read is `invalid_file` | No |
+| `preview_file_account` | Preview the read file's account `uid` as `retrieve_history` previews retrieved history, and hold the review for `commit_import` or `discard_import`, stopping any other import first. The file is used up: another of its accounts means reading it again. An account the file didn't offer, or no file read, is `invalid_request` | No |
 | `retrieve_history` | Retrieve every category (`mode`: `new` or `full`), streaming progress over a channel, and preview it | Yes |
-| `cancel_acquisition` | Cancel the running operation and drop the context and any preview | No |
+| `cancel_acquisition` | Cancel the running operation and drop the context, any read file's accounts and any preview | No |
 | `commit_import` | Commit the held preview | No |
-| `discard_import` | Drop the held preview | No |
+| `discard_import` | Drop the held preview, or a read file's accounts | No |
 | `history_page` | One page of saved history, every category's count and the category's summary, for the `account` named (UID and server) or else the account imported last, showing the `filter` asked for: `rarities` (`5`, `4`, `3`), a `search` of item names (at most 100 characters, ignoring case), and `from` and `to` server days (`YYYY-MM-DD`); each part left out shows everything | No |
 | `last_import` | The newest import's summary | No |
 | `saved_accounts` | The game's saved accounts with their roll totals, the account imported last first | No |
@@ -54,6 +58,11 @@ later the preview.
 - The preview is kept for commit unless the operation was cancelled. A commit
   uses it up whatever the outcome; without one, commit fails with `no_preview`.
 - A commit is atomic and quick, so it is not cancellable.
+- The session holds one thing at a time: a validated context, a read history
+  file's importable accounts until one is previewed, or a preview. Reading a file
+  and previewing one of its accounts start an operation as retrieval does, and
+  their result is held only if it was not cancelled and no other operation began
+  meanwhile; a file with nothing to import holds nothing.
 - Apart from the acquisition, the restore state holds at most one checked copy
   of a backup, in the data folder under the one name `restore.sqlite.partial`,
   with the summary of the history it was compared with, until it is restored,
@@ -61,8 +70,9 @@ later the preview.
   leaves its confirmation, and a small plugin drops it as the app exits. A copy
   a crash left is replaced by the next one and removed at startup.
 - An import is under way from the start of validating a link to the end of
-  retrieval, counted by a guard each holds, and awaits the user while a link
-  or review is held. Meanwhile `choose_restore`, before any dialog, and
+  retrieval, or while a history file is read or previewed, counted by a guard
+  each holds, and awaits the user while a link, a file's accounts or a review is
+  held. Meanwhile `choose_restore`, before any dialog, and
   `confirm_restore` are refused with `import_under_way`, so a review is never
   saved into a history it was not counted against. The check comes before
   `confirm_restore` waits for the store's lock, so a retrieval started in that
@@ -77,13 +87,13 @@ later the preview.
   returns for the About dialog and the Backup & Restore screen to show; the
   webview never builds a path itself. `save_backup` returns only
   the saved file's name, `choose_restore` only the chosen file's, and
-  `confirm_restore` only the safety copy's, and `choose_cache_file` only the
-  cache file's. No command takes a file's bytes: the native side reads every
+  `confirm_restore` only the safety copy's, and `choose_cache_file` and
+  `choose_history_file` only the chosen file's. No command takes a file's bytes: the native side reads every
   file the user chooses ([decision 0034](decisions/0034-native-cache-file-dialog.md)).
   The CSP allows only Tauri's local `ipc:` origins, for the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never
   reach the webview. Results and failures are small typed values; failures are
-  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, the copy's file name (or `null` when none was kept) for `history_not_upgraded`, which any command that uses the history returns once an older release's history failed to upgrade, and the failing
+  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, the format and version for `unsupported_file`, the copy's file name (or `null` when none was kept) for `history_not_upgraded`, which any command that uses the history returns once an older release's history failed to upgrade, and the failing
   category and page for retrieval failures. The full list lives with the
   messages that describe them in `src-ui/src/messages.ts`.
 - The webview's `src-ui/src/commands.ts` treats any rejection that is not exactly

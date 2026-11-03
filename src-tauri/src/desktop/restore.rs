@@ -133,7 +133,7 @@ pub enum Chosen {
     Checked {
         name: String,
         backup: Contents,
-        current: Option<Contents>,
+        current: Option<Box<Contents>>,
     },
     /// The dialog was closed without choosing a file.
     Cancelled,
@@ -284,7 +284,7 @@ async fn choose_into<R: Runtime>(
             Ok(Chosen::Checked {
                 name,
                 backup: contents,
-                current,
+                current: current.map(Box::new),
             })
         }
         Err(error) => {
@@ -508,7 +508,7 @@ mod tests {
         Chosen::Checked {
             name: "Astral-Index-backup-2026-10-16.sqlite".into(),
             backup: contents(1),
-            current: Some(contents(0)),
+            current: Some(Box::new(contents(0))),
         }
     }
     /// A file system holding the backup and the files given.
@@ -710,7 +710,7 @@ mod tests {
             Ok(Chosen::Checked {
                 name: "history-before-restore-20261016-120000.sqlite".into(),
                 backup: contents(1),
-                current: Some(contents(0)),
+                current: Some(Box::new(contents(0))),
             })
         );
         sql::finish();
