@@ -1567,7 +1567,7 @@ mod tests {
         );
         let client = network.client().unwrap();
         let history = run(fetch_history(&client, &context("synthetic"), &|_| {}, None)).unwrap();
-        assert_eq!(history.unwrap().uid, "100000001");
+        assert_eq!(history.unwrap().uid, "800000001");
         let expired = Network::Mock(mock::Scenario::ExpiredLink);
         assert_eq!(
             run(extract_file_into(

@@ -156,12 +156,12 @@ struct Account {
     time_zone: i64,
 }
 const FIRST: Account = Account {
-    uid: "100000001",
+    uid: "800000001",
     server: "prod_official_asia",
     time_zone: 8,
 };
 const SECOND: Account = Account {
-    uid: "100000002",
+    uid: "600000002",
     server: "prod_official_usa",
     time_zone: -5,
 };
@@ -438,6 +438,22 @@ mod tests {
     }
 
     #[test]
+    fn the_accounts_follow_the_uid_server_rule() {
+        // So a file of the mock's history imports into the same account.
+        for account in [FIRST, SECOND] {
+            assert_eq!(
+                crate::hsr::server_of(account.uid),
+                Ok(crate::hsr::Server {
+                    name: account.server,
+                    offset: i32::try_from(account.time_zone).unwrap(),
+                }),
+                "{}",
+                account.uid
+            );
+        }
+    }
+
+    #[test]
     fn history_fills_every_category_newest_first_over_several_pages() {
         let history = batch(Scenario::History);
         assert_eq!(
@@ -446,7 +462,7 @@ mod tests {
                 history.server.as_str(),
                 history.timezone
             ),
-            ("100000001", "prod_official_asia", Some(8))
+            ("800000001", "prod_official_asia", Some(8))
         );
         let mut counts: HashMap<String, usize> = HashMap::new();
         let mut rarities: HashMap<(String, String), usize> = HashMap::new();
@@ -629,7 +645,7 @@ mod tests {
         let history = batch(Scenario::NewerHistory);
         assert_eq!(
             (history.uid.as_str(), history.server.as_str()),
-            ("100000001", "prod_official_asia")
+            ("800000001", "prod_official_asia")
         );
         let newer = rolls_by_id(&history);
         // Each category's earlier rolls come back exactly as before.
@@ -671,7 +687,7 @@ mod tests {
                 history.server.as_str(),
                 history.timezone
             ),
-            ("100000002", "prod_official_usa", Some(-5))
+            ("600000002", "prod_official_usa", Some(-5))
         );
         let second = rolls_by_id(&history);
         assert_eq!(second.len(), first.len());

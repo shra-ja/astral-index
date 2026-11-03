@@ -444,7 +444,7 @@ const nothingSaved = {
 }
 // The mock's full history, as `stored` reads it (decision 0014).
 const savedHistory = {
-  uid: '100000001',
+  uid: '800000001',
   totals: { '1': 300, '2': 50, '11': 1250, '12': 412, '21': 38, '22': 10 },
 }
 /**
@@ -1158,7 +1158,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .poll(() => textOf(app, '.review h2'), { timeout: 30000 })
       .toBe('Ready to save 2,060 new rolls')
     expect(await heading(app)).toBe('Review Import')
-    expect(await textOf(app, '.review .account')).toContain('100000001')
+    expect(await textOf(app, '.review .account')).toContain('800000001')
     // The mock's prod_official_asia server reads as the game names it.
     expect(await textOf(app, '.review .account .chip')).toBe('Asia')
     expect(await accessibilityViolations(app)).toEqual([])
@@ -1185,7 +1185,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
     await app.command('/window/rect', 'POST', { width: 1000, height: 760 })
     await click(app, '.review', 'Save 2,060 rolls')
     await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('2,060 Rolls Saved')
-    expect(await textOf(app, '.saved p')).toBe('Added to UID 100000001 (Asia).')
+    expect(await textOf(app, '.saved p')).toBe('Added to UID 800000001 (Asia).')
     // The mock's history has 32 five-star and 206 four-star rows (decision 0014).
     expect(
       await app.execute(
@@ -1203,7 +1203,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
         `window.__TAURI_INTERNALS__.invoke('history_page', { category: '11', page: ${page}, pageSize: 20 }).then(arguments[arguments.length - 1])`,
       )
     const first = await history(1)
-    expect([first.account.uid, first.total, first.rolls.length]).toEqual(['100000001', 1250, 20])
+    expect([first.account.uid, first.total, first.rolls.length]).toEqual(['800000001', 1250, 20])
     // Each page also counts every category, as the mock serves them.
     expect(first.categories).toEqual(
       [
@@ -1237,7 +1237,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     expect(
       await app.execute('return document.querySelector(".account").getAttribute("aria-label")'),
-    ).toBe('Account: UID 100000001, Asia server')
+    ).toBe('Account: UID 800000001, Asia server')
     // In a wide window the tabs show their counts.
     await app.command('/window/rect', 'POST', { width: 1280, height: 900 })
     const tabs = () =>
@@ -1656,7 +1656,7 @@ test('the mock binary retrieves, reviews and saves synthetic history, which pers
       )
     await expect
       .poll(async () => (await lastImport()).slice(1), { timeout: 5000 })
-      .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
+      .toEqual(['Retrieved from HoYoverse', 'UID 800000001 (Asia)', '2,060 new rolls saved'])
     expect((await lastImport())[0]).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}$/)
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-last-import')
@@ -1983,7 +1983,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
       .toMatch(/^\s*Showing 1–20 of\s+1,250\s*$/)
     expect(
       await app.execute('return document.querySelector(".account").getAttribute("aria-label")'),
-    ).toBe('Account: UID 100000001, Asia server')
+    ).toBe('Account: UID 800000001, Asia server')
     await app.screenshot('e2e-mock-restart')
     await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
     await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
@@ -1996,7 +1996,7 @@ test('failed, cancelled and discarded retrievals save nothing, and saved history
           ),
         { timeout: 5000 },
       )
-      .toEqual(['Retrieved from HoYoverse', 'UID 100000001 (Asia)', '2,060 new rolls saved'])
+      .toEqual(['Retrieved from HoYoverse', 'UID 800000001 (Asia)', '2,060 new rolls saved'])
     // A retrieval that fails now leaves the saved history as it was.
     await chooseCache(app)
     await expect
@@ -2035,7 +2035,7 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     expect(await skipped(app)).toBe('1,762')
     await save(app, '150')
     expect(await stored(app)).toEqual({
-      uid: '100000001',
+      uid: '800000001',
       totals: { '1': 325, '2': 75, '11': 1275, '12': 437, '21': 63, '22': 35 },
     })
     // The newer rolls are numbered on from the saved ones, newest first.
@@ -2065,8 +2065,8 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     await click(app, '.review', 'Done')
   })
   const first = storedAccounts()
-  expect(Object.keys(first)).toEqual(['100000001 prod_official_asia'])
-  expect(first['100000001 prod_official_asia'].rolls).toBe(2210)
+  expect(Object.keys(first)).toEqual(['800000001 prod_official_asia'])
+  expect(first['800000001 prod_official_asia'].rolls).toBe(2210)
   // The same cache file now reaches another account, on another server, whose roll IDs
   // match the first account's. The account comes from HoYoverse's responses, and a
   // quick refresh only stops at the account's own saved rolls, so none are omitted.
@@ -2075,17 +2075,17 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     await expect
       .poll(() => textOf(app, '.review h2'), { timeout: 60000 })
       .toBe('Ready to save 2,060 new rolls')
-    expect(await textOf(app, '.review .account')).toContain('100000002')
+    expect(await textOf(app, '.review .account')).toContain('600000002')
     expect(await textOf(app, '.review .account .chip')).toBe('America')
     await save(app, '2,060')
-    expect(await textOf(app, '.saved p')).toBe('Added to UID 100000002 (America).')
+    expect(await textOf(app, '.saved p')).toBe('Added to UID 600000002 (America).')
     // The History screen follows the account imported last, and now that two are
     // saved its header switches between them.
-    expect(await stored(app)).toEqual({ ...savedHistory, uid: '100000002' })
+    expect(await stored(app)).toEqual({ ...savedHistory, uid: '600000002' })
     await app.execute('document.querySelector("nav a[aria-label=\'Warp History\']").click()')
     await expect
       .poll(() => switcherLabel(app), { timeout: 10000 })
-      .toBe('Switch account. Current: UID 100000002, America server')
+      .toBe('Switch account. Current: UID 600000002, America server')
     await app.screenshot('e2e-mock-second-account')
     // With the keyboard: open the menu at the current account, move to the other one
     // and choose it.
@@ -2094,15 +2094,15 @@ test('a quick refresh saves only newer rolls, and another account with the same 
     await expect
       .poll(() => accountMenu(app), { timeout: 10000 })
       .toEqual([
-        ['100000002', 'America', '2,060 rolls'],
-        ['100000001', 'Asia', '2,210 rolls'],
+        ['600000002', 'America', '2,060 rolls'],
+        ['800000001', 'Asia', '2,210 rolls'],
       ])
     expect(await accessibilityViolations(app)).toEqual([])
     await app.screenshot('e2e-mock-account-menu')
     await app.press(DOWN, ENTER)
     await expect
       .poll(() => switcherLabel(app), { timeout: 10000 })
-      .toBe('Switch account. Current: UID 100000001, Asia server')
+      .toBe('Switch account. Current: UID 800000001, Asia server')
     // Its own Character Event Warp rolls, including the 25 the quick refresh added.
     await expect
       .poll(() => textOf(app, '.showing'), { timeout: 10000 })
@@ -2121,12 +2121,13 @@ test('a quick refresh saves only newer rolls, and another account with the same 
   })
   // Each account's rolls are stored apart, and the first account's are untouched.
   const accounts = storedAccounts()
+  // In UID order.
   expect(Object.keys(accounts)).toEqual([
-    '100000001 prod_official_asia',
-    '100000002 prod_official_usa',
+    '600000002 prod_official_usa',
+    '800000001 prod_official_asia',
   ])
-  expect(accounts['100000001 prod_official_asia']).toEqual(first['100000001 prod_official_asia'])
-  expect(accounts['100000002 prod_official_usa'].rolls).toBe(2060)
+  expect(accounts['800000001 prod_official_asia']).toEqual(first['800000001 prod_official_asia'])
+  expect(accounts['600000002 prod_official_usa'].rolls).toBe(2060)
 }, 300000)
 
 test('a retrieval with no history creates no account, and an ended retrieval’s link and review cannot be reused', async () => {
@@ -2154,7 +2155,7 @@ test('a retrieval with no history creates no account, and an ended retrieval’s
     expect(await retrieveAndSave(app)).toEqual(refused)
     expect(await stored(app)).toEqual(savedHistory)
   })
-  expect(Object.keys(storedAccounts())).toEqual(['100000001 prod_official_asia'])
+  expect(Object.keys(storedAccounts())).toEqual(['800000001 prod_official_asia'])
 }, 120000)
 
 // Bounds for a 20,000-roll history, in ms: about three times the slowest of three
