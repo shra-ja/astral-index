@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Server rule (2026-10-31)
+### UIGF reading (2026-11-02)
 
-`feat/uid-server-rule`, 0030's second task: `hsr::server_of` gives a UID's server and offset from the digits before its last eight, as the file research's community mapping gives them, or says the UID is malformed or has no server in the rule. A function in the game's module is the per-game interface until a second game's rule shapes a shared one; retrieval keeps the server HoYoverse names. Red: both rule tests failed against a stub that found no server; green: all 279 unit tests pass.
+`feat/uigf-reading`, 0030's third task: `uigf::read` refuses files outside UIGF v4.0 to v4.2 whole, naming legacy UIGF, SRGF or the version found, and reads each Star Rail account as rolls in the retrieved shape, or says why it cannot be imported: a repeated UID, an invalid time zone, no records, or records counted by the fields they lack or the values they get wrong; malformed UIDs are only counted. Rolls may now lack a count or language, as UIGF allows; HoYoverse's still need both. A pool ID repeating its category, as StarDB writes, is dropped. Tests check each account the reader would import against UIGF v4.2's pinned schema, through the dev-only `jsonschema` crate. Red: the optional-field test failed to parse a record without a language, and all nine reader tests failed against a stub, and 100,000 accounts took 90 s to read until UIDs were counted once; green: all 290 unit tests pass, at 100% unit coverage.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, continuing with the per-game rule for which server a UID belongs to.
+Next: [0030](../product/features/0030-history-file-import.md), history-file import, continuing with the commands that choose a file and preview one of its accounts.
 
 ## Keeping this file current
 
@@ -219,4 +219,5 @@ research, under a "From" heading.
   shelved, and duplicates matched by their facts, with missing pool IDs
   filled.
 - [2026-10-31: save speed](history/2026-10-31-save-speed.md): saved rolls
-  serialized straight to text after #156 slowed the large history's save.
+  serialized straight to text after #156 slowed the large history's save, and
+  Star Rail's rule for the server a UID belongs to.

@@ -37,6 +37,8 @@ for how the parts fit together; run commands from the repository root.
 - `src/hsr.rs` parses and validates HSR API response pages, and holds Star
   Rail's rules: categories, soft pity, roll checks and the UID→server rule
   for history files.
+- `src/uigf.rs` reads UIGF files: it detects the format and version, checks the
+  Star Rail accounts and turns their records into rolls, without file access.
 - `src/storage.rs` holds SQLite storage: previews, commits and history reads,
   with the single schema in `migrations/001_initial.sql`.
 - `tauri.conf.json` sets bundled assets, the dev URL and the production CSP;

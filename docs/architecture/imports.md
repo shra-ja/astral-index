@@ -1,8 +1,8 @@
 # Imports
 
 Status: partially implemented. The Honkai: Star Rail API adapter follows this
-contract end to end; history-file imports and the Genshin Impact adapter are
-tentative. To research a new game or source, see [GAMES](../games/GAMES.md).
+contract end to end, and `uigf::read` reads UIGF files' Star Rail accounts; file
+import's commands and screen and the Genshin Impact adapter are still to come. To research a new game or source, see [GAMES](../games/GAMES.md).
 
 ## Adapter contract
 

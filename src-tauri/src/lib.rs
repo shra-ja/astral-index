@@ -4,6 +4,7 @@ pub mod desktop;
 pub mod discovery;
 pub mod hsr;
 pub mod storage;
+pub mod uigf;
 pub use hsr::{MAX_BATCH_BYTES, MAX_RESPONSE_BYTES, Page, ParseError, Roll, parse_response};
 
 use serde::Deserializer;

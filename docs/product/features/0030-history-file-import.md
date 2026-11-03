@@ -20,14 +20,17 @@ File import stays local and never makes a network request.
   does. The user picks from every Star Rail account in the file, saved before or
   not; importing the file again covers another. An account whose UID is
   malformed or has no server in the game's rule is listed as not importable,
-  with the reason.
+  with the reason; malformed UIDs are counted rather than shown. A UID the file
+  holds more than once is not importable.
 - **Accounts:** a UID given as a number is kept exactly as text. A UID belongs to
   one server, so a saved UID keeps its saved server; a new UID takes its server
   from Honkai: Star Rail's UID rule, kept behind a per-game interface. A UID
   saved on more than one server, which only synthetic histories hold, is listed
   as not importable. The account's `timezone` must equal its server's offset, or
-  a saved account's stored one, or the account is listed as not importable. Its `lang` is kept with each record; a missing `lang` or
-  `count` stays absent, and a `count` present must be `"1"`.
+  a saved account's stored one, or the account is listed as not importable. Its
+  `lang` is kept with each record; a missing `lang` or `count` stays absent, and
+  a `count` present must be `"1"`. An account's other fields are not kept, as
+  only its records are history.
 - **Records:** each needs the fields UIGF requires for Star Rail and a name, item
   type and rarity; without them the import is refused, saying how many records
   lack which field. Records are stored in the same shape as retrieved ones.
@@ -61,11 +64,13 @@ One PR each, in order:
 - [x] **Server rule.** The per-game interface turning a UID into its server and
   offset, or the reason it can't, with Star Rail's rule from the
   [file research](../../games/hsr/file-research.md).
-- [ ] **UIGF reading.** Detection, typed validation and normalisation in Rust,
+- [x] **UIGF reading.** Detection, typed validation and normalisation in Rust,
   with synthetic fixtures for every case the
   [UIGF skill](../../../.agents/skills/uigf/SKILL.md) lists and StarDB's shape.
-  Tests check each fixture against a pinned local copy of the schema, through a
-  dev-only JSON Schema validator, so both give the same verdict.
+  Tests check each account the reader would import against a pinned local copy
+  of the schema, through a dev-only JSON Schema validator. Rolls may lack a
+  count or language, as they may a pool ID; migration 002's version already
+  keeps 1.1.0 from reading them, so no migration is needed.
 - [ ] **File import commands.** Choosing the file and previewing one account,
   reusing retrieval's review, save and discard, with narrow permissions and the
   mock's scenarios, whose UIDs then follow the server rule. A second account means choosing the file again.

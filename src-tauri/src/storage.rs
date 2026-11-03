@@ -1703,7 +1703,7 @@ pub(crate) mod tests {
     fn classification_matches_facts_and_keeps_the_first_seen_roll() {
         let renamed = variant(|roll| {
             roll.name = "renamed".into();
-            roll.lang = "de-de".into();
+            roll.lang = Some("de-de".into());
         });
         let other_item = variant(|roll| roll.item_id = "other".into());
         let rolls = [roll(), renamed, other_item];
@@ -1897,7 +1897,7 @@ pub(crate) mod tests {
             &|batch: &mut Batch| batch.timezone = Some(15),
             // A roll of another account, or an invalid one.
             &|batch: &mut Batch| batch.uid = "100000001".into(),
-            &|batch: &mut Batch| batch.rolls[1].count = "2".into(),
+            &|batch: &mut Batch| batch.rolls[1].count = Some("2".into()),
         ] as [&dyn Fn(&mut Batch); 6]
         {
             assert_eq!(with(change), Err(Error::InvalidBatch));
