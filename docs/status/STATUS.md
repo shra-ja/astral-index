@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Windows first start (2026-11-03)
-
-`test/windows-first-start`: the Windows smoke test's first launch twice went 30 s without its webview's first read creating the history (#159's first CI attempt and main's run 41555389433), against none in the 40 runs before, with the same runner image for at least the last 16; later launches in a job take 1–2 s. Its wait is now 90 s, stated as a cold-start bound, and each launch logs how long the history took after the window opened; a timeout says whether WebView2's profile folder exists and how many of its processes run. Verified by #160's CI run (41562705476): the history took 8.1 s after the first window opened and 0.4 s after the portable one.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -223,3 +219,5 @@ research, under a "From" heading.
   Star Rail's rule for the server a UID belongs to.
 - [2026-11-02: UIGF reading](history/2026-11-02-uigf-reading.md): UIGF files'
   Star Rail accounts read as rolls, checked against UIGF's pinned schema.
+- [2026-11-03: Windows first start](history/2026-11-03-windows-first-start.md):
+  the Windows smoke test's cold first start given 90 s, with its time logged.
