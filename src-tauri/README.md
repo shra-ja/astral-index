@@ -20,9 +20,11 @@ for how the parts fit together; run commands from the repository root.
   mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its
   restore commands, which choose a backup in the open dialog, then copy, check
   and hold it in the data folder, and replace the history with it, keeping a
-  safety copy; `src/desktop/cache_file.rs` holds the Import screen's cache file
-  command, which chooses the file in the open dialog and holds its path for
-  `extract_from_file` to read; `src/desktop/dialogs.rs` opens those dialogs,
+  safety copy; `src/desktop/chosen_file.rs` holds the Import screen's commands
+  that choose the cache file or a history file in the open dialog and hold its
+  path for `extract_from_file` or `read_history_file` to read;
+  `src/desktop/history_file.rs` holds the commands that read a history file,
+  list its accounts and preview one; `src/desktop/dialogs.rs` opens those dialogs,
   or takes the mock's answer from its data folder; `src/desktop/local_time.rs`
   reads the local time that names the copies kept beside the history and the
   suggested backup; and `src/desktop/ipc_trace.rs` writes the mock's IPC trace
@@ -37,6 +39,9 @@ for how the parts fit together; run commands from the repository root.
 - `src/hsr.rs` parses and validates HSR API response pages, and holds Star
   Rail's rules: categories, soft pity, roll checks and the UID→server rule
   for history files.
+- `src/file_import.rs` decides which server each of a history file's accounts
+  goes into, from the saved accounts or the game's UID rule, or why it can't be
+  imported.
 - `src/uigf.rs` reads UIGF files: it detects the format and version, checks the
   Star Rail accounts and turns their records into rolls, without file access.
 - `src/storage.rs` holds SQLite storage: previews, commits and history reads,
