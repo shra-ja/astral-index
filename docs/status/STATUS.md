@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Windows first start (2026-11-03)
+
+`test/windows-first-start`: the Windows smoke test's first launch twice went 30 s without its webview's first read creating the history (#159's first CI attempt and main's run 41555389433), against none in the 40 runs before, with the same runner image for at least the last 16; later launches in a job take 1–2 s. Its wait is now 90 s, stated as a cold-start bound, and each launch logs how long the history took after the window opened; a timeout says whether WebView2's profile folder exists and how many of its processes run. To be verified by CI on Windows.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
