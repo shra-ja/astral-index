@@ -25,7 +25,7 @@ use tokio_util::sync::CancellationToken;
 
 pub mod about;
 pub mod backup;
-pub mod cache_file;
+pub mod chosen_file;
 pub mod database;
 pub mod dialogs;
 pub mod ipc_trace;
@@ -319,7 +319,7 @@ impl Transport for Client {
 fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
         extract_automatically,
-        cache_file::choose_cache_file,
+        chosen_file::choose_cache_file,
         extract_from_file,
         cancel_acquisition,
         retrieve_history,
@@ -434,7 +434,7 @@ fn register_with<R: Runtime>(
 ) -> Builder<R> {
     let builder = builder
         .manage(Session::default())
-        .manage(cache_file::CacheFile::default())
+        .manage(chosen_file::CacheFile::default())
         .manage(restore::Restore::default())
         .plugin(restore::clean_up_on_exit())
         .manage(network);
@@ -664,7 +664,7 @@ async fn extract_into(session: &Session, network: &Network) -> Result<(), Failur
 async fn extract_file_into(
     session: &Session,
     network: &Network,
-    cache: &cache_file::CacheFile,
+    cache: &chosen_file::CacheFile,
 ) -> Result<(), Failure> {
     let extracted = cache.take().ok_or(Failure::InvalidFile).and_then(|path| {
         read_selected_cache(&path).map_err(|error| match error {
@@ -1048,7 +1048,7 @@ async fn retrieve_history(
 async fn extract_from_file(
     session: State<'_, Session>,
     network: State<'_, Network>,
-    cache: State<'_, cache_file::CacheFile>,
+    cache: State<'_, chosen_file::CacheFile>,
 ) -> Result<(), Failure> {
     extract_file_into(&session, &network, &cache).await
 }
@@ -1193,13 +1193,13 @@ mod tests {
         InvokeBody::Raw(bytes)
     }
     /// A cache file holding `bytes`, chosen and held for the import.
-    fn chosen_cache(bytes: Vec<u8>) -> cache_file::CacheFile {
+    fn chosen_cache(bytes: Vec<u8>) -> chosen_file::CacheFile {
         let path = PathBuf::from("/games/StarRail_Data/data_2");
         filesystem::install(filesystem::Fixture {
             files: [(path.clone(), bytes)].into(),
             ..Default::default()
         });
-        let cache = cache_file::CacheFile::default();
+        let cache = chosen_file::CacheFile::default();
         cache.hold(path);
         cache
     }
@@ -1711,7 +1711,7 @@ mod tests {
         let managed = mock_builder()
             .manage(dialogs::Dialogs::System)
             .manage(Database::new(None))
-            .manage(cache_file::CacheFile::default());
+            .manage(chosen_file::CacheFile::default());
         assert_eq!(
             reply_to(&window(managed), "choose_cache_file"),
             serde_json::json!({ "kind": "cancelled" })
@@ -2539,17 +2539,17 @@ mod tests {
         // nothing chosen at all.
         let gone = || {
             filesystem::install(filesystem::Fixture::default());
-            let cache = cache_file::CacheFile::default();
+            let cache = chosen_file::CacheFile::default();
             cache.hold(PathBuf::from("/games/gone/data_2"));
             cache
         };
         let nothing = || {
             filesystem::install(filesystem::Fixture::default());
-            cache_file::CacheFile::default()
+            chosen_file::CacheFile::default()
         };
         let too_large = || chosen_cache(vec![0; MAX_CACHE_BYTES + 1]);
         let no_request = || chosen_cache(b"no request".to_vec());
-        let cases: [(&dyn Fn() -> cache_file::CacheFile, Failure); 4] = [
+        let cases: [(&dyn Fn() -> chosen_file::CacheFile, Failure); 4] = [
             (&no_request, Failure::NoRequest),
             (&too_large, Failure::FileTooLarge),
             (&gone, Failure::InvalidFile),
