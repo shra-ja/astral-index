@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### UIGF reading (2026-11-02)
-
-`feat/uigf-reading`, 0030's third task: `uigf::read` refuses files outside UIGF v4.0 to v4.2 whole, naming legacy UIGF, SRGF or the version found, and reads each Star Rail account as rolls in the retrieved shape, or says why it cannot be imported: a repeated UID, an invalid time zone, no records, or records counted by the fields they lack or the values they get wrong; malformed UIDs are only counted. Rolls may now lack a count or language, as UIGF allows; HoYoverse's still need both. A pool ID repeating its category, as StarDB writes, is dropped. Tests check each account the reader would import against UIGF v4.2's pinned schema, through the dev-only `jsonschema` crate. Red: the optional-field test failed to parse a record without a language, and all nine reader tests failed against a stub, and 100,000 accounts took 90 s to read until UIDs were counted once; green: all 290 unit tests pass, at 100% unit coverage.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -221,3 +217,5 @@ research, under a "From" heading.
 - [2026-10-31: save speed](history/2026-10-31-save-speed.md): saved rolls
   serialized straight to text after #156 slowed the large history's save, and
   Star Rail's rule for the server a UID belongs to.
+- [2026-11-02: UIGF reading](history/2026-11-02-uigf-reading.md): UIGF files'
+  Star Rail accounts read as rolls, checked against UIGF's pinned schema.
