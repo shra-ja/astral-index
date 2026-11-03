@@ -57,6 +57,35 @@ async function start() {
   return pid
 }
 
+/**
+ * Wait up to `bound` ms for the history in the data folder `data`, which the
+ * History screen's first read creates once the webview has loaded, and log how
+ * long that took, so passing runs show how close a start comes to its bound. On a
+ * timeout, say whether WebView2 started: its profile folder beside the history,
+ * and how many WebView2 processes run on the machine.
+ */
+async function waitForHistory(data: string, bound: number) {
+  const started = performance.now()
+  try {
+    await expect.poll(() => existsSync(join(data, 'history.sqlite')), { timeout: bound }).toBe(true)
+  } catch (error) {
+    const profile = existsSync(join(data, 'EBWebView')) ? 'exists' : 'is missing'
+    let processes = 'an unknown number of'
+    try {
+      processes = powershell('@(Get-Process msedgewebview2 -ErrorAction SilentlyContinue).Count')
+    } catch {
+      // The timeout matters more than the count.
+    }
+    throw new Error(
+      `No history ${bound} ms after the window opened; the WebView2 profile ${profile}, and ${processes} WebView2 processes run on the machine`,
+      { cause: error },
+    )
+  }
+  console.log(
+    `History created ${Math.round(performance.now() - started)} ms after the window opened`,
+  )
+}
+
 /** Close the window as its close button does, and wait for a clean exit. */
 async function close(pid: number) {
   const exited = once(app!, 'exit')
@@ -157,24 +186,22 @@ test('installed, it keeps its history and webview profile in the local data fold
   remove(portable)
   remove(local)
   const pid = await start()
-  // The History screen reads saved history on opening, which creates the database;
-  // a runner's first WebView2 start has taken 16 s.
-  await expect.poll(() => existsSync(join(local, 'history.sqlite')), { timeout: 30000 }).toBe(true)
+  // The runner's first WebView2 start is cold: it has taken over 30 s, while later
+  // starts take 1–2 s.
+  await waitForHistory(local, 90000)
   expect(existsSync(join(local, 'EBWebView'))).toBe(true)
   expect(existsSync(portable)).toBe(false)
   // Explorer and the title bar show the committed icon.
   expect(iconDifference(pid, 'executable', 32)).toBe('0')
   expect(iconDifference(pid, 'window', 32)).toBe('0')
   await close(pid)
-}, 90000)
+}, 150000)
 
 test('with a data folder beside it, it keeps everything there and leaves the local data folder alone', async () => {
   remove(local)
   mkdirSync(portable, { recursive: true })
   const pid = await start()
-  await expect
-    .poll(() => existsSync(join(portable, 'history.sqlite')), { timeout: 30000 })
-    .toBe(true)
+  await waitForHistory(portable, 30000)
   expect(existsSync(join(portable, 'EBWebView'))).toBe(true)
   await close(pid)
   expect(existsSync(local)).toBe(false)
