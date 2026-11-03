@@ -112,7 +112,7 @@ transaction that opens it, so a failure leaves the file as it was. Before the
 first migration writes, an optional `keep` is given the old version; the
 desktop's `Database` copies the history there to
 `history-v<N>-YYYYMMDD-HHMMSS.sqlite` beside it, named from the local time,
-claimed new and flushed, and a copy that fails stops the upgrade. References
+claimed new (numbered `-1`, `-2` and on when the name is taken) and flushed, and a copy that fails stops the upgrade. References
 are enforced only once the opening transaction commits, as SQLite's procedure
 for schema changes requires, since SQLite can't stop enforcing them inside a
 transaction; a migration can then rebuild a table others refer to, and an

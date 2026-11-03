@@ -42,14 +42,14 @@ Backup and restore stay local and never make a network request.
   The confirmation then shows the backup's accounts, their roll counts and its
   last import beside the current history's, and says that the current history
   will be kept as a safety copy. On confirming, the current database is copied
-  to `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder and the
-  checked copy replaces it; the screens then show the restored history. Cancel
+  to `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder, numbered
+  if a file already has that name, and the checked copy replaces it; the screens then show the restored history. Cancel
   or any failure leaves the current history untouched. Leaving the
   confirmation asks first, and leaving cancels the restore, so a checked copy
   is never left held.
 - **Migration recovery:** before upgrading an older database on opening, the app
   copies it to `history-v<N>-YYYYMMDD-HHMMSS.sqlite` in the data folder, where N
-  is its schema version and the time is local; a migration runs in one
+  is its schema version and the time is local, numbered if the name is taken; a migration runs in one
   transaction, and a failure leaves the original unchanged and names the copy.
   Until the history can be upgraded, the app refuses to use it: one app-wide
   screen says so and names the copy, the game screens are unavailable, and
