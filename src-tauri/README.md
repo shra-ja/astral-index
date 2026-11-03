@@ -29,6 +29,8 @@ for how the parts fit together; run commands from the repository root.
   reads the local time that names the copies kept beside the history and the
   suggested backup; and `src/desktop/ipc_trace.rs` writes the mock's IPC trace
   to stderr.
+- `src/selected_file.rs` opens a cache, player log or history file read-only, refusing
+  anything but a regular file, and reads it within its format's bound.
 - `src/discovery.rs` reads player-log headers and `src/discovery/system.rs`
   finds the current user's AppData on Windows and from WSL.
 - `src/acquisition.rs` reads cache files and extracts request contexts; its

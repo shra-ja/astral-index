@@ -4,6 +4,7 @@ pub mod desktop;
 pub mod discovery;
 pub mod file_import;
 pub mod hsr;
+pub mod selected_file;
 pub mod storage;
 pub mod uigf;
 pub use hsr::{MAX_BATCH_BYTES, MAX_RESPONSE_BYTES, Page, ParseError, Roll, parse_response};

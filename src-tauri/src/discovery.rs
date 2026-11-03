@@ -1,9 +1,8 @@
 //! Bounded discovery from explicitly selected Windows player logs; no environment scans.
 pub mod system;
 
-use crate::acquisition::{
-    CacheError, CachedRequest, discover_cache_files, open_selected_file, read_selected_cache,
-};
+use crate::acquisition::{CachedRequest, discover_cache_files, read_selected_cache};
+use crate::selected_file::{self, FileError};
 use std::path::{Path, PathBuf};
 use std::{
     collections::HashSet,
@@ -22,7 +21,7 @@ pub enum PathMapping<'a> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LogError {
-    Source(CacheError),
+    Source(FileError),
     InvalidText,
     UnsupportedPath,
     NoGameDataPath,
@@ -91,7 +90,7 @@ pub fn extract_from_logs<E>(logs: LogDiscovery<E>) -> Result<Vec<CachedRequest>,
 
 /// Only inspect the startup header; large later gameplay logs are irrelevant.
 pub fn read_selected_log(path: &Path, mapping: PathMapping<'_>) -> Result<Vec<PathBuf>, LogError> {
-    let mut file = open_selected_file(path).map_err(LogError::Source)?;
+    let mut file = selected_file::open(path).map_err(LogError::Source)?;
     read_header(&mut file, mapping)
 }
 
@@ -101,9 +100,9 @@ fn read_header(reader: &mut dyn Read, mapping: PathMapping<'_>) -> Result<Vec<Pa
     for _ in 0..LOG_HEADER_LINES {
         let count = reader
             .read_until(b'\n', &mut bytes)
-            .map_err(|_| LogError::Source(CacheError::Unreadable))?;
+            .map_err(|_| LogError::Source(FileError::Unreadable))?;
         if bytes.len() > MAX_LOG_HEADER_BYTES {
-            return Err(LogError::Source(CacheError::TooLarge));
+            return Err(LogError::Source(FileError::TooLarge));
         }
         if count == 0 {
             break;
@@ -243,7 +242,7 @@ mod tests {
         exact.push(b'x');
         assert_eq!(
             read_header(&mut exact.as_slice(), PathMapping::Windows),
-            Err(LogError::Source(CacheError::TooLarge))
+            Err(LogError::Source(FileError::TooLarge))
         );
     }
 
@@ -260,10 +259,7 @@ mod tests {
             ..Default::default()
         });
         let result = discover_appdata_logs(app_data, PathMapping::Windows).unwrap();
-        assert_eq!(
-            result.current,
-            Err(LogError::Source(CacheError::Unreadable))
-        );
+        assert_eq!(result.current, Err(LogError::Source(FileError::Unreadable)));
         assert_eq!(result.previous.unwrap(), [PathBuf::from("D:/Games")]);
         filesystem::inspect(|state| {
             assert_eq!(state.files[&previous], bytes);
@@ -282,7 +278,7 @@ mod tests {
         assert_eq!(result.current, Err(LogError::NoGameDataPath));
         assert_eq!(
             result.previous,
-            Err(LogError::Source(CacheError::Unreadable))
+            Err(LogError::Source(FileError::Unreadable))
         );
         assert!(matches!(
             discover_appdata_logs(Path::new(""), PathMapping::Windows),
@@ -367,7 +363,7 @@ mod tests {
         }
         assert_eq!(
             read_header(&mut Broken, PathMapping::Windows),
-            Err(LogError::Source(CacheError::Unreadable))
+            Err(LogError::Source(FileError::Unreadable))
         );
         assert_eq!(
             read_header(&mut &b""[..], PathMapping::Windows),
