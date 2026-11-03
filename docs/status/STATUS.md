@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-31
+Updated: 2026-11-03
 
 ## Current state
 
@@ -53,7 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-Nothing in progress.
+### Bounded file read (2026-11-03)
+
+`refactor/bounded-file-read`: every cache, player log and history file, whether chosen or discovered, is opened through one `selected_file` module, which refuses anything but a regular file without blocking on a FIFO, and cache and history files are read through its one bounded read, refusing more than their bound after one byte past it. Acquisition no longer lends its opener to the history file, and the history file no longer repeats the bounded read. A history file over 64 MiB is now refused by the read, as before by the reader, with the same failure; player logs' failures are the module's own rather than a cache's. Red: the module's three tests failed against stubs; green: all 302 unit tests pass at 100% unit coverage. Left for later: restore opens its chosen backup without the module's regular-file check, so a FIFO chosen there would block, and the in-memory filesystem test double still lives under acquisition though eleven modules use it.
 
 ## Known limitations
 
