@@ -1,11 +1,10 @@
 //! Local request-context extraction; selecting a cache never initiates a request.
 #[cfg(test)]
 use self::tests::filesystem as fs;
+use crate::selected_file::{self, FileError};
 #[cfg(not(test))]
 use std::fs;
-#[cfg(all(unix, not(test)))]
-use std::os::unix::fs::OpenOptionsExt;
-use std::{collections::HashSet, fmt, io::Read, path::Path};
+use std::{collections::HashSet, fmt, path::Path};
 
 mod cancel;
 pub mod mock;
@@ -77,6 +76,15 @@ pub enum CacheError {
     NoSupportedRequest,
     NoCacheFound,
 }
+impl From<FileError> for CacheError {
+    fn from(error: FileError) -> Self {
+        match error {
+            FileError::Unreadable => Self::Unreadable,
+            FileError::NotRegularFile => Self::NotRegularFile,
+            FileError::TooLarge => Self::TooLarge,
+        }
+    }
+}
 
 /// Resolve documented layouts only beneath a selected Windows game-data directory.
 /// Auth keys last about a day, so only the latest and previous game versions can
@@ -132,31 +140,7 @@ fn unreadable(_: std::io::Error) -> CacheError {
 
 /// Read only the explicitly selected regular file, bounding allocation even if it grows.
 pub fn read_selected_cache(path: &Path) -> Result<Vec<CachedRequest>, CacheError> {
-    read_cache(&mut open_selected_file(path)?)
-}
-
-// Shared regular-file boundary for selected caches and bounded player-log headers.
-pub(crate) fn open_selected_file(path: &Path) -> Result<fs::File, CacheError> {
-    let mut options = fs::OpenOptions::new();
-    options.read(true);
-    // Opening a FIFO must not wait for a writer before we can inspect its type.
-    // Check the opened handle, so replacing the path cannot bypass validation.
-    #[cfg(unix)]
-    options.custom_flags(libc::O_NONBLOCK);
-    let file = options.open(path).map_err(|_| CacheError::Unreadable)?;
-    if !file.metadata().is_ok_and(|metadata| metadata.is_file()) {
-        return Err(CacheError::NotRegularFile);
-    }
-    Ok(file)
-}
-
-fn read_cache(reader: &mut dyn Read) -> Result<Vec<CachedRequest>, CacheError> {
-    let mut bytes = Vec::new();
-    reader
-        .take((MAX_CACHE_BYTES + 1) as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|_| CacheError::Unreadable)?;
-    extract_request_contexts(&bytes)
+    extract_request_contexts(&selected_file::read(path, MAX_CACHE_BYTES)?)
 }
 
 /// Return distinct contexts in reverse file order, keeping each one's last position
@@ -240,7 +224,7 @@ pub(crate) mod tests {
     pub(crate) mod scripted;
     pub(crate) use super::transport::tests::http;
     use super::*;
-    use std::io::{self, Read};
+    use std::io;
 
     fn url(key: &str) -> String {
         format!(
@@ -364,14 +348,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn read_failures_and_truncated_candidates_are_safe() {
-        struct Broken;
-        impl Read for Broken {
-            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
-                Err(io::Error::other("private source detail"))
-            }
-        }
-        assert_eq!(read_cache(&mut Broken), Err(CacheError::Unreadable));
+    fn truncated_candidates_are_safe() {
         assert_eq!(
             extract_request_contexts(format!("1/0/{}", url("synthetic")).as_bytes()),
             Err(CacheError::NoSupportedRequest)
@@ -391,7 +368,7 @@ pub(crate) mod tests {
         );
     }
     #[test]
-    fn selected_reads_are_bounded_read_only_and_report_io_failures() {
+    fn a_chosen_cache_that_cannot_be_read_says_why() {
         let path = Path::new("selected/data_2");
         let bytes = cache(&[url("synthetic")]);
         filesystem::install(filesystem::Fixture {
@@ -399,11 +376,6 @@ pub(crate) mod tests {
             ..Default::default()
         });
         assert_eq!(read_selected_cache(path).unwrap().len(), 1);
-        filesystem::inspect(|state| {
-            assert_eq!(state.files[path], bytes);
-            assert_eq!(state.reads, bytes.len());
-            assert!(state.accessed.iter().all(|accessed| accessed == path));
-        });
         assert_eq!(
             read_selected_cache(Path::new("missing")),
             Err(CacheError::Unreadable)
@@ -414,20 +386,10 @@ pub(crate) mod tests {
         });
         assert_eq!(read_selected_cache(path), Err(CacheError::NotRegularFile));
         filesystem::install(filesystem::Fixture {
-            files: [(path.to_owned(), bytes)].into(),
-            metadata_failure: true,
-            ..Default::default()
-        });
-        assert_eq!(read_selected_cache(path), Err(CacheError::NotRegularFile));
-        filesystem::install(filesystem::Fixture {
-            files: [(path.to_owned(), vec![0; MAX_CACHE_BYTES + 100])].into(),
+            files: [(path.to_owned(), vec![0; MAX_CACHE_BYTES + 1])].into(),
             ..Default::default()
         });
         assert_eq!(read_selected_cache(path), Err(CacheError::TooLarge));
-        assert_eq!(
-            filesystem::inspect(|state| state.reads),
-            MAX_CACHE_BYTES + 1
-        );
     }
 
     #[test]

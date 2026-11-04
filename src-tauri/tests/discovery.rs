@@ -1,8 +1,8 @@
 use astral_index::{
-    acquisition::CacheError,
     discovery::{
         LogError, MAX_LOG_HEADER_BYTES, PathMapping, discover_appdata_logs, read_selected_log,
     },
+    selected_file::FileError,
 };
 use common::Folder;
 use std::fs;
@@ -36,13 +36,13 @@ fn real_appdata_logs_are_read_only_and_previous_survives_current_failure() {
         discover_appdata_logs(&app_data, PathMapping::Windows)
             .unwrap()
             .current,
-        Err(LogError::Source(CacheError::Unreadable))
+        Err(LogError::Source(FileError::Unreadable))
     );
     // Windows can reject a directory at open; Unix can reject its opened type.
     assert!(matches!(
         read_selected_log(&logs, PathMapping::Windows),
         Err(LogError::Source(
-            CacheError::NotRegularFile | CacheError::Unreadable
+            FileError::NotRegularFile | FileError::Unreadable
         ))
     ));
 }

@@ -35,8 +35,9 @@ no game data, no cache or no usable request.
 
 ## Cache extraction
 
-`acquisition.rs` reads one regular file, read-only, up to 16 MiB (oversize fails
-rather than yielding a partial result; FIFOs never block). It finds
+`acquisition.rs` reads one regular file, read-only, up to 16 MiB, through
+`selected_file.rs`, which player logs and history files also go through (oversize
+fails rather than yielding a partial result; FIFOs never block). It finds
 NUL-terminated `1/0/` entries for the exact HTTPS spelling of either history
 endpoint (`getGachaLog`, or `getLdGachaLog` for collaboration warps) and keeps
 five required query fields with their encoded bytes. Malformed, duplicated or

@@ -247,7 +247,7 @@ pub(crate) mod tests {
         assert_eq!(
             logs.current,
             Err(DiscoveryError::Log(LogError::Source(
-                crate::acquisition::CacheError::Unreadable
+                crate::selected_file::FileError::Unreadable
             )))
         );
         assert_eq!(
@@ -278,7 +278,7 @@ pub(crate) mod tests {
         assert_eq!(
             logs.current,
             Err(DiscoveryError::Log(LogError::Source(
-                crate::acquisition::CacheError::Unreadable
+                crate::selected_file::FileError::Unreadable
             )))
         );
         assert_eq!(

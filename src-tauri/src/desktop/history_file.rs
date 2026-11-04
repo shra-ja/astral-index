@@ -3,11 +3,10 @@
 //! Only the accounts' UIDs, servers and statuses, and the review, cross IPC; the
 //! file's path and contents stay here. Nothing is requested from HoYoverse.
 use super::{Failure, Session, chosen_file::HistoryFile, database::Database};
-use crate::acquisition::open_selected_file;
 use crate::file_import::{FileContents, resolve};
+use crate::selected_file::{self, FileError};
 use crate::storage::{Review, Source};
 use crate::uigf::{self, MAX_FILE_BYTES};
-use std::io::Read;
 use std::path::Path;
 use tauri::State;
 
@@ -23,12 +22,10 @@ impl From<uigf::Error> for Failure {
 
 /// Read the chosen file within its bound and check it as UIGF.
 fn read_file(path: &Path) -> Result<uigf::File, Failure> {
-    let mut bytes = Vec::new();
-    open_selected_file(path)
-        .map_err(|_| Failure::InvalidFile)?
-        .take(MAX_FILE_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| Failure::InvalidFile)?;
+    let bytes = selected_file::read(path, MAX_FILE_BYTES).map_err(|error| match error {
+        FileError::TooLarge => Failure::FileTooLarge,
+        FileError::Unreadable | FileError::NotRegularFile => Failure::InvalidFile,
+    })?;
     Ok(uigf::read(&bytes)?)
 }
 
@@ -213,6 +210,9 @@ mod tests {
         let mut large = file(&[]);
         large.resize(MAX_FILE_BYTES + 1, b' ');
         assert_eq!(failed(large), Failure::FileTooLarge);
+        // The bounded read refuses a large file first; the reader's own refusal
+        // of more bytes than it takes says the same.
+        assert_eq!(Failure::from(uigf::Error::TooLarge), Failure::FileTooLarge);
         assert_eq!(failed(b"{".to_vec()), Failure::NotHistoryFile);
         assert_eq!(failed(b"[]".to_vec()), Failure::NotHistoryFile);
         let legacy = br#"{"info":{"uigf_version":"v3.0"},"list":[]}"#.to_vec();
