@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Bounded file read (2026-11-03)
+### Safety copy names (2026-11-03)
 
-`refactor/bounded-file-read`: every cache, player log and history file, whether chosen or discovered, is opened through one `selected_file` module, which refuses anything but a regular file without blocking on a FIFO, and cache and history files are read through its one bounded read, refusing more than their bound after one byte past it. Acquisition no longer lends its opener to the history file, and the history file no longer repeats the bounded read. A history file over 64 MiB is now refused by the read, as before by the reader, with the same failure; player logs' failures are the module's own rather than a cache's. Red: the module's three tests failed against stubs; green: all 302 unit tests pass at 100% unit coverage. Left for later: restore opens its chosen backup without the module's regular-file check, so a FIFO chosen there would block, and the in-memory filesystem test double still lives under acquisition though eleven modules use it.
+`fix/safety-copy-names`: a restore's safety copy, and the copy kept before an upgrade, take `-1`, `-2` and on before the extension when a file already has their name, instead of failing. The names come from the local time to the second, which repeats when the clock is corrected or daylight saving ends; the end-to-end restore test failed locally once on its second restore, most likely so: its two restores are several seconds apart, so WSL2's clock, which steps when it resyncs, would have stepped back that far. Nothing else in the code yields that failure there. The test's 1 s wait between them, which never set the gap, is gone. Red: a taken safety copy name failed the restore, and the shared copy's numbering test failed against a stub; green: all 301 unit tests pass at 100% unit coverage, and the restore end-to-end test passed three times running without the wait.
 
 ## Known limitations
 
@@ -225,4 +225,5 @@ research, under a "From" heading.
   Star Rail accounts read as rolls, checked against UIGF's pinned schema.
 - [2026-11-03: Windows first start](history/2026-11-03-windows-first-start.md):
   the Windows smoke test's cold first start given 90 s, with its time logged,
-  and the native commands that read a history file and preview its accounts.
+  the native commands that read a history file and preview its accounts, and
+  one bounded read for chosen files.

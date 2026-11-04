@@ -331,31 +331,31 @@ pub async fn confirm_restore(
     restore_into(&session, &restore, &database, local_time::now()).await
 }
 
-/// The safety copy's name for a restore at the local time `now`.
-fn safety_name(now: chrono::NaiveDateTime) -> String {
-    format!("history-before-restore-{}.sqlite", local_time::stamp(now))
+/// The stem of the safety copy's name, before any number and its extension, for a
+/// restore at the local time `now`.
+fn safety_stem(now: chrono::NaiveDateTime) -> String {
+    format!("history-before-restore-{}", local_time::stamp(now))
 }
 
-/// Keep the history under `safety`, when given, then flush the checked copy and
-/// give it the history's name. A failure removes the safety copy again.
+/// Keep the history as a copy named from `safety_stem`, when given (see
+/// `keep_copy`), then flush the checked copy and give it the history's name. A
+/// failure removes the safety copy again.
 pub fn put_in_place(
     history: &Path,
     copy: &Path,
-    safety: Option<String>,
+    safety_stem: Option<String>,
 ) -> Result<Restored, Failure> {
-    let kept = safety.map(|name| history.with_file_name(name));
-    if let Some(kept) = &kept {
-        database::copy_new(history, kept).map_err(|_| Failure::RestoreFailed)?;
-    }
+    let kept = safety_stem
+        .map(|stem| database::keep_copy(history, &stem))
+        .transpose()
+        .map_err(|_| Failure::RestoreFailed)?;
     if publish(copy, history).is_err() {
         if let Some(kept) = &kept {
-            let _ = fs::remove_file(kept);
+            let _ = fs::remove_file(history.with_file_name(kept));
         }
         return Err(Failure::RestoreFailed);
     }
-    Ok(Restored {
-        safety_copy: kept.map(|kept| kept.file_name().unwrap().to_string_lossy().into_owned()),
-    })
+    Ok(Restored { safety_copy: kept })
 }
 
 /// What the history holds, read as the store closes, so its file can be replaced.
@@ -371,7 +371,7 @@ fn replace(
     store: Option<Store>,
     history: &Path,
     held: Held,
-    safety: String,
+    safety_stem: String,
 ) -> Result<Restored, Failure> {
     let current = store
         .map(read_and_close)
@@ -381,7 +381,7 @@ fn replace(
         return Err(Failure::RestoreChanged);
     }
     let kept = current.is_none_or(|current| !current.accounts.is_empty());
-    put_in_place(history, &held.copy, kept.then_some(safety))
+    put_in_place(history, &held.copy, kept.then_some(safety_stem))
 }
 
 /// Replace the history with the held copy at the local time `now`, which names the
@@ -399,11 +399,11 @@ async fn restore_into(
     let refused = if session.importing() {
         Err(Failure::ImportUnderWay)
     } else {
-        Ok(safety_name(now))
+        Ok(safety_stem(now))
     };
     let restored = match refused {
-        Ok(safety) => database
-            .replace(move |store, history| replace(store, history, held, safety))
+        Ok(safety_stem) => database
+            .replace(move |store, history| replace(store, history, held, safety_stem))
             .await
             .unwrap_or_else(|error| Err(error.into())),
         Err(failure) => Err(failure),
@@ -1156,6 +1156,32 @@ mod tests {
     }
 
     #[test]
+    fn a_safety_copy_whose_name_is_taken_takes_the_next_numbered_name() {
+        // The local time can repeat, as clocks are corrected and as daylight
+        // saving ends; a file already named so is never touched.
+        let theirs: &[u8] = b"a file of the user's";
+        filesystem::install(data(&[(safety(), theirs)]));
+        sql::expect(rereading(1));
+        let restore = Restore::default();
+        holding_copy(&restore, contents(1));
+        assert_eq!(
+            restore_now(&Session::default(), &restore),
+            Ok(restored(Some(
+                "history-before-restore-20261020-143000-1.sqlite"
+            )))
+        );
+        sql::finish();
+        filesystem::inspect(|state| {
+            assert_eq!(state.files[&safety()], theirs);
+            assert_eq!(
+                state.files[&folder().join("history-before-restore-20261020-143000-1.sqlite")],
+                CURRENT
+            );
+            assert_eq!(state.files[&history()], BYTES);
+        });
+    }
+
+    #[test]
     fn an_empty_history_needs_no_safety_copy() {
         filesystem::install(data(&[]));
         sql::expect(rereading(0));
@@ -1193,7 +1219,6 @@ mod tests {
 
     #[test]
     fn each_failure_leaves_the_history_as_it_was_and_removes_the_copies() {
-        let theirs: &[u8] = b"a file of the user's";
         // The files, the SQL, the failure, and the files left afterwards.
         type Case<'a> = (Files, Vec<Step>, Failure, Vec<(PathBuf, &'a [u8])>);
         // Reading the accounts fails once the history is open.
@@ -1217,13 +1242,6 @@ mod tests {
                 unread,
                 Failure::Storage,
                 vec![(history(), CURRENT)],
-            ),
-            // A file already has the safety copy's name; it is never touched.
-            (
-                data(&[(safety(), theirs)]),
-                rereading(1),
-                Failure::RestoreFailed,
-                vec![(history(), CURRENT), (safety(), theirs)],
             ),
             // The safety copy cannot be written, or flushed.
             (

@@ -34,7 +34,9 @@ evidence and each import's provenance.
   migration leaves the original unchanged. (Amended 2026-10-21:) the copy is
   `history-v<N>-YYYYMMDD-HHMMSS.sqlite`, named from the native local time and
   claimed new, so a later upgrade of a restored older backup never replaces an
-  earlier copy; all pending migrations run in the one transaction that opens the
+  earlier copy (amended 2026-11-03: a name already taken, as when the local
+  time repeats, gets `-1`, `-2` and on before the extension, rather than
+  failing); all pending migrations run in the one transaction that opens the
   database; and a failed upgrade is remembered until the app restarts, so each
   failure keeps one copy, while the app refuses to use the history.
 - **Backups stay out of the data folder.** (Amended 2026-10-17:) a backup, a

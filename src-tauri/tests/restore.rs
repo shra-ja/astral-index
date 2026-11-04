@@ -74,7 +74,7 @@ fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
     let restored = put_in_place(
         &history,
         &copy,
-        Some("history-before-restore-20261020-143000.sqlite".into()),
+        Some("history-before-restore-20261020-143000".into()),
     )
     .unwrap();
     assert_eq!(
