@@ -53,9 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Safety copy names (2026-11-03)
-
-`fix/safety-copy-names`: a restore's safety copy, and the copy kept before an upgrade, take `-1`, `-2` and on before the extension when a file already has their name, instead of failing. The names come from the local time to the second, which repeats when the clock is corrected or daylight saving ends; the end-to-end restore test failed locally once on its second restore, most likely so: its two restores are several seconds apart, so WSL2's clock, which steps when it resyncs, would have stepped back that far. Nothing else in the code yields that failure there. The test's 1 s wait between them, which never set the gap, is gone. Red: a taken safety copy name failed the restore, and the shared copy's numbering test failed against a stub; green: all 301 unit tests pass at 100% unit coverage, and the restore end-to-end test passed three times running without the wait.
+Nothing in progress.
 
 ## Known limitations
 
@@ -226,4 +224,4 @@ research, under a "From" heading.
 - [2026-11-03: Windows first start](history/2026-11-03-windows-first-start.md):
   the Windows smoke test's cold first start given 90 s, with its time logged,
   the native commands that read a history file and preview its accounts, and
-  one bounded read for chosen files.
+  one bounded read for chosen files, and numbered safety copy names.
