@@ -1,6 +1,6 @@
-//! How native code reads a cache, a player log or a history file, whether the user
-//! chose it or discovery resolved it: opened read-only as a regular file, and read
-//! within its format's bound.
+//! How native code opens a file the user chose or discovery resolved (a cache, a
+//! player log, a history file or a backup to restore): read-only and only as a
+//! regular file, then read within its format's bound.
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
 #[cfg(not(test))]

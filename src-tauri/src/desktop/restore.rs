@@ -14,6 +14,7 @@ use super::{
 };
 #[cfg(test)]
 use crate::acquisition::tests::filesystem as fs;
+use crate::selected_file::{self, FileError};
 use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
 use chooser::DialogExt;
 use serde::Serialize;
@@ -160,13 +161,16 @@ fn choose<R: Runtime>(
     )
 }
 
-/// Copy at most `limit` bytes of `source` into `to`, refusing a larger file, even
-/// one that grows while it is copied.
+/// Copy at most `limit` bytes of `source`, a regular file, into `to`, refusing a
+/// larger file, even one that grows while it is copied.
 fn copy_bounded(source: &Path, to: &mut dyn Write, limit: u64) -> Result<(), Failure> {
     let refused = Failure::RestoreRefused;
-    let from = fs::File::open(source).map_err(|_| refused(Refusal::Unreadable))?;
-    let size = from.metadata().map_err(|_| refused(Refusal::Unreadable))?;
-    if size.len() > limit {
+    let from = selected_file::open(source).map_err(|error| match error {
+        FileError::NotRegularFile => refused(Refusal::NotDatabase),
+        FileError::Unreadable | FileError::TooLarge => refused(Refusal::Unreadable),
+    })?;
+    // Judged before copying; the bounded copy below refuses a file that grows.
+    if from.metadata().is_ok_and(|size| size.len() > limit) {
         return Err(refused(Refusal::TooLarge));
     }
     let mut from = from.take(limit + 1);
@@ -861,20 +865,36 @@ mod tests {
     }
 
     #[test]
-    fn a_backup_that_cannot_be_measured_or_read_is_unreadable() {
-        let unreadable = Err(Failure::RestoreRefused(Refusal::Unreadable));
+    fn a_backup_that_cannot_be_read_is_unreadable() {
+        filesystem::install(Files {
+            read_failure: true,
+            ..files(&[])
+        });
+        assert_eq!(
+            copy_bounded(&source(), &mut Vec::new(), 1024),
+            Err(Failure::RestoreRefused(Refusal::Unreadable))
+        );
+    }
+
+    #[test]
+    fn anything_but_a_regular_file_is_not_a_backup_and_is_never_read() {
+        let not_backup = Err(Failure::RestoreRefused(Refusal::NotDatabase));
+        // A folder, or a file whose type can't be told.
         for fixture in [
+            Files {
+                directories: vec![source()],
+                ..Default::default()
+            },
             Files {
                 metadata_failure: true,
                 ..files(&[])
             },
-            Files {
-                read_failure: true,
-                ..files(&[])
-            },
         ] {
             filesystem::install(fixture);
-            assert_eq!(copy_bounded(&source(), &mut Vec::new(), 1024), unreadable);
+            let mut copied = Vec::new();
+            assert_eq!(copy_bounded(&source(), &mut copied, 1024), not_backup);
+            assert!(copied.is_empty());
+            assert_eq!(filesystem::inspect(|state| state.reads), 0);
         }
     }
 
