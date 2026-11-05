@@ -53,7 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-Nothing in progress.
+### Shared filesystem test double (2026-11-05)
+
+`test/shared-filesystem-double`: the in-memory filesystem that unit tests use in place of the host's moved from `acquisition::tests` to the crate's own `tests` module, as modules across the crate use it; only imports change. A pure move with no behavior change, so no red step: all 305 unit tests pass at 100% unit coverage.
 
 ## Known limitations
 
@@ -72,7 +74,7 @@ Nothing in progress.
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, finishing with the Import screen, from an approved mockup. Before it: move the in-memory filesystem test double from `acquisition::tests` to the crate's own test module, as eleven modules use it.
+Next: [0030](../product/features/0030-history-file-import.md), history-file import, finishing with the Import screen, from an approved mockup.
 
 ## Keeping this file current
 
