@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-11-03
+Updated: 2026-11-04
 
 ## Current state
 
@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Safety copy names (2026-11-03)
+### Restore's regular-file check (2026-11-04)
 
-`fix/safety-copy-names`: a restore's safety copy, and the copy kept before an upgrade, take `-1`, `-2` and on before the extension when a file already has their name, instead of failing. The names come from the local time to the second, which repeats when the clock is corrected or daylight saving ends; the end-to-end restore test failed locally once on its second restore, most likely so: its two restores are several seconds apart, so WSL2's clock, which steps when it resyncs, would have stepped back that far. Nothing else in the code yields that failure there. The test's 1 s wait between them, which never set the gap, is gone. Red: a taken safety copy name failed the restore, and the shared copy's numbering test failed against a stub; green: all 301 unit tests pass at 100% unit coverage, and the restore end-to-end test passed three times running without the wait.
+`fix/restore-regular-file`: a backup chosen for restore is opened through `selected_file`, as caches, player logs and history files are, so a named pipe is refused at once as not a backup instead of blocking until something writes to it, and a folder or a file whose type can't be told is refused without being read. Red: a real named pipe made restore wait the test's 3 s, and a folder was copied as an empty backup; green: all 305 unit tests pass at 100% unit coverage, and the restore integration tests pass on a real pipe.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, finishing with the Import screen, from an approved mockup.
+Next: [0030](../product/features/0030-history-file-import.md), history-file import, finishing with the Import screen, from an approved mockup. Before it: move the in-memory filesystem test double from `acquisition::tests` to the crate's own test module, as eleven modules use it.
 
 ## Keeping this file current
 
@@ -225,5 +225,5 @@ research, under a "From" heading.
   Star Rail accounts read as rolls, checked against UIGF's pinned schema.
 - [2026-11-03: Windows first start](history/2026-11-03-windows-first-start.md):
   the Windows smoke test's cold first start given 90 s, with its time logged,
-  the native commands that read a history file and preview its accounts, and
-  one bounded read for chosen files.
+  the native commands that read a history file and preview its accounts, one
+  bounded read for chosen files and numbered safety copy names.

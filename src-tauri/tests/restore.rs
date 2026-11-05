@@ -58,6 +58,49 @@ fn a_refused_backup_leaves_nothing_in_the_data_folder() {
     assert_eq!(names(&data), Vec::<String>::new());
 }
 
+#[cfg(unix)]
+#[test]
+fn a_named_pipe_is_refused_without_waiting_for_a_writer() {
+    use std::os::unix::fs::OpenOptionsExt;
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let folder = Folder::new();
+    let data = folder.subfolder("data");
+    let pipe = folder.path("pipe.sqlite");
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let (sent, received) = mpsc::channel();
+    let (chosen, into) = (pipe.clone(), data.clone());
+    let holding = std::thread::spawn(move || {
+        sent.send(hold_copy(&into, &chosen, Schema::CURRENT))
+            .unwrap();
+    });
+    let held = received.recv_timeout(Duration::from_secs(3));
+    if held.is_err() {
+        // Open the writing end so a blocked open ends, then fail; with no
+        // reader left, the open fails at once rather than waiting itself.
+        drop(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .custom_flags(libc::O_NONBLOCK)
+                .open(&pipe),
+        );
+        holding.join().unwrap();
+        panic!("choosing a named pipe waited for a writer");
+    }
+    holding.join().unwrap();
+    assert_eq!(
+        held.unwrap(),
+        Err(Failure::RestoreRefused(Refusal::NotDatabase))
+    );
+    assert_eq!(names(&data), Vec::<String>::new());
+}
+
 #[test]
 fn a_held_copy_takes_the_history_s_place_after_a_safety_copy() {
     let folder = Folder::new();
