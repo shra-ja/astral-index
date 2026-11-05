@@ -1121,7 +1121,7 @@ mod tests {
     pub(crate) mod events;
     pub(crate) mod launcher;
     use super::*;
-    use crate::acquisition::tests::{filesystem, http, scripted::Scripted};
+    use crate::acquisition::tests::{http, scripted::Scripted};
     use crate::acquisition::{MAX_CACHE_BYTES, REQUEST_INTERVAL};
     use crate::acquisition::{TransportError, extract_request_contexts};
     use crate::discovery::system::tests::os;
@@ -1131,6 +1131,7 @@ mod tests {
         latest_row, latest_step, lookup, page_rows, page_script, preview, preview_script,
         saved_rolls_script, setup, stale_commit_script, step, text, timezone,
     };
+    use crate::tests::filesystem;
     use rusqlite::types::Value;
     use std::path::PathBuf;
     use tauri::ipc::InvokeBody;

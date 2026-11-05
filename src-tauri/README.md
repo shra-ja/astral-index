@@ -52,9 +52,11 @@ for how the parts fit together; run commands from the repository root.
   `capabilities/main.json` grants the main window exactly the app's commands.
 
 Unit tests sit in `#[cfg(test)] mod tests` beside their code, with test doubles
-for files, SQLite, OS APIs, transports and Tokio's blocking pool in `tests/`
-subfolders compiled only for tests. Integration tests in `tests/` use the real
-boundaries, with synthetic fixtures in `tests/fixtures/`
+in `tests/` subfolders compiled only for tests: the in-memory filesystem, shared
+by the modules that touch files, in `src/tests/`, and the doubles for SQLite, OS
+APIs, transports and Tokio's blocking pool beside the modules that own them.
+Integration tests in `tests/` use the real boundaries, with synthetic fixtures
+in `tests/fixtures/`
 ([rules](tests/fixtures/README.md)) and shared helpers in `tests/common/`: a
 temporary folder per test, removed even when it fails, the synthetic page and
 its account, the test-only migration after 1.0.0 and the 1.0.0 fixture's path.

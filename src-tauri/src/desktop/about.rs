@@ -5,7 +5,7 @@
 use super::tests::launcher;
 use super::{Failure, database::Database};
 #[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
+use crate::tests::filesystem as fs;
 use serde::Serialize;
 #[cfg(not(test))]
 use std::fs;
@@ -182,7 +182,7 @@ pub async fn open_issues_page(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture};
+    use crate::tests::filesystem::{self, Fixture};
     use launcher::Fixture as Launches;
 
     fn folder() -> PathBuf {

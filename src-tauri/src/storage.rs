@@ -2,9 +2,9 @@
 #[cfg(test)]
 use self::tests::database::Connection;
 use crate::Roll;
-#[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
 use crate::hsr::{Batch, Category, SoftPity};
+#[cfg(test)]
+use crate::tests::filesystem as fs;
 #[cfg(not(test))]
 use rusqlite::Connection;
 use rusqlite::{OpenFlags, OptionalExtension, TransactionBehavior, params};
@@ -1183,8 +1183,8 @@ fn same_facts(first: &Roll, second: &Roll) -> bool {
 pub(crate) mod tests {
     use super::*;
     pub(crate) mod database;
-    use crate::acquisition::tests::filesystem;
     use crate::parse_response;
+    use crate::tests::filesystem;
     use database::{Reply, Step};
     use rusqlite::types::Value;
     const PAGE: &[u8] = include_bytes!("../tests/fixtures/hsr-api/page.json");

@@ -1,7 +1,7 @@
 //! Local request-context extraction; selecting a cache never initiates a request.
-#[cfg(test)]
-use self::tests::filesystem as fs;
 use crate::selected_file::{self, FileError};
+#[cfg(test)]
+use crate::tests::filesystem as fs;
 #[cfg(not(test))]
 use std::fs;
 use std::{collections::HashSet, fmt, path::Path};
@@ -220,10 +220,10 @@ fn encoded_value(value: &str) -> bool {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    pub(crate) mod filesystem;
     pub(crate) mod scripted;
     pub(crate) use super::transport::tests::http;
     use super::*;
+    use crate::tests::filesystem;
     use std::io;
 
     fn url(key: &str) -> String {

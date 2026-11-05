@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn appdata_location_and_independent_log_results_use_mocked_files() {
-        use crate::acquisition::tests::filesystem::{self, Fixture};
+        use crate::tests::filesystem::{self, Fixture};
         let app_data = Path::new("selected/AppData/Roaming");
         let root = Path::new("selected/AppData/LocalLow/Cognosphere/Star Rail");
         let current = root.join("Player.log");
@@ -373,7 +373,7 @@ mod tests {
 
     mod extraction {
         use super::super::*;
-        use crate::acquisition::tests::filesystem::{self, Fixture};
+        use crate::tests::filesystem::{self, Fixture};
         use std::collections::BTreeMap;
 
         const ENDPOINT: &str = "https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog?";
