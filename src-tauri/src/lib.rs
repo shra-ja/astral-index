@@ -70,3 +70,9 @@ impl<'de> Visitor<'de> for UniqueMembers {
         Ok(())
     }
 }
+
+/// Test doubles shared across the crate's unit tests.
+#[cfg(test)]
+pub(crate) mod tests {
+    pub(crate) mod filesystem;
+}

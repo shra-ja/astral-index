@@ -3,9 +3,9 @@
 use super::local_time;
 #[cfg(test)]
 use super::tests::blocking::spawn_blocking;
-#[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
 use crate::storage::{Error, Schema, Store};
+#[cfg(test)]
+use crate::tests::filesystem as fs;
 #[cfg(not(test))]
 use std::fs;
 use std::{
@@ -310,8 +310,8 @@ fn with_file<T, E>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture};
     use crate::storage::tests::database::{self as sql, Reply, Step};
+    use crate::tests::filesystem::{self, Fixture};
 
     #[test]
     fn clearing_the_webview_profile_removes_only_its_own_folder() {

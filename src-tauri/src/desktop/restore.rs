@@ -12,10 +12,10 @@ use super::{
     dialogs::{Dialogs, ask, file_name},
     local_time,
 };
-#[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
 use crate::selected_file::{self, FileError};
 use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
+#[cfg(test)]
+use crate::tests::filesystem as fs;
 use chooser::DialogExt;
 use serde::Serialize;
 #[cfg(not(test))]
@@ -422,13 +422,13 @@ async fn restore_into(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture as Files};
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{
         SERVER, UID, UPGRADED, accounts_row, accounts_script, check_script, ending_at,
         last_import_row, last_import_step, opened_at, setup, step, text, upgrading,
     };
     use crate::storage::{LastImport, SavedAccount, Source};
+    use crate::tests::filesystem::{self, Fixture as Files};
     use chooser::{Asked, FilePath, Fixture as Answers};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 

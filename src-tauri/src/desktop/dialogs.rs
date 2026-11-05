@@ -5,7 +5,7 @@ use super::Failure;
 #[cfg(test)]
 use super::tests::chooser;
 #[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
+use crate::tests::filesystem as fs;
 use chooser::FilePath;
 #[cfg(not(test))]
 use std::fs;

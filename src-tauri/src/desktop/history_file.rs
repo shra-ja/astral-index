@@ -99,11 +99,11 @@ pub async fn preview_file_account(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture as Files};
     use crate::file_import::tests::{account, file, record};
     use crate::hsr::Batch;
     use crate::storage::tests::database::{self as sql, Step};
     use crate::storage::tests::{accounts_row, accounts_script, failing_at, preview_script};
+    use crate::tests::filesystem::{self, Fixture as Files};
     use crate::uigf::Found;
     use serde_json::{Value, json};
     use std::path::PathBuf;

@@ -155,7 +155,7 @@ pub async fn choose_history_file<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture as Files};
+    use crate::tests::filesystem::{self, Fixture as Files};
     use chooser::{Asked, FilePath, Fixture as Answers};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 

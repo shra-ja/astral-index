@@ -10,9 +10,9 @@ use super::{
     dialogs::{Dialogs, ask, file_name},
     local_time,
 };
-#[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
 use crate::storage::check_database;
+#[cfg(test)]
+use crate::tests::filesystem as fs;
 use chooser::DialogExt;
 use serde::Serialize;
 #[cfg(not(test))]
@@ -179,9 +179,9 @@ pub async fn save_backup<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture as Files};
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{VACUUM, check_script, ending_at, setup, step, text};
+    use crate::tests::filesystem::{self, Fixture as Files};
     use chooser::{Asked, FilePath, Fixture as Answers};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 

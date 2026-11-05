@@ -2,7 +2,7 @@
 //! player log, a history file or a backup to restore): read-only and only as a
 //! regular file, then read within its format's bound.
 #[cfg(test)]
-use crate::acquisition::tests::filesystem as fs;
+use crate::tests::filesystem as fs;
 #[cfg(not(test))]
 use std::fs;
 #[cfg(all(unix, not(test)))]
@@ -48,7 +48,7 @@ pub fn read(path: &Path, bound: usize) -> Result<Vec<u8>, FileError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::acquisition::tests::filesystem::{self, Fixture as Files};
+    use crate::tests::filesystem::{self, Fixture as Files};
 
     fn path() -> &'static Path {
         Path::new("selected/file")
