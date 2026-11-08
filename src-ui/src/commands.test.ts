@@ -92,6 +92,8 @@ test('known native kinds pass through and anything else becomes unavailable', as
     { kind: 'api_error', code: '-100' },
     { kind: 'api_error', code: 1.5 },
     { kind: 'network', code: 1 },
+    { kind: 'network', code: 'detail' },
+    { kind: 'history_not_upgraded', code: 1 },
     { kind: 'restore_refused' },
     { kind: 'restore_refused', code: 'unknown_reason' },
     { kind: 'restore_refused', code: 1 },

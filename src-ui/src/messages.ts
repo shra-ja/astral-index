@@ -95,7 +95,7 @@ function unsupported(found: Found) {
 /** Why a history file couldn’t be read or one of its accounts previewed. */
 export const historyFileFailure = (failure: Failure) =>
   failure.kind === 'unsupported_file'
-    ? unsupported(failure.found!)
+    ? unsupported(failure.found)
     : describe(failure, historyFileMessages)
 
 /** Where an import’s rolls come from, as its wording tells: retrieval from HoYoverse,
@@ -375,7 +375,7 @@ const importUnderWay = 'Finish or discard the import first, then restore the bac
 /** Why a backup can’t be restored; nothing of the history was changed. */
 export const restoreFailure = (failure: Failure) =>
   failure.kind === 'restore_refused'
-    ? refusals[failure.refusal!]
+    ? refusals[failure.refusal]
     : describe(failure, {
         restore_is_history: 'This is your current history, not a backup.',
         restore_failed: 'The backup couldn’t be checked. Try again.',

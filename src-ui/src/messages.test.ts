@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import type { Failure, FileAccountProblem, Kind, OtherGame, Refusal } from './commands'
+import type { Failure, FileAccountProblem, Found, OtherGame, PlainKind, Refusal } from './commands'
 import {
   accountProblem,
   automaticMessages,
@@ -25,7 +25,7 @@ import {
 } from './messages'
 
 // Validation failures read the same for automatic and file extraction.
-const validationFailures: [Kind, string][] = [
+const validationFailures: [PlainKind, string][] = [
   [
     'expired_key',
     'Your warp history link has expired. Open your warp history in the game to refresh it, then try again.',
@@ -43,7 +43,7 @@ const validationFailures: [Kind, string][] = [
 ]
 const retry = 'then try again, or choose the cache file below.'
 
-test.each<[Kind, string]>([
+test.each<[PlainKind, string]>([
   [
     'unsupported_host',
     'Automatic search needs Windows, or WSL with access to Windows. Choose the cache file below instead.',
@@ -69,7 +69,7 @@ test.each<[Kind, string]>([
   expect(describe({ kind }, automaticMessages)).toBe(message)
 })
 
-test.each<[Kind, string]>([
+test.each<[PlainKind, string]>([
   [
     'no_request',
     'That file doesn’t contain a warp history request. Check it’s the game’s data_2 file, and open your warp history in the game first.',
@@ -81,7 +81,7 @@ test.each<[Kind, string]>([
   expect(describe({ kind }, cacheFileMessages)).toBe(message)
 })
 
-const retrievalFailures: [Kind, string][] = [
+const retrievalFailures: [PlainKind, string][] = [
   [
     'history_too_large',
     'Your history is larger than the 16 MiB we can retrieve at once. Nothing was saved.',
@@ -117,7 +117,7 @@ test('retrieval says where it stopped, unless the user stopped it', () => {
   )
 })
 
-test.each<[Kind, string]>([
+test.each<[PlainKind, string]>([
   ['conflict', 'Some retrieved rolls differ from ones already saved. Nothing was saved.'],
   ['stale_preview', 'Your saved history changed since this review. Start retrieval again.'],
   ['no_preview', 'Nothing is waiting to be saved. Start retrieval again.'],
@@ -126,7 +126,7 @@ test.each<[Kind, string]>([
   expect(describe({ kind }, commitMessages)).toBe(message)
 })
 
-test.each<[Kind, string]>([
+test.each<[PlainKind, string]>([
   [
     'file_too_large',
     'That file is larger than 64 MiB, so it isn’t a supported history file. Nothing was saved.',
@@ -147,7 +147,7 @@ test.each<[Kind, string]>([
 })
 
 test('an unsupported history file says what it is and which versions are read', () => {
-  const read = (found: Failure['found']) => historyFileFailure({ kind: 'unsupported_file', found })
+  const read = (found: Found) => historyFileFailure({ kind: 'unsupported_file', found })
   expect(read({ format: 'uigf', major: 5, minor: 0 })).toBe(
     'This is a UIGF v5.0 file. Astral Index reads UIGF v4.0 to v4.2. Nothing was saved.',
   )
@@ -157,11 +157,13 @@ test('an unsupported history file says what it is and which versions are read', 
   expect(read({ format: 'srgf' })).toBe(
     'This is an SRGF file, the format UIGF v4 replaced. Export the history again as UIGF v4, then choose that file. Nothing was saved.',
   )
-  expect(titleOf({ kind: 'unsupported_file' })).toBe('This File’s Format Isn’t Supported')
+  expect(titleOf({ kind: 'unsupported_file', found: { format: 'srgf' } })).toBe(
+    'This File’s Format Isn’t Supported',
+  )
   expect(titleOf({ kind: 'not_history_file' })).toBe('Couldn’t Read That File')
 })
 
-test.each<[Kind, string]>([
+test.each<[PlainKind, string]>([
   ['conflict', 'Some of the file’s rolls differ from ones already saved. Nothing was saved.'],
   ['stale_preview', 'Your saved history changed since this review. Choose the file again.'],
   ['no_preview', 'Nothing is waiting to be saved. Choose the file again.'],
@@ -315,6 +317,7 @@ test('a file with no Star Rail accounts says what it holds instead', () => {
 
 test('an API error shows its code with the next step, at every step', () => {
   const failure: Failure = { kind: 'api_error', code: -100 }
+  expect(titleOf(failure)).toBe('HoYoverse Didn’t Accept the Link')
   const message =
     'HoYoverse didn’t accept your warp history link (error -100). Open your warp history in the game, then try again.'
   for (const messages of [automaticMessages, cacheFileMessages, commitMessages]) {
@@ -372,9 +375,8 @@ test('a save is headed by what was added, and says which account it went to', ()
   )
 })
 
-test.each<[Kind, string]>([
+test.each<[PlainKind, string]>([
   ['expired_key', 'The Warp History Link Has Expired'],
-  ['api_error', 'HoYoverse Didn’t Accept the Link'],
   ['unsupported_host', 'Couldn’t Find the Game Files'],
   ['discovery_failed', 'Couldn’t Find the Game Files'],
   ['no_game_data', 'Couldn’t Find the Game Files'],

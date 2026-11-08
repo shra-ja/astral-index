@@ -66,21 +66,21 @@ export interface Location {
   gacha_type: string
   page: number
 }
-/**
- * Only `api_error` carries a code: the first nonzero code HoYoverse returned; only
- * `restore_refused` carries a refusal: why the backup was refused; only
- * `history_not_upgraded` carries a copy: the name of the copy kept in the data folder
- * before the failed upgrade, or null when none could be kept; only `unsupported_file`
- * carries what the file was found to be.
- */
-export interface Failure {
-  kind: Kind
-  code?: number
-  refusal?: Refusal
-  copy?: string | null
-  found?: Found
-  location?: Location
-}
+/** The failures that carry what they are about: an API error the first nonzero code
+ * HoYoverse returned; a refused restore why it was refused; a history that couldn't be
+ * upgraded the name of the copy kept before it, or null when none could be; an
+ * unsupported file what it was found to be. */
+type Detailed = 'api_error' | 'restore_refused' | 'history_not_upgraded' | 'unsupported_file'
+/** A failure that carries nothing but its kind. */
+export type PlainKind = Exclude<Kind, Detailed>
+/** A native failure; retrieval's may say which category and page were being requested. */
+export type Failure = { location?: Location } & (
+  | { kind: PlainKind }
+  | { kind: 'api_error'; code: number }
+  | { kind: 'restore_refused'; refusal: Refusal }
+  | { kind: 'history_not_upgraded'; copy: string | null }
+  | { kind: 'unsupported_file'; found: Found }
+)
 
 /** Counts of new, already stored and conflicting rolls. */
 export interface Counts {
@@ -138,42 +138,47 @@ function foundOf(code: unknown): Found | undefined {
   return undefined
 }
 
-// Accept only the native shape; only API errors carry a code, and it must be an integer,
-// a refused restore's code must be a known refusal, a history that couldn't be
-// upgraded names its copy or none, and an unsupported file what it was found to be. A
-// location is kept only when both its category and page are valid.
+// A known kind with what it carries, if the native side sent that in its known shape: a
+// plain failure carries nothing, and each detailed one its own detail. Retrieval's
+// failures, plain or an API error, keep where they happened.
+function withDetail(
+  kind: (typeof nativeKinds)[number],
+  code: unknown,
+  at: { location?: Location },
+): Failure | undefined {
+  switch (kind) {
+    case 'api_error':
+      return Number.isSafeInteger(code) ? { kind, code: code as number, ...at } : undefined
+    case 'restore_refused': {
+      const refusal = refusals.find((candidate) => candidate === code)
+      return refusal && { kind, refusal }
+    }
+    case 'history_not_upgraded':
+      return code === null || typeof code === 'string' ? { kind, copy: code } : undefined
+    case 'unsupported_file': {
+      const found = foundOf(code)
+      return found && { kind, found }
+    }
+    default:
+      return code === undefined ? { kind, ...at } : undefined
+  }
+}
+
+// Accept only the native shape, anything else being unavailable. A location is kept
+// only when both its category and page are valid.
 function parse(error: unknown): Failure {
   const { kind, code, gacha_type, page } = (
     typeof error === 'object' && error !== null ? error : {}
   ) as Record<string, unknown>
-  const known = nativeKinds.find((candidate) => candidate === kind)
-  const refusal = refusals.find((candidate) => candidate === code)
-  const found = foundOf(code)
-  if (
-    !known ||
-    (known === 'api_error') !== Number.isSafeInteger(code) ||
-    (known === 'restore_refused' && !refusal) ||
-    (known === 'unsupported_file' && !found) ||
-    (known === 'history_not_upgraded' && code !== null && typeof code !== 'string')
-  )
-    return { kind: 'unavailable' }
-  if (known === 'history_not_upgraded') return { kind: known, copy: code as string | null }
-  if (known === 'unsupported_file') return { kind: known, found }
-  const failure: Failure =
-    known === 'api_error'
-      ? { kind: known, code: code as number }
-      : known === 'restore_refused'
-        ? { kind: known, refusal }
-        : { kind: known }
-  if (
+  const at =
     typeof gacha_type === 'string' &&
     categories.includes(gacha_type) &&
     Number.isSafeInteger(page) &&
     (page as number) > 0
-  ) {
-    failure.location = { gacha_type, page: page as number }
-  }
-  return failure
+      ? { location: { gacha_type, page: page as number } }
+      : {}
+  const known = nativeKinds.find((candidate) => candidate === kind)
+  return (known && withDetail(known, code, at)) ?? { kind: 'unavailable' }
 }
 
 // A rejection as a failure, telling the watchers whenever it says the history can't
@@ -181,7 +186,7 @@ function parse(error: unknown): Failure {
 function fail(error: unknown): Failure {
   const failure = parse(error)
   if (failure.kind === 'history_not_upgraded') {
-    for (const watcher of unavailableWatchers) watcher(failure.copy ?? null)
+    for (const watcher of unavailableWatchers) watcher(failure.copy)
   }
   return failure
 }
