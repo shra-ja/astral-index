@@ -236,6 +236,11 @@ test('retrieval failures keep only a valid category and page', async () => {
   expect(await retrieveHistory('full', () => undefined)).toEqual({
     failure: { kind: 'expired_key', location: { gacha_type: '2', page: 1 } },
   })
+  // An API error keeps its code and where retrieval stopped.
+  mockIPC(() => reject({ kind: 'api_error', code: -100, gacha_type: '2', page: 3 }))
+  expect(await retrieveHistory('full', () => undefined)).toEqual({
+    failure: { kind: 'api_error', code: -100, location: { gacha_type: '2', page: 3 } },
+  })
   for (const location of [
     {},
     { gacha_type: '99', page: 1 },

@@ -23,7 +23,6 @@ import {
 } from '../commands'
 import {
   automaticMessages,
-  cancelled,
   describe,
   cacheFileMessages,
   historyFileFailure,
@@ -82,11 +81,11 @@ export function useImport() {
   const source = ref<Source>('device')
   // Whether the rolls are retrieved or read from a history file, for the wording.
   const origin = computed<Origin>(() => (source.value === 'file' ? 'file' : 'retrieval'))
-  const copy = () => importCopy[origin.value]
+  const originCopy = computed(() => importCopy[origin.value])
   // A cancel is the user's choice, so it ends with a note rather than a failure.
   const failed = (failure: Failure, message: string): Outcome =>
     failure.kind === 'cancelled'
-      ? note(copy().cancelled)
+      ? note(originCopy.value.cancelled)
       : { kind: 'failed', title: titleOf(failure), message }
   const fileFailed = (failure: Failure) => failed(failure, historyFileFailure(failure))
   // New rolls only unless the user asks for the full history (decision 0015).
@@ -136,7 +135,7 @@ export function useImport() {
   ): Promise<Outcome | { review: Review }> {
     const failure = await extract()
     if (failure) return failed(failure, describe(failure, messages))
-    if (cancelling.value) return note(cancelled)
+    if (cancelling.value) return note(originCopy.value.cancelled)
     stage.value = 'downloading'
     status.value = 'Retrieving your warp history…'
     const result = await retrieveHistory(mode.value, (progress) => {
@@ -148,7 +147,7 @@ export function useImport() {
       return note('HoYoverse returned no warp history for this account. Nothing was saved.')
     if (!cancelling.value) return { review: result.retrieved }
     await discardImport()
-    return note(cancelled)
+    return note(originCopy.value.cancelled)
   }
 
   // Keep each category's last page and whether it ended up to date; a retry waits
@@ -295,7 +294,7 @@ export function useImport() {
       if ('summary' in result) forgetAccountChoice('honkai-star-rail')
       finish(
         'failure' in result
-          ? failed(result.failure, describe(result.failure, copy().commit))
+          ? failed(result.failure, describe(result.failure, originCopy.value.commit))
           : {
               kind: 'saved',
               summary: result.summary,
@@ -306,7 +305,7 @@ export function useImport() {
             },
       )
     },
-    discard: () => leave(note(copy().discarded)),
+    discard: () => leave(note(originCopy.value.discarded)),
     done: () => leave(note('Your saved history is already up to date.')),
     /** Leave the saved or failed screen for the start. */
     dismiss: () => {

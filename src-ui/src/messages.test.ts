@@ -224,17 +224,18 @@ test('a review’s wording follows what saving would do', () => {
     banners: 'These rolls are already saved, but 1 of them lacks its banner, which saving adds.',
     save: 'Save banner',
   })
+  // Done replaces Save when nothing is new.
   expect(copy(0)).toEqual({
     state: 'nothing',
     heading: 'Everything here is already saved',
     footnote: 'Nothing new to save. Your saved history already has these rolls.',
-    save: 'Save 0 rolls',
   })
-  // Conflicts block saving, whatever else is new.
-  expect(copy(2, 1, 5)).toMatchObject({
+  // Conflicts block saving, whatever else is new, so banners aren't mentioned.
+  expect(copy(2, 1, 5)).toEqual({
     state: 'conflicting',
     heading: 'Some rolls conflict with your saved history',
     footnote: 'Nothing can be saved while rolls conflict.',
+    save: 'Save 2 rolls',
   })
 })
 

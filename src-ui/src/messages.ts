@@ -1,4 +1,4 @@
-// What the retrieval flow tells the user about failures, progress and saving, and
+// What the import flow tells the user about failures, progress and saving, and
 // what the About dialog and Backup & Restore say when something couldn’t be done.
 import type {
   Counts,
@@ -19,7 +19,7 @@ import { localDateTime, noun, plural, serverName, warps } from './format'
 /** Messages by failure kind, for one step of the flow. */
 export type Messages = Partial<Record<Kind, string>>
 
-export const cancelled = 'Retrieval cancelled. Nothing was saved.'
+const cancelled = 'Retrieval cancelled. Nothing was saved.'
 const retry = 'then try again, or choose the cache file below.'
 const unexpected = 'Something went wrong. Please try again.'
 // Validation reads the same whichever way the link was found.
@@ -153,14 +153,16 @@ export function reviewCopy(counts: Counts) {
   const state = reviewState(counts)
   const one = added === 1
   const rolls = plural(inserted, 'roll')
-  const banners =
-    state === 'banners'
-      ? `These rolls are already saved, but ${added.toLocaleString('en')} of them ${one ? 'lacks its' : 'lack their'} banner, which saving adds.`
-      : `${added.toLocaleString('en')} of the skipped rolls also ${one ? 'adds its banner to a saved roll' : 'add their banner to saved rolls'} that lacked it.`
-  const copy = {
+  // Done replaces Save when nothing is new, and nothing can be saved while rolls
+  // conflict, so neither says what saving would add.
+  const copy: Record<
+    ReviewState,
+    { heading: string; footnote: string; banners?: string; save?: string }
+  > = {
     conflicting: {
       heading: 'Some rolls conflict with your saved history',
       footnote: 'Nothing can be saved while rolls conflict.',
+      save: `Save ${rolls}`,
     },
     nothing: {
       heading: 'Everything here is already saved',
@@ -168,22 +170,25 @@ export function reviewCopy(counts: Counts) {
     },
     banners: {
       heading: `${noun(added, 'Banner')} to add to ${plural(added, 'saved roll')}`,
+      banners: `These rolls are already saved, but ${added.toLocaleString('en')} of them ${one ? 'lacks its' : 'lack their'} banner, which saving adds.`,
       footnote: 'No new rolls. Saving adds banners only; nothing else changes.',
+      save: `Save ${noun(added, 'banner')}`,
     },
-    rolls: {
-      heading: `Ready to save ${plural(inserted, 'new roll')}`,
-      footnote:
-        added > 0
-          ? `Saving adds ${rolls} and ${plural(added, 'banner')}. Rolls already saved are never changed otherwise.`
-          : `Saving adds ${rolls}. Rolls already saved are never changed.`,
-    },
-  }[state]
-  return {
-    state,
-    ...copy,
-    ...(added > 0 && state !== 'conflicting' && { banners }),
-    save: state === 'banners' ? `Save ${noun(added, 'banner')}` : `Save ${rolls}`,
+    rolls:
+      added > 0
+        ? {
+            heading: `Ready to save ${plural(inserted, 'new roll')}`,
+            banners: `${added.toLocaleString('en')} of the skipped rolls also ${one ? 'adds its banner to a saved roll' : 'add their banner to saved rolls'} that lacked it.`,
+            footnote: `Saving adds ${rolls} and ${plural(added, 'banner')}. Rolls already saved are never changed otherwise.`,
+            save: `Save ${rolls}`,
+          }
+        : {
+            heading: `Ready to save ${plural(inserted, 'new roll')}`,
+            footnote: `Saving adds ${rolls}. Rolls already saved are never changed.`,
+            save: `Save ${rolls}`,
+          },
   }
+  return { state, ...copy[state] }
 }
 
 /** What a record lacks, by the UIGF field. */

@@ -11,7 +11,7 @@ const props = defineProps<{ review: Review; busy: boolean; origin: Origin; fileN
 const emit = defineEmits<{ save: []; discard: []; done: [] }>()
 
 const copy = computed(() => reviewCopy(props.review.summary))
-const fromOrigin = computed(() => importCopy[props.origin])
+const originCopy = computed(() => importCopy[props.origin])
 const conflicting = computed(() => copy.value.state === 'conflicting')
 const stats = computed(() => [
   ['New rolls', props.review.summary.inserted],
@@ -57,7 +57,7 @@ onBeforeUnmount(() => observer.disconnect())
           <span class="stat-value">{{ value.toLocaleString('en') }}</span>
         </div>
         <div class="stat">
-          <span class="stat-label">{{ fromOrigin.period }}</span>
+          <span class="stat-label">{{ originCopy.period }}</span>
           <span class="stat-value period"
             ><span>{{ serverDate(review.earliest) }} – </span
             ><span>{{ serverDate(review.latest) }}</span></span
@@ -72,7 +72,7 @@ onBeforeUnmount(() => observer.disconnect())
             <span class="stat-value">{{ value.toLocaleString('en') }}</span>
           </div>
           <div class="stat">
-            <span class="stat-label">{{ fromOrigin.period }}</span>
+            <span class="stat-label">{{ originCopy.period }}</span>
             <span class="stat-value period"
               ><span>{{ serverDate(review.earliest) }} – </span
               ><span>{{ serverDate(review.latest) }}</span></span
@@ -108,7 +108,7 @@ onBeforeUnmount(() => observer.disconnect())
       <!-- The native commit refuses conflicts, so Save stays disabled and points here. -->
       <div v-if="conflicting" class="conflicts panel">
         <p id="conflicts-note">
-          {{ fromOrigin.rolls }} differ from saved rolls with the same ID, so nothing can be saved.
+          {{ originCopy.rolls }} differ from saved rolls with the same ID, so nothing can be saved.
           Discarding them leaves this device unchanged.
         </p>
         <ul>
