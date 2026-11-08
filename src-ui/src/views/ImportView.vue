@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// The Import screen: the sources, then retrieval's progress, review and outcome, one
-// screen at a time. Only Star Rail has retrieval; Genshin Impact's sources say it is
-// coming soon. The flow's state comes from the shell, so it survives leaving this
-// screen. Each step focuses itself as it appears; the start refocuses the control
-// that began retrieval when it returns.
+// The Import screen: the sources, then retrieval's progress or a history file's
+// accounts, then the review and outcome, one screen at a time. Only Star Rail has
+// imports; Genshin Impact's sources say they are coming soon. The flow's state comes
+// from the shell, so it survives leaving this screen. Each step focuses itself as it
+// appears; the start refocuses the control that began the import when it returns.
 import { computed, inject, useTemplateRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import FileAccounts from '../components/import/FileAccounts.vue'
 import ImportFailed from '../components/import/ImportFailed.vue'
 import ImportSaved from '../components/import/ImportSaved.vue'
 import ImportSources from '../components/import/ImportSources.vue'
@@ -30,7 +31,12 @@ const {
   cancelling,
   searchDevice,
   chooseCache,
+  importFile,
   choosing,
+  fileName,
+  accounts,
+  reviewAccount,
+  closeFile,
   cancel,
   save,
   discard,
@@ -43,6 +49,7 @@ const available = computed(() => props.game === 'honkai-star-rail')
 const step = computed(() => {
   if (!available.value) return 'start'
   if (phase.value === 'acquiring') return 'progress'
+  if (accounts.value) return 'accounts'
   if (review.value) return 'review'
   return outcome.value?.kind === 'saved' || outcome.value?.kind === 'failed'
     ? outcome.value.kind
@@ -88,6 +95,7 @@ watch(
         @update:mode="chooseMode"
         @search="searchDevice"
         @choose="chooseCache"
+        @import="importFile"
       >
         <LastImport v-if="available && last" :last />
       </ImportSources>
@@ -101,9 +109,18 @@ watch(
         :cancelling
         @cancel="cancel"
       />
+      <FileAccounts
+        v-else-if="step === 'accounts'"
+        :name="fileName!"
+        :contents="accounts!"
+        :busy="phase !== 'picking'"
+        @review="reviewAccount"
+        @cancel="closeFile"
+      />
       <ReviewPanel
         v-else-if="step === 'review'"
         :review="review!"
+        :file-name="source === 'file' ? fileName : undefined"
         :busy="phase !== 'reviewing'"
         @save="save"
         @discard="discard"
@@ -122,6 +139,7 @@ watch(
         :busy="choosing"
         @retry="searchDevice"
         @choose="chooseCache"
+        @import="importFile"
         @back="dismiss"
       />
     </div>
@@ -137,8 +155,9 @@ watch(
   padding: clamp(24px, 4vh, 40px) var(--content-pad);
   overflow-y: auto;
 }
-/* The review lays out its own scrolling body and fixed footer. */
-.retrieval.review {
+/* The review and the file's accounts lay out their own scrolling body and fixed footer. */
+.retrieval.review,
+.retrieval.accounts {
   padding: 0;
   overflow: hidden;
 }

@@ -484,10 +484,7 @@ test.each<[string, FileContents]>([
   ['an account that can’t be imported', contents([{ uid: '800000001', kind: 'no_rolls' }])],
   ['a malformed UID', contents([importable('800000001')], { malformed_uids: 1 })],
   ['another game', contents([importable('800000001')], { other_games: ['hk4e'] })],
-  [
-    'two accounts',
-    contents([importable('800000001'), { uid: '800000002', kind: 'repeated' }]),
-  ],
+  ['two accounts', contents([importable('800000001'), { uid: '800000002', kind: 'repeated' }])],
 ])('a file with %s shows its accounts, to explain it', async (_, read) => {
   vi.mocked(readHistoryFile).mockResolvedValue({ contents: read })
   const flow = useRetrieval()

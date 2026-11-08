@@ -5,22 +5,44 @@ import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import type { Review } from '../../commands'
 import { plural, serverDate, serverName, warps } from '../../format'
 
-const props = defineProps<{ review: Review; busy: boolean }>()
+// `fileName` names the history file a file import's rolls come from.
+const props = defineProps<{ review: Review; busy: boolean; fileName?: string }>()
 const emit = defineEmits<{ save: []; discard: []; done: [] }>()
 
 const conflicting = computed(() => props.review.summary.conflicts > 0)
-// Save is offered only when something is new; Done replaces it otherwise.
-const nothingNew = computed(() => props.review.summary.inserted === 0 && !conflicting.value)
+const inserted = computed(() => props.review.summary.inserted)
+// Skipped rolls that give saved rolls their banner (pool ID), which saving adds.
+const banners = computed(() => props.review.summary.pool_ids_added)
+// Save is offered when something is new or a banner is added; Done replaces it otherwise.
+const nothingNew = computed(() => inserted.value === 0 && banners.value === 0 && !conflicting.value)
+const bannersOnly = computed(() => inserted.value === 0 && banners.value > 0 && !conflicting.value)
+const one = computed(() => banners.value === 1)
 const heading = computed(() => {
   if (conflicting.value) return 'Some rolls conflict with your saved history'
   if (nothingNew.value) return 'Everything here is already saved'
-  return `Ready to save ${plural(props.review.summary.inserted, 'new roll')}`
+  if (bannersOnly.value)
+    return `Banner${one.value ? '' : 's'} to add to ${plural(banners.value, 'saved roll')}`
+  return `Ready to save ${plural(inserted.value, 'new roll')}`
 })
+const bannerNote = computed(() =>
+  bannersOnly.value
+    ? `These rolls are already saved, but ${banners.value.toLocaleString('en')} of them ${one.value ? 'lacks its' : 'lack their'} banner, which saving adds.`
+    : `${banners.value.toLocaleString('en')} of the skipped rolls also ${one.value ? 'adds its banner to a saved roll' : 'add their banner to saved rolls'} that lacked it.`,
+)
 const footnote = computed(() => {
   if (conflicting.value) return 'Nothing can be saved while rolls conflict.'
   if (nothingNew.value) return 'Nothing new to save. Your saved history already has these rolls.'
-  return `Saving adds ${plural(props.review.summary.inserted, 'roll')}. Rolls already saved are never changed.`
+  if (bannersOnly.value) return 'No new rolls. Saving adds banners only; nothing else changes.'
+  if (banners.value > 0)
+    return `Saving adds ${plural(inserted.value, 'roll')} and ${plural(banners.value, 'banner')}. Rolls already saved are never changed otherwise.`
+  return `Saving adds ${plural(inserted.value, 'roll')}. Rolls already saved are never changed.`
 })
+const saveLabel = computed(() =>
+  bannersOnly.value
+    ? `Save banner${one.value ? '' : 's'}`
+    : `Save ${plural(inserted.value, 'roll')}`,
+)
+const periodLabel = computed(() => (props.fileName ? 'Period in file' : 'Retrieved period'))
 const stats = computed(() => [
   ['New rolls', props.review.summary.inserted],
   ['Existing rolls skipped', props.review.summary.duplicates],
@@ -56,6 +78,7 @@ onBeforeUnmount(() => observer.disconnect())
       <p class="account">
         <span class="label">Account</span> <span>UID {{ review.uid }}</span>
         <span class="chip">{{ serverName(review.server) }}</span>
+        <span v-if="fileName" class="label">from {{ fileName }}</span>
       </p>
 
       <div ref="figures" class="stats" :class="{ square }">
@@ -64,7 +87,7 @@ onBeforeUnmount(() => observer.disconnect())
           <span class="stat-value">{{ value.toLocaleString('en') }}</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Retrieved period</span>
+          <span class="stat-label">{{ periodLabel }}</span>
           <span class="stat-value period"
             ><span>{{ serverDate(review.earliest) }} – </span
             ><span>{{ serverDate(review.latest) }}</span></span
@@ -79,7 +102,7 @@ onBeforeUnmount(() => observer.disconnect())
             <span class="stat-value">{{ value.toLocaleString('en') }}</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Retrieved period</span>
+            <span class="stat-label">{{ periodLabel }}</span>
             <span class="stat-value period"
               ><span>{{ serverDate(review.earliest) }} – </span
               ><span>{{ serverDate(review.latest) }}</span></span
@@ -88,6 +111,7 @@ onBeforeUnmount(() => observer.disconnect())
         </div>
       </div>
       <p class="caption">Times are server time.</p>
+      <p v-if="banners > 0" class="banners panel">{{ bannerNote }}</p>
 
       <div class="panel">
         <h3 id="review-categories">By Category</h3>
@@ -114,8 +138,8 @@ onBeforeUnmount(() => observer.disconnect())
       <!-- The native commit refuses conflicts, so Save stays disabled and points here. -->
       <div v-if="conflicting" class="conflicts panel">
         <p id="conflicts-note">
-          These retrieved rolls differ from saved rolls with the same ID, so nothing can be saved.
-          Discarding them leaves this device unchanged.
+          These {{ fileName ? 'rolls from the file' : 'retrieved rolls' }} differ from saved rolls
+          with the same ID, so nothing can be saved. Discarding them leaves this device unchanged.
         </p>
         <ul>
           <li v-for="conflict in review.conflicts" :key="conflict.id">
@@ -139,7 +163,7 @@ onBeforeUnmount(() => observer.disconnect())
             :aria-describedby="conflicting ? 'conflicts-note' : undefined"
             @click="emit('save')"
           >
-            Save {{ plural(review.summary.inserted, 'roll') }}
+            {{ saveLabel }}
           </button>
         </template>
       </div>
@@ -312,6 +336,13 @@ td.none {
 }
 td + td {
   color: var(--text-muted);
+}
+.banners {
+  margin: 0;
+  padding: 12px 18px;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
 }
 .conflicts {
   padding: 16px 18px;

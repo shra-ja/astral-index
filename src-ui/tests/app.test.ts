@@ -143,17 +143,22 @@ type Progress = Channel<unknown>
 const progressOf = (args: Record<string, unknown>) => args.onProgress as Progress
 type Conflict = { id: string; gacha_type: string; time: string }
 // A synthetic review with every count in Stellar Warp.
-const review = (inserted: number, duplicates = 0, conflicts: Conflict[] = []) => ({
+const review = (
+  inserted: number,
+  duplicates = 0,
+  conflicts: Conflict[] = [],
+  pool_ids_added = 0,
+) => ({
   kind: 'review',
   uid: '100000001',
   server: 'synthetic-server',
   timezone: 8,
-  summary: { inserted, duplicates, conflicts: conflicts.length },
+  summary: { inserted, duplicates, conflicts: conflicts.length, pool_ids_added },
   new_five_star: inserted === 0 ? 0 : 1,
   new_four_star: inserted === 0 ? 0 : 2,
   categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type, index) =>
     index === 0
-      ? { gacha_type, inserted, duplicates, conflicts: conflicts.length }
+      ? { gacha_type, inserted, duplicates, conflicts: conflicts.length, pool_ids_added }
       : { gacha_type, inserted: 0, duplicates: 0, conflicts: 0, pool_ids_added: 0 },
   ),
   earliest: '2026-04-02 10:00:00',
@@ -711,7 +716,7 @@ test('a release build offers Star Rail alone, and Genshin Impact’s addresses r
   }
 })
 
-test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file import is coming soon', async () => {
+test('Star Rail offers retrieval from HoYoverse or a chosen cache file, and file import', async () => {
   await openImport()
   const start = screen('start')!
   expect(start.querySelector('h2')?.textContent).toBe('Add Warp History')
@@ -720,14 +725,126 @@ test('Star Rail offers retrieval from HoYoverse or a chosen cache file; file imp
   expect(findButton().type).toBe('button')
   expect(cachePicker().textContent?.trim()).toBe('Choose cache file…')
   expect(cachePicker().type).toBe('button')
-  const fileImport = button(start, 'Choose file…')
-  expect(fileImport.getAttribute('aria-disabled')).toBe('true')
-  expect(document.getElementById(fileImport.getAttribute('aria-describedby')!)?.textContent).toBe(
-    'Importing from a file isn’t available yet.',
-  )
+  expect(fileButton().type).toBe('button')
+  expect(fileButton().getAttribute('aria-disabled')).toBeNull()
   expect(note()).toBeUndefined()
   expect(shown('progress')).toBe(false)
   expect(start.textContent).not.toContain('Nothing is sent anywhere')
+})
+
+const fileButton = () => button(screen('start')!, 'Choose file…')
+const fileAccount = (uid: string, rolls = 2) => ({
+  uid,
+  kind: 'importable',
+  server: 'prod_official_asia',
+  rolls,
+})
+// A file with two importable accounts and one that can't be imported.
+const fileContents = {
+  accounts: [
+    fileAccount('800000001', 40),
+    fileAccount('800000002', 3),
+    { uid: '800000003', kind: 'no_rolls' },
+  ],
+  malformed_uids: 0,
+  other_games: [],
+}
+const fileServed = (handlers: Record<string, Handler> = {}) =>
+  serve({
+    choose_history_file: () => ({ kind: 'chosen', name: 'export.json' }),
+    read_history_file: () => fileContents,
+    preview_file_account: () => review(3),
+    ...handlers,
+  })
+
+test('a history file’s account is chosen, reviewed and saved, all on this device', async () => {
+  let previewed: unknown
+  const calls = fileServed({
+    preview_file_account: (args) => {
+      previewed = args
+      return review(3, 37, [], 5)
+    },
+    commit_import: () => ({ inserted: 3, duplicates: 37, conflicts: 0, pool_ids_added: 5 }),
+  })
+  await openImport()
+  await choose(fileButton())
+  const picker = screen('accounts')!
+  expect(heading()).toBe('Import')
+  expect(document.activeElement).toBe(picker.querySelector('h2'))
+  expect(picker.textContent).toContain('export.json holds 3 Star Rail accounts.')
+  const radios = [...picker.querySelectorAll<HTMLInputElement>('input[type="radio"]')]
+  expect(radios.map((radio) => radio.value)).toEqual(['800000001', '800000002'])
+  expect(picker.querySelector('.blocked')?.textContent).toContain('The file holds no rolls for it.')
+  radios[1].click()
+  await nextTick()
+  button(picker, 'Review account').click()
+  await settle()
+  expect(previewed).toEqual({ uid: '800000002' })
+  expect(heading()).toBe('Review Import')
+  expect(reviewPanel().querySelector('.account')?.textContent).toContain('from export.json')
+  expect(reviewPanel().textContent).toContain('Period in file')
+  expect(reviewPanel().querySelector('.banners')?.textContent).toBe(
+    '5 of the skipped rolls also add their banner to saved rolls that lacked it.',
+  )
+  reviewButton('Save 3 rolls').click()
+  await settle()
+  expect(screen('saved')!.querySelector('h2')?.textContent).toBe('3 Rolls Saved')
+  expect(flow(calls)).toEqual([
+    'choose_history_file',
+    'read_history_file',
+    'preview_file_account',
+    'commit_import',
+  ])
+})
+
+test('a file’s only account is reviewed at once, and banners alone can be saved', async () => {
+  const calls = fileServed({
+    read_history_file: () => ({ ...fileContents, accounts: [fileAccount('800000001')] }),
+    preview_file_account: () => review(0, 40, [], 12),
+    commit_import: () => ({ inserted: 0, duplicates: 40, conflicts: 0, pool_ids_added: 12 }),
+  })
+  await openImport()
+  await choose(fileButton())
+  expect(shown('accounts')).toBe(false)
+  expect(reviewHeading().textContent).toBe('Banners to add to 12 saved rolls')
+  reviewButton('Save banners').click()
+  await settle()
+  expect(screen('saved')!.querySelector('h2')?.textContent).toBe('Banners Added to 12 Saved Rolls')
+  expect(flow(calls)).toEqual([
+    'choose_history_file',
+    'read_history_file',
+    'preview_file_account',
+    'commit_import',
+  ])
+})
+
+test('leaving a file’s accounts drops them and returns to the file button', async () => {
+  const calls = fileServed()
+  await openImport()
+  await choose(fileButton())
+  button(screen('accounts')!, 'Cancel').click()
+  await settle()
+  expect(flow(calls)).toEqual(['choose_history_file', 'read_history_file', 'discard_import'])
+  expect(note()).toBe('Nothing was imported from the file.')
+  expect(document.activeElement).toBe(fileButton())
+})
+
+test('a file in an unsupported format fails, offering another file', async () => {
+  const calls = fileServed({
+    read_history_file: () => reject({ kind: 'unsupported_file', code: { format: 'srgf' } }),
+  })
+  await openImport()
+  await choose(fileButton())
+  expect(failedHeading().textContent).toBe('This File’s Format Isn’t Supported')
+  expect(screen('failed')!.textContent).toContain('This is an SRGF file')
+  expect(screen('failed')!.querySelector('#retry-cache-file')).toBeNull()
+  await choose(button(screen('failed')!, 'Choose another file…'))
+  expect(flow(calls)).toEqual([
+    'choose_history_file',
+    'read_history_file',
+    'choose_history_file',
+    'read_history_file',
+  ])
 })
 
 test('starting retrieval shows progress, then the review, then what was saved', async () => {

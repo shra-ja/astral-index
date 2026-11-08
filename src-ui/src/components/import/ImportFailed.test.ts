@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import ImportFailed from './ImportFailed.vue'
 
-const failed = (source: 'device' | 'cache', busy = false) =>
+const failed = (source: 'device' | 'cache' | 'file', busy = false) =>
   mount(ImportFailed, {
     props: { title: 'Couldn’t Find the Game Files', message: 'We found the game.', source, busy },
     attachTo: document.body,
@@ -46,4 +46,19 @@ test('while the cache file dialog is open, neither a retry nor another file can 
   expect(button(wrapper, 'Try again')!.attributes('aria-disabled')).toBe('true')
   expect(wrapper.get('#retry-cache-file').attributes('aria-disabled')).toBe('true')
   wrapper.unmount()
+})
+
+test('a history file that failed offers another file instead of a cache file', async () => {
+  const wrapper = failed('file')
+  expect(button(wrapper, 'Try again')).toBeUndefined()
+  expect(wrapper.find('#retry-cache-file').exists()).toBe(false)
+  await button(wrapper, 'Choose another file…')!.trigger('click')
+  expect(wrapper.emitted('import')).toEqual([[]])
+  await button(wrapper, 'Back')!.trigger('click')
+  expect(wrapper.emitted('back')).toHaveLength(1)
+  wrapper.unmount()
+  // While its dialog is open or the file is read, another can't start.
+  const busy = failed('file', true)
+  expect(button(busy, 'Choose another file…')!.attributes('aria-disabled')).toBe('true')
+  busy.unmount()
 })

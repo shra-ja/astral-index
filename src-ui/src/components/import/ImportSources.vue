@@ -1,27 +1,29 @@
 <script setup lang="ts">
 // Presentational: where rolls can come from. Retrieval is offered by searching this
 // device or from a chosen cache file, asking for new rolls only or the full history
-// (decision 0015); file import is coming soon. Reports the choices; the caller runs
-// retrieval. A note about the last retrieval can be shown above, and the caller's
+// (decision 0015), and file import from a chosen history file. Reports the choices;
+// the caller runs them. A note about the last retrieval can be shown above, and the caller's
 // content, such as the last import, below.
 import { CloudDownload, FileText } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
 import type { Mode } from '../../commands'
 import type { Source } from '../../composables/useRetrieval'
 import ActionCard from '../shared/ActionCard.vue'
-import AppTooltip from '../shared/AppTooltip.vue'
 import CachePicker from '../shared/CachePicker.vue'
 
-// `busy` is set while the cache file's dialog is open, when no source can start.
+// `busy` is set while a file's dialog is open or a history file is read, when no source
+// can start.
 defineProps<{ term: string; game: string; available: boolean; note?: string; busy?: boolean }>()
-const emit = defineEmits<{ search: []; choose: [] }>()
+const emit = defineEmits<{ search: []; choose: []; import: [] }>()
 const mode = defineModel<Mode>('mode', { required: true })
 const searchButton = useTemplateRef('searchButton')
 const picker = useTemplateRef('picker')
+const fileButton = useTemplateRef('fileButton')
 
 defineExpose({
-  /** Focus the control that started retrieval, once this is shown again. */
-  focus: (source: Source) => (source === 'device' ? searchButton.value! : picker.value!).focus(),
+  /** Focus the control that started the import, once this is shown again. */
+  focus: (source: Source) =>
+    ({ device: searchButton, cache: picker, file: fileButton })[source].value!.focus(),
 })
 </script>
 
@@ -115,17 +117,20 @@ defineExpose({
         :icon="FileText"
       >
         <template #actions>
-          <AppTooltip v-slot="{ tooltipId }" text="Importing from a file isn’t available yet.">
-            <button
-              type="button"
-              class="secondary"
-              aria-disabled="true"
-              :aria-describedby="tooltipId"
-            >
-              Choose file…
-            </button>
-          </AppTooltip>
-          <p class="hint">Coming soon</p>
+          <button
+            ref="fileButton"
+            type="button"
+            class="secondary"
+            :disabled="!available"
+            :aria-disabled="busy || undefined"
+            @click="emit('import')"
+          >
+            Choose file…
+          </button>
+          <p v-if="available" class="hint">
+            Star Rail accounts are read from UIGF v4.0 to v4.2 files.
+          </p>
+          <p v-else class="hint">File import for {{ game }} is coming soon.</p>
         </template>
       </ActionCard>
     </div>
