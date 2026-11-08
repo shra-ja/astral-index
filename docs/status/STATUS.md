@@ -13,6 +13,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   chooses, and checks it with HoYoverse. It then retrieves all six warp
   categories, either new rolls only (stopping at saved rolls) or the full
   history, with progress and Cancel. Nothing is saved until the user reviews it.
+- **History files:** "Choose file…" reads a UIGF v4.0 to v4.2 file's Star Rail
+  accounts and reviews the one chosen, also counting banners (pool IDs) it would
+  add; the others show why they can't be imported.
 - **Review and save:** the review shows the account, new, skipped and
   conflicting rolls per warp, and the period covered. Saving is one transaction;
   failures, cancellations and discards save nothing.
@@ -53,19 +56,16 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Import screen's file import (2026-11-08)
-
-`feat/import-screen-file`: 0030's Import screen, from the approved mockup. "Choose file…" reads a UIGF file and reviews its only importable account, or shows its accounts to choose from with why the others can't be imported; the review names the file, counts banners (pool IDs) added and stays savable when they are all it adds. Red: the new client, message, flow and component tests failed first (missing commands, messages and events), and the four app tests failed on the old view; green: all 455 frontend tests at 100% coverage, and a new end-to-end test picks the mock's file account by keyboard and saves it. From review: the flow is now `useImport`, and native failures a union keyed by kind (a plain failure sent with a code is refused, red first). Remaining: the user's StarDB check on Windows.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
   native side, and the wide-window test stalled in 2 of 38 CI attempts after decision 0034, never locally, until it stopped resizing the window on 2026-10-30; the cause is unknown. Live retrieval last worked on Windows on 2026-10-29.
 - Browsers may flag the unsigned executable until it is signed
   ([0053](../product/features/0053-code-signing.md)).
-- No history-file import, Genshin Impact adapter or banner catalogue yet, so
-  banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
-  colours use observed rather than published soft pity (decision 0020).
+- History-file import is checked only with synthetic files, not a real export.
+- No Genshin Impact adapter or banner catalogue yet, so banners show placeholders
+  and pity has no guarantees or 50/50 outcomes. Pity colours use observed rather
+  than published soft pity (decision 0020).
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
   grey in an empty field.
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, finishing with the Import screen, from an approved mockup.
+Next: [0030](../product/features/0030-history-file-import.md)'s Windows check, a real StarDB export imported on Windows over retrieved history, which the user runs; it closes the feature.
 
 ## Keeping this file current
 
@@ -232,3 +232,5 @@ research, under a "From" heading.
   refused without waiting.
 - [2026-11-05: shared filesystem test double](history/2026-11-05-shared-filesystem-double.md):
   the in-memory filesystem double moved to the crate's own test module.
+- [2026-11-08: Import screen's file import](history/2026-11-08-import-screen-file.md):
+  the Import screen reads a UIGF file and reviews one of its Star Rail accounts.
