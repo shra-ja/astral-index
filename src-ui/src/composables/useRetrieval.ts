@@ -1,6 +1,7 @@
-// The retrieval flow: validate the saved warp history link, retrieve history with
-// progress, then save or discard it after review. Components render its state and
-// call its actions; only this flow makes the native calls.
+// The import flow: validate the saved warp history link and retrieve history with
+// progress, or read a history file and pick one of its accounts, then save or discard
+// it after review. Components render its state and call its actions; only this flow
+// makes the native calls.
 import { readonly, ref, shallowReadonly, shallowRef } from 'vue'
 import {
   cancelAcquisition,
@@ -8,10 +9,14 @@ import {
   discardImport,
   extractAutomatically,
   chooseCacheFile,
+  chooseHistoryFile,
   extractFromFile,
+  previewFileAccount,
+  readHistoryFile,
   retrieveHistory,
   type Counts,
   type Failure,
+  type FileContents,
   type Mode,
   type Progress,
   type Review,
@@ -22,6 +27,10 @@ import {
   commitMessages,
   describe,
   cacheFileMessages,
+  fileCommitMessages,
+  historyFileFailure,
+  noStarRailHistory,
+  noStarRailTitle,
   progressText,
   retrievalFailure,
   titleOf,
@@ -30,12 +39,15 @@ import {
 import { forgetAccountChoice } from './useHistory'
 
 /**
- * `acquiring` runs from validation until the review; `saving` and `leaving` keep
- * the review shown while its choice is carried out.
+ * `acquiring` runs from validation until the review; `picking` shows a history file's
+ * accounts, and `previewing` runs while one is previewed; `saving` and `leaving` keep
+ * the review or the accounts shown while their choice is carried out.
  */
-export type Phase = 'idle' | 'acquiring' | 'reviewing' | 'saving' | 'leaving'
-/** How the warp history link was found: by searching this device, or from a chosen file. */
-export type Source = 'device' | 'cache'
+export type Phase =
+  'idle' | 'acquiring' | 'picking' | 'previewing' | 'reviewing' | 'saving' | 'leaving'
+/** Where the rolls come from: retrieval with the link found by searching this device or
+ * in a chosen cache file, or a chosen history file. */
+export type Source = 'device' | 'cache' | 'file'
 /** While acquiring: still finding and checking the link, or downloading history. */
 export type Stage = 'finding' | 'downloading'
 /**
@@ -65,13 +77,14 @@ export type Outcome =
   | { kind: 'note'; message: string }
 
 const note = (message: string): Outcome => ({ kind: 'note', message })
+const fileCancelled = 'File import cancelled. Nothing was saved.'
 // A cancel is the user's choice, so it ends with a note rather than a failure.
-function failed(failure: Failure, message: string): Outcome {
+function failed(failure: Failure, message: string, cancelNote = cancelled): Outcome {
   return failure.kind === 'cancelled'
-    ? note(cancelled)
+    ? note(cancelNote)
     : { kind: 'failed', title: titleOf(failure), message }
 }
-
+const fileFailed = (failure: Failure) => failed(failure, historyFileFailure(failure), fileCancelled)
 export function useRetrieval() {
   const phase = ref<Phase>('idle')
   const source = ref<Source>('device')
@@ -85,8 +98,13 @@ export function useRetrieval() {
   const outcome = ref<Outcome>()
   // Set while the user has asked to stop the running acquisition.
   const cancelling = ref(false)
-  // Set while the native dialog for the cache file is open, when nothing else starts.
+  // Set while a file's native dialog is open, or the history file is read, when nothing
+  // else starts.
   const choosing = ref(false)
+  // The history file chosen last, by name, for its accounts and review.
+  const fileName = ref<string>()
+  // The history file's accounts, while one is to be picked.
+  const accounts = shallowRef<FileContents>()
 
   // Only one acquisition runs at a time: callers offer these only while idle.
   async function acquire(
@@ -149,8 +167,51 @@ export function useRetrieval() {
     }
   }
 
+  // Preview one of the file's accounts for the review; the file is then used up.
+  async function preview(uid: string) {
+    phase.value = 'previewing'
+    const result = await previewFileAccount(uid)
+    accounts.value = undefined
+    if ('failure' in result) return finish(fileFailed(result.failure))
+    phase.value = 'reviewing'
+    review.value = result.review
+  }
+
+  // Choose the history file and read it natively, then review its only account or
+  // show its accounts; a closed dialog changes nothing.
+  async function openFile() {
+    const choice = await chooseHistoryFile()
+    if ('cancelled' in choice) return
+    source.value = 'file'
+    outcome.value = undefined
+    if ('failure' in choice) return finish(fileFailed(choice.failure))
+    fileName.value = choice.chosen
+    const read = await readHistoryFile()
+    if ('failure' in read) return finish(fileFailed(read.failure))
+    const { contents } = read
+    const [only, ...others] = contents.accounts
+    if (!only)
+      return finish({
+        kind: 'failed',
+        title: noStarRailTitle,
+        message: noStarRailHistory(contents),
+      })
+    // A lone account that can be imported, with nothing left out, has nothing to
+    // choose or explain, so it is reviewed at once.
+    if (
+      only.kind === 'importable' &&
+      others.length === 0 &&
+      contents.malformed_uids === 0 &&
+      contents.other_games.length === 0
+    )
+      return preview(only.uid)
+    accounts.value = contents
+    phase.value = 'picking'
+  }
+
   function finish(ending: Outcome) {
     review.value = undefined
+    accounts.value = undefined
     phase.value = 'idle'
     status.value = ''
     outcome.value = ending
@@ -174,6 +235,8 @@ export function useRetrieval() {
     outcome: shallowReadonly(outcome),
     cancelling: readonly(cancelling),
     choosing: readonly(choosing),
+    fileName: readonly(fileName),
+    accounts: shallowReadonly(accounts),
     searchDevice: async () => {
       if (choosing.value) return
       await acquire(
@@ -202,6 +265,16 @@ export function useRetrieval() {
         cacheFileMessages,
       )
     },
+    importFile: async () => {
+      if (choosing.value) return
+      choosing.value = true
+      await openFile()
+      choosing.value = false
+    },
+    /** Preview the file's account picked for review. */
+    reviewAccount: preview,
+    /** Leave the file's accounts without importing; the native side drops them. */
+    closeFile: () => leave(note('Nothing was imported from the file.')),
     // Progress stops showing once the user asks to cancel; if the request cannot be
     // sent, retrieval carries on and can be cancelled again.
     cancel: async () => {
@@ -219,7 +292,13 @@ export function useRetrieval() {
       if ('summary' in result) forgetAccountChoice('honkai-star-rail')
       finish(
         'failure' in result
-          ? failed(result.failure, describe(result.failure, commitMessages))
+          ? failed(
+              result.failure,
+              describe(
+                result.failure,
+                source.value === 'file' ? fileCommitMessages : commitMessages,
+              ),
+            )
           : {
               kind: 'saved',
               summary: result.summary,
@@ -230,7 +309,14 @@ export function useRetrieval() {
             },
       )
     },
-    discard: () => leave(note('Discarded the retrieved history. Nothing was saved.')),
+    discard: () =>
+      leave(
+        note(
+          source.value === 'file'
+            ? 'Discarded the file’s rolls. Nothing was saved.'
+            : 'Discarded the retrieved history. Nothing was saved.',
+        ),
+      ),
     done: () => leave(note('Your saved history is already up to date.')),
     /** Leave the saved or failed screen for the start. */
     dismiss: () => {

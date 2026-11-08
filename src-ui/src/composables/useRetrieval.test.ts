@@ -2,12 +2,17 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import {
   cancelAcquisition,
   chooseCacheFile,
+  chooseHistoryFile,
   commitImport,
   discardImport,
   extractAutomatically,
   extractFromFile,
+  previewFileAccount,
+  readHistoryFile,
   retrieveHistory,
   type Failure,
+  type FileAccount,
+  type FileContents,
   type Progress,
   type Retrieved,
   type Review,
@@ -24,6 +29,7 @@ beforeEach(() => {
   vi.mocked(extractFromFile).mockResolvedValue(undefined)
   vi.mocked(cancelAcquisition).mockResolvedValue(undefined)
   vi.mocked(discardImport).mockResolvedValue(undefined)
+  vi.mocked(chooseHistoryFile).mockResolvedValue({ chosen: 'export.json' })
 })
 
 // Resolve the mocked commands and the flow's follow-up steps.
@@ -392,4 +398,221 @@ test('while the dialog is open, nothing else starts: no second dialog and no sea
   vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
   await flow.chooseCache()
   expect(flow.choosing.value).toBe(false)
+})
+
+// A history file's accounts: importable ones by UID, then anything else given.
+const importable = (uid: string): FileAccount => ({
+  uid,
+  kind: 'importable',
+  server: 'prod_official_asia',
+  rolls: 2,
+})
+const contents = (accounts: FileAccount[], more: Partial<FileContents> = {}): FileContents => ({
+  accounts,
+  malformed_uids: 0,
+  other_games: [],
+  ...more,
+})
+// A flow showing the accounts of a file holding two importable ones.
+async function picking() {
+  vi.mocked(readHistoryFile).mockResolvedValue({
+    contents: contents([importable('800000001'), importable('800000002')]),
+  })
+  const flow = useRetrieval()
+  await flow.importFile()
+  return flow
+}
+
+test('a history file is chosen, read natively and its accounts shown to pick from', async () => {
+  const dialog = pending<Awaited<ReturnType<typeof chooseHistoryFile>>>()
+  vi.mocked(chooseHistoryFile).mockReturnValue(dialog.promise)
+  const reading = pending<Awaited<ReturnType<typeof readHistoryFile>>>()
+  vi.mocked(readHistoryFile).mockReturnValue(reading.promise)
+  const flow = useRetrieval()
+  const importing = flow.importFile()
+  // Nothing shows while the dialog is open or the file is read, and nothing else starts.
+  expect(flow.choosing.value).toBe(true)
+  await flow.searchDevice()
+  await flow.chooseCache()
+  await flow.importFile()
+  dialog.resolve({ chosen: 'export.json' })
+  await settle()
+  expect(flow.phase.value).toBe('idle')
+  expect(flow.choosing.value).toBe(true)
+  expect(flow.source.value).toBe('file')
+  expect(flow.fileName.value).toBe('export.json')
+  const read = contents([importable('800000001'), importable('800000002')])
+  reading.resolve({ contents: read })
+  await importing
+  expect(flow.choosing.value).toBe(false)
+  expect(flow.phase.value).toBe('picking')
+  expect(flow.accounts.value).toEqual(read)
+  expect(chooseHistoryFile).toHaveBeenCalledTimes(1)
+  expect(readHistoryFile).toHaveBeenCalledTimes(1)
+  expect(previewFileAccount).not.toHaveBeenCalled()
+  expect(extractAutomatically).not.toHaveBeenCalled()
+  expect(chooseCacheFile).not.toHaveBeenCalled()
+})
+
+test('picking an account previews it for the review, and the file is used up', async () => {
+  const flow = await picking()
+  const preview = pending<Awaited<ReturnType<typeof previewFileAccount>>>()
+  vi.mocked(previewFileAccount).mockReturnValue(preview.promise)
+  void flow.reviewAccount('800000002')
+  expect(flow.phase.value).toBe('previewing')
+  expect(previewFileAccount).toHaveBeenCalledExactlyOnceWith('800000002')
+  preview.resolve({ review: review(2) })
+  await settle()
+  expect(flow.phase.value).toBe('reviewing')
+  expect(flow.review.value).toEqual(review(2))
+  expect(flow.accounts.value).toBeUndefined()
+  expect(flow.fileName.value).toBe('export.json')
+})
+
+test('a file holding one importable account and nothing left out goes straight to its review', async () => {
+  vi.mocked(readHistoryFile).mockResolvedValue({ contents: contents([importable('800000001')]) })
+  vi.mocked(previewFileAccount).mockResolvedValue({ review: review(2) })
+  const flow = useRetrieval()
+  await flow.importFile()
+  expect(previewFileAccount).toHaveBeenCalledExactlyOnceWith('800000001')
+  expect(flow.phase.value).toBe('reviewing')
+  expect(flow.accounts.value).toBeUndefined()
+  expect(flow.choosing.value).toBe(false)
+})
+
+test.each<[string, FileContents]>([
+  ['an account that can’t be imported', contents([{ uid: '800000001', kind: 'no_rolls' }])],
+  ['a malformed UID', contents([importable('800000001')], { malformed_uids: 1 })],
+  ['another game', contents([importable('800000001')], { other_games: ['hk4e'] })],
+  [
+    'two accounts',
+    contents([importable('800000001'), { uid: '800000002', kind: 'repeated' }]),
+  ],
+])('a file with %s shows its accounts, to explain it', async (_, read) => {
+  vi.mocked(readHistoryFile).mockResolvedValue({ contents: read })
+  const flow = useRetrieval()
+  await flow.importFile()
+  expect(flow.phase.value).toBe('picking')
+  expect(flow.accounts.value).toEqual(read)
+  expect(previewFileAccount).not.toHaveBeenCalled()
+})
+
+test('a file with no Star Rail accounts to list fails, saying what it holds', async () => {
+  vi.mocked(readHistoryFile).mockResolvedValue({
+    contents: contents([], { other_games: ['hk4e'] }),
+  })
+  const flow = useRetrieval()
+  await flow.importFile()
+  expect(flow.phase.value).toBe('idle')
+  expect(flow.accounts.value).toBeUndefined()
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'No Star Rail History in This File',
+    message: expect.stringContaining('The file holds only Genshin Impact history'),
+  })
+})
+
+test('a history file that can’t be chosen or read is explained as a history file', async () => {
+  const flow = useRetrieval()
+  vi.mocked(chooseHistoryFile).mockResolvedValue({ failure: { kind: 'invalid_file' } })
+  await flow.importFile()
+  expect(flow.source.value).toBe('file')
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Couldn’t Read That File',
+    message: 'That file couldn’t be read. Check that it’s still there, then choose it again.',
+  })
+  expect(readHistoryFile).not.toHaveBeenCalled()
+  expect(flow.choosing.value).toBe(false)
+  vi.mocked(chooseHistoryFile).mockResolvedValue({ chosen: 'export.json' })
+  vi.mocked(readHistoryFile).mockResolvedValue({
+    failure: { kind: 'unsupported_file', found: { format: 'srgf' } },
+  })
+  await flow.importFile()
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'This File’s Format Isn’t Supported',
+    message: expect.stringContaining('This is an SRGF file'),
+  })
+  expect(flow.choosing.value).toBe(false)
+  // Another import starting meanwhile cancels the read, which is a note.
+  vi.mocked(readHistoryFile).mockResolvedValue({ failure: { kind: 'cancelled' } })
+  await flow.importFile()
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'File import cancelled. Nothing was saved.',
+  })
+})
+
+test('closing the history file’s dialog leaves the screen as it was', async () => {
+  const flow = useRetrieval()
+  vi.mocked(chooseHistoryFile).mockResolvedValue({ cancelled: true })
+  await flow.importFile()
+  expect(flow.phase.value).toBe('idle')
+  expect(flow.source.value).toBe('device')
+  expect(flow.outcome.value).toBeUndefined()
+  expect(flow.choosing.value).toBe(false)
+  expect(readHistoryFile).not.toHaveBeenCalled()
+})
+
+test('a failed preview is explained, and the accounts are gone', async () => {
+  const flow = await picking()
+  vi.mocked(previewFileAccount).mockResolvedValue({ failure: { kind: 'storage' } })
+  await flow.reviewAccount('800000001')
+  expect(flow.phase.value).toBe('idle')
+  expect(flow.accounts.value).toBeUndefined()
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Nothing Was Saved',
+    message: 'We couldn’t open the history saved on this device. Nothing was changed.',
+  })
+})
+
+test('leaving the accounts drops the file without importing anything', async () => {
+  const flow = await picking()
+  const discarding = pending<undefined>()
+  vi.mocked(discardImport).mockReturnValue(discarding.promise)
+  void flow.closeFile()
+  expect(flow.phase.value).toBe('leaving')
+  discarding.resolve(undefined)
+  await settle()
+  expect(previewFileAccount).not.toHaveBeenCalled()
+  expect(flow.phase.value).toBe('idle')
+  expect(flow.accounts.value).toBeUndefined()
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'Nothing was imported from the file.',
+  })
+})
+
+// The file's account, previewed and shown for review.
+async function reviewingFile() {
+  vi.mocked(readHistoryFile).mockResolvedValue({ contents: contents([importable('800000001')]) })
+  vi.mocked(previewFileAccount).mockResolvedValue({ review: review(2) })
+  const flow = useRetrieval()
+  await flow.importFile()
+  return flow
+}
+
+test('a file’s account saves as retrieval’s does, explaining failures as a file', async () => {
+  let flow = await reviewingFile()
+  const summary = { inserted: 2, duplicates: 0, conflicts: 0, pool_ids_added: 1 }
+  vi.mocked(commitImport).mockResolvedValue({ summary })
+  await flow.save()
+  expect(forgetAccountChoice).toHaveBeenCalledExactlyOnceWith('honkai-star-rail')
+  expect(flow.outcome.value).toEqual(expect.objectContaining({ kind: 'saved', summary }))
+  flow = await reviewingFile()
+  vi.mocked(commitImport).mockResolvedValue({ failure: { kind: 'stale_preview' } })
+  await flow.save()
+  expect(flow.outcome.value).toEqual({
+    kind: 'failed',
+    title: 'Nothing Was Saved',
+    message: 'Your saved history changed since this review. Choose the file again.',
+  })
+  flow = await reviewingFile()
+  await flow.discard()
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'Discarded the file’s rolls. Nothing was saved.',
+  })
 })
