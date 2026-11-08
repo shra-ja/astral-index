@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
-import type { Download } from '../../composables/useRetrieval'
+import type { Download } from '../../composables/useImport'
 import RetrievalProgress from './RetrievalProgress.vue'
 
 type Props = {

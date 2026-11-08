@@ -2,12 +2,12 @@
 // Presentational: where rolls can come from. Retrieval is offered by searching this
 // device or from a chosen cache file, asking for new rolls only or the full history
 // (decision 0015), and file import from a chosen history file. Reports the choices;
-// the caller runs them. A note about the last retrieval can be shown above, and the caller's
-// content, such as the last import, below.
+// the caller runs them. A note about the last import can be shown above, and the
+// caller's content, such as the last import's summary, below.
 import { CloudDownload, FileText } from '@lucide/vue'
 import { useTemplateRef } from 'vue'
 import type { Mode } from '../../commands'
-import type { Source } from '../../composables/useRetrieval'
+import type { Source } from '../../composables/useImport'
 import ActionCard from '../shared/ActionCard.vue'
 import CachePicker from '../shared/CachePicker.vue'
 

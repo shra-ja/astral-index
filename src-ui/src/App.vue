@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The app shell: the sidebar beside the current screen, and the About dialog over
-// it. It owns the retrieval flow, so a retrieval keeps running while another screen
-// is shown.
+// it. It owns the import flow, so a retrieval keeps running, and a file's accounts or
+// a review stay held, while another screen is shown.
 import { computed, inject, provide, shallowRef, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import AboutDialog from './components/about/AboutDialog.vue'
@@ -9,15 +9,15 @@ import AppSidebar from './components/layout/AppSidebar.vue'
 import { useAbout } from './composables/useAbout'
 import { availabilityKey } from './composables/useHistoryAvailability'
 import SizeOverlay from './components/layout/SizeOverlay.vue'
-import { retrievalKey } from './composables/retrieval'
-import { useRetrieval } from './composables/useRetrieval'
+import { importFlowKey } from './composables/importFlow'
+import { useImport } from './composables/useImport'
 import { useWindowSize } from './composables/useWindowSize'
 import { sizeOverlayRequested } from './dev-options'
 import { games } from './features'
 import { openingGame } from './router'
 import type { Game, Screen } from './format'
 
-provide(retrievalKey, useRetrieval())
+provide(importFlowKey, useImport())
 const route = useRoute()
 const screen = computed(() => route.name as Screen)
 // The game shown last: an app-wide screen names none, and the sidebar's View group

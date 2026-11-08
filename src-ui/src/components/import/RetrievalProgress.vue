@@ -6,7 +6,7 @@
 // row can't say it (before the first page, during a retry wait, while cancelling).
 // Cancel takes focus as this appears and reports the user's choice.
 import { computed, onMounted, useTemplateRef } from 'vue'
-import type { Download, Source, Stage } from '../../composables/useRetrieval'
+import type { Download, Source, Stage } from '../../composables/useImport'
 import { plural, retrievalOrder, warps } from '../../format'
 import StatusCard from '../shared/StatusCard.vue'
 

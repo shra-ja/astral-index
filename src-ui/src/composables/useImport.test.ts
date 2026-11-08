@@ -18,7 +18,7 @@ import {
   type Review,
 } from '../commands'
 import { forgetAccountChoice } from './useHistory'
-import { useRetrieval } from './useRetrieval'
+import { useImport } from './useImport'
 
 vi.mock('../commands')
 vi.mock('./useHistory')
@@ -71,14 +71,14 @@ function pendingRetrieval() {
 // A flow showing the review of a retrieval with the given number of new rolls.
 async function reviewing(inserted = 2) {
   vi.mocked(retrieveHistory).mockResolvedValue(retrieved(inserted))
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   return flow
 }
 
 test('starts idle, with nothing to say or review', () => {
-  const flow = useRetrieval()
+  const flow = useImport()
   expect(flow.phase.value).toBe('idle')
   expect(flow.status.value).toBe('')
   expect(flow.review.value).toBeUndefined()
@@ -90,7 +90,7 @@ test('searching the device validates, retrieves with progress, then shows the re
   const extraction = pending<Failure | undefined>()
   vi.mocked(extractAutomatically).mockReturnValue(extraction.promise)
   const retrieval = pendingRetrieval()
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   expect(flow.phase.value).toBe('acquiring')
   expect(flow.source.value).toBe('device')
@@ -112,7 +112,7 @@ test('searching the device validates, retrieves with progress, then shows the re
 
 test('downloading keeps each category’s last page, the rolls so far and any retry wait', async () => {
   const retrieval = pendingRetrieval()
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   // Nothing has been requested yet.
@@ -145,7 +145,7 @@ test('downloading keeps each category’s last page, the rolls so far and any re
 
 test('retrieval asks for new rolls only, unless the full history is chosen', async () => {
   vi.mocked(retrieveHistory).mockResolvedValue({ retrieved: { kind: 'no_history' } })
-  const flow = useRetrieval()
+  const flow = useImport()
   expect(flow.mode.value).toBe('new')
   await flow.searchDevice()
   flow.chooseMode('full')
@@ -156,7 +156,7 @@ test('retrieval asks for new rolls only, unless the full history is chosen', asy
 
 test('a retry before the first page leaves nothing to show', async () => {
   const retrieval = pendingRetrieval()
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   retrieval.progress({ kind: 'retry_pending', delay_ms: 2000 })
@@ -168,7 +168,7 @@ test('a chosen file is read instead of searching, and its failures are explained
   vi.mocked(chooseCacheFile).mockReturnValue(new Promise((resolve) => (answer = resolve)))
   let extracted: (failure: Failure) => void = () => undefined
   vi.mocked(extractFromFile).mockReturnValue(new Promise((resolve) => (extracted = resolve)))
-  const flow = useRetrieval()
+  const flow = useImport()
   // Nothing shows while the native dialog is open.
   const choosing = flow.chooseCache()
   await settle()
@@ -192,7 +192,7 @@ test('a chosen file is read instead of searching, and its failures are explained
 
 test('a failed search is explained, and nothing is retrieved', async () => {
   vi.mocked(extractAutomatically).mockResolvedValue({ kind: 'no_cache' })
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   expect(flow.phase.value).toBe('idle')
@@ -208,7 +208,7 @@ test('a failed retrieval says where it stopped', async () => {
   vi.mocked(retrieveHistory).mockResolvedValue({
     failure: { kind: 'network', location: { gacha_type: '1', page: 3 } },
   })
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   expect(flow.phase.value).toBe('idle')
@@ -222,7 +222,7 @@ test('a failed retrieval says where it stopped', async () => {
 
 test('no history is reported without a review', async () => {
   vi.mocked(retrieveHistory).mockResolvedValue({ retrieved: { kind: 'no_history' } })
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   expect(flow.phase.value).toBe('idle')
@@ -236,7 +236,7 @@ test('no history is reported without a review', async () => {
 test('cancelling during validation stops before retrieval, even if validation succeeds', async () => {
   const extraction = pending<Failure | undefined>()
   vi.mocked(extractAutomatically).mockReturnValue(extraction.promise)
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   void flow.cancel()
   expect(flow.cancelling.value).toBe(true)
@@ -254,7 +254,7 @@ test('cancelling during validation stops before retrieval, even if validation su
 
 test('a cancel that the native side reports as a failure is a note, not a failure', async () => {
   vi.mocked(extractAutomatically).mockResolvedValue({ kind: 'cancelled' })
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   expect(flow.outcome.value).toEqual({
@@ -265,7 +265,7 @@ test('a cancel that the native side reports as a failure is a note, not a failur
 
 test('a cancel that arrives as retrieval finishes discards it, and the next attempt starts afresh', async () => {
   const retrieval = pendingRetrieval()
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   void flow.cancel()
@@ -288,7 +288,7 @@ test('a cancel that arrives as retrieval finishes discards it, and the next atte
 test('if cancelling cannot be sent, retrieval carries on and can be cancelled again', async () => {
   vi.mocked(cancelAcquisition).mockResolvedValue({ kind: 'unavailable' })
   const retrieval = pendingRetrieval()
-  const flow = useRetrieval()
+  const flow = useImport()
   void flow.searchDevice()
   await settle()
   await flow.cancel()
@@ -359,7 +359,7 @@ test.each([
 
 test('closing the dialog without choosing leaves the screen as it was', async () => {
   vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.chooseCache()
   expect(flow.phase.value).toBe('idle')
   expect(flow.outcome.value).toBeUndefined()
@@ -368,7 +368,7 @@ test('closing the dialog without choosing leaves the screen as it was', async ()
 
 test('a dialog that fails is explained as the file', async () => {
   vi.mocked(chooseCacheFile).mockResolvedValue({ failure: { kind: 'invalid_file' } })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.chooseCache()
   expect(flow.source.value).toBe('cache')
   expect(flow.outcome.value).toEqual({
@@ -383,21 +383,21 @@ test('while the dialog is open, nothing else starts: no second dialog and no sea
   vi.mocked(extractFromFile).mockResolvedValue({ kind: 'no_request' })
   let answer: (choice: { chosen: string }) => void = () => undefined
   vi.mocked(chooseCacheFile).mockReturnValue(new Promise((resolve) => (answer = resolve)))
-  const flow = useRetrieval()
+  const flow = useImport()
   const choosing = flow.chooseCache()
-  expect(flow.choosing.value).toBe(true)
+  expect(flow.busy.value).toBe(true)
   await flow.chooseCache()
   await flow.searchDevice()
   expect(chooseCacheFile).toHaveBeenCalledTimes(1)
   expect(extractAutomatically).not.toHaveBeenCalled()
   answer({ chosen: 'data_2' })
   await choosing
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
   expect(extractFromFile).toHaveBeenCalledTimes(1)
   // A closed or failed dialog frees the screen too.
   vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
   await flow.chooseCache()
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
 })
 
 // A history file's accounts: importable ones by UID, then anything else given.
@@ -418,7 +418,7 @@ async function picking() {
   vi.mocked(readHistoryFile).mockResolvedValue({
     contents: contents([importable('800000001'), importable('800000002')]),
   })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.importFile()
   return flow
 }
@@ -428,23 +428,23 @@ test('a history file is chosen, read natively and its accounts shown to pick fro
   vi.mocked(chooseHistoryFile).mockReturnValue(dialog.promise)
   const reading = pending<Awaited<ReturnType<typeof readHistoryFile>>>()
   vi.mocked(readHistoryFile).mockReturnValue(reading.promise)
-  const flow = useRetrieval()
+  const flow = useImport()
   const importing = flow.importFile()
   // Nothing shows while the dialog is open or the file is read, and nothing else starts.
-  expect(flow.choosing.value).toBe(true)
+  expect(flow.busy.value).toBe(true)
   await flow.searchDevice()
   await flow.chooseCache()
   await flow.importFile()
   dialog.resolve({ chosen: 'export.json' })
   await settle()
   expect(flow.phase.value).toBe('idle')
-  expect(flow.choosing.value).toBe(true)
+  expect(flow.busy.value).toBe(true)
   expect(flow.source.value).toBe('file')
   expect(flow.fileName.value).toBe('export.json')
   const read = contents([importable('800000001'), importable('800000002')])
   reading.resolve({ contents: read })
   await importing
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
   expect(flow.phase.value).toBe('picking')
   expect(flow.accounts.value).toEqual(read)
   expect(chooseHistoryFile).toHaveBeenCalledTimes(1)
@@ -472,12 +472,12 @@ test('picking an account previews it for the review, and the file is used up', a
 test('a file holding one importable account and nothing left out goes straight to its review', async () => {
   vi.mocked(readHistoryFile).mockResolvedValue({ contents: contents([importable('800000001')]) })
   vi.mocked(previewFileAccount).mockResolvedValue({ review: review(2) })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.importFile()
   expect(previewFileAccount).toHaveBeenCalledExactlyOnceWith('800000001')
   expect(flow.phase.value).toBe('reviewing')
   expect(flow.accounts.value).toBeUndefined()
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
 })
 
 test.each<[string, FileContents]>([
@@ -487,7 +487,7 @@ test.each<[string, FileContents]>([
   ['two accounts', contents([importable('800000001'), { uid: '800000002', kind: 'repeated' }])],
 ])('a file with %s shows its accounts, to explain it', async (_, read) => {
   vi.mocked(readHistoryFile).mockResolvedValue({ contents: read })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.importFile()
   expect(flow.phase.value).toBe('picking')
   expect(flow.accounts.value).toEqual(read)
@@ -498,7 +498,7 @@ test('a file with no Star Rail accounts to list fails, saying what it holds', as
   vi.mocked(readHistoryFile).mockResolvedValue({
     contents: contents([], { other_games: ['hk4e'] }),
   })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.importFile()
   expect(flow.phase.value).toBe('idle')
   expect(flow.accounts.value).toBeUndefined()
@@ -510,7 +510,7 @@ test('a file with no Star Rail accounts to list fails, saying what it holds', as
 })
 
 test('a history file that can’t be chosen or read is explained as a history file', async () => {
-  const flow = useRetrieval()
+  const flow = useImport()
   vi.mocked(chooseHistoryFile).mockResolvedValue({ failure: { kind: 'invalid_file' } })
   await flow.importFile()
   expect(flow.source.value).toBe('file')
@@ -520,7 +520,7 @@ test('a history file that can’t be chosen or read is explained as a history fi
     message: 'That file couldn’t be read. Check that it’s still there, then choose it again.',
   })
   expect(readHistoryFile).not.toHaveBeenCalled()
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
   vi.mocked(chooseHistoryFile).mockResolvedValue({ chosen: 'export.json' })
   vi.mocked(readHistoryFile).mockResolvedValue({
     failure: { kind: 'unsupported_file', found: { format: 'srgf' } },
@@ -531,7 +531,7 @@ test('a history file that can’t be chosen or read is explained as a history fi
     title: 'This File’s Format Isn’t Supported',
     message: expect.stringContaining('This is an SRGF file'),
   })
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
   // Another import starting meanwhile cancels the read, which is a note.
   vi.mocked(readHistoryFile).mockResolvedValue({ failure: { kind: 'cancelled' } })
   await flow.importFile()
@@ -542,13 +542,13 @@ test('a history file that can’t be chosen or read is explained as a history fi
 })
 
 test('closing the history file’s dialog leaves the screen as it was', async () => {
-  const flow = useRetrieval()
+  const flow = useImport()
   vi.mocked(chooseHistoryFile).mockResolvedValue({ cancelled: true })
   await flow.importFile()
   expect(flow.phase.value).toBe('idle')
   expect(flow.source.value).toBe('device')
   expect(flow.outcome.value).toBeUndefined()
-  expect(flow.choosing.value).toBe(false)
+  expect(flow.busy.value).toBe(false)
   expect(readHistoryFile).not.toHaveBeenCalled()
 })
 
@@ -586,7 +586,7 @@ test('leaving the accounts drops the file without importing anything', async () 
 async function reviewingFile() {
   vi.mocked(readHistoryFile).mockResolvedValue({ contents: contents([importable('800000001')]) })
   vi.mocked(previewFileAccount).mockResolvedValue({ review: review(2) })
-  const flow = useRetrieval()
+  const flow = useImport()
   await flow.importFile()
   return flow
 }

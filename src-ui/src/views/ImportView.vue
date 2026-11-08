@@ -14,7 +14,7 @@ import LastImport from '../components/import/LastImport.vue'
 import RetrievalProgress from '../components/import/RetrievalProgress.vue'
 import ReviewPanel from '../components/import/ReviewPanel.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
-import { retrievalKey } from '../composables/retrieval'
+import { importFlowKey } from '../composables/importFlow'
 import { useLastImport } from '../composables/useLastImport'
 import { games, terms, type Game } from '../format'
 
@@ -33,7 +33,7 @@ const {
   searchDevice,
   chooseCache,
   importFile,
-  choosing,
+  busy,
   fileName,
   accounts,
   reviewAccount,
@@ -44,7 +44,7 @@ const {
   done,
   dismiss,
   chooseMode,
-} = inject(retrievalKey)!
+} = inject(importFlowKey)!
 
 const available = computed(() => props.game === 'honkai-star-rail')
 const step = computed(() => {
@@ -92,7 +92,7 @@ watch(
         :available
         :note
         :mode
-        :busy="choosing"
+        :busy="busy"
         @update:mode="chooseMode"
         @search="searchDevice"
         @choose="chooseCache"
@@ -138,7 +138,7 @@ watch(
         :title="outcome.title"
         :message="outcome.message"
         :source
-        :busy="choosing"
+        :busy="busy"
         @retry="searchDevice"
         @choose="chooseCache"
         @import="importFile"

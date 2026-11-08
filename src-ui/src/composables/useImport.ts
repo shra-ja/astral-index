@@ -63,7 +63,7 @@ export interface Download {
   retrying: boolean
   upToDate: string[]
 }
-/** How the last retrieval ended: saved, failed, or a note such as a cancel. */
+/** How the last import ended: saved, failed, or a note such as a cancel. */
 export type Outcome =
   | {
       kind: 'saved'
@@ -77,7 +77,7 @@ export type Outcome =
   | { kind: 'note'; message: string }
 
 const note = (message: string): Outcome => ({ kind: 'note', message })
-export function useRetrieval() {
+export function useImport() {
   const phase = ref<Phase>('idle')
   const source = ref<Source>('device')
   // Whether the rolls are retrieved or read from a history file, for the wording.
@@ -99,9 +99,9 @@ export function useRetrieval() {
   const outcome = ref<Outcome>()
   // Set while the user has asked to stop the running acquisition.
   const cancelling = ref(false)
-  // Set while a file's native dialog is open, or the history file is read, when nothing
-  // else starts.
-  const choosing = ref(false)
+  // Set while a file's native dialog is open, or a history file is read and its lone
+  // account previewed, when no other import starts.
+  const busy = ref(false)
   // The history file chosen last, by name, for its accounts and review.
   const fileName = ref<string>()
   // The history file's accounts, while one is to be picked.
@@ -237,11 +237,11 @@ export function useRetrieval() {
     review: shallowReadonly(review),
     outcome: shallowReadonly(outcome),
     cancelling: readonly(cancelling),
-    choosing: readonly(choosing),
+    busy: readonly(busy),
     fileName: readonly(fileName),
     accounts: shallowReadonly(accounts),
     searchDevice: async () => {
-      if (choosing.value) return
+      if (busy.value) return
       await acquire(
         'device',
         'Searching this device, then checking with HoYoverse…',
@@ -252,10 +252,10 @@ export function useRetrieval() {
     // The native side opens the dialog and holds the file; nothing shows until one
     // is chosen, and a closed dialog changes nothing.
     chooseCache: async () => {
-      if (choosing.value) return
-      choosing.value = true
+      if (busy.value) return
+      busy.value = true
       const choice = await chooseCacheFile()
-      choosing.value = false
+      busy.value = false
       if ('cancelled' in choice) return
       if ('failure' in choice) {
         source.value = 'cache'
@@ -269,10 +269,10 @@ export function useRetrieval() {
       )
     },
     importFile: async () => {
-      if (choosing.value) return
-      choosing.value = true
+      if (busy.value) return
+      busy.value = true
       await openFile()
-      choosing.value = false
+      busy.value = false
     },
     /** Preview the file's account picked for review. */
     reviewAccount: preview,

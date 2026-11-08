@@ -33,7 +33,7 @@ rearranged without rewriting the flows behind them.
   then cancels it. It also shows the About
   dialog, a native modal `<dialog>` with no route, over whichever screen is open,
   and returns focus to the sidebar's About button when it closes.
-- **Flows (composables):** `useRetrieval` owns retrieval and history-file import, review and saving;
+- **Flows (composables):** `useImport` owns retrieval and history-file import, review and saving;
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
   last import; `useBackup` saves a backup; `useRestore` chooses a backup to
   restore, holds it while its confirmation is shown and restores it, forgetting

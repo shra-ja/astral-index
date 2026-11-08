@@ -31,7 +31,7 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   Backup & Restore show it, `AstralEmblem`, the small brand emblem without a
   tile, and `OpenLockup`, the regular emblem beside the wordmark).
 - `src/composables/` holds flow logic and is the only caller of the native
-  commands: `useRetrieval.ts` runs retrieval and history-file import, review and saving,
+  commands: `useImport.ts` runs retrieval and history-file import, review and saving,
   `useDataFolder.ts` reads the app's details and opens the data folder,
   `useOpenings.ts` opens the folder or the issues page, saying which failed,
   `useAbout.ts` builds on both for the About dialog, adding the notices, and `useHistory.ts` reads the saved accounts and saved history a

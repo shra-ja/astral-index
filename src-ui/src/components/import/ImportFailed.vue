@@ -2,7 +2,7 @@
 // Presentational: why an import failed and what to do next. A device search can be
 // tried again, and a cache file chosen instead after either way of retrieving; another
 // history file can be chosen after one failed. Back returns to the start.
-import type { Source } from '../../composables/useRetrieval'
+import type { Source } from '../../composables/useImport'
 import CachePicker from '../shared/CachePicker.vue'
 import FailureSummary from '../shared/FailureSummary.vue'
 import StatusCard from '../shared/StatusCard.vue'
