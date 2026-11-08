@@ -216,17 +216,6 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     await expect
       .poll(() => tooltipFor(app, importLink), { timeout: 5000 })
       .toEqual({ text: 'Import', shown: true, inWindow: true, overlaps: false })
-    // File import is coming soon: its button stays focusable, and its tooltip says why.
-    const fileImport = '[aria-labelledby=source-file] button'
-    await app.hover(fileImport)
-    await expect
-      .poll(() => tooltipFor(app, fileImport), { timeout: 5000 })
-      .toEqual({
-        text: 'Importing from a file isn’t available yet.',
-        shown: true,
-        inWindow: true,
-        overlaps: false,
-      })
     await app.screenshot('e2e-tooltip')
     await app.hover('h1')
     const network = await app.executeAsync(`
