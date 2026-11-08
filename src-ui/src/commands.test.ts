@@ -8,7 +8,10 @@ import {
   discardImport,
   extractAutomatically,
   chooseCacheFile,
+  chooseHistoryFile,
   extractFromFile,
+  previewFileAccount,
+  readHistoryFile,
   historyPage,
   historyStatus,
   watchHistoryUnavailable,
@@ -70,6 +73,7 @@ test('known native kinds pass through and anything else becomes unavailable', as
     'restore_failed',
     'restore_changed',
     'import_under_way',
+    'not_history_file',
   ]) {
     mockIPC(() => reject({ kind }))
     expect(await extractAutomatically()).toEqual({ kind })
@@ -88,9 +92,16 @@ test('known native kinds pass through and anything else becomes unavailable', as
     { kind: 'api_error', code: '-100' },
     { kind: 'api_error', code: 1.5 },
     { kind: 'network', code: 1 },
+    { kind: 'network', code: 'detail' },
+    { kind: 'history_not_upgraded', code: 1 },
     { kind: 'restore_refused' },
     { kind: 'restore_refused', code: 'unknown_reason' },
     { kind: 'restore_refused', code: 1 },
+    { kind: 'unsupported_file' },
+    { kind: 'unsupported_file', code: 'uigf' },
+    { kind: 'unsupported_file', code: { format: 'uigf', major: 5 } },
+    { kind: 'unsupported_file', code: { format: 'uigf', major: 5, minor: '0' } },
+    { kind: 'unsupported_file', code: { format: 'something_new' } },
   ]) {
     mockIPC(() => reject(unexpected))
     expect(await extractAutomatically()).toEqual({ kind: 'unavailable' })
@@ -120,6 +131,69 @@ test('file extraction sends nothing: the native side reads the file it holds', a
   expect(received).toEqual(['extract_from_file', {}])
   mockIPC(() => reject({ kind: 'file_too_large' }))
   expect(await extractFromFile()).toEqual({ kind: 'file_too_large' })
+})
+
+test('an unsupported history file says what it was found to be', async () => {
+  for (const found of [
+    { format: 'uigf', major: 5, minor: 0 },
+    { format: 'legacy_uigf' },
+    { format: 'srgf' },
+  ]) {
+    mockIPC(() => reject({ kind: 'unsupported_file', code: found }))
+    expect(await readHistoryFile()).toEqual({ failure: { kind: 'unsupported_file', found } })
+  }
+  // Only what the native side names is kept.
+  mockIPC(() => reject({ kind: 'unsupported_file', code: { format: 'srgf', path: '/private' } }))
+  expect(await readHistoryFile()).toEqual({
+    failure: { kind: 'unsupported_file', found: { format: 'srgf' } },
+  })
+})
+
+test('choosing a history file asks the native side, which sends back only its name', async () => {
+  let received: unknown
+  mockIPC((cmd, payload) => {
+    received = [cmd, payload]
+    return { kind: 'chosen', name: 'export.json' }
+  })
+  expect(await chooseHistoryFile()).toEqual({ chosen: 'export.json' })
+  expect(received).toEqual(['choose_history_file', {}])
+  mockIPC(() => ({ kind: 'cancelled' }))
+  expect(await chooseHistoryFile()).toEqual({ cancelled: true })
+  mockIPC(() => reject({ kind: 'invalid_file' }))
+  expect(await chooseHistoryFile()).toEqual({ failure: { kind: 'invalid_file' } })
+})
+
+test('reading the history file sends nothing and lists its Star Rail accounts', async () => {
+  const contents = {
+    accounts: [
+      { uid: '800000001', kind: 'importable', server: 'prod_official_asia', rolls: 2 },
+      { uid: '800000002', kind: 'records', missing: { name: 2 }, invalid: 1, newer_categories: 0 },
+    ],
+    malformed_uids: 1,
+    other_games: ['hk4e'],
+  }
+  let received: unknown
+  mockIPC((cmd, payload) => {
+    received = [cmd, payload]
+    return contents
+  })
+  expect(await readHistoryFile()).toEqual({ contents })
+  expect(received).toEqual(['read_history_file', {}])
+  mockIPC(() => reject({ kind: 'not_history_file' }))
+  expect(await readHistoryFile()).toEqual({ failure: { kind: 'not_history_file' } })
+})
+
+test('previewing a file account sends its UID and returns the review', async () => {
+  const review = { uid: '800000001', server: 'prod_official_asia' }
+  let received: unknown
+  mockIPC((cmd, payload) => {
+    received = [cmd, payload]
+    return review
+  })
+  expect(await previewFileAccount('800000001')).toEqual({ review })
+  expect(received).toEqual(['preview_file_account', { uid: '800000001' }])
+  mockIPC(() => reject({ kind: 'invalid_request' }))
+  expect(await previewFileAccount('800000001')).toEqual({ failure: { kind: 'invalid_request' } })
 })
 
 test('cancelling asks the native side to stop and reports only unexpected failures', async () => {
@@ -162,6 +236,11 @@ test('retrieval failures keep only a valid category and page', async () => {
   expect(await retrieveHistory('full', () => undefined)).toEqual({
     failure: { kind: 'expired_key', location: { gacha_type: '2', page: 1 } },
   })
+  // An API error keeps its code and where retrieval stopped.
+  mockIPC(() => reject({ kind: 'api_error', code: -100, gacha_type: '2', page: 3 }))
+  expect(await retrieveHistory('full', () => undefined)).toEqual({
+    failure: { kind: 'api_error', code: -100, location: { gacha_type: '2', page: 3 } },
+  })
   for (const location of [
     {},
     { gacha_type: '99', page: 1 },
@@ -174,7 +253,7 @@ test('retrieval failures keep only a valid category and page', async () => {
 })
 
 test('committing returns what was added, and failures stay safe categories', async () => {
-  const summary = { inserted: 2, duplicates: 5, conflicts: 0 }
+  const summary = { inserted: 2, duplicates: 5, conflicts: 0, pool_ids_added: 1 }
   const calls: string[] = []
   mockIPC((cmd) => {
     calls.push(cmd)

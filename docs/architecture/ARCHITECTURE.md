@@ -17,7 +17,7 @@ the work starts.
 | --- | --- | --- |
 | [Discovery and extraction](discovery.md) | Finding the game's cached request context on Windows and WSL, or in a chosen file | Implemented (Star Rail) |
 | [Acquisition](acquisition.md) | Validating auth keys and retrieving history from HoYoverse: transport, retries, pacing, cancellation, pagination, quick refresh | Implemented (Star Rail) |
-| [Imports](imports.md) | The adapter contract and the shared import pipeline | Partially implemented: API imports; file imports and the second game are tentative |
+| [Imports](imports.md) | The adapter contract and the shared import pipeline | Partially implemented: API and UIGF file imports; the second game is tentative |
 | [Storage](storage.md) | The database, its location and portable mode, the model, preview and commit, history reads | Implemented; coverage and game metadata tentative |
 | [Desktop commands](desktop-commands.md) | The native command surface, the acquisition session and IPC rules | Implemented |
 | [Frontend](frontend.md) | The webview's layers and rules | Implemented |

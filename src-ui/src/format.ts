@@ -11,9 +11,11 @@ export const warps: Record<string, string> = {
   22: 'Light Cone Collaboration Warp',
 }
 
+/** A noun for a count, without the count: "roll" for one, "rolls" for any other. */
+export const noun = (count: number, word: string) => (count === 1 ? word : `${word}s`)
 /** "1 roll", "1,532 rolls". */
-export const plural = (count: number, noun: string) =>
-  `${count.toLocaleString('en')} ${noun}${count === 1 ? '' : 's'}`
+export const plural = (count: number, word: string) =>
+  `${count.toLocaleString('en')} ${noun(count, word)}`
 
 /** Supported games by ID, as their names are written. */
 export const games = {

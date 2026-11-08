@@ -32,6 +32,8 @@
 
 - **Retrieval on request:** Retrieve roll history from HoYoverse on demand;
   either rolls since the last retrieval or the whole available history again.
+- **File import:** Import Star Rail history from UIGF v4.0 to v4.2 files that
+  other trackers export, read on this device only.
 - **Review before saving:** Preview the count of new rolls, already saved and
   conflicting rolls, and the period covered before saving anything.
 - **Saved history:** Browse saved rolls offline by banner category, as a list, a

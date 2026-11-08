@@ -216,17 +216,6 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
     await expect
       .poll(() => tooltipFor(app, importLink), { timeout: 5000 })
       .toEqual({ text: 'Import', shown: true, inWindow: true, overlaps: false })
-    // File import is coming soon: its button stays focusable, and its tooltip says why.
-    const fileImport = '[aria-labelledby=source-file] button'
-    await app.hover(fileImport)
-    await expect
-      .poll(() => tooltipFor(app, fileImport), { timeout: 5000 })
-      .toEqual({
-        text: 'Importing from a file isn’t available yet.',
-        shown: true,
-        inWindow: true,
-        overlaps: false,
-      })
     await app.screenshot('e2e-tooltip')
     await app.hover('h1')
     const network = await app.executeAsync(`
@@ -2274,6 +2263,59 @@ test('the mock imports a history file over IPC into the retrieved account, addin
   } finally {
     after.close()
   }
+}, 120000)
+
+test('a history file’s account is chosen on the Import screen by keyboard, then saved', async () => {
+  await withMock('history', {}, async (app) => {
+    await expect.poll(() => heading(app), { timeout: 10000 }).toBe('Warp History')
+    await app.execute('document.querySelector("nav a[aria-label=Import]").click()')
+    await expect.poll(() => heading(app), { timeout: 5000 }).toBe('Import')
+    // Two Star Rail accounts and a Genshin Impact section, which is left out; the mock
+    // answers the open dialog from its data folder (decision 0034).
+    const exported = resolve(mockData, 'exports/two-accounts.json')
+    mkdirSync(dirname(exported), { recursive: true })
+    copyFileSync('src-tauri/tests/fixtures/uigf/v4.2-two-accounts.json', exported)
+    writeFileSync(resolve(mockData, 'astral-index-mock/history-from.txt'), `${exported}\n`)
+    await click(app, "[aria-labelledby='source-file']", 'Choose file…')
+    await expect
+      .poll(() => textOf(app, '.accounts h2'), { timeout: 10000 })
+      .toBe('Choose an Account')
+    expect(
+      await app.execute<string[]>(
+        'return [...document.querySelectorAll(".accounts input[type=radio]")].map(radio => radio.value)',
+      ),
+    ).toEqual(['800000001', '600000002'])
+    expect(await textOf(app, '.accounts .left-out')).toContain(
+      'The file’s Genshin Impact history was left out',
+    )
+    expect(await accessibilityViolations(app)).toEqual([])
+    await app.screenshot('e2e-file-accounts')
+    // From the focused heading: into the first account, on to the second, then Enter
+    // reviews it.
+    await app.press(TAB, DOWN, ENTER)
+    await expect
+      .poll(() => textOf(app, '.review h2'), { timeout: 10000 })
+      .toBe('Ready to save 1 new roll')
+    expect(await textOf(app, '.review .account')).toContain('America')
+    expect(await textOf(app, '.review .account')).toContain('from two-accounts.json')
+    await app.screenshot('e2e-file-review')
+    await click(app, '.review', 'Save 1 roll')
+    await expect.poll(() => textOf(app, '.saved h2'), { timeout: 10000 }).toBe('1 Roll Saved')
+    await click(app, '.saved', 'Done')
+    await expect
+      .poll(() =>
+        app.execute<string[]>(
+          'return [...document.querySelectorAll(".last-import .part")].map(part => part.textContent)',
+        ),
+      )
+      .toEqual([
+        expect.any(String),
+        'Imported from a file',
+        'UID 600000002 (America)',
+        '1 new roll saved',
+      ])
+  })
+  expect(Object.keys(storedAccounts())).toEqual(['600000002 prod_official_usa'])
 }, 120000)
 
 // Bounds for a 20,000-roll history, in ms: about three times the slowest of three

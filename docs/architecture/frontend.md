@@ -27,13 +27,13 @@ rearranged without rewriting the flows behind them.
   restore a backup, with the usual confirmation, after which Backup & Restore says
   how it went ([0037](../product/features/0037-backup-and-restore.md)).
   The app opens on Star Rail's history. The
-  shell creates the retrieval flow and provides it to the screens, so a running
-  retrieval and its review survive switching screens. A restore, by contrast,
+  shell creates the import flow and provides it to the screens, so a running
+  retrieval, a history file's accounts and a review survive switching screens. A restore, by contrast,
   belongs to the Backup & Restore screen: leaving its confirmation asks first,
   then cancels it. It also shows the About
   dialog, a native modal `<dialog>` with no route, over whichever screen is open,
   and returns focus to the sidebar's About button when it closes.
-- **Flows (composables):** `useRetrieval` owns retrieval, review and saving;
+- **Flows (composables):** `useImport` owns retrieval and history-file import, review and saving;
   `useHistory` reads saved history a page at a time; `useLastImport` reads the
   last import; `useBackup` saves a backup; `useRestore` chooses a backup to
   restore, holds it while its confirmation is shown and restores it, forgetting

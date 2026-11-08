@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// The Import screen: the sources, then retrieval's progress, review and outcome, one
-// screen at a time. Only Star Rail has retrieval; Genshin Impact's sources say it is
-// coming soon. The flow's state comes from the shell, so it survives leaving this
-// screen. Each step focuses itself as it appears; the start refocuses the control
-// that began retrieval when it returns.
+// The Import screen: the sources, then retrieval's progress or a history file's
+// accounts, then the review and outcome, one screen at a time. Only Star Rail has
+// imports; Genshin Impact's sources say they are coming soon. The flow's state comes
+// from the shell, so it survives leaving this screen. Each step focuses itself as it
+// appears; the start refocuses the control that began the import when it returns.
 import { computed, inject, useTemplateRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import FileAccounts from '../components/import/FileAccounts.vue'
 import ImportFailed from '../components/import/ImportFailed.vue'
 import ImportSaved from '../components/import/ImportSaved.vue'
 import ImportSources from '../components/import/ImportSources.vue'
@@ -13,7 +14,7 @@ import LastImport from '../components/import/LastImport.vue'
 import RetrievalProgress from '../components/import/RetrievalProgress.vue'
 import ReviewPanel from '../components/import/ReviewPanel.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
-import { retrievalKey } from '../composables/retrieval'
+import { importFlowKey } from '../composables/importFlow'
 import { useLastImport } from '../composables/useLastImport'
 import { games, terms, type Game } from '../format'
 
@@ -21,6 +22,7 @@ const props = defineProps<{ game: Game }>()
 const {
   phase,
   source,
+  origin,
   mode,
   stage,
   status,
@@ -29,20 +31,26 @@ const {
   outcome,
   cancelling,
   searchDevice,
-  chooseFile,
-  choosing,
+  chooseCache,
+  importFile,
+  busy,
+  fileName,
+  accounts,
+  reviewAccount,
+  closeFile,
   cancel,
   save,
   discard,
   done,
   dismiss,
   chooseMode,
-} = inject(retrievalKey)!
+} = inject(importFlowKey)!
 
 const available = computed(() => props.game === 'honkai-star-rail')
 const step = computed(() => {
   if (!available.value) return 'start'
   if (phase.value === 'acquiring') return 'progress'
+  if (accounts.value) return 'accounts'
   if (review.value) return 'review'
   return outcome.value?.kind === 'saved' || outcome.value?.kind === 'failed'
     ? outcome.value.kind
@@ -84,10 +92,11 @@ watch(
         :available
         :note
         :mode
-        :busy="choosing"
+        :busy="busy"
         @update:mode="chooseMode"
         @search="searchDevice"
-        @choose="chooseFile"
+        @choose="chooseCache"
+        @import="importFile"
       >
         <LastImport v-if="available && last" :last />
       </ImportSources>
@@ -101,9 +110,19 @@ watch(
         :cancelling
         @cancel="cancel"
       />
+      <FileAccounts
+        v-else-if="step === 'accounts'"
+        :name="fileName!"
+        :contents="accounts!"
+        :busy="phase !== 'picking'"
+        @review="reviewAccount"
+        @cancel="closeFile"
+      />
       <ReviewPanel
         v-else-if="step === 'review'"
         :review="review!"
+        :origin
+        :file-name="fileName"
         :busy="phase !== 'reviewing'"
         @save="save"
         @discard="discard"
@@ -119,9 +138,10 @@ watch(
         :title="outcome.title"
         :message="outcome.message"
         :source
-        :busy="choosing"
+        :busy="busy"
         @retry="searchDevice"
-        @choose="chooseFile"
+        @choose="chooseCache"
+        @import="importFile"
         @back="dismiss"
       />
     </div>
@@ -137,8 +157,9 @@ watch(
   padding: clamp(24px, 4vh, 40px) var(--content-pad);
   overflow-y: auto;
 }
-/* The review lays out its own scrolling body and fixed footer. */
-.retrieval.review {
+/* The review and the file's accounts lay out their own scrolling body and fixed footer. */
+.retrieval.review,
+.retrieval.accounts {
   padding: 0;
   overflow: hidden;
 }

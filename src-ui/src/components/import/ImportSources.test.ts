@@ -47,19 +47,23 @@ test('offers retrieval from HoYoverse, by search or a chosen cache file', async 
   wrapper.unmount()
 })
 
-test('file import is shown as coming soon, focusable so its tooltip can explain', async () => {
+test('file import chooses a history file, read on this device', async () => {
   const wrapper = sources({ term: 'Warp', game: 'Honkai: Star Rail', available: true })
+  expect(wrapper.text()).toContain('Load an export from another tracker.')
+  expect(wrapper.findAll('[aria-labelledby="source-file"] li').map((item) => item.text())).toEqual([
+    'UIGF v4 JSON files',
+    'Read on this device; nothing is sent anywhere',
+    'Rolls you already have are skipped',
+  ])
+  expect(wrapper.get('[aria-labelledby="source-file"] .hint').text()).toBe(
+    'Star Rail accounts are read from UIGF v4.0 to v4.2 files.',
+  )
   const fileImport = button(wrapper, 'Choose file…')
-  expect(fileImport.attributes('disabled')).toBeUndefined()
-  expect(fileImport.attributes('aria-disabled')).toBe('true')
-  const description = wrapper.get(`#${fileImport.attributes('aria-describedby')}`)
-  expect(description.attributes('role')).toBe('tooltip')
-  expect(description.text()).toBe('Importing from a file isn’t available yet.')
-  expect(wrapper.get('[aria-labelledby="source-file"] .hint').text()).toBe('Coming soon')
+  expect(fileImport.attributes('aria-disabled')).toBeUndefined()
   await fileImport.trigger('click')
+  expect(wrapper.emitted('import')).toEqual([[]])
   expect(wrapper.emitted()).not.toHaveProperty('search')
   expect(wrapper.emitted()).not.toHaveProperty('choose')
-  expect(wrapper.text()).toContain('Load an export from another tracker.')
   wrapper.unmount()
 })
 
@@ -69,6 +73,10 @@ test('without retrieval for the game, its controls are disabled and say so', () 
   expect(retrieve(wrapper).attributes('disabled')).toBeDefined()
   expect(wrapper.get<HTMLInputElement>('#cache-file').element.disabled).toBe(true)
   expect(wrapper.text()).toContain('Retrieval for Genshin Impact is coming soon.')
+  expect(button(wrapper, 'Choose file…').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('[aria-labelledby="source-file"] .hint').text()).toBe(
+    'File import for Genshin Impact is coming soon.',
+  )
   wrapper.unmount()
 })
 
@@ -85,8 +93,10 @@ test('shows a note about the last retrieval, and focuses the control that starte
   const focus = (wrapper.vm as unknown as { focus: (source: string) => void }).focus
   focus('device')
   expect(document.activeElement).toBe(retrieve(wrapper).element)
-  focus('file')
+  focus('cache')
   expect(document.activeElement).toBe(wrapper.get('#cache-file').element)
+  focus('file')
+  expect(document.activeElement).toBe(button(wrapper, 'Choose file…').element)
   wrapper.unmount()
 })
 
@@ -130,15 +140,17 @@ test('the choice is disabled without retrieval for the game', () => {
   wrapper.unmount()
 })
 
-test('while the cache file dialog is open, no source can be started', async () => {
+test('while a file’s dialog is open or a file is read, no source can be started', async () => {
   const wrapper = sources({ term: 'Warp', game: 'Honkai: Star Rail', available: true, busy: true })
   // Marked unavailable but still focusable, so a keyboard user keeps their place
   // when the dialog closes; the flow ignores the presses meanwhile.
   expect(retrieve(wrapper).attributes('aria-disabled')).toBe('true')
   expect(wrapper.get('#cache-file').attributes('aria-disabled')).toBe('true')
   expect(wrapper.get('#cache-file').attributes('disabled')).toBeUndefined()
+  expect(button(wrapper, 'Choose file…').attributes('aria-disabled')).toBe('true')
   await wrapper.setProps({ busy: false })
   expect(retrieve(wrapper).attributes('aria-disabled')).toBeUndefined()
   expect(wrapper.get('#cache-file').attributes('aria-disabled')).toBeUndefined()
+  expect(button(wrapper, 'Choose file…').attributes('aria-disabled')).toBeUndefined()
   wrapper.unmount()
 })

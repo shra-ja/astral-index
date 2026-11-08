@@ -3,24 +3,16 @@
 // The caller makes the native calls and renders the panel only while reviewing.
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import type { Review } from '../../commands'
-import { plural, serverDate, serverName, warps } from '../../format'
+import { serverDate, serverName, warps } from '../../format'
+import { importCopy, reviewCopy, type Origin } from '../../messages'
 
-const props = defineProps<{ review: Review; busy: boolean }>()
+// `origin` words the review for retrieval or a history file; `fileName` names the file.
+const props = defineProps<{ review: Review; busy: boolean; origin: Origin; fileName?: string }>()
 const emit = defineEmits<{ save: []; discard: []; done: [] }>()
 
-const conflicting = computed(() => props.review.summary.conflicts > 0)
-// Save is offered only when something is new; Done replaces it otherwise.
-const nothingNew = computed(() => props.review.summary.inserted === 0 && !conflicting.value)
-const heading = computed(() => {
-  if (conflicting.value) return 'Some rolls conflict with your saved history'
-  if (nothingNew.value) return 'Everything here is already saved'
-  return `Ready to save ${plural(props.review.summary.inserted, 'new roll')}`
-})
-const footnote = computed(() => {
-  if (conflicting.value) return 'Nothing can be saved while rolls conflict.'
-  if (nothingNew.value) return 'Nothing new to save. Your saved history already has these rolls.'
-  return `Saving adds ${plural(props.review.summary.inserted, 'roll')}. Rolls already saved are never changed.`
-})
+const copy = computed(() => reviewCopy(props.review.summary))
+const originCopy = computed(() => importCopy[props.origin])
+const conflicting = computed(() => copy.value.state === 'conflicting')
 const stats = computed(() => [
   ['New rolls', props.review.summary.inserted],
   ['Existing rolls skipped', props.review.summary.duplicates],
@@ -52,10 +44,11 @@ onBeforeUnmount(() => observer.disconnect())
 <template>
   <section class="review" aria-labelledby="review-heading">
     <div class="body">
-      <h2 id="review-heading" ref="heading" tabindex="-1">{{ heading }}</h2>
+      <h2 id="review-heading" ref="heading" tabindex="-1">{{ copy.heading }}</h2>
       <p class="account">
         <span class="label">Account</span> <span>UID {{ review.uid }}</span>
         <span class="chip">{{ serverName(review.server) }}</span>
+        <span v-if="fileName" class="label">from {{ fileName }}</span>
       </p>
 
       <div ref="figures" class="stats" :class="{ square }">
@@ -64,7 +57,7 @@ onBeforeUnmount(() => observer.disconnect())
           <span class="stat-value">{{ value.toLocaleString('en') }}</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Retrieved period</span>
+          <span class="stat-label">{{ originCopy.period }}</span>
           <span class="stat-value period"
             ><span>{{ serverDate(review.earliest) }} – </span
             ><span>{{ serverDate(review.latest) }}</span></span
@@ -79,7 +72,7 @@ onBeforeUnmount(() => observer.disconnect())
             <span class="stat-value">{{ value.toLocaleString('en') }}</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Retrieved period</span>
+            <span class="stat-label">{{ originCopy.period }}</span>
             <span class="stat-value period"
               ><span>{{ serverDate(review.earliest) }} – </span
               ><span>{{ serverDate(review.latest) }}</span></span
@@ -88,6 +81,7 @@ onBeforeUnmount(() => observer.disconnect())
         </div>
       </div>
       <p class="caption">Times are server time.</p>
+      <p v-if="copy.banners" class="banners panel">{{ copy.banners }}</p>
 
       <div class="panel">
         <h3 id="review-categories">By Category</h3>
@@ -114,7 +108,7 @@ onBeforeUnmount(() => observer.disconnect())
       <!-- The native commit refuses conflicts, so Save stays disabled and points here. -->
       <div v-if="conflicting" class="conflicts panel">
         <p id="conflicts-note">
-          These retrieved rolls differ from saved rolls with the same ID, so nothing can be saved.
+          {{ originCopy.rolls }} differ from saved rolls with the same ID, so nothing can be saved.
           Discarding them leaves this device unchanged.
         </p>
         <ul>
@@ -126,9 +120,16 @@ onBeforeUnmount(() => observer.disconnect())
     </div>
 
     <footer class="actions">
-      <span class="footnote">{{ footnote }}</span>
+      <span class="footnote">{{ copy.footnote }}</span>
       <div class="buttons">
-        <button v-if="nothingNew" type="button" :disabled="busy" @click="emit('done')">Done</button>
+        <button
+          v-if="copy.state === 'nothing'"
+          type="button"
+          :disabled="busy"
+          @click="emit('done')"
+        >
+          Done
+        </button>
         <template v-else>
           <button type="button" class="secondary" :disabled="busy" @click="emit('discard')">
             Discard
@@ -139,7 +140,7 @@ onBeforeUnmount(() => observer.disconnect())
             :aria-describedby="conflicting ? 'conflicts-note' : undefined"
             @click="emit('save')"
           >
-            Save {{ plural(review.summary.inserted, 'roll') }}
+            {{ copy.save }}
           </button>
         </template>
       </div>
@@ -312,6 +313,13 @@ td.none {
 }
 td + td {
   color: var(--text-muted);
+}
+.banners {
+  margin: 0;
+  padding: 12px 18px;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
 }
 .conflicts {
   padding: 16px 18px;

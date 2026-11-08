@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-11-05
+Updated: 2026-11-08
 
 ## Current state
 
@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Shared filesystem test double (2026-11-05)
+### Import screen's file import (2026-11-08)
 
-`test/shared-filesystem-double`: the in-memory filesystem that unit tests use in place of the host's moved from `acquisition::tests` to the crate's own `tests` module, as modules across the crate use it; only imports change. A pure move with no behavior change, so no red step: all 305 unit tests pass at 100% unit coverage.
+`feat/import-screen-file`: 0030's Import screen, from the approved mockup. "Choose file…" reads a UIGF file and reviews its only importable account, or shows its accounts to choose from with why the others can't be imported; the review names the file, counts banners (pool IDs) added and stays savable when they are all it adds. Red: the new client, message, flow and component tests failed first (missing commands, messages and events), and the four app tests failed on the old view; green: all 455 frontend tests at 100% coverage, and a new end-to-end test picks the mock's file account by keyboard and saves it. From review: the flow is now `useImport`, and native failures a union keyed by kind (a plain failure sent with a code is refused, red first). Remaining: the user's StarDB check on Windows.
 
 ## Known limitations
 
@@ -230,3 +230,5 @@ research, under a "From" heading.
 - [2026-11-04: restore's regular-file check](history/2026-11-04-restore-regular-file.md):
   a backup chosen for restore opened as a regular file, so a named pipe is
   refused without waiting.
+- [2026-11-05: shared filesystem test double](history/2026-11-05-shared-filesystem-double.md):
+  the in-memory filesystem double moved to the crate's own test module.

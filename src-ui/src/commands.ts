@@ -39,6 +39,8 @@ const nativeKinds = [
   'restore_changed',
   'import_under_way',
   'history_not_upgraded',
+  'not_history_file',
+  'unsupported_file',
 ] as const
 /** Why a backup was refused for restoring. */
 const refusals = [
@@ -50,6 +52,10 @@ const refusals = [
   'unreadable',
 ] as const
 export type Refusal = (typeof refusals)[number]
+/** What an unsupported history file was found to be: a UIGF version outside v4.0 to
+ * v4.2, UIGF before v4.0, or SRGF. */
+export type Found =
+  { format: 'uigf'; major: number; minor: number } | { format: 'legacy_uigf' } | { format: 'srgf' }
 /** The `gacha_type` codes of the six known categories. */
 const categories = ['1', '2', '11', '12', '21', '22']
 
@@ -60,25 +66,29 @@ export interface Location {
   gacha_type: string
   page: number
 }
-/**
- * Only `api_error` carries a code: the first nonzero code HoYoverse returned; only
- * `restore_refused` carries a refusal: why the backup was refused; only
- * `history_not_upgraded` carries a copy: the name of the copy kept in the data folder
- * before the failed upgrade, or null when none could be kept.
- */
-export interface Failure {
-  kind: Kind
-  code?: number
-  refusal?: Refusal
-  copy?: string | null
-  location?: Location
-}
+/** The failures that carry what they are about: an API error the first nonzero code
+ * HoYoverse returned; a refused restore why it was refused; a history that couldn't be
+ * upgraded the name of the copy kept before it, or null when none could be; an
+ * unsupported file what it was found to be. */
+type Detailed = 'api_error' | 'restore_refused' | 'history_not_upgraded' | 'unsupported_file'
+/** A failure that carries nothing but its kind. */
+export type PlainKind = Exclude<Kind, Detailed>
+/** A native failure; retrieval's may say which category and page were being requested. */
+export type Failure = { location?: Location } & (
+  | { kind: PlainKind }
+  | { kind: 'api_error'; code: number }
+  | { kind: 'restore_refused'; refusal: Refusal }
+  | { kind: 'history_not_upgraded'; copy: string | null }
+  | { kind: 'unsupported_file'; found: Found }
+)
 
 /** Counts of new, already stored and conflicting rolls. */
 export interface Counts {
   inserted: number
   duplicates: number
   conflicts: number
+  /** Duplicates that give their banner (pool ID) to a saved roll without one. */
+  pool_ids_added: number
 }
 /** What committing the retrieved history would change, from the native review. */
 export interface Review {
@@ -116,39 +126,59 @@ export function watchHistoryUnavailable(watcher: (copy: string | null) => void):
   return () => unavailableWatchers.delete(watcher)
 }
 
-// Accept only the native shape; only API errors carry a code, and it must be an integer,
-// a refused restore's code must be a known refusal, and a history that couldn't be
-// upgraded names its copy or none. A location is kept only when both its category and
-// page are valid.
+// What an unsupported file was found to be, if the native side named it in a known
+// shape; only the parts that shape names are kept.
+function foundOf(code: unknown): Found | undefined {
+  const { format, major, minor } = (
+    typeof code === 'object' && code !== null ? code : {}
+  ) as Record<string, unknown>
+  if (format === 'legacy_uigf' || format === 'srgf') return { format }
+  if (format === 'uigf' && Number.isSafeInteger(major) && Number.isSafeInteger(minor))
+    return { format, major: major as number, minor: minor as number }
+  return undefined
+}
+
+// A known kind with what it carries, if the native side sent that in its known shape: a
+// plain failure carries nothing, and each detailed one its own detail. Retrieval's
+// failures, plain or an API error, keep where they happened.
+function withDetail(
+  kind: (typeof nativeKinds)[number],
+  code: unknown,
+  at: { location?: Location },
+): Failure | undefined {
+  switch (kind) {
+    case 'api_error':
+      return Number.isSafeInteger(code) ? { kind, code: code as number, ...at } : undefined
+    case 'restore_refused': {
+      const refusal = refusals.find((candidate) => candidate === code)
+      return refusal && { kind, refusal }
+    }
+    case 'history_not_upgraded':
+      return code === null || typeof code === 'string' ? { kind, copy: code } : undefined
+    case 'unsupported_file': {
+      const found = foundOf(code)
+      return found && { kind, found }
+    }
+    default:
+      return code === undefined ? { kind, ...at } : undefined
+  }
+}
+
+// Accept only the native shape, anything else being unavailable. A location is kept
+// only when both its category and page are valid.
 function parse(error: unknown): Failure {
   const { kind, code, gacha_type, page } = (
     typeof error === 'object' && error !== null ? error : {}
   ) as Record<string, unknown>
-  const known = nativeKinds.find((candidate) => candidate === kind)
-  const refusal = refusals.find((candidate) => candidate === code)
-  if (
-    !known ||
-    (known === 'api_error') !== Number.isSafeInteger(code) ||
-    (known === 'restore_refused' && !refusal) ||
-    (known === 'history_not_upgraded' && code !== null && typeof code !== 'string')
-  )
-    return { kind: 'unavailable' }
-  if (known === 'history_not_upgraded') return { kind: known, copy: code as string | null }
-  const failure: Failure =
-    known === 'api_error'
-      ? { kind: known, code: code as number }
-      : known === 'restore_refused'
-        ? { kind: known, refusal }
-        : { kind: known }
-  if (
+  const at =
     typeof gacha_type === 'string' &&
     categories.includes(gacha_type) &&
     Number.isSafeInteger(page) &&
     (page as number) > 0
-  ) {
-    failure.location = { gacha_type, page: page as number }
-  }
-  return failure
+      ? { location: { gacha_type, page: page as number } }
+      : {}
+  const known = nativeKinds.find((candidate) => candidate === kind)
+  return (known && withDetail(known, code, at)) ?? { kind: 'unavailable' }
 }
 
 // A rejection as a failure, telling the watchers whenever it says the history can't
@@ -156,7 +186,7 @@ function parse(error: unknown): Failure {
 function fail(error: unknown): Failure {
   const failure = parse(error)
   if (failure.kind === 'history_not_upgraded') {
-    for (const watcher of unavailableWatchers) watcher(failure.copy ?? null)
+    for (const watcher of unavailableWatchers) watcher(failure.copy)
   }
   return failure
 }
@@ -317,7 +347,7 @@ export async function savedAccounts(): Promise<
 /** The newest import's summary. `imported_at` is in Unix seconds by this device's clock. */
 export interface LastImport {
   imported_at: number
-  source: 'hoyoverse'
+  source: 'hoyoverse' | 'uigf'
   uid: string
   server: string
   inserted: number
@@ -338,24 +368,92 @@ export async function lastImport(): Promise<{ last: LastImport | null } | { fail
   }
 }
 
-/** Choose the cache file in the native dialog; the native side holds it, and only its
- * name comes back, so the webview never reads the file (decision 0034). */
-export async function chooseCacheFile(): Promise<
-  { chosen: string } | { cancelled: true } | { failure: Failure }
-> {
+// Open the native dialog for a file the native side then holds; only its name comes
+// back, so the webview never reads the file (decision 0034).
+async function choose(
+  command: string,
+): Promise<{ chosen: string } | { cancelled: true } | { failure: Failure }> {
   try {
-    const result = await invoke<{ kind: 'chosen'; name: string } | { kind: 'cancelled' }>(
-      'choose_cache_file',
-    )
+    const result = await invoke<{ kind: 'chosen'; name: string } | { kind: 'cancelled' }>(command)
     return result.kind === 'cancelled' ? { cancelled: true } : { chosen: result.name }
   } catch (error) {
     return { failure: fail(error) }
   }
 }
 
+/** Choose the cache file in the native dialog; the native side holds it. */
+export const chooseCacheFile = () => choose('choose_cache_file')
+
 /** Read the chosen cache file natively, within its size bound, then validate its link. */
 export function extractFromFile(): Promise<Failure | undefined> {
   return run(() => invoke('extract_from_file'))
+}
+
+/** Choose a UIGF history file in the native dialog; the native side holds it. */
+export const chooseHistoryFile = () => choose('choose_history_file')
+
+/** The fields a history file's record needs to be a roll, as UIGF names them. */
+export type RollField =
+  'id' | 'gacha_type' | 'gacha_id' | 'item_id' | 'time' | 'name' | 'item_type' | 'rank_type'
+/** Other games' sections of a UIGF file, by its key. */
+export type OtherGame = 'hk4e' | 'nap' | 'hk4e_ugc'
+/** Why a history file's Star Rail account can't be imported, or the server it goes into
+ * and how many rolls it holds. */
+export type FileAccountStatus =
+  | { kind: 'importable'; server: string; rolls: number }
+  | {
+      kind:
+        | 'repeated'
+        | 'invalid_timezone'
+        | 'no_rolls'
+        | 'no_server'
+        | 'several_servers'
+        | 'timezone_mismatch'
+    }
+  | {
+      kind: 'records'
+      /** Records lacking each field a roll needs, by field. */
+      missing: Partial<Record<RollField, number>>
+      /** Records with a field of the wrong type or value. */
+      invalid: number
+      /** Records of categories that the file's UIGF version doesn't have yet. */
+      newer_categories: number
+    }
+/** Why a history file's account can't be imported. */
+export type FileAccountProblem = Exclude<FileAccountStatus, { kind: 'importable' }>
+/** One Star Rail account in a history file. */
+export type FileAccount = { uid: string } & FileAccountStatus
+/** A history file's Star Rail accounts, and what was left out of it. */
+export interface FileContents {
+  accounts: FileAccount[]
+  /** Star Rail accounts whose UID isn't digits, which aren't listed. */
+  malformed_uids: number
+  /** Other games' sections, which aren't read. */
+  other_games: OtherGame[]
+}
+
+/** Read the chosen history file natively, within its size bound, and list its Star Rail
+ * accounts; the native side holds the importable ones for a preview. Never fetches. */
+export async function readHistoryFile(): Promise<
+  { contents: FileContents } | { failure: Failure }
+> {
+  try {
+    return { contents: await invoke<FileContents>('read_history_file') }
+  } catch (error) {
+    return { failure: fail(error) }
+  }
+}
+
+/** Preview one account of the file read last for saving or discarding, as retrieval's
+ * review is; the file is then used up. Never fetches. */
+export async function previewFileAccount(
+  uid: string,
+): Promise<{ review: Review } | { failure: Failure }> {
+  try {
+    return { review: await invoke<Review>('preview_file_account', { uid }) }
+  } catch (error) {
+    return { failure: fail(error) }
+  }
 }
 
 /** What the About dialog shows: the app's version and where its history is kept. */

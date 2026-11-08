@@ -1,11 +1,11 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
-import type { Download } from '../../composables/useRetrieval'
+import type { Download } from '../../composables/useImport'
 import RetrievalProgress from './RetrievalProgress.vue'
 
 type Props = {
   term: string
-  source: 'device' | 'file'
+  source: 'device' | 'cache'
   stage: 'finding' | 'downloading'
   status: string
   cancelling: boolean
@@ -38,7 +38,7 @@ test('names each step and marks where retrieval is', async () => {
     ['Download your rolls', 'waiting'],
     ['Prepare the review', 'waiting'],
   ])
-  await wrapper.setProps({ stage: 'downloading', source: 'file' })
+  await wrapper.setProps({ stage: 'downloading', source: 'cache' })
   expect(steps(wrapper)).toEqual([
     ['Found the warp history link in the provided file', 'done'],
     ['Checked the link with HoYoverse', 'done'],
