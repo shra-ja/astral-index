@@ -2,7 +2,7 @@
 // progress, or read a history file and pick one of its accounts, then save or discard
 // it after review. Components render its state and call its actions; only this flow
 // makes the native calls.
-import { readonly, ref, shallowReadonly, shallowRef } from 'vue'
+import { computed, readonly, ref, shallowReadonly, shallowRef } from 'vue'
 import {
   cancelAcquisition,
   commitImport,
@@ -24,17 +24,17 @@ import {
 import {
   automaticMessages,
   cancelled,
-  commitMessages,
   describe,
   cacheFileMessages,
-  fileCommitMessages,
   historyFileFailure,
+  importCopy,
   noStarRailHistory,
   noStarRailTitle,
   progressText,
   retrievalFailure,
   titleOf,
   type Messages,
+  type Origin,
 } from '../messages'
 import { forgetAccountChoice } from './useHistory'
 
@@ -77,17 +77,18 @@ export type Outcome =
   | { kind: 'note'; message: string }
 
 const note = (message: string): Outcome => ({ kind: 'note', message })
-const fileCancelled = 'File import cancelled. Nothing was saved.'
-// A cancel is the user's choice, so it ends with a note rather than a failure.
-function failed(failure: Failure, message: string, cancelNote = cancelled): Outcome {
-  return failure.kind === 'cancelled'
-    ? note(cancelNote)
-    : { kind: 'failed', title: titleOf(failure), message }
-}
-const fileFailed = (failure: Failure) => failed(failure, historyFileFailure(failure), fileCancelled)
 export function useRetrieval() {
   const phase = ref<Phase>('idle')
   const source = ref<Source>('device')
+  // Whether the rolls are retrieved or read from a history file, for the wording.
+  const origin = computed<Origin>(() => (source.value === 'file' ? 'file' : 'retrieval'))
+  const copy = () => importCopy[origin.value]
+  // A cancel is the user's choice, so it ends with a note rather than a failure.
+  const failed = (failure: Failure, message: string): Outcome =>
+    failure.kind === 'cancelled'
+      ? note(copy().cancelled)
+      : { kind: 'failed', title: titleOf(failure), message }
+  const fileFailed = (failure: Failure) => failed(failure, historyFileFailure(failure))
   // New rolls only unless the user asks for the full history (decision 0015).
   const mode = ref<Mode>('new')
   const stage = ref<Stage>('finding')
@@ -114,6 +115,7 @@ export function useRetrieval() {
     messages: Messages,
   ) {
     source.value = from
+    fileName.value = undefined
     cancelling.value = false
     outcome.value = undefined
     stage.value = 'finding'
@@ -227,6 +229,7 @@ export function useRetrieval() {
   return {
     phase: readonly(phase),
     source: readonly(source),
+    origin,
     stage: readonly(stage),
     status: readonly(status),
     mode: readonly(mode),
@@ -292,13 +295,7 @@ export function useRetrieval() {
       if ('summary' in result) forgetAccountChoice('honkai-star-rail')
       finish(
         'failure' in result
-          ? failed(
-              result.failure,
-              describe(
-                result.failure,
-                source.value === 'file' ? fileCommitMessages : commitMessages,
-              ),
-            )
+          ? failed(result.failure, describe(result.failure, copy().commit))
           : {
               kind: 'saved',
               summary: result.summary,
@@ -309,14 +306,7 @@ export function useRetrieval() {
             },
       )
     },
-    discard: () =>
-      leave(
-        note(
-          source.value === 'file'
-            ? 'Discarded the file’s rolls. Nothing was saved.'
-            : 'Discarded the retrieved history. Nothing was saved.',
-        ),
-      ),
+    discard: () => leave(note(copy().discarded)),
     done: () => leave(note('Your saved history is already up to date.')),
     /** Leave the saved or failed screen for the start. */
     dismiss: () => {

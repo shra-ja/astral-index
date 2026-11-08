@@ -37,7 +37,9 @@ const review = (inserted: number, conflicts: Conflict[] = [], pool_ids_added = 0
   conflicts,
 })
 const panel = (props: { review: Review; busy?: boolean; fileName?: string }) =>
-  mount(ReviewPanel, { props: { busy: false, ...props } })
+  mount(ReviewPanel, {
+    props: { busy: false, origin: props.fileName ? 'file' : 'retrieval', ...props },
+  })
 const button = (wrapper: ReturnType<typeof panel>, name: string) =>
   wrapper.findAll('button').find((candidate) => candidate.text() === name)!
 
@@ -203,7 +205,7 @@ test('conflicts are listed, and Save is disabled and described by the explanatio
 
 test('the review moves focus to its heading as it appears, so it is announced', () => {
   const wrapper = mount(ReviewPanel, {
-    props: { review: review(3), busy: false },
+    props: { review: review(3), busy: false, origin: 'retrieval' },
     attachTo: document.body,
   })
   expect(document.activeElement).toBe(wrapper.get('h2').element)

@@ -14,7 +14,7 @@ import type {
   RollField,
 } from './commands'
 import type { Opening } from './composables/useOpenings'
-import { localDateTime, plural, serverName, warps } from './format'
+import { localDateTime, noun, plural, serverName, warps } from './format'
 
 /** Messages by failure kind, for one step of the flow. */
 export type Messages = Partial<Record<Kind, string>>
@@ -98,12 +98,92 @@ export const historyFileFailure = (failure: Failure) =>
     ? unsupported(failure.found!)
     : describe(failure, historyFileMessages)
 
-/** Why a file’s account couldn’t be saved; starting again means choosing the file. */
-export const fileCommitMessages: Messages = {
-  ...commitMessages,
-  conflict: 'Some of the file’s rolls differ from ones already saved. Nothing was saved.',
-  stale_preview: 'Your saved history changed since this review. Choose the file again.',
-  no_preview: 'Nothing is waiting to be saved. Choose the file again.',
+/** Where an import’s rolls come from, as its wording tells: retrieval from HoYoverse,
+ * whether the link was found on this device or in a cache file, or a history file. */
+export type Origin = 'retrieval' | 'file'
+/** What an import says that depends on where its rolls come from. */
+interface OriginCopy {
+  /** Why saving failed. */
+  commit: Messages
+  /** The note when the import was cancelled, or its review discarded. */
+  cancelled: string
+  discarded: string
+  /** The review’s label for the period its rolls cover. */
+  period: string
+  /** How the review’s conflicts note names the incoming rolls. */
+  rolls: string
+}
+export const importCopy: Record<Origin, OriginCopy> = {
+  retrieval: {
+    commit: commitMessages,
+    cancelled,
+    discarded: 'Discarded the retrieved history. Nothing was saved.',
+    period: 'Retrieved period',
+    rolls: 'These retrieved rolls',
+  },
+  // Saving a file’s account never involves HoYoverse, so none of retrieval’s wording.
+  file: {
+    commit: {
+      ...historyFileMessages,
+      conflict: 'Some of the file’s rolls differ from ones already saved. Nothing was saved.',
+      stale_preview: 'Your saved history changed since this review. Choose the file again.',
+      no_preview: 'Nothing is waiting to be saved. Choose the file again.',
+      context_mismatch:
+        'Saved history for this account uses a different time zone than the file. Nothing was saved.',
+    },
+    cancelled: 'File import cancelled. Nothing was saved.',
+    discarded: 'Discarded the file’s rolls. Nothing was saved.',
+    period: 'Period in file',
+    rolls: 'These rolls from the file',
+  },
+}
+
+/** What saving a review would do: nothing, while rolls conflict; nothing, as all is
+ * saved; add banners (pool IDs) to saved rolls only; or add rolls, and maybe banners. */
+export type ReviewState = 'conflicting' | 'nothing' | 'banners' | 'rolls'
+export function reviewState({ inserted, conflicts, pool_ids_added }: Counts): ReviewState {
+  if (conflicts > 0) return 'conflicting'
+  if (inserted > 0) return 'rolls'
+  return pool_ids_added > 0 ? 'banners' : 'nothing'
+}
+
+/** A review’s heading, its note on banners, its footnote and its Save button’s label. */
+export function reviewCopy(counts: Counts) {
+  const { inserted, pool_ids_added: added } = counts
+  const state = reviewState(counts)
+  const one = added === 1
+  const rolls = plural(inserted, 'roll')
+  const banners =
+    state === 'banners'
+      ? `These rolls are already saved, but ${added.toLocaleString('en')} of them ${one ? 'lacks its' : 'lack their'} banner, which saving adds.`
+      : `${added.toLocaleString('en')} of the skipped rolls also ${one ? 'adds its banner to a saved roll' : 'add their banner to saved rolls'} that lacked it.`
+  const copy = {
+    conflicting: {
+      heading: 'Some rolls conflict with your saved history',
+      footnote: 'Nothing can be saved while rolls conflict.',
+    },
+    nothing: {
+      heading: 'Everything here is already saved',
+      footnote: 'Nothing new to save. Your saved history already has these rolls.',
+    },
+    banners: {
+      heading: `${noun(added, 'Banner')} to add to ${plural(added, 'saved roll')}`,
+      footnote: 'No new rolls. Saving adds banners only; nothing else changes.',
+    },
+    rolls: {
+      heading: `Ready to save ${plural(inserted, 'new roll')}`,
+      footnote:
+        added > 0
+          ? `Saving adds ${rolls} and ${plural(added, 'banner')}. Rolls already saved are never changed otherwise.`
+          : `Saving adds ${rolls}. Rolls already saved are never changed.`,
+    },
+  }[state]
+  return {
+    state,
+    ...copy,
+    ...(added > 0 && state !== 'conflicting' && { banners }),
+    save: state === 'banners' ? `Save ${noun(added, 'banner')}` : `Save ${rolls}`,
+  }
 }
 
 /** What a record lacks, by the UIGF field. */
@@ -137,9 +217,11 @@ export function accountProblem(status: FileAccountProblem) {
     case 'timezone_mismatch':
       return 'Its time zone in the file differs from its server’s.'
     case 'records': {
-      const parts = (Object.entries(status.missing) as [RollField, number][]).map(
-        ([field, count]) => records(count, `lacks ${fields[field]}`, `lack ${fields[field]}`),
-      )
+      // In UIGF's order, whatever order the native side sent them in.
+      const parts = (Object.keys(fields) as RollField[]).flatMap((field) => {
+        const count = status.missing[field]
+        return count ? [records(count, `lacks ${fields[field]}`, `lack ${fields[field]}`)] : []
+      })
       if (status.invalid > 0)
         parts.push(
           records(
@@ -364,10 +446,10 @@ interface Saved {
 }
 
 /** "214 Rolls Saved", or what only banners added to saved rolls did. */
-export const savedTitle = ({ summary: { inserted, pool_ids_added } }: Saved) =>
-  inserted === 0 && pool_ids_added > 0
-    ? `Banner${pool_ids_added === 1 ? '' : 's'} Added to ${pool_ids_added.toLocaleString('en')} Saved Roll${pool_ids_added === 1 ? '' : 's'}`
-    : `${inserted.toLocaleString('en')} Roll${inserted === 1 ? '' : 's'} Saved`
+export const savedTitle = ({ summary }: Saved) =>
+  reviewState(summary) === 'banners'
+    ? `${noun(summary.pool_ids_added, 'Banner')} Added to ${plural(summary.pool_ids_added, 'Saved Roll')}`
+    : `${plural(summary.inserted, 'Roll')} Saved`
 
 /** Which account the rolls were added to; the counts have tiles of their own. */
 export const savedDetail = ({ uid, server }: Saved) =>

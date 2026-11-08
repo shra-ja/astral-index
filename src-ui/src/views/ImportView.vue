@@ -22,6 +22,7 @@ const props = defineProps<{ game: Game }>()
 const {
   phase,
   source,
+  origin,
   mode,
   stage,
   status,
@@ -120,7 +121,8 @@ watch(
       <ReviewPanel
         v-else-if="step === 'review'"
         :review="review!"
-        :file-name="source === 'file' ? fileName : undefined"
+        :origin
+        :file-name="fileName"
         :busy="phase !== 'reviewing'"
         @save="save"
         @discard="discard"

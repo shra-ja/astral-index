@@ -613,3 +613,18 @@ test('a file’s account saves as retrieval’s does, explaining failures as a f
     message: 'Discarded the file’s rolls. Nothing was saved.',
   })
 })
+
+test('a retrieval after a file import forgets the file, and is worded as retrieval', async () => {
+  const flow = await reviewingFile()
+  expect(flow.origin.value).toBe('file')
+  await flow.discard()
+  vi.mocked(retrieveHistory).mockResolvedValue(retrieved(2))
+  await flow.searchDevice()
+  expect(flow.origin.value).toBe('retrieval')
+  expect(flow.fileName.value).toBeUndefined()
+  await flow.discard()
+  expect(flow.outcome.value).toEqual({
+    kind: 'note',
+    message: 'Discarded the retrieved history. Nothing was saved.',
+  })
+})

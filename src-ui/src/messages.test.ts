@@ -7,10 +7,11 @@ import {
   cacheFileMessages,
   commitMessages,
   describe,
-  fileCommitMessages,
   historyFileFailure,
+  importCopy,
   leftOut,
   noStarRailHistory,
+  reviewCopy,
   historyFailure,
   lastImportParts,
   progressText,
@@ -164,9 +165,75 @@ test.each<[Kind, string]>([
   ['conflict', 'Some of the file’s rolls differ from ones already saved. Nothing was saved.'],
   ['stale_preview', 'Your saved history changed since this review. Choose the file again.'],
   ['no_preview', 'Nothing is waiting to be saved. Choose the file again.'],
+  [
+    'context_mismatch',
+    'Saved history for this account uses a different time zone than the file. Nothing was saved.',
+  ],
   ['storage', 'We couldn’t open the history saved on this device. Nothing was changed.'],
-])('saving a file’s account explains %s', (kind, message) => {
-  expect(describe({ kind }, fileCommitMessages)).toBe(message)
+])('saving a file’s account explains %s, never naming HoYoverse', (kind, message) => {
+  expect(describe({ kind }, importCopy.file.commit)).toBe(message)
+})
+
+test('each origin has its own notes and labels; retrieval’s are as before', () => {
+  expect(importCopy.retrieval.commit).toBe(commitMessages)
+  expect(importCopy.retrieval.cancelled).toBe('Retrieval cancelled. Nothing was saved.')
+  expect(importCopy.file.cancelled).toBe('File import cancelled. Nothing was saved.')
+  expect(importCopy.retrieval.discarded).toBe('Discarded the retrieved history. Nothing was saved.')
+  expect(importCopy.file.discarded).toBe('Discarded the file’s rolls. Nothing was saved.')
+  expect([importCopy.retrieval.period, importCopy.file.period]).toEqual([
+    'Retrieved period',
+    'Period in file',
+  ])
+  expect([importCopy.retrieval.rolls, importCopy.file.rolls]).toEqual([
+    'These retrieved rolls',
+    'These rolls from the file',
+  ])
+})
+
+test('a review’s wording follows what saving would do', () => {
+  const copy = (inserted: number, conflicts = 0, pool_ids_added = 0) =>
+    reviewCopy({ inserted, duplicates: 3, conflicts, pool_ids_added })
+  expect(copy(412)).toEqual({
+    state: 'rolls',
+    heading: 'Ready to save 412 new rolls',
+    footnote: 'Saving adds 412 rolls. Rolls already saved are never changed.',
+    save: 'Save 412 rolls',
+  })
+  expect(copy(2, 0, 96)).toEqual({
+    state: 'rolls',
+    heading: 'Ready to save 2 new rolls',
+    banners: '96 of the skipped rolls also add their banner to saved rolls that lacked it.',
+    footnote:
+      'Saving adds 2 rolls and 96 banners. Rolls already saved are never changed otherwise.',
+    save: 'Save 2 rolls',
+  })
+  expect(copy(1, 0, 1).banners).toBe(
+    '1 of the skipped rolls also adds its banner to a saved roll that lacked it.',
+  )
+  expect(copy(0, 0, 12)).toEqual({
+    state: 'banners',
+    heading: 'Banners to add to 12 saved rolls',
+    banners: 'These rolls are already saved, but 12 of them lack their banner, which saving adds.',
+    footnote: 'No new rolls. Saving adds banners only; nothing else changes.',
+    save: 'Save banners',
+  })
+  expect(copy(0, 0, 1)).toMatchObject({
+    heading: 'Banner to add to 1 saved roll',
+    banners: 'These rolls are already saved, but 1 of them lacks its banner, which saving adds.',
+    save: 'Save banner',
+  })
+  expect(copy(0)).toEqual({
+    state: 'nothing',
+    heading: 'Everything here is already saved',
+    footnote: 'Nothing new to save. Your saved history already has these rolls.',
+    save: 'Save 0 rolls',
+  })
+  // Conflicts block saving, whatever else is new.
+  expect(copy(2, 1, 5)).toMatchObject({
+    state: 'conflicting',
+    heading: 'Some rolls conflict with your saved history',
+    footnote: 'Nothing can be saved while rolls conflict.',
+  })
 })
 
 test.each<[FileAccountProblem, string]>([
@@ -183,17 +250,18 @@ test.each<[FileAccountProblem, string]>([
     { kind: 'records', missing: { name: 12 }, invalid: 3, newer_categories: 0 },
     '12 records lack an item name; 3 records have values that can’t be read.',
   ],
+  // The native side sends the fields in alphabetical order; they read in UIGF's.
   [
     {
       kind: 'records',
       missing: {
-        id: 1,
-        gacha_type: 2,
         gacha_id: 1,
+        gacha_type: 2,
+        id: 1,
         item_id: 1,
-        time: 1,
         item_type: 1,
         rank_type: 1,
+        time: 1,
       },
       invalid: 1,
       newer_categories: 0,

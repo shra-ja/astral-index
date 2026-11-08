@@ -3,46 +3,16 @@
 // The caller makes the native calls and renders the panel only while reviewing.
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import type { Review } from '../../commands'
-import { plural, serverDate, serverName, warps } from '../../format'
+import { serverDate, serverName, warps } from '../../format'
+import { importCopy, reviewCopy, type Origin } from '../../messages'
 
-// `fileName` names the history file a file import's rolls come from.
-const props = defineProps<{ review: Review; busy: boolean; fileName?: string }>()
+// `origin` words the review for retrieval or a history file; `fileName` names the file.
+const props = defineProps<{ review: Review; busy: boolean; origin: Origin; fileName?: string }>()
 const emit = defineEmits<{ save: []; discard: []; done: [] }>()
 
-const conflicting = computed(() => props.review.summary.conflicts > 0)
-const inserted = computed(() => props.review.summary.inserted)
-// Skipped rolls that give saved rolls their banner (pool ID), which saving adds.
-const banners = computed(() => props.review.summary.pool_ids_added)
-// Save is offered when something is new or a banner is added; Done replaces it otherwise.
-const nothingNew = computed(() => inserted.value === 0 && banners.value === 0 && !conflicting.value)
-const bannersOnly = computed(() => inserted.value === 0 && banners.value > 0 && !conflicting.value)
-const one = computed(() => banners.value === 1)
-const heading = computed(() => {
-  if (conflicting.value) return 'Some rolls conflict with your saved history'
-  if (nothingNew.value) return 'Everything here is already saved'
-  if (bannersOnly.value)
-    return `Banner${one.value ? '' : 's'} to add to ${plural(banners.value, 'saved roll')}`
-  return `Ready to save ${plural(inserted.value, 'new roll')}`
-})
-const bannerNote = computed(() =>
-  bannersOnly.value
-    ? `These rolls are already saved, but ${banners.value.toLocaleString('en')} of them ${one.value ? 'lacks its' : 'lack their'} banner, which saving adds.`
-    : `${banners.value.toLocaleString('en')} of the skipped rolls also ${one.value ? 'adds its banner to a saved roll' : 'add their banner to saved rolls'} that lacked it.`,
-)
-const footnote = computed(() => {
-  if (conflicting.value) return 'Nothing can be saved while rolls conflict.'
-  if (nothingNew.value) return 'Nothing new to save. Your saved history already has these rolls.'
-  if (bannersOnly.value) return 'No new rolls. Saving adds banners only; nothing else changes.'
-  if (banners.value > 0)
-    return `Saving adds ${plural(inserted.value, 'roll')} and ${plural(banners.value, 'banner')}. Rolls already saved are never changed otherwise.`
-  return `Saving adds ${plural(inserted.value, 'roll')}. Rolls already saved are never changed.`
-})
-const saveLabel = computed(() =>
-  bannersOnly.value
-    ? `Save banner${one.value ? '' : 's'}`
-    : `Save ${plural(inserted.value, 'roll')}`,
-)
-const periodLabel = computed(() => (props.fileName ? 'Period in file' : 'Retrieved period'))
+const copy = computed(() => reviewCopy(props.review.summary))
+const fromOrigin = computed(() => importCopy[props.origin])
+const conflicting = computed(() => copy.value.state === 'conflicting')
 const stats = computed(() => [
   ['New rolls', props.review.summary.inserted],
   ['Existing rolls skipped', props.review.summary.duplicates],
@@ -74,7 +44,7 @@ onBeforeUnmount(() => observer.disconnect())
 <template>
   <section class="review" aria-labelledby="review-heading">
     <div class="body">
-      <h2 id="review-heading" ref="heading" tabindex="-1">{{ heading }}</h2>
+      <h2 id="review-heading" ref="heading" tabindex="-1">{{ copy.heading }}</h2>
       <p class="account">
         <span class="label">Account</span> <span>UID {{ review.uid }}</span>
         <span class="chip">{{ serverName(review.server) }}</span>
@@ -87,7 +57,7 @@ onBeforeUnmount(() => observer.disconnect())
           <span class="stat-value">{{ value.toLocaleString('en') }}</span>
         </div>
         <div class="stat">
-          <span class="stat-label">{{ periodLabel }}</span>
+          <span class="stat-label">{{ fromOrigin.period }}</span>
           <span class="stat-value period"
             ><span>{{ serverDate(review.earliest) }} – </span
             ><span>{{ serverDate(review.latest) }}</span></span
@@ -102,7 +72,7 @@ onBeforeUnmount(() => observer.disconnect())
             <span class="stat-value">{{ value.toLocaleString('en') }}</span>
           </div>
           <div class="stat">
-            <span class="stat-label">{{ periodLabel }}</span>
+            <span class="stat-label">{{ fromOrigin.period }}</span>
             <span class="stat-value period"
               ><span>{{ serverDate(review.earliest) }} – </span
               ><span>{{ serverDate(review.latest) }}</span></span
@@ -111,7 +81,7 @@ onBeforeUnmount(() => observer.disconnect())
         </div>
       </div>
       <p class="caption">Times are server time.</p>
-      <p v-if="banners > 0" class="banners panel">{{ bannerNote }}</p>
+      <p v-if="copy.banners" class="banners panel">{{ copy.banners }}</p>
 
       <div class="panel">
         <h3 id="review-categories">By Category</h3>
@@ -138,8 +108,8 @@ onBeforeUnmount(() => observer.disconnect())
       <!-- The native commit refuses conflicts, so Save stays disabled and points here. -->
       <div v-if="conflicting" class="conflicts panel">
         <p id="conflicts-note">
-          These {{ fileName ? 'rolls from the file' : 'retrieved rolls' }} differ from saved rolls
-          with the same ID, so nothing can be saved. Discarding them leaves this device unchanged.
+          {{ fromOrigin.rolls }} differ from saved rolls with the same ID, so nothing can be saved.
+          Discarding them leaves this device unchanged.
         </p>
         <ul>
           <li v-for="conflict in review.conflicts" :key="conflict.id">
@@ -150,9 +120,16 @@ onBeforeUnmount(() => observer.disconnect())
     </div>
 
     <footer class="actions">
-      <span class="footnote">{{ footnote }}</span>
+      <span class="footnote">{{ copy.footnote }}</span>
       <div class="buttons">
-        <button v-if="nothingNew" type="button" :disabled="busy" @click="emit('done')">Done</button>
+        <button
+          v-if="copy.state === 'nothing'"
+          type="button"
+          :disabled="busy"
+          @click="emit('done')"
+        >
+          Done
+        </button>
         <template v-else>
           <button type="button" class="secondary" :disabled="busy" @click="emit('discard')">
             Discard
@@ -163,7 +140,7 @@ onBeforeUnmount(() => observer.disconnect())
             :aria-describedby="conflicting ? 'conflicts-note' : undefined"
             @click="emit('save')"
           >
-            {{ saveLabel }}
+            {{ copy.save }}
           </button>
         </template>
       </div>
