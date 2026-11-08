@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
 import ImportFailed from './ImportFailed.vue'
 
-const failed = (source: 'device' | 'file', busy = false) =>
+const failed = (source: 'device' | 'cache', busy = false) =>
   mount(ImportFailed, {
     props: { title: 'Couldn’t Find the Game Files', message: 'We found the game.', source, busy },
     attachTo: document.body,
@@ -35,7 +35,7 @@ test('a search can be tried again, or a cache file chosen instead', async () => 
 })
 
 test('a chosen file cannot be tried again as it was, so only another file is offered', () => {
-  const wrapper = failed('file')
+  const wrapper = failed('cache')
   expect(button(wrapper, 'Try again')).toBeUndefined()
   expect(wrapper.find('#retry-cache-file').exists()).toBe(true)
   wrapper.unmount()

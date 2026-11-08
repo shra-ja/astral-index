@@ -154,7 +154,7 @@ const review = (inserted: number, duplicates = 0, conflicts: Conflict[] = []) =>
   categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type, index) =>
     index === 0
       ? { gacha_type, inserted, duplicates, conflicts: conflicts.length }
-      : { gacha_type, inserted: 0, duplicates: 0, conflicts: 0 },
+      : { gacha_type, inserted: 0, duplicates: 0, conflicts: 0, pool_ids_added: 0 },
   ),
   earliest: '2026-04-02 10:00:00',
   latest: '2026-09-28 21:30:00',
@@ -841,7 +841,7 @@ test('starting retrieval shows progress, then the review, then what was saved', 
   expect(reviewButton('Save 412 rolls').disabled).toBe(true)
   expect(reviewButton('Discard').disabled).toBe(true)
   expect(panel().getAttribute('aria-busy')).toBe('true')
-  commit.resolve({ inserted: 412, duplicates: 88, conflicts: 0 })
+  commit.resolve({ inserted: 412, duplicates: 88, conflicts: 0, pool_ids_added: 0 })
   await settle()
   expect(shown('review')).toBe(false)
   expect(heading()).toBe('Import')
@@ -875,7 +875,7 @@ test('starting retrieval shows progress, then the review, then what was saved', 
 test('after saving, the history is one link away', async () => {
   serve({
     retrieve_history: () => review(2),
-    commit_import: () => ({ inserted: 2, duplicates: 0, conflicts: 0 }),
+    commit_import: () => ({ inserted: 2, duplicates: 0, conflicts: 0, pool_ids_added: 0 }),
   })
   await openImport()
   findButton().click()
@@ -980,7 +980,7 @@ test('Star Rail’s Import screen shows the last import, read again after each s
   const calls = serve({
     last_import: () => last,
     retrieve_history: () => review(5),
-    commit_import: () => ({ inserted: 5, duplicates: 0, conflicts: 0 }),
+    commit_import: () => ({ inserted: 5, duplicates: 0, conflicts: 0, pool_ids_added: 0 }),
   })
   await openImport()
   // Nothing has been imported yet, so there is no line.

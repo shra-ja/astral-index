@@ -85,7 +85,7 @@ test('shows a note about the last retrieval, and focuses the control that starte
   const focus = (wrapper.vm as unknown as { focus: (source: string) => void }).focus
   focus('device')
   expect(document.activeElement).toBe(retrieve(wrapper).element)
-  focus('file')
+  focus('cache')
   expect(document.activeElement).toBe(wrapper.get('#cache-file').element)
   wrapper.unmount()
 })

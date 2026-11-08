@@ -3,7 +3,7 @@ import { expect, test } from 'vitest'
 import ImportSaved from './ImportSaved.vue'
 
 const saved = (inserted: number, duplicates: number) => ({
-  summary: { inserted, duplicates, conflicts: 0 },
+  summary: { inserted, duplicates, conflicts: 0, pool_ids_added: 0 },
   fiveStar: 2,
   fourStar: 27,
   uid: '100000001',

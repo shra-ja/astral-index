@@ -33,10 +33,10 @@ const review = (inserted: number): Review => ({
   uid: '100000001',
   server: 'synthetic-server',
   timezone: 8,
-  summary: { inserted, duplicates: 0, conflicts: 0 },
+  summary: { inserted, duplicates: 0, conflicts: 0, pool_ids_added: 0 },
   new_five_star: 1,
   new_four_star: 3,
-  categories: [{ gacha_type: '1', inserted, duplicates: 0, conflicts: 0 }],
+  categories: [{ gacha_type: '1', inserted, duplicates: 0, conflicts: 0, pool_ids_added: 0 }],
   earliest: '2026-04-02 10:00:00',
   latest: '2026-09-28 21:30:00',
   conflicts: [],
@@ -144,7 +144,7 @@ test('retrieval asks for new rolls only, unless the full history is chosen', asy
   await flow.searchDevice()
   flow.chooseMode('full')
   expect(flow.mode.value).toBe('full')
-  await flow.chooseFile()
+  await flow.chooseCache()
   expect(vi.mocked(retrieveHistory).mock.calls.map(([mode]) => mode)).toEqual(['new', 'full'])
 })
 
@@ -164,12 +164,12 @@ test('a chosen file is read instead of searching, and its failures are explained
   vi.mocked(extractFromFile).mockReturnValue(new Promise((resolve) => (extracted = resolve)))
   const flow = useRetrieval()
   // Nothing shows while the native dialog is open.
-  const choosing = flow.chooseFile()
+  const choosing = flow.chooseCache()
   await settle()
   expect(flow.phase.value).toBe('idle')
   answer({ chosen: 'data_2' })
   await settle()
-  expect(flow.source.value).toBe('file')
+  expect(flow.source.value).toBe('cache')
   expect(flow.status.value).toBe('Reading the file, then checking with HoYoverse…')
   extracted({ kind: 'no_request' })
   await choosing
@@ -302,7 +302,7 @@ test('saving reports what was added and ends the review', async () => {
   expect(flow.phase.value).toBe('saving')
   expect(flow.status.value).toBe('Saving…')
   expect(forgetAccountChoice).not.toHaveBeenCalled()
-  commit.resolve({ summary: { inserted: 2, duplicates: 88, conflicts: 0 } })
+  commit.resolve({ summary: { inserted: 2, duplicates: 88, conflicts: 0, pool_ids_added: 0 } })
   await settle()
   // History then shows the account just saved into, whichever was chosen before.
   expect(forgetAccountChoice).toHaveBeenCalledExactlyOnceWith('honkai-star-rail')
@@ -310,7 +310,7 @@ test('saving reports what was added and ends the review', async () => {
   expect(flow.review.value).toBeUndefined()
   expect(flow.outcome.value).toEqual({
     kind: 'saved',
-    summary: { inserted: 2, duplicates: 88, conflicts: 0 },
+    summary: { inserted: 2, duplicates: 88, conflicts: 0, pool_ids_added: 0 },
     fiveStar: 1,
     fourStar: 3,
     uid: '100000001',
@@ -354,7 +354,7 @@ test.each([
 test('closing the dialog without choosing leaves the screen as it was', async () => {
   vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
   const flow = useRetrieval()
-  await flow.chooseFile()
+  await flow.chooseCache()
   expect(flow.phase.value).toBe('idle')
   expect(flow.outcome.value).toBeUndefined()
   expect(extractFromFile).not.toHaveBeenCalled()
@@ -363,8 +363,8 @@ test('closing the dialog without choosing leaves the screen as it was', async ()
 test('a dialog that fails is explained as the file', async () => {
   vi.mocked(chooseCacheFile).mockResolvedValue({ failure: { kind: 'invalid_file' } })
   const flow = useRetrieval()
-  await flow.chooseFile()
-  expect(flow.source.value).toBe('file')
+  await flow.chooseCache()
+  expect(flow.source.value).toBe('cache')
   expect(flow.outcome.value).toEqual({
     kind: 'failed',
     title: expect.any(String),
@@ -378,9 +378,9 @@ test('while the dialog is open, nothing else starts: no second dialog and no sea
   let answer: (choice: { chosen: string }) => void = () => undefined
   vi.mocked(chooseCacheFile).mockReturnValue(new Promise((resolve) => (answer = resolve)))
   const flow = useRetrieval()
-  const choosing = flow.chooseFile()
+  const choosing = flow.chooseCache()
   expect(flow.choosing.value).toBe(true)
-  await flow.chooseFile()
+  await flow.chooseCache()
   await flow.searchDevice()
   expect(chooseCacheFile).toHaveBeenCalledTimes(1)
   expect(extractAutomatically).not.toHaveBeenCalled()
@@ -390,6 +390,6 @@ test('while the dialog is open, nothing else starts: no second dialog and no sea
   expect(extractFromFile).toHaveBeenCalledTimes(1)
   // A closed or failed dialog frees the screen too.
   vi.mocked(chooseCacheFile).mockResolvedValue({ cancelled: true })
-  await flow.chooseFile()
+  await flow.chooseCache()
   expect(flow.choosing.value).toBe(false)
 })

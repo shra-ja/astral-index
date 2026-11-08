@@ -21,7 +21,7 @@ import {
   cancelled,
   commitMessages,
   describe,
-  fileMessages,
+  cacheFileMessages,
   progressText,
   retrievalFailure,
   titleOf,
@@ -35,7 +35,7 @@ import { forgetAccountChoice } from './useHistory'
  */
 export type Phase = 'idle' | 'acquiring' | 'reviewing' | 'saving' | 'leaving'
 /** How the warp history link was found: by searching this device, or from a chosen file. */
-export type Source = 'device' | 'file'
+export type Source = 'device' | 'cache'
 /** While acquiring: still finding and checking the link, or downloading history. */
 export type Stage = 'finding' | 'downloading'
 /**
@@ -185,21 +185,21 @@ export function useRetrieval() {
     },
     // The native side opens the dialog and holds the file; nothing shows until one
     // is chosen, and a closed dialog changes nothing.
-    chooseFile: async () => {
+    chooseCache: async () => {
       if (choosing.value) return
       choosing.value = true
       const choice = await chooseCacheFile()
       choosing.value = false
       if ('cancelled' in choice) return
       if ('failure' in choice) {
-        source.value = 'file'
-        return finish(failed(choice.failure, describe(choice.failure, fileMessages)))
+        source.value = 'cache'
+        return finish(failed(choice.failure, describe(choice.failure, cacheFileMessages)))
       }
       await acquire(
-        'file',
+        'cache',
         'Reading the file, then checking with HoYoverse…',
         extractFromFile,
-        fileMessages,
+        cacheFileMessages,
       )
     },
     // Progress stops showing once the user asks to cancel; if the request cannot be

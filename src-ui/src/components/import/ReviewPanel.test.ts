@@ -24,13 +24,13 @@ const review = (inserted: number, conflicts: Conflict[] = []): Review => ({
   uid: '100000001',
   server: 'synthetic-server',
   timezone: 8,
-  summary: { inserted, duplicates: 3, conflicts: conflicts.length },
+  summary: { inserted, duplicates: 3, conflicts: conflicts.length, pool_ids_added: 0 },
   new_five_star: 0,
   new_four_star: 0,
   categories: ['1', '2', '11', '12', '21', '22'].map((gacha_type, index) =>
     index === 0
-      ? { gacha_type, inserted, duplicates: 3, conflicts: conflicts.length }
-      : { gacha_type, inserted: 0, duplicates: 0, conflicts: 0 },
+      ? { gacha_type, inserted, duplicates: 3, conflicts: conflicts.length, pool_ids_added: 0 }
+      : { gacha_type, inserted: 0, duplicates: 0, conflicts: 0, pool_ids_added: 0 },
   ),
   earliest: '2026-04-02 10:00:00',
   latest: '2026-09-28 21:30:00',
