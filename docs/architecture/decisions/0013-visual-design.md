@@ -129,6 +129,13 @@ repository; this record holds what the implementation must follow.
   retrieved period, per-category breakdown, paged preview of new rolls with an
   icons button off by default) with Discard and Save; a saved screen; and
   failure screens for an expired link and for game files that cannot be found.
+  (Amended 2026-11-08, feature 0030:) "Choose file…" imports a history file.
+  A file with a choice or something to explain shows its accounts before the
+  review: the importable ones as radio cards (UID, server badge, rolls), a
+  "Can't be imported" list with each reason, and notes on what the file left
+  out, over a fixed footer with Cancel and "Review account". A file's review
+  names the file, labels its period "Period in file" and counts the banners it
+  adds to saved rolls; its failure offers "Choose another file…".
 
 ### Layout
 
@@ -222,6 +229,6 @@ is shown as text as well as colour.
   reflowing.
 - **Storing pity** was rejected; it is derived on read
   ([architecture](../statistics.md)).
-- A light theme, real item art and the history-file import flow are deferred;
-  the roadmap tracks them. The Import screen's "Last import" line comes from the
+- A light theme and real item art are deferred; the roadmap tracks them. The
+  history-file import flow, deferred at first, was added on 2026-11-08. The Import screen's "Last import" line comes from the
   `last_import` command (added 2026-10-03).

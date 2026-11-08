@@ -1,6 +1,6 @@
 # 0030 — History-file import
 
-Status: Planned · Milestone 11, Backup, restore and file import
+Status: In progress · Milestone 11, Backup, restore and file import
 
 Import Honkai: Star Rail history from UIGF v4.0 to v4.2 files, as a second source
 on the Import screen beside retrieval, through the same review and save steps
@@ -44,9 +44,17 @@ File import stays local and never makes a network request.
   roll.
 - **Pools:** once the catalogue exists, rolls without a pool ID go through
   [pool ID completion](0057-pool-id-completion.md) before the review.
-- **Review:** the review shows the account with its inferred server, and its new,
-  skipped and conflicting rolls per category and the period covered, as
-  retrieval's does; saving commits in one transaction.
+- **Screen:** file import is the Import screen's second source. A file whose
+  only account can be imported, with nothing left out, goes straight to its
+  review; otherwise its accounts show, the importable ones to choose one from
+  by keyboard or pointer, then why each other one can't be imported and what
+  the file left out. A file with no Star Rail accounts to list fails, saying
+  what it holds. A failed file offers another file.
+- **Review:** the review shows the account with its inferred server and the
+  file's name, and its new, skipped and conflicting rolls per category and the
+  period in the file, as retrieval's does; saving commits in one transaction.
+  Pool IDs are called banners on screen: the review counts the banners skipped
+  rolls give saved rolls, and one that adds only banners can still be saved.
 - Errors never echo file contents; imported names are shown as text.
 
 ## Tasks
@@ -74,8 +82,10 @@ One PR each, in order:
 - [x] **File import commands.** Choosing the file and previewing one account,
   reusing retrieval's review, save and discard, with narrow permissions and the
   mock's scenarios, whose UIDs then follow the server rule. A second account means choosing the file again.
-- [ ] **Import screen.** File import as a second source, its account picker,
+- [x] **Import screen.** File import as a second source, its account picker,
   review and errors, by keyboard, from an approved mockup; a review that only
   adds pool IDs can still be saved, and shows how many; the webview's types and
-  messages gain the `uigf` source, the new failures and `pool_ids_added`; then the docs, and a
-  real StarDB export imported on Windows over retrieved history.
+  messages gain the `uigf` source, the new failures and `pool_ids_added`; then
+  the docs.
+- [ ] **Windows check.** A real StarDB export imported on Windows over
+  retrieved history.
