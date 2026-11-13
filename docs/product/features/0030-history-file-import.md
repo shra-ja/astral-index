@@ -1,6 +1,6 @@
 # 0030 — History-file import
 
-Status: In progress · Milestone 11, Backup, restore and file import
+Status: Done · Milestone 11, Backup, restore and file import
 
 Import Honkai: Star Rail history from UIGF v4.0 to v4.2 files, as a second source
 on the Import screen beside retrieval, through the same review and save steps
@@ -87,5 +87,7 @@ One PR each, in order:
   adds pool IDs can still be saved, and shows how many; the webview's types and
   messages gain the `uigf` source, the new failures and `pool_ids_added`; then
   the docs.
-- [ ] **Windows check.** A real StarDB export imported on Windows over
-  retrieved history.
+- [x] **Windows check.** A real StarDB export imported on Windows over
+  retrieved history. Done on 2026-11-13: the export imported, and a file that
+  isn't UIGF was refused with an error. Pool ID filling from a later retrieval
+  and keyboard use were not checked on Windows.

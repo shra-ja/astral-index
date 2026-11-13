@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-11-08
+Updated: 2026-11-13
 
 ## Current state
 
@@ -13,6 +13,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   chooses, and checks it with HoYoverse. It then retrieves all six warp
   categories, either new rolls only (stopping at saved rolls) or the full
   history, with progress and Cancel. Nothing is saved until the user reviews it.
+- **History files:** "Choose file…" reads a UIGF v4.0 to v4.2 file's Star Rail
+  accounts and reviews the one chosen, counting banners (pool IDs) it would add.
 - **Review and save:** the review shows the account, new, skipped and
   conflicting rolls per warp, and the period covered. Saving is one transaction;
   failures, cancellations and discards save nothing.
@@ -23,9 +25,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   the account imported last; with more than one saved account, its header
   switches between them. The Import screen shows the last import. Saved history
   is read from this device only. Themed tooltips name the collapsed sidebar's
-  links and explain unavailable controls. The sidebar shows the Astral brand:
-  the emblem beside the wordmark, or the emblem alone when collapsed; the
-  app's icon is the emblem in its tile. About shows the app's details and its notices.
+  links and explain unavailable controls. The sidebar shows the Astral emblem
+  beside the wordmark, or alone when collapsed; the app's icon is the emblem in
+  its tile. About shows the app's details and its notices.
 - **Storage:** one SQLite file in the app's local data folder, or beside the
   executable in portable mode. Accounts and servers are kept apart; repeated or
   overlapping imports add only new rolls, matched by their facts, and fill
@@ -35,27 +37,25 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
-  app version.
-  On Windows, CI also runs the Rust unit tests and backup's and restore's
-  real-file tests, and smoke-tests the release executable (decision 0029). A
-  frozen 1.0.0 database shows each schema change keeps saved history.
+  app version. On Windows, CI also runs the Rust unit tests and backup's and
+  restore's real-file tests, and smoke-tests the release executable (decision
+  0029). A frozen 1.0.0 database shows each schema change keeps saved history.
 - **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of
   the whole history where the user chooses, never inside the data folder, and
-  shows where history is stored, as the About dialog does. Restore checks a
-  chosen backup as untrusted input, shows its accounts beside the current
-  history's, and replaces the history with it, keeping the old one as a safety
-  copy, which can itself be restored from the data folder. A fresh profile
-  restores a backup, 1.0.0's included, with the same history, as checked on
-  Windows on 2026-10-26.
+  shows where history is stored. Restore checks a chosen backup as untrusted
+  input, shows its accounts beside the current history's, and replaces the
+  history with it, keeping the old one as a safety copy, itself restorable. A
+  fresh profile restores a backup (1.0.0's included) with the same history,
+  checked on Windows on 2026-10-26.
 - **README:** the logo, badges, and screenshots of the mock's synthetic history,
   retaken with `npm run readme:screenshots`; the features as they are today and
   how to download and run the app.
 
 ## In progress
 
-### Import screen's file import (2026-11-08)
+### History-file import on Windows (2026-11-13)
 
-`feat/import-screen-file`: 0030's Import screen, from the approved mockup. "Choose file…" reads a UIGF file and reviews its only importable account, or shows its accounts to choose from with why the others can't be imported; the review names the file, counts banners (pool IDs) added and stays savable when they are all it adds. Red: the new client, message, flow and component tests failed first (missing commands, messages and events), and the four app tests failed on the old view; green: all 455 frontend tests at 100% coverage, and a new end-to-end test picks the mock's file account by keyboard and saves it. From review: the flow is now `useImport`, and native failures a union keyed by kind (a plain failure sent with a code is refused, red first). Remaining: the user's StarDB check on Windows.
+`docs/archive-import-screen-file`: the user imported a real StarDB UIGF export on Windows; a file that isn't UIGF was refused with an error. Not checked on Windows: a later retrieval filling the file's pool IDs, and keyboard use. 0030 is done.
 
 ## Known limitations
 
@@ -63,9 +63,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   native side, and the wide-window test stalled in 2 of 38 CI attempts after decision 0034, never locally, until it stopped resizing the window on 2026-10-30; the cause is unknown. Live retrieval last worked on Windows on 2026-10-29.
 - Browsers may flag the unsigned executable until it is signed
   ([0053](../product/features/0053-code-signing.md)).
-- No history-file import, Genshin Impact adapter or banner catalogue yet, so
-  banners show placeholders and pity has no guarantees or 50/50 outcomes. Pity
-  colours use observed rather than published soft pity (decision 0020).
+- No Genshin Impact adapter or banner catalogue yet, so banners show placeholders
+  and pity has no guarantees or 50/50 outcomes. Pity colours use observed rather
+  than published soft pity (decision 0020).
 - The date fields use the webview's built-in picker, so they show dates in its
   locale's format (09/28/2026 under WebKitGTK), and WebKitGTK shows today in
   grey in an empty field.
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0030](../product/features/0030-history-file-import.md), history-file import, finishing with the Import screen, from an approved mockup.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, starting with serialisation, validation and the atomic write.
 
 ## Keeping this file current
 
@@ -232,3 +232,5 @@ research, under a "From" heading.
   refused without waiting.
 - [2026-11-05: shared filesystem test double](history/2026-11-05-shared-filesystem-double.md):
   the in-memory filesystem double moved to the crate's own test module.
+- [2026-11-08: Import screen's file import](history/2026-11-08-import-screen-file.md):
+  the Import screen reads a UIGF file and reviews one of its Star Rail accounts.
