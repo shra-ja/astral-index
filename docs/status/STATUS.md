@@ -1,11 +1,11 @@
 # Project status
 
-Updated: 2026-11-13
+Updated: 2026-11-24
 
 ## Current state
 
 Astral Index is a Tauri 2 desktop app with a Vue webview, released as
-[1.1.0](https://github.com/shra-ja/astral-index/releases/tag/v1.1.0) on 2026-10-29. Honkai: Star Rail
+[1.2.0](https://github.com/shra-ja/astral-index/releases/tag/v1.2.0) on 2026-11-13. Honkai: Star Rail
 history import works end to end; Genshin Impact, with no import yet, shows only in development builds (decision 0026).
 
 - **Retrieval, on request only:** the app finds the warp history link by
@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### History-file import on Windows (2026-11-13)
-
-`docs/archive-import-screen-file`: the user imported a real StarDB UIGF export on Windows; a file that isn't UIGF was refused with an error. Not checked on Windows: a later retrieval filling the file's pool IDs, and keyboard use. 0030 is done.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -74,7 +70,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, starting with serialisation, validation and the atomic write.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, starting with the export read, storage's read of the accounts and rolls to export.
 
 ## Keeping this file current
 
@@ -234,3 +230,5 @@ research, under a "From" heading.
   the in-memory filesystem double moved to the crate's own test module.
 - [2026-11-08: Import screen's file import](history/2026-11-08-import-screen-file.md):
   the Import screen reads a UIGF file and reviews one of its Star Rail accounts.
+- [2026-11-13: history-file import on Windows](history/2026-11-13-windows-file-import.md):
+  a real StarDB export imported on Windows, closing 0030, and release 1.2.0.
