@@ -9,7 +9,7 @@ Integrated through PR #167.
 
 `docs/archive-import-screen-file`: the user imported a real StarDB UIGF export on Windows; a file that isn't UIGF was refused with an error. Not checked on Windows: a later retrieval filling the file's pool IDs, and keyboard use. 0030 is done.
 
-## Release 1.2.0 (2026-11-13)
+### Release 1.2.0 (2026-11-13)
 
 Recorded on 2026-11-24; STATUS did not record the release at the time.
 

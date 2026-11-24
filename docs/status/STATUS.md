@@ -70,7 +70,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, starting with the shared atomic write, which moves backup's temporary-file write into its own module.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, starting with the export read, storage's read of the accounts and rolls to export.
 
 ## Keeping this file current
 
