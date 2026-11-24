@@ -1,7 +1,7 @@
 use astral_index::acquisition::Category;
 use astral_index::storage::{
-    Account, CategorySummary, Error, Filter, HistoryPage, LastImport, Rarities, SavedAccount,
-    Source, Store, Summary,
+    Account, AccountHistory, CategorySummary, Chosen, Error, Filter, HistoryPage, LastImport,
+    Rarities, SavedAccount, Source, Store, Summary,
 };
 use common::{Folder, PAGE, SERVER, UID, batch};
 use rusqlite::Connection;
@@ -318,6 +318,116 @@ fn isolates_accounts_servers_and_game_namespace() {
             .unwrap(),
         "honkai-star-rail"
     );
+}
+
+/// A page of `uid`'s rolls, each given as its roll ID, category and time, with
+/// `timezone` as the page's offset when known.
+fn rolls_page(uid: &str, timezone: Option<i32>, rolls: &[(&str, &str, &str)]) -> Vec<u8> {
+    page(|p| {
+        let template = p["data"]["list"][0].clone();
+        p["data"]["list"] = rolls
+            .iter()
+            .map(|(id, category, time)| {
+                let mut roll = template.clone();
+                roll["uid"] = json!(uid);
+                roll["id"] = json!(id);
+                roll["gacha_type"] = json!(category);
+                roll["time"] = json!(time);
+                roll
+            })
+            .collect();
+        match timezone {
+            Some(offset) => p["data"]["region_time_zone"] = json!(offset),
+            None => {
+                p["data"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("region_time_zone");
+            }
+        }
+    })
+}
+
+/// Each account read as its UID, server, offset and roll IDs in order.
+fn read_order(histories: Vec<AccountHistory>) -> Vec<(String, String, Option<i32>, Vec<String>)> {
+    histories
+        .into_iter()
+        .map(|history| {
+            let ids = history.rolls.into_iter().map(|roll| roll.id).collect();
+            (history.uid, history.server, history.timezone, ids)
+        })
+        .collect()
+}
+
+#[test]
+fn histories_read_accounts_and_rolls_in_export_order() {
+    let db = Database::new();
+    let mut store = db.store();
+    // Saved out of order: categories 11, 2 and 1, a later time with a smaller ID
+    // first, and IDs whose text order differs from their numeric order.
+    let mine = rolls_page(
+        UID,
+        Some(8),
+        &[
+            ("5", "11", "2024-01-01 00:00:00"),
+            ("100", "2", "2024-01-01 00:00:00"),
+            ("99", "2", "2024-01-01 00:00:00"),
+            ("6", "1", "2024-03-01 00:00:00"),
+            ("7", "1", "2024-02-01 00:00:00"),
+        ],
+    );
+    // A longer UID sorts after a shorter one, though its text sorts first.
+    let longer = "1000000001";
+    let accounts: [(&str, &str, Vec<u8>); 4] = [
+        (
+            longer,
+            SERVER,
+            rolls_page(longer, Some(8), &[("1", "1", "2024-01-01 00:00:00")]),
+        ),
+        (UID, SERVER, mine),
+        (
+            UID,
+            "a-server",
+            rolls_page(UID, Some(1), &[("2", "1", "2024-01-01 00:00:00")]),
+        ),
+        (
+            "100000003",
+            SERVER,
+            rolls_page("100000003", None, &[("3", "1", "2024-01-01 00:00:00")]),
+        ),
+    ];
+    for (uid, server, bytes) in &accounts {
+        let preview = store
+            .preview(Source::Hoyoverse, batch(uid, server, &[bytes]))
+            .unwrap();
+        store.commit(preview, 1234).unwrap();
+    }
+    let ids = |ids: &[&str]| ids.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+    let account = |uid: &str, server: &str, timezone, rolls: &[&str]| {
+        (uid.to_string(), server.to_string(), timezone, ids(rolls))
+    };
+    assert_eq!(
+        read_order(store.histories(Chosen::All).unwrap()),
+        vec![
+            account(UID, "a-server", Some(1), &["2"]),
+            account(UID, SERVER, Some(8), &["7", "6", "99", "100", "5"]),
+            account("100000003", SERVER, None, &["3"]),
+            account(longer, SERVER, Some(8), &["1"]),
+        ]
+    );
+    let chosen = Chosen::One {
+        uid: UID,
+        server: "a-server",
+    };
+    assert_eq!(
+        read_order(store.histories(chosen).unwrap()),
+        vec![account(UID, "a-server", Some(1), &["2"])]
+    );
+    let unknown = Chosen::One {
+        uid: "100000004",
+        server: SERVER,
+    };
+    assert_eq!(store.histories(unknown), Ok(vec![]));
 }
 
 #[test]

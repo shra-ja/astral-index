@@ -259,6 +259,24 @@ pub struct SavedAccount {
     pub rolls: usize,
 }
 
+/// Which saved accounts a read covers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Chosen<'a> {
+    All,
+    One { uid: &'a str, server: &'a str },
+}
+
+/// A saved account with all its rolls, as an export writes them. Holds a player
+/// identifier: never log it.
+#[derive(Debug, PartialEq, Eq)]
+pub struct AccountHistory {
+    pub uid: String,
+    pub server: String,
+    /// UTC offset in hours of the server-local times, when known.
+    pub timezone: Option<i32>,
+    pub rolls: Vec<Roll>,
+}
+
 /// The newest import's summary, for the Import screen. Holds a player identifier:
 /// never log it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -800,6 +818,46 @@ impl Store {
         Ok(accounts)
     }
 
+    /// The chosen accounts with their rolls, for export, read in one statement so
+    /// they come from one moment of the history. Accounts are ordered by UID, then
+    /// server; each account's rolls by category, then server time, then roll ID.
+    /// Digit-only UIDs, categories and IDs order numerically by length, then text.
+    /// An account without rolls is left out.
+    pub fn histories(&self, chosen: Chosen<'_>) -> Result<Vec<AccountHistory>, Error> {
+        // Null bindings choose every account.
+        let (uid, server) = match chosen {
+            Chosen::All => (None, None),
+            Chosen::One { uid, server } => (Some(uid), Some(server)),
+        };
+        let mut statement = self.connection.prepare(
+            "SELECT a.uid,a.server,a.timezone,r.id,r.payload FROM accounts a JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 AND (?2 IS NULL OR (a.uid=?2 AND a.server=?3)) ORDER BY length(a.uid),a.uid,a.server,length(json_extract(r.payload,'$.gacha_type')),json_extract(r.payload,'$.gacha_type'),json_extract(r.payload,'$.time'),length(r.id),r.id",
+        )?;
+        let rows = statement.query_map(params![GAME, uid, server], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<i32>>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })?;
+        let mut histories: Vec<AccountHistory> = Vec::new();
+        for row in rows {
+            let (uid, server, timezone, id, payload) = row?;
+            let roll = stored(&uid, &id, &payload)?;
+            match histories.last_mut() {
+                Some(last) if last.uid == uid && last.server == server => last.rolls.push(roll),
+                _ => histories.push(AccountHistory {
+                    uid,
+                    server,
+                    timezone,
+                    rolls: vec![roll],
+                }),
+            }
+        }
+        Ok(histories)
+    }
+
     /// The saved account with this UID and server, if there is one.
     pub fn account(&self, uid: &str, server: &str) -> Result<Option<Account>, Error> {
         let timezone: Option<Option<i32>> = self
@@ -1201,6 +1259,7 @@ pub(crate) mod tests {
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
     const ACCOUNT_LIST: &str = "SELECT a.uid,a.server,a.timezone,count(r.id) FROM accounts a LEFT JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 GROUP BY a.uid,a.server ORDER BY (SELECT max(b.id) FROM batches b WHERE b.game=a.game AND b.uid=a.uid AND b.server=a.server) DESC";
     const TOTALS: &str = "SELECT json_extract(payload,'$.gacha_type'),count(*) FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 GROUP BY 1";
+    const HISTORIES: &str = "SELECT a.uid,a.server,a.timezone,r.id,r.payload FROM accounts a JOIN rolls r ON r.game=a.game AND r.uid=a.uid AND r.server=a.server WHERE a.game=?1 AND (?2 IS NULL OR (a.uid=?2 AND a.server=?3)) ORDER BY length(a.uid),a.uid,a.server,length(json_extract(r.payload,'$.gacha_type')),json_extract(r.payload,'$.gacha_type'),json_extract(r.payload,'$.time'),length(r.id),r.id";
     const ORDER: &str = "SELECT id,json_extract(payload,'$.rank_type'),json_extract(payload,'$.name'),json_extract(payload,'$.time') FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND json_extract(payload,'$.gacha_type')=?4 ORDER BY json_extract(payload,'$.time'),length(id),id";
     pub(crate) fn text(value: &str) -> Value {
         Value::Text(value.into())
@@ -2259,6 +2318,132 @@ pub(crate) mod tests {
         fail_each(&|| vec![timezone(None)], None, &mut || {
             store().account(UID, SERVER).map(|_| ())
         });
+    }
+
+    /// The SQL for reading the chosen accounts' histories, bound to `chosen`'s
+    /// UID and server, or nulls for all, and answered with `found`.
+    fn histories_script(chosen: [Value; 2], found: Vec<Vec<Value>>) -> Vec<Step> {
+        let [uid, server] = chosen;
+        vec![
+            done(&format!("PREPARE {HISTORIES}")),
+            rows(HISTORIES, vec![text(GAME), uid, server], found),
+        ]
+    }
+    /// A row of the histories read: the account, its offset and one of its rolls.
+    fn history_row(uid: &str, server: &str, timezone: Option<i32>, roll: &Roll) -> Vec<Value> {
+        vec![
+            text(uid),
+            text(server),
+            timezone.map_or(Value::Null, |offset| Value::Integer(offset.into())),
+            text(&roll.id),
+            text(&payload(roll)),
+        ]
+    }
+    /// The fixture page's rolls, given to `uid`.
+    fn rolls_of(uid: &str) -> Vec<Roll> {
+        let mut rolls = parse_response(PAGE).unwrap().list;
+        for roll in &mut rolls {
+            roll.uid = uid.into();
+        }
+        rolls
+    }
+
+    #[test]
+    fn histories_group_each_accounts_rolls_in_the_order_read() {
+        const OTHER: &str = "100000003";
+        let (mine, other) = (rolls_of(UID), rolls_of(OTHER));
+        database::expect(histories_script(
+            [Value::Null, Value::Null],
+            vec![
+                history_row(UID, SERVER, Some(8), &mine[1]),
+                history_row(UID, SERVER, Some(8), &mine[0]),
+                history_row(UID, "other-server", Some(1), &mine[0]),
+                history_row(OTHER, SERVER, None, &other[0]),
+            ],
+        ));
+        let read = store().histories(Chosen::All);
+        database::finish();
+        let account = |uid: &str, server: &str, timezone, rolls: Vec<Roll>| AccountHistory {
+            uid: uid.into(),
+            server: server.into(),
+            timezone,
+            rolls,
+        };
+        assert_eq!(
+            read,
+            Ok(vec![
+                account(UID, SERVER, Some(8), vec![mine[1].clone(), mine[0].clone()]),
+                account(UID, "other-server", Some(1), vec![mine[0].clone()]),
+                account(OTHER, SERVER, None, vec![other[0].clone()]),
+            ])
+        );
+        database::expect(histories_script([Value::Null, Value::Null], vec![]));
+        assert_eq!(store().histories(Chosen::All), Ok(vec![]));
+        database::finish();
+    }
+
+    #[test]
+    fn one_chosen_account_binds_its_uid_and_server() {
+        let roll = roll();
+        database::expect(histories_script(
+            [text(UID), text(SERVER)],
+            vec![history_row(UID, SERVER, Some(8), &roll)],
+        ));
+        let read = store().histories(Chosen::One {
+            uid: UID,
+            server: SERVER,
+        });
+        database::finish();
+        assert_eq!(
+            read,
+            Ok(vec![AccountHistory {
+                uid: UID.into(),
+                server: SERVER.into(),
+                timezone: Some(8),
+                rolls: vec![roll],
+            }])
+        );
+    }
+
+    #[test]
+    fn histories_report_unreadable_rows_and_damaged_rolls_without_partial_results() {
+        let read = |found: Vec<Vec<Value>>| {
+            database::expect(histories_script([Value::Null, Value::Null], found));
+            let read = store().histories(Chosen::All);
+            database::finish();
+            read
+        };
+        let good = history_row(UID, SERVER, Some(8), &roll());
+        for column in 0..5 {
+            let mut unreadable = good.clone();
+            unreadable[column] = if column == 2 { text("8") } else { Value::Null };
+            assert_eq!(read(vec![good.clone(), unreadable]), Err(Error::Database));
+        }
+        let mut damaged = good.clone();
+        damaged[4] = text("{");
+        assert_eq!(
+            read(vec![good.clone(), damaged]),
+            Err(Error::InvalidStoredData)
+        );
+        // A roll saved under another account's row is damage.
+        let mut misplaced = good.clone();
+        misplaced[0] = text("100000003");
+        assert_eq!(read(vec![misplaced]), Err(Error::InvalidStoredData));
+        database::expect(vec![
+            done(&format!("PREPARE {HISTORIES}")),
+            step(
+                HISTORIES,
+                vec![text(GAME), Value::Null, Value::Null],
+                Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]),
+            ),
+        ]);
+        assert_eq!(store().histories(Chosen::All), Err(Error::Database));
+        database::finish();
+        fail_each(
+            &|| histories_script([Value::Null, Value::Null], vec![]),
+            None,
+            &mut || store().histories(Chosen::All).map(|_| ()),
+        );
     }
 
     /// The SQL for listing the saved accounts, answered with `found`.
