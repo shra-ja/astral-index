@@ -86,6 +86,13 @@ as a safe storage error rather than repairing it.
 - **Accounts:** the game's saved accounts with each one's roll count, the one
   imported into most recently first; the account imported last; and one account
   by UID and server, so a history read names only saved accounts.
+- **Histories:** every saved account, or the one chosen, with its offset and
+  all its rolls, for export, in one statement so they come from one moment of
+  the history: accounts by UID, then server, and each one's rolls by category,
+  then server time, then roll ID, with digit-only values ordered numerically by
+  length, then text. An account without rolls is left out. On 2026-11-24 the
+  statement alone sorted 100,000 rolls in about 0.3 s in SQLite, so no index
+  was added.
 - **Last import:** the newest batch summary of the game.
 - **Saved roll IDs:** the game's IDs grouped by account, for the quick refresh's
   stop check.
