@@ -72,6 +72,10 @@ standard's note, and the empty and error states.
   duplicate, 19-digit IDs unchanged, accounts kept apart, rolls without a pool
   ID counted and left out, and a repeated UID left out of All accounts but
   exported alone.
+- [ ] **One history read.** A refactor with no change in behaviour: storage's
+  test-only `history` read is removed, and its tests read through `histories`
+  with the account chosen, allowing for its numeric order and for an account
+  without rolls being left out.
 - [ ] **Shared file writing.** A refactor with no change in behaviour: backup's
   temporary-file write (claim a `.partial` name, write, flush, rename, remove it
   on failure), with `publish`, `real` and `in_data_folder`, moves into its own
