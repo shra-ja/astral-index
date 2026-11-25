@@ -158,7 +158,8 @@ pub fn read(bytes: &[u8]) -> Result<File, Error> {
 }
 
 /// UIGF v4.2's published schema, which the app bundles; its provenance is in
-/// `schemas/uigf/README.md`. Nothing is fetched.
+/// `schemas/uigf/README.md`. Nothing is fetched. It is compiled on each call, in
+/// under a millisecond.
 pub fn schema() -> jsonschema::Validator {
     let schema: Value = serde_json::from_slice(include_bytes!("../schemas/uigf/uigf.json"))
         .expect("the bundled schema is JSON");
@@ -334,6 +335,15 @@ pub struct Export {
     pub document: Value,
     /// One outcome per account, in the order given.
     pub accounts: Vec<Exported>,
+}
+
+impl Export {
+    /// Whether the document holds a roll: an account is written only with one.
+    pub fn has_rolls(&self) -> bool {
+        self.accounts
+            .iter()
+            .any(|outcome| matches!(outcome, Exported::Rolls { written, .. } if *written > 0))
+    }
 }
 
 /// What an export did with one account.
@@ -872,6 +882,7 @@ mod tests {
             1_767_225_600,
         );
         assert_eq!(export.accounts, [rolls_written(3), rolls_written(1)]);
+        assert!(export.has_rolls());
         assert_eq!(
             export.document["info"],
             json!({
@@ -1039,6 +1050,7 @@ mod tests {
         // With every account left out, the document holds none.
         let export = write(&[account("700000003", None)], "1.3.0", 0);
         assert_eq!(export.document["hkrpg"], json!([]));
+        assert!(!export.has_rolls());
         assert!(read(&written(&export)).unwrap().accounts.is_empty());
     }
 }

@@ -57,10 +57,7 @@ pub fn build(
         })
         .collect();
     let export = uigf::write(&saved, app_version, exported_at);
-    let written = export
-        .accounts
-        .iter()
-        .any(|outcome| matches!(outcome, Exported::Rolls { written, .. } if *written > 0));
+    let written = export.has_rolls();
     let accounts = histories
         .iter()
         .zip(export.accounts)

@@ -33,13 +33,13 @@ fetched to check a file.
 ## Alternatives and consequences
 
 - **Validate only in tests:** no new runtime crates, but an export made from a
-  history the tests did not foresee would leave the app unchecked.
+  history the tests did not foresee would go unchecked.
 - **A hand-written check of the schema's rules:** no new crates, but it would
   repeat the schema and drift from it as UIGF changes.
 - **Fetching the schema from uigf.org:** always current, but a network request
   the user did not ask for, which the app never makes.
-- The release ships 30 more crates, `jsonschema`'s dependencies, none of them
-  for networking; the notices grew from 359 to 389 crates.
+- The release ships 30 more crates, `jsonschema` and its dependencies, none
+  of them for networking; the notices grew from 359 to 389 crates.
 - Validation adds about a fifth to an export's time: for 100,000 rolls, writing
   the document took 0.49 s and validating it 0.10 s, with optimisations, and
   compiling the schema under 1 ms.
