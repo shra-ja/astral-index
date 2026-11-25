@@ -55,7 +55,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ### Schema notices (2026-11-25)
 
-`feat/schema-notices`: 0055's third task, split from the validated export. UIGF's schema and its MIT licence move from the test fixtures to `src-tauri/schemas/uigf/`, with their provenance beside them, and the third-party notices gain bundled data files, listing the schema with its licence and pinned source; the About dialog shows them as Data Files. Red: the notices builder's four tests that expected the schema failed, and so did the About list's grouping test; green: all tooling and frontend tests, with `tooling/notices.ts` at 100% coverage. `npm run notices` lists the schema.
+`feat/schema-notices`: 0055's third task, split from the validated export. UIGF's schema and its MIT licence move from the test fixtures to `src-tauri/schemas/uigf/`, with their provenance beside them, and the third-party notices gain bundled data files, listing the schema with its licence and pinned source; the About dialog shows them as Data Files. Red: the notices builder's four tests that expected the schema failed, and so did the About list's grouping test; green: all tooling and frontend tests, with `tooling/notices.ts` at 100% coverage. `npm run notices` lists the schema. From review: the gate fails when a folder in `src-tauri/schemas/` is not listed or its README does not name the linked commit (both probed), and the kind lists are records, so a new kind cannot be left unsorted or unshown.
 
 ## Known limitations
 
