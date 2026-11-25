@@ -402,6 +402,16 @@ fn histories_read_accounts_and_rolls_in_export_order() {
             .unwrap();
         store.commit(preview, 1234).unwrap();
     }
+    // An account without rolls, which imports never save, is left out, and another
+    // game's roll, saved under the same UID and server, is never read.
+    db.connection()
+        .execute_batch(
+            "INSERT INTO accounts VALUES ('honkai-star-rail','100000004','synthetic-server',8);
+             INSERT INTO accounts SELECT 'genshin-impact',uid,server,timezone FROM accounts WHERE uid='100000002' AND server='synthetic-server';
+             INSERT INTO batches(id,game,uid,server,adapter,imported_at,inserted,duplicates,conflicts) VALUES (99,'genshin-impact','100000002','synthetic-server','hoyoverse',0,1,0,0);
+             INSERT INTO rolls SELECT 'genshin-impact',uid,server,id,payload,99 FROM rolls WHERE uid='100000002' AND server='synthetic-server' AND id='5';",
+        )
+        .unwrap();
     let ids = |ids: &[&str]| ids.iter().map(|id| id.to_string()).collect::<Vec<_>>();
     let account = |uid: &str, server: &str, timezone, rolls: &[&str]| {
         (uid.to_string(), server.to_string(), timezone, ids(rolls))
