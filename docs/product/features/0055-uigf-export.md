@@ -1,6 +1,6 @@
 # 0055 — UIGF export
 
-Status: Planned · Milestone 11, Backup, restore and file import
+Status: In progress · Milestone 11, Backup, restore and file import
 
 Export the saved Honkai: Star Rail history as a UIGF v4.2 file from its own
 Export screen, so it can be read and moved to other tools. Export stays local
@@ -51,7 +51,7 @@ mockup of the Export screen approved on the canvas first: the account
 selector, the Export UIGF file action, the outcome with what was left out, the
 standard's note, and the empty and error states.
 
-- [ ] **Export read.** Storage reads every saved Star Rail account, or the one
+- [x] **Export read.** Storage reads every saved Star Rail account, or the one
   chosen, with its time zone and its rolls in export order, in one read, so the
   accounts come from one moment of the history.
 - [ ] **UIGF writing.** `uigf` gains a writer beside its reader, without file
@@ -72,6 +72,10 @@ standard's note, and the empty and error states.
   duplicate, 19-digit IDs unchanged, accounts kept apart, rolls without a pool
   ID counted and left out, and a repeated UID left out of All accounts but
   exported alone.
+- [ ] **One history read.** A refactor with no change in behaviour: storage's
+  test-only `history` read is removed, and its tests read through `histories`
+  with the account chosen, allowing for its numeric order and for an account
+  without rolls being left out.
 - [ ] **Shared file writing.** A refactor with no change in behaviour: backup's
   temporary-file write (claim a `.partial` name, write, flush, rename, remove it
   on failure), with `publish`, `real` and `in_data_folder`, moves into its own
