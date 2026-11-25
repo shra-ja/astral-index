@@ -53,9 +53,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Schema notices (2026-11-25)
-
-`feat/schema-notices`: 0055's third task, split from the validated export. UIGF's schema and its MIT licence move from the test fixtures to `src-tauri/schemas/uigf/`, with their provenance beside them, and the third-party notices gain bundled data files, listing the schema with its licence and pinned source; the About dialog shows them as Data Files. Red: the notices builder's four tests that expected the schema failed, and so did the About list's grouping test; green: all tooling and frontend tests, with `tooling/notices.ts` at 100% coverage. `npm run notices` lists the schema. From review: the gate fails when a folder in `src-tauri/schemas/` is not listed or its README does not name the linked commit (both probed), and the kind lists are records, so a new kind cannot be left unsorted or unshown.
+None.
 
 ## Known limitations
 
@@ -239,6 +237,6 @@ research, under a "From" heading.
 - [2026-11-24: export read](history/2026-11-24-export-read.md):
   storage reads the chosen accounts' histories in export order, the first
   task of 0055.
-- [2026-11-25: UIGF writing](history/2026-11-25-uigf-writing.md):
-  `uigf::write` turns saved accounts into a UIGF v4.2 document, 0055's
-  second task.
+- [2026-11-25: UIGF writing and schema notices](history/2026-11-25-uigf-writing.md):
+  `uigf::write` turns saved accounts into a UIGF v4.2 document, and the
+  third-party notices list UIGF's schema as a bundled data file.
