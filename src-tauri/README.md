@@ -45,7 +45,9 @@ for how the parts fit together; run commands from the repository root.
   goes into, from the saved accounts or the game's UID rule, or why it can't be
   imported.
 - `src/uigf.rs` reads UIGF files: it detects the format and version, checks the
-  Star Rail accounts and turns their records into rolls, without file access.
+  Star Rail accounts and turns their records into rolls. It also writes saved
+  accounts as a UIGF v4.2 document, saying what it left out. It has no file
+  access.
 - `src/storage.rs` holds SQLite storage: previews, commits and history reads,
   with the single schema in `migrations/001_initial.sql`.
 - `tauri.conf.json` sets bundled assets, the dev URL and the production CSP;

@@ -1,5 +1,6 @@
 //! UIGF history files: detection, validation and normalisation of their Star Rail
-//! accounts into rolls; no filesystem, network, or persistence access.
+//! accounts into rolls, and writing saved accounts as a UIGF v4.2 document; no
+//! filesystem, network, or persistence access.
 
 use crate::hsr::{self, Roll};
 use serde::Serialize;
@@ -132,10 +133,7 @@ pub fn read(bytes: &[u8]) -> Result<File, Error> {
         Some(_) => return Err(Error::NotUigf),
     };
     let malformed_uids = sources.iter().filter(|source| source.uid.is_none()).count();
-    let mut copies: HashMap<&str, usize> = HashMap::new();
-    for uid in sources.iter().filter_map(|source| source.uid.as_deref()) {
-        *copies.entry(uid).or_default() += 1;
-    }
+    let copies = copies(sources.iter().filter_map(|source| source.uid.as_deref()));
     let accounts = sources
         .iter()
         .filter_map(|source| {
@@ -157,6 +155,15 @@ pub fn read(bytes: &[u8]) -> Result<File, Error> {
             .filter(|game| root.contains_key(*game))
             .collect(),
     })
+}
+
+/// How many times each UID appears: UIGF readers refuse a file that repeats one.
+fn copies<'a>(uids: impl Iterator<Item = &'a str>) -> HashMap<&'a str, usize> {
+    let mut copies = HashMap::new();
+    for uid in uids {
+        *copies.entry(uid).or_default() += 1;
+    }
+    copies
 }
 
 /// The file's UIGF v4 minor version, or why the file is refused.
@@ -303,6 +310,108 @@ fn roll(record: &Map<String, Value>, uid: &str, lang: Option<&str>) -> Option<Ro
         roll.gacha_id = None;
     }
     hsr::valid_roll(&roll).then_some(roll)
+}
+
+/// One saved account to export. Holds player data: never log or display it.
+pub struct Saved<'a> {
+    pub uid: &'a str,
+    pub timezone: Option<i32>,
+    /// In the order to write them.
+    pub rolls: &'a [Roll],
+}
+
+/// An export's document and what it did with each account given.
+pub struct Export {
+    /// The UIGF v4.2 document. Holds player data: never log or display it.
+    pub document: Value,
+    /// One outcome per account, in the order given.
+    pub accounts: Vec<Exported>,
+}
+
+/// What an export did with one account.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Exported {
+    /// Its rolls with a pool ID were written, and those without were left out, as
+    /// UIGF requires one. An account with none to write is left out of the file.
+    Rolls {
+        written: usize,
+        without_pool_id: usize,
+    },
+    /// Left out, as UIGF requires a time zone.
+    NoTimezone,
+    /// Left out, as another account given has the same UID, which UIGF readers refuse.
+    RepeatedUid,
+}
+
+/// Write `accounts` as a UIGF v4.2 document from Astral Index `app_version`,
+/// exported at `exported_at` in seconds since the Unix epoch.
+pub fn write(accounts: &[Saved<'_>], app_version: &str, exported_at: i64) -> Export {
+    let copies = copies(accounts.iter().map(|account| account.uid));
+    let mut hkrpg = Vec::new();
+    let outcomes = accounts
+        .iter()
+        .map(|account| {
+            if copies[account.uid] > 1 {
+                return Exported::RepeatedUid;
+            }
+            let Some(timezone) = account.timezone else {
+                return Exported::NoTimezone;
+            };
+            let rolls: Vec<_> = account
+                .rolls
+                .iter()
+                .filter(|roll| roll.gacha_id.is_some())
+                .collect();
+            let outcome = Exported::Rolls {
+                written: rolls.len(),
+                without_pool_id: account.rolls.len() - rolls.len(),
+            };
+            if !rolls.is_empty() {
+                hkrpg.push(written_account(account.uid, timezone, &rolls));
+            }
+            outcome
+        })
+        .collect();
+    Export {
+        document: serde_json::json!({
+            "info": {
+                "export_timestamp": exported_at,
+                "export_app": "Astral Index",
+                "export_app_version": app_version,
+                "version": "v4.2",
+            },
+            "hkrpg": hkrpg,
+        }),
+        accounts: outcomes,
+    }
+}
+
+/// An `hkrpg` account `uid` holding `rolls` as its records, each with the
+/// account's UID, as the reader requires.
+fn written_account(uid: &str, timezone: i32, rolls: &[&Roll]) -> Value {
+    let mut account = Map::new();
+    account.insert("uid".into(), uid.into());
+    account.insert("timezone".into(), timezone.into());
+    if let Some(lang) = shared_language(rolls) {
+        account.insert("lang".into(), lang.into());
+    }
+    let list = rolls
+        .iter()
+        .map(|roll| {
+            let mut record = serde_json::to_value(roll).expect("a roll is JSON");
+            record["uid"] = uid.into();
+            record
+        })
+        .collect();
+    account.insert("list".into(), Value::Array(list));
+    Value::Object(account)
+}
+
+/// The language every one of `rolls` has, when UIGF lists it.
+fn shared_language<'a>(rolls: &[&'a Roll]) -> Option<&'a str> {
+    let lang = rolls.first()?.lang.as_deref()?;
+    let shared = rolls.iter().all(|roll| roll.lang.as_deref() == Some(lang));
+    (shared && LANGUAGES.contains(&lang)).then_some(lang)
 }
 
 #[cfg(test)]
@@ -706,5 +815,227 @@ mod tests {
         });
         let history = read_checked(&file).unwrap().accounts.remove(0).history;
         assert_eq!(history.unwrap_err(), newer);
+    }
+
+    /// The fixture's first account's rolls, with languages, pool IDs, a 19-digit
+    /// ID, a roll without a count and an extra field.
+    fn saved_rolls() -> Vec<Roll> {
+        rolls_in(&fixture(TWO_ACCOUNTS), 0)
+    }
+    /// `rolls` as rolls of `uid`.
+    fn of(uid: &str, rolls: &[Roll]) -> Vec<Roll> {
+        rolls
+            .iter()
+            .map(|roll| Roll {
+                uid: uid.into(),
+                ..roll.clone()
+            })
+            .collect()
+    }
+    /// `export`'s document, checked against UIGF's schema, as a file.
+    fn written(export: &Export) -> Vec<u8> {
+        assert!(
+            SCHEMA.is_valid(&export.document),
+            "the schema refuses an export"
+        );
+        serde_json::to_vec(&export.document).unwrap()
+    }
+    fn rolls_written(written: usize) -> Exported {
+        Exported::Rolls {
+            written,
+            without_pool_id: 0,
+        }
+    }
+
+    #[test]
+    fn saved_accounts_are_written_as_uigf_v4_2_and_read_back_unchanged() {
+        let first = saved_rolls();
+        // The account's UID is the records' too, whatever a roll holds.
+        let second = saved_rolls()[..1].to_vec();
+        let export = write(
+            &[
+                Saved {
+                    uid: "800000001",
+                    timezone: Some(8),
+                    rolls: &first,
+                },
+                Saved {
+                    uid: "1800000002",
+                    timezone: Some(-5),
+                    rolls: &second,
+                },
+            ],
+            "1.3.0",
+            1_767_225_600,
+        );
+        assert_eq!(export.accounts, [rolls_written(3), rolls_written(1)]);
+        assert_eq!(
+            export.document["info"],
+            json!({
+                "export_timestamp": 1_767_225_600,
+                "export_app": "Astral Index",
+                "export_app_version": "1.3.0",
+                "version": "v4.2",
+            })
+        );
+        let accounts = &export.document["hkrpg"];
+        assert_eq!(accounts[0]["uid"], json!("800000001"));
+        assert_eq!(accounts[0]["timezone"], json!(8));
+        assert_eq!(accounts[0]["lang"], json!("en-us"));
+        assert_eq!(accounts[1]["uid"], json!("1800000002"));
+        assert_eq!(accounts[1]["timezone"], json!(-5));
+
+        let read = read(&written(&export)).unwrap();
+        let read: Vec<_> = read
+            .accounts
+            .into_iter()
+            .map(|account| (account.uid, account.history.unwrap()))
+            .collect();
+        assert_eq!(
+            read,
+            [
+                (
+                    "800000001".to_owned(),
+                    History {
+                        timezone: 8,
+                        rolls: first
+                    }
+                ),
+                (
+                    "1800000002".to_owned(),
+                    History {
+                        timezone: -5,
+                        rolls: of("1800000002", &second)
+                    }
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_account_has_a_language_only_when_its_records_share_one_uigf_lists() {
+        let lang_of = |langs: &[Option<&str>]| {
+            let rolls: Vec<_> = saved_rolls()
+                .into_iter()
+                .zip(langs)
+                .map(|(roll, lang)| Roll {
+                    lang: lang.map(str::to_owned),
+                    ..roll
+                })
+                .collect();
+            let account = Saved {
+                uid: "800000001",
+                timezone: Some(8),
+                rolls: &rolls,
+            };
+            let export = write(&[account], "1.3.0", 0);
+            // Each record keeps its own language either way.
+            let read = read(&written(&export)).unwrap().accounts.remove(0);
+            assert_eq!(read.history.unwrap().rolls, rolls);
+            export.document["hkrpg"][0].get("lang").cloned()
+        };
+        let de = Some("de-de");
+        assert_eq!(lang_of(&[de, de, de]), Some(json!("de-de")));
+        assert_eq!(lang_of(&[de, de, Some("en-us")]), None);
+        assert_eq!(lang_of(&[de, None, de]), None);
+        assert_eq!(lang_of(&[None, None, None]), None);
+        let unlisted = Some("en-gb");
+        assert_eq!(lang_of(&[unlisted, unlisted, unlisted]), None);
+        // No rolls share no language.
+        assert_eq!(shared_language(&[]), None);
+    }
+
+    #[test]
+    fn rolls_without_a_pool_id_are_left_out_and_counted() {
+        let mut rolls = saved_rolls();
+        rolls[1].gacha_id = None;
+        // A roll left out does not decide the account's language.
+        rolls[1].lang = Some("de-de".into());
+        let mut none: Vec<_> = saved_rolls()[..2].to_vec();
+        for roll in &mut none {
+            roll.gacha_id = None;
+        }
+        let export = write(
+            &[
+                Saved {
+                    uid: "800000001",
+                    timezone: Some(8),
+                    rolls: &rolls,
+                },
+                Saved {
+                    uid: "600000002",
+                    timezone: Some(8),
+                    rolls: &none,
+                },
+            ],
+            "1.3.0",
+            0,
+        );
+        assert_eq!(
+            export.accounts,
+            [
+                Exported::Rolls {
+                    written: 2,
+                    without_pool_id: 1
+                },
+                Exported::Rolls {
+                    written: 0,
+                    without_pool_id: 2
+                },
+            ]
+        );
+        // An account with no rolls to write is left out of the file.
+        let read = read(&written(&export)).unwrap();
+        assert_eq!(read.accounts.len(), 1);
+        let ids: Vec<_> = (read
+            .accounts
+            .into_iter()
+            .next()
+            .unwrap()
+            .history
+            .unwrap()
+            .rolls)
+            .into_iter()
+            .map(|roll| roll.id)
+            .collect();
+        assert_eq!(ids, [rolls[0].id.clone(), rolls[2].id.clone()]);
+        assert_eq!(export.document["hkrpg"][0]["lang"], json!("en-us"));
+    }
+
+    #[test]
+    fn accounts_without_a_time_zone_or_with_a_repeated_uid_are_left_out() {
+        let rolls = saved_rolls();
+        let account = |uid, timezone| Saved {
+            uid,
+            timezone,
+            rolls: &rolls,
+        };
+        let export = write(
+            &[
+                account("800000001", Some(8)),
+                account("700000003", None),
+                // The same UID on two servers, whichever has a time zone.
+                account("600000002", Some(8)),
+                account("600000002", None),
+            ],
+            "1.3.0",
+            0,
+        );
+        assert_eq!(
+            export.accounts,
+            [
+                rolls_written(3),
+                Exported::NoTimezone,
+                Exported::RepeatedUid,
+                Exported::RepeatedUid,
+            ]
+        );
+        let file = read(&written(&export)).unwrap();
+        let uids: Vec<_> = file.accounts.iter().map(|account| &account.uid).collect();
+        assert_eq!(uids, ["800000001"]);
+        // With every account left out, the document holds none.
+        let export = write(&[account("700000003", None)], "1.3.0", 0);
+        assert_eq!(export.document["hkrpg"], json!([]));
+        assert!(read(&written(&export)).unwrap().accounts.is_empty());
     }
 }
