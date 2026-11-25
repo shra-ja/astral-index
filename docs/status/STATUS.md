@@ -53,7 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-None.
+### Validated export (2026-11-25)
+
+`feat/validated-export`: 0055's fourth task. `file_export::build` makes a UIGF file of the saved histories through `uigf::write`, refuses an export with no roll to write, saying what each account left out, and checks the document against the schema it is given before it becomes a file ([decision 0035](../architecture/decisions/0035-runtime-export-validation.md)). `uigf::schema()` gives the bundled schema, and `jsonschema` is a runtime dependency without its default features: 30 more crates in the notices, none for networking. Red: the three new tests failed on a stub that refused every export; green: all 18 `file_export` and `uigf` tests, both files at 100% coverage. For 100,000 rolls, validating took 0.10 s after 0.49 s of writing.
 
 ## Known limitations
 
@@ -72,7 +74,7 @@ None.
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the validated export: `file_export` joins the export read and the writer and validates the document at runtime.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the round trips: integration tests export synthetic histories through `file_export` and import them back.
 
 ## Keeping this file current
 

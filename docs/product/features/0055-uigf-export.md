@@ -64,7 +64,7 @@ standard's note, and the empty and error states.
   fixtures to where the app bundles them, with the fixtures' README updated,
   and the third-party notices gain bundled data files, listing the schema with
   its licence and source, so no build ships it without its notice.
-- [ ] **Validated export.** `file_export`, beside `file_import`, joins the
+- [x] **Validated export.** `file_export`, beside `file_import`, joins the
   export read and the writer, refuses an export with no rolls, and validates
   the document at runtime against the schema it is given, so a test can hand it
   a stricter one to reach the refusal. `jsonschema` becomes a runtime

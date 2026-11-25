@@ -41,6 +41,8 @@ for how the parts fit together; run commands from the repository root.
 - `src/hsr.rs` parses and validates HSR API response pages, and holds Star
   Rail's rules: categories, soft pity, roll checks and the UID→server rule
   for history files.
+- `src/file_export.rs` makes a UIGF file of the saved accounts' histories,
+  checked against UIGF's schema, or says why there is nothing to export.
 - `src/file_import.rs` decides which server each of a history file's accounts
   goes into, from the saved accounts or the game's UID rule, or why it can't be
   imported.
