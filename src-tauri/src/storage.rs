@@ -266,15 +266,20 @@ pub enum Chosen<'a> {
     One { uid: &'a str, server: &'a str },
 }
 
-/// A saved account with all its rolls, as an export writes them. Holds a player
-/// identifier: never log it.
-#[derive(Debug, PartialEq, Eq)]
+/// A saved account with all its rolls, as an export writes them. Holds player
+/// data: never log or display it.
+#[derive(PartialEq, Eq)]
 pub struct AccountHistory {
     pub uid: String,
     pub server: String,
     /// UTC offset in hours of the server-local times, when known.
     pub timezone: Option<i32>,
     pub rolls: Vec<Roll>,
+}
+impl std::fmt::Debug for AccountHistory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AccountHistory([redacted])")
+    }
 }
 
 /// The newest import's summary, for the Import screen. Holds a player identifier:
@@ -2358,7 +2363,7 @@ pub(crate) mod tests {
                 history_row(UID, SERVER, Some(8), &mine[1]),
                 history_row(UID, SERVER, Some(8), &mine[0]),
                 history_row(UID, "other-server", Some(1), &mine[0]),
-                history_row(OTHER, SERVER, None, &other[0]),
+                history_row(OTHER, "other-server", None, &other[0]),
             ],
         ));
         let read = store().histories(Chosen::All);
@@ -2374,9 +2379,12 @@ pub(crate) mod tests {
             Ok(vec![
                 account(UID, SERVER, Some(8), vec![mine[1].clone(), mine[0].clone()]),
                 account(UID, "other-server", Some(1), vec![mine[0].clone()]),
-                account(OTHER, SERVER, None, vec![other[0].clone()]),
+                account(OTHER, "other-server", None, vec![other[0].clone()]),
             ])
         );
+        // It holds a player's history, so it never prints any of it.
+        let read = read.unwrap();
+        assert_eq!(format!("{:?}", read[0]), "AccountHistory([redacted])");
         database::expect(histories_script([Value::Null, Value::Null], vec![]));
         assert_eq!(store().histories(Chosen::All), Ok(vec![]));
         database::finish();
