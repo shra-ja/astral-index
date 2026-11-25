@@ -2,7 +2,7 @@
 // writes them from what the release build ships, and fails when a component has no
 // licence text or a licence is outside the accepted list. They are not committed.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import license from 'rollup-plugin-license'
@@ -14,6 +14,7 @@ import {
   noticesText,
   type CargoAboutReport,
   type Package,
+  type Sourced,
 } from '../tooling/notices'
 
 const files = {
@@ -83,11 +84,42 @@ function font(): Package {
   }
 }
 
+/**
+ * The data files the app bundles from elsewhere, each with its licence from its folder
+ * in `src-tauri/schemas/`: UIGF's schema, for validating exports. Every folder there is
+ * listed, so none ships without its notice, and its README names the pinned commit the
+ * source links to.
+ */
+function data(): Sourced[] {
+  const files = {
+    uigf: {
+      name: 'UIGF schema',
+      version: 'v4.2',
+      license: 'MIT',
+      repository: 'UIGF-org/UIGF-org.github.io',
+      commit: '9570eeecd1bf4b60734274afbe72e82ff9c789d4',
+      path: 'docs/.vuepress/public/schema/uigf.json',
+    },
+  }
+  expect(readdirSync('src-tauri/schemas').sort(), 'every bundled data folder is listed').toEqual(
+    Object.keys(files).sort(),
+  )
+  return Object.entries(files).map(([folder, { repository, commit, path, ...file }]) => {
+    const dir = `src-tauri/schemas/${folder}`
+    expect(readFileSync(`${dir}/README.md`, 'utf8'), `${dir}/README.md`).toContain(commit)
+    return {
+      ...file,
+      licenseText: readFileSync(`${dir}/LICENSE`, 'utf8'),
+      source: `https://github.com/${repository}/blob/${commit}/${path}`,
+    }
+  })
+}
+
 /** The notices as files, with every reason they would be incomplete. */
 async function generate() {
   const accepted = acceptedLicences(readFileSync('src-tauri/about.toml', 'utf8'))
   const { notices, problems } = buildNotices(
-    { cargo: crates(), npm: await bundled(), font: font() },
+    { cargo: crates(), npm: await bundled(), font: font(), data: data() },
     accepted,
   )
   return { problems, json: `${JSON.stringify(notices, null, 2)}\n`, text: noticesText(notices) }

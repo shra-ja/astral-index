@@ -1,8 +1,8 @@
 // The third-party notices (decision 0025): every component the release build ships,
 // with its version, licence, source and licence text. Pure functions over what
 // cargo-about reports for the crates, what the bundler reports for the npm packages,
-// and the bundled font's package; the gate in `tests/notices.test.ts` gathers those
-// and writes or checks the committed files.
+// the bundled font's package and the data files the app bundles; the gate in
+// `tests/notices.test.ts` gathers those and writes the generated files.
 
 /** What cargo-about's JSON output holds that the notices need. */
 export interface CargoAboutReport {
@@ -15,14 +15,20 @@ export interface Package {
   license: string | null
   licenseText: string | null
 }
+/** A package with where its published source is. */
+export interface Sourced extends Package {
+  source: string
+}
 export interface Sources {
   cargo: CargoAboutReport
   /** The packages the frontend bundle contains. */
   npm: Package[]
   /** The bundled typeface, which the bundle reaches through CSS. */
   font: Package
+  /** The data files the app bundles from elsewhere, which have no registry to link to. */
+  data: Sourced[]
 }
-type Kind = 'crate' | 'npm' | 'font'
+type Kind = 'crate' | 'npm' | 'font' | 'data'
 export interface Component {
   name: string
   version: string
@@ -56,10 +62,12 @@ export function chooseLicence(expression: string, accepted: string[]): string[] 
     .find((parts) => parts.every((part) => accepted.includes(part)))
 }
 
-const sourceOf = (kind: Kind, name: string, version: string) =>
-  kind === 'crate'
-    ? `https://crates.io/crates/${name}/${version}`
-    : `https://www.npmjs.com/package/${name}/v/${version}`
+const crateSource = (name: string, version: string) => `https://crates.io/crates/${name}/${version}`
+/** A package with its page on npm, where its published source is. */
+const onNpm = (pkg: Package): Sourced => ({
+  ...pkg,
+  source: `https://www.npmjs.com/package/${pkg.name}/v/${pkg.version}`,
+})
 
 /** Gather the components and their texts, and every reason the notices are incomplete. */
 export function buildNotices(sources: Sources, accepted: string[]) {
@@ -72,46 +80,48 @@ export function buildNotices(sources: Sources, accepted: string[]) {
     const known = texts.indexOf(text)
     return known >= 0 ? known : texts.push(text) - 1
   }
-  const add = (kind: Kind, name: string, version: string, id: string, text: string) => {
+  const add = (
+    kind: Kind,
+    { name, version, source }: Pick<Component, 'name' | 'version' | 'source'>,
+    id: string,
+    text: string,
+  ) => {
     const key = `${kind} ${name} ${version}`
-    const component = components.get(key) ?? {
-      name,
-      version,
-      kind,
-      source: sourceOf(kind, name, version),
-      licences: [],
-    }
+    const component = components.get(key) ?? { name, version, kind, source, licences: [] }
     component.licences.push({ id, text: textIndex(text) })
     components.set(key, component)
   }
 
   for (const { id, text, used_by } of sources.cargo.licenses) {
     for (const { crate } of used_by) {
-      if (accepted.includes(id)) add('crate', crate.name, crate.version, id, text)
+      if (accepted.includes(id))
+        add('crate', { ...crate, source: crateSource(crate.name, crate.version) }, id, text)
       else problems.push(`crate ${crate.name} ${crate.version}: ${id} is not an accepted licence`)
     }
   }
-  const packages: [Kind, Package][] = [
-    ...sources.npm.map((pkg): [Kind, Package] => ['npm', pkg]),
-    ['font', sources.font],
+  // Each with its source: the font is an npm package, a data file names its own.
+  const entries: [Kind, Sourced][] = [
+    ...sources.npm.map((pkg): [Kind, Sourced] => ['npm', onNpm(pkg)]),
+    ['font', onNpm(sources.font)],
+    ...sources.data.map((file): [Kind, Sourced] => ['data', file]),
   ]
-  for (const [kind, { name, version, license, licenseText }] of packages) {
+  for (const [kind, entry] of entries) {
+    const { name, version, license, licenseText } = entry
     const ids = chooseLicence(license ?? '', accepted)
     if (!licenseText?.trim()) problems.push(`${kind} ${name} ${version}: no licence text`)
     else if (!ids)
       problems.push(`${kind} ${name} ${version}: no accepted licence in ${license ?? '(none)'}`)
-    else for (const id of ids) add(kind, name, version, id, licenseText)
+    else for (const id of ids) add(kind, entry, id, licenseText)
   }
 
-  // Crates, then npm packages, then the font, each by name and then version; a plain
-  // comparison, so the order never depends on the machine's locale.
-  const order: Kind[] = ['crate', 'npm', 'font']
+  // Crates, then npm packages, the font and data files, each by name and then version;
+  // a plain comparison, so the order never depends on the machine's locale.
+  // A record, so a new kind cannot be left without a place.
+  const order: Record<Kind, number> = { crate: 0, npm: 1, font: 2, data: 3 }
   const compare = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
   const sorted = [...components.values()].sort(
     (a, b) =>
-      order.indexOf(a.kind) - order.indexOf(b.kind) ||
-      compare(a.name, b.name) ||
-      compare(a.version, b.version),
+      order[a.kind] - order[b.kind] || compare(a.name, b.name) || compare(a.version, b.version),
   )
   return { notices: { texts, components: sorted }, problems }
 }

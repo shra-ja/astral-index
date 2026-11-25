@@ -8,16 +8,19 @@ import type { NoticeComponent, Notices } from '../../notices'
 
 const props = defineProps<{ notices: DeepReadonly<Notices> | null; missing: boolean }>()
 
-const groups = [
-  { kind: 'crate', title: 'Rust Crates' },
-  { kind: 'npm', title: 'Frontend Packages' },
-  { kind: 'font', title: 'Typeface' },
-] as const
+// Each kind's title, in the order shown: a record, so a new kind cannot go unshown.
+const titles: Record<NoticeComponent['kind'], string> = {
+  crate: 'Rust Crates',
+  npm: 'Frontend Packages',
+  font: 'Typeface',
+  data: 'Data Files',
+}
 const shown = computed(() =>
-  groups
-    .map((group) => ({
-      ...group,
-      components: props.notices!.components.filter(({ kind }) => kind === group.kind),
+  Object.entries(titles)
+    .map(([kind, title]) => ({
+      kind,
+      title,
+      components: props.notices!.components.filter((component) => component.kind === kind),
     }))
     .filter(({ components }) => components.length > 0),
 )

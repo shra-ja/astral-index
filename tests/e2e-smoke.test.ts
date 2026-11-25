@@ -1028,10 +1028,11 @@ test('the About dialog opens from the keyboard, opens what it offers and closes 
       )
       .toSatisfy(
         (groups: string[]) =>
-          groups.length === 3 &&
+          groups.length === 4 &&
           /^Rust Crates \(\d{3}\)$/.test(groups[0]) &&
           /^Frontend Packages \(\d+\)$/.test(groups[1]) &&
-          groups[2] === 'Typeface (1)',
+          groups[2] === 'Typeface (1)' &&
+          groups[3] === 'Data Files (1)',
       )
     expect(
       await app.execute(`return document.querySelectorAll('dialog .licence-text').length`),

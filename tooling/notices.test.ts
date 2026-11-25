@@ -36,6 +36,15 @@ const sources = (overrides: Partial<Sources> = {}): Sources => ({
     license: 'OFL-1.1',
     licenseText: 'SIL Open Font License…',
   },
+  data: [
+    {
+      name: 'UIGF schema',
+      version: 'v4.2',
+      license: 'MIT',
+      licenseText: mit('UIGF'),
+      source: 'https://example.test/uigf.json',
+    },
+  ],
   ...overrides,
 })
 
@@ -114,6 +123,14 @@ test('every component is listed once with its source, and identical texts are sh
       source: 'https://www.npmjs.com/package/@fontsource-variable/hanken-grotesk/v/5.3.0',
       licences: [{ id: 'OFL-1.1', text: 4 }],
     },
+    // A bundled data file has no registry, so it names its own source.
+    {
+      name: 'UIGF schema',
+      version: 'v4.2',
+      kind: 'data',
+      source: 'https://example.test/uigf.json',
+      licences: [{ id: 'MIT', text: 5 }],
+    },
   ])
   // The Tauri crate's text and the API package's are the same, so they share one.
   expect(notices.texts).toEqual([
@@ -122,6 +139,7 @@ test('every component is listed once with its source, and identical texts are sh
     mit('Tauri'),
     mit('Evan You'),
     'SIL Open Font License…',
+    mit('UIGF'),
   ])
 })
 
@@ -158,7 +176,12 @@ test('two versions of one crate are listed apart, in version order', () => {
     buildNotices(twice, accepted).notices.components.map(
       ({ name, version }) => `${name} ${version}`,
     ),
-  ).toEqual(['miniz_oxide 0.8.9', 'miniz_oxide 0.9.1', '@fontsource-variable/hanken-grotesk 5.3.0'])
+  ).toEqual([
+    'miniz_oxide 0.8.9',
+    'miniz_oxide 0.9.1',
+    '@fontsource-variable/hanken-grotesk 5.3.0',
+    'UIGF schema v4.2',
+  ])
 })
 
 test('a missing text or an unaccepted licence is a problem naming the component', () => {
@@ -171,12 +194,18 @@ test('a missing text or an unaccepted licence is a problem naming the component'
       { name: 'unlicensed', version: '2.0.0', license: null, licenseText: 'Some text' },
       { name: 'blank', version: '3.0.0', license: 'MIT', licenseText: '  \n' },
     ],
+    data: [
+      { name: 'untexted', version: 'v1', license: 'MIT', licenseText: null, source: 'x' },
+      { name: 'copyleft', version: 'v2', license: 'GPL-3.0', licenseText: 'GNU GPL…', source: 'x' },
+    ],
   })
   expect(buildNotices(failing, accepted).problems).toEqual([
     'crate copyleft 1.0.0: GPL-3.0 is not an accepted licence',
     'npm untexted 1.0.0: no licence text',
     'npm unlicensed 2.0.0: no accepted licence in (none)',
     'npm blank 3.0.0: no licence text',
+    'data untexted v1: no licence text',
+    'data copyleft v2: no accepted licence in GPL-3.0',
   ])
 })
 
@@ -205,6 +234,7 @@ test('the plain-text notices list the components, then each text with who uses i
     '- cssparser 0.37.0 (crate, MPL-2.0): https://crates.io/crates/cssparser/0.37.0\n',
   )
   expect(text).toContain('- @fontsource-variable/hanken-grotesk 5.3.0 (font, OFL-1.1): ')
+  expect(text).toContain('- UIGF schema v4.2 (data, MIT): https://example.test/uigf.json\n')
   expect(text).toContain(
     `MIT, used by serde 1.0.0, serde_json 1.0.1\n${'-'.repeat(78)}\n${mit('Serde')}\n`,
   )

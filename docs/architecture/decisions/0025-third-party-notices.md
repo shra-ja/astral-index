@@ -27,8 +27,8 @@ change, without the check being skippable or silently incomplete.
   Vite's Rolldown bundler. The gate builds with `NODE_ENV=production` so the
   report matches the release, not a development build. The typeface reaches the
   bundle through CSS, so it is read from its `@fontsource-variable` package.
-- **One accepted list.** `about.toml`'s `accepted` setting is the policy for all
-  three sources: MIT, MIT-0, Apache-2.0 (also with the LLVM exception),
+- **One accepted list.** `about.toml`'s `accepted` setting is the policy for every
+  source: MIT, MIT-0, Apache-2.0 (also with the LLVM exception),
   BSD-2-Clause, BSD-3-Clause, ISC, Zlib, 0BSD, CC0-1.0, Unlicense, Unicode-3.0,
   MPL-2.0 and OFL-1.1. MPL-2.0 covers five crates Tauri uses to parse HTML and
   CSS, shipped unmodified; each notice links to the component's published
@@ -40,6 +40,13 @@ change, without the check being skippable or silently incomplete.
   both are gitignored, so they can never be stale. It fails, and so does the
   build, when a component has no licence text or a licence is outside the list.
   `tauri dev` serves the frontend without building it, so it needs no notices.
+- **Bundled data files** (added 2026-11-25): a file the app bundles from
+  another project, such as UIGF's schema for validating exports, sits in its
+  own folder in `src-tauri/schemas/` with its licence and a README naming its
+  pinned commit. It is listed under that licence with a link to its source at
+  that commit, since it has no registry to link to. The gate fails when a
+  folder there is not listed or its README does not name the commit, and the
+  About dialog shows these files as Data Files.
 - **Shown in the About dialog.** The frontend loads the JSON through a lookup
   (`import.meta.glob`) that finds nothing rather than failing when the file is
   missing, so a development run says the notices come from builds. The notices

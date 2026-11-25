@@ -1,6 +1,8 @@
 # Prettier also skips everything in .gitignore.
 # Synthetic API responses whose exact bytes the parser tests depend on.
 src-tauri/tests/fixtures/
+# UIGF's schema, kept byte for byte as published.
+src-tauri/schemas/uigf/uigf.json
 # Agent skills, kept as written.
 .agents/
 # Markdown keeps its hand-written layout.
