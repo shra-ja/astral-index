@@ -12,6 +12,7 @@ const groups = [
   { kind: 'crate', title: 'Rust Crates' },
   { kind: 'npm', title: 'Frontend Packages' },
   { kind: 'font', title: 'Typeface' },
+  { kind: 'data', title: 'Data Files' },
 ] as const
 const shown = computed(() =>
   groups

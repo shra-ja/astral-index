@@ -6,7 +6,7 @@
 export interface NoticeComponent {
   name: string
   version: string
-  kind: 'crate' | 'npm' | 'font'
+  kind: 'crate' | 'npm' | 'font' | 'data'
   /** Where its published source is. */
   source: string
   /** Each licence that applies, with the index of its text. */

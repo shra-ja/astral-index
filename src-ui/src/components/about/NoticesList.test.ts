@@ -25,6 +25,7 @@ const notices: Notices = {
     component('serde', 'crate', [{ id: 'MIT', text: 0 }]),
     component('vue', 'npm', [{ id: 'MIT', text: 0 }]),
     component('hanken-grotesk', 'font', [{ id: 'OFL-1.1', text: 3 }]),
+    component('uigf-schema', 'data', [{ id: 'MIT', text: 0 }]),
   ],
 }
 const list = (props: { notices: Notices | null; missing: boolean }) => mount(NoticesList, { props })
@@ -36,12 +37,14 @@ test('lists every component by origin, with a count per group', () => {
     'Rust Crates (2)',
     'Frontend Packages (1)',
     'Typeface (1)',
+    'Data Files (1)',
   ])
   expect(wrapper.findAll('summary').map((summary) => summary.text().replace(/\s+/g, ' '))).toEqual([
     'ring 1.0.0 Apache-2.0 AND ISC',
     'serde 1.0.0 MIT',
     'vue 1.0.0 MIT',
     'hanken-grotesk 1.0.0 OFL-1.1',
+    'uigf-schema 1.0.0 MIT',
   ])
   // A group with nothing in it is left out.
   const crates = { ...notices, components: notices.components.slice(0, 2) }
