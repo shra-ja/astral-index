@@ -54,7 +54,7 @@ standard's note, and the empty and error states.
 - [x] **Export read.** Storage reads every saved Star Rail account, or the one
   chosen, with its time zone and its rolls in export order, in one read, so the
   accounts come from one moment of the history.
-- [ ] **UIGF writing.** `uigf` gains a writer beside its reader, without file
+- [x] **UIGF writing.** `uigf` gains a writer beside its reader, without file
   access: the v4.2 document with `info` (the export time passed in), each
   account's UID as text, time zone and listed shared language, and records with
   their stored fields. It reports what it left out: rolls without a pool ID per
