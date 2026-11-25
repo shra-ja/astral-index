@@ -28,6 +28,9 @@ tauri-plugin-opener = "=2.7.1"
 tauri-plugin-dialog = "=2.8.1"
 tracing = { version = "=0.1.44", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "=0.3.23", default-features = false, features = ["fmt"] }
+# Validates exports against UIGF's bundled schema (decision 0035). Without its
+# default features it cannot fetch a schema reference.
+jsonschema = { version = "=0.59.0", default-features = false, features = ["arbitrary-precision"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.189"
@@ -47,8 +50,6 @@ tauri = { version = "=2.12.0", features = ["test"] }
 rusqlite = { version = "=0.40.2", features = ["hooks", "limits"] }
 tokio = { version = "=1.53.1", features = ["test-util"] }
 sha2 = "=0.10.9"
-# Checks UIGF fixtures against the pinned schema; no references are fetched.
-jsonschema = { version = "=0.59.0", default-features = false, features = ["arbitrary-precision"] }
 
 
 [[bin]]

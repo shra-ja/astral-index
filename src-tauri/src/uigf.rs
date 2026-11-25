@@ -157,6 +157,14 @@ pub fn read(bytes: &[u8]) -> Result<File, Error> {
     })
 }
 
+/// UIGF v4.2's published schema, which the app bundles; its provenance is in
+/// `schemas/uigf/README.md`. Nothing is fetched.
+pub fn schema() -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(include_bytes!("../schemas/uigf/uigf.json"))
+        .expect("the bundled schema is JSON");
+    jsonschema::validator_for(&schema).expect("the bundled schema is a valid schema")
+}
+
 /// How many times each UID appears: UIGF readers refuse a file that repeats one.
 fn copies<'a>(uids: impl Iterator<Item = &'a str>) -> HashMap<&'a str, usize> {
     let mut copies = HashMap::new();
@@ -424,12 +432,8 @@ mod tests {
     const STARDB: &[u8] = include_bytes!("../tests/fixtures/uigf/stardb-v4.1.json");
     const LEGACY: &[u8] = include_bytes!("../tests/fixtures/uigf/uigf-v3.0.json");
     const SRGF: &[u8] = include_bytes!("../tests/fixtures/uigf/srgf-v1.0.json");
-    /// UIGF's published schema, pinned in `schemas/uigf/`.
-    static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
-        let schema: Value =
-            serde_json::from_slice(include_bytes!("../schemas/uigf/uigf.json")).unwrap();
-        jsonschema::validator_for(&schema).unwrap()
-    });
+    /// UIGF's published schema, as the app bundles it.
+    static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(schema);
 
     fn fixture(bytes: &[u8]) -> Value {
         serde_json::from_slice(bytes).unwrap()
