@@ -13,6 +13,7 @@ import {
   buildNotices,
   noticesText,
   type CargoAboutReport,
+  type DataFile,
   type Package,
 } from '../tooling/notices'
 
@@ -83,11 +84,26 @@ function font(): Package {
   }
 }
 
+/** The data files the app bundles: UIGF's schema, which exports are checked against. */
+function data(): DataFile[] {
+  return [
+    {
+      name: 'UIGF schema',
+      version: 'v4.2',
+      license: 'MIT',
+      licenseText: readFileSync('src-tauri/schemas/uigf/LICENSE', 'utf8'),
+      // The pinned commit `src-tauri/schemas/uigf/README.md` names.
+      source:
+        'https://github.com/UIGF-org/UIGF-org.github.io/blob/9570eeecd1bf4b60734274afbe72e82ff9c789d4/docs/.vuepress/public/schema/uigf.json',
+    },
+  ]
+}
+
 /** The notices as files, with every reason they would be incomplete. */
 async function generate() {
   const accepted = acceptedLicences(readFileSync('src-tauri/about.toml', 'utf8'))
   const { notices, problems } = buildNotices(
-    { cargo: crates(), npm: await bundled(), font: font() },
+    { cargo: crates(), npm: await bundled(), font: font(), data: data() },
     accepted,
   )
   return { problems, json: `${JSON.stringify(notices, null, 2)}\n`, text: noticesText(notices) }
