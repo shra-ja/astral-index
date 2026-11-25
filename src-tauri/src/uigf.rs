@@ -424,11 +424,10 @@ mod tests {
     const STARDB: &[u8] = include_bytes!("../tests/fixtures/uigf/stardb-v4.1.json");
     const LEGACY: &[u8] = include_bytes!("../tests/fixtures/uigf/uigf-v3.0.json");
     const SRGF: &[u8] = include_bytes!("../tests/fixtures/uigf/srgf-v1.0.json");
-    /// UIGF's published schema, pinned in the fixtures.
+    /// UIGF's published schema, pinned where the app bundles it.
     static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
         let schema: Value =
-            serde_json::from_slice(include_bytes!("../tests/fixtures/uigf/schema/uigf.json"))
-                .unwrap();
+            serde_json::from_slice(include_bytes!("../schemas/uigf/uigf.json")).unwrap();
         jsonschema::validator_for(&schema).unwrap()
     });
 
