@@ -1,5 +1,6 @@
 //! UIGF history files: detection, validation and normalisation of their Star Rail
-//! accounts into rolls; no filesystem, network, or persistence access.
+//! accounts into rolls, and writing saved accounts as a UIGF v4.2 document; no
+//! filesystem, network, or persistence access.
 
 use crate::hsr::{self, Roll};
 use serde::Serialize;
@@ -346,7 +347,7 @@ pub enum Exported {
 /// exported at `exported_at` in seconds since the Unix epoch.
 pub fn write(accounts: &[Saved<'_>], app_version: &str, exported_at: i64) -> Export {
     let copies = copies(accounts.iter().map(|account| account.uid));
-    let mut written = Vec::new();
+    let mut hkrpg = Vec::new();
     let outcomes = accounts
         .iter()
         .map(|account| {
@@ -366,7 +367,7 @@ pub fn write(accounts: &[Saved<'_>], app_version: &str, exported_at: i64) -> Exp
                 without_pool_id: account.rolls.len() - rolls.len(),
             };
             if !rolls.is_empty() {
-                written.push(written_account(account.uid, timezone, &rolls));
+                hkrpg.push(written_account(account.uid, timezone, &rolls));
             }
             outcome
         })
@@ -379,30 +380,38 @@ pub fn write(accounts: &[Saved<'_>], app_version: &str, exported_at: i64) -> Exp
                 "export_app_version": app_version,
                 "version": "v4.2",
             },
-            "hkrpg": written,
+            "hkrpg": hkrpg,
         }),
         accounts: outcomes,
     }
 }
 
-/// An `hkrpg` account holding `rolls`, with their language when they all share
-/// one UIGF lists.
+/// An `hkrpg` account `uid` holding `rolls` as its records, each with the
+/// account's UID, as the reader requires.
 fn written_account(uid: &str, timezone: i32, rolls: &[&Roll]) -> Value {
     let mut account = Map::new();
     account.insert("uid".into(), uid.into());
     account.insert("timezone".into(), timezone.into());
-    let lang = rolls[0].lang.as_deref();
-    if let Some(lang) = lang.filter(|lang| {
-        LANGUAGES.contains(lang) && rolls.iter().all(|roll| roll.lang.as_deref() == Some(*lang))
-    }) {
+    if let Some(lang) = shared_language(rolls) {
         account.insert("lang".into(), lang.into());
     }
     let list = rolls
         .iter()
-        .map(|roll| serde_json::to_value(roll).expect("a roll is JSON"))
+        .map(|roll| {
+            let mut record = serde_json::to_value(roll).expect("a roll is JSON");
+            record["uid"] = uid.into();
+            record
+        })
         .collect();
     account.insert("list".into(), Value::Array(list));
     Value::Object(account)
+}
+
+/// The language every one of `rolls` has, when UIGF lists it.
+fn shared_language<'a>(rolls: &[&'a Roll]) -> Option<&'a str> {
+    let lang = rolls.first()?.lang.as_deref()?;
+    let shared = rolls.iter().all(|roll| roll.lang.as_deref() == Some(lang));
+    (shared && LANGUAGES.contains(&lang)).then_some(lang)
 }
 
 #[cfg(test)]
@@ -813,7 +822,7 @@ mod tests {
     fn saved_rolls() -> Vec<Roll> {
         rolls_in(&fixture(TWO_ACCOUNTS), 0)
     }
-    /// `rolls` as rolls of `uid`, as storage gives them.
+    /// `rolls` as rolls of `uid`.
     fn of(uid: &str, rolls: &[Roll]) -> Vec<Roll> {
         rolls
             .iter()
@@ -840,8 +849,9 @@ mod tests {
 
     #[test]
     fn saved_accounts_are_written_as_uigf_v4_2_and_read_back_unchanged() {
-        let first = of("800000001", &saved_rolls());
-        let second = of("1800000002", &saved_rolls()[..1]);
+        let first = saved_rolls();
+        // The account's UID is the records' too, whatever a roll holds.
+        let second = saved_rolls()[..1].to_vec();
         let export = write(
             &[
                 Saved {
@@ -874,11 +884,6 @@ mod tests {
         assert_eq!(accounts[0]["lang"], json!("en-us"));
         assert_eq!(accounts[1]["uid"], json!("1800000002"));
         assert_eq!(accounts[1]["timezone"], json!(-5));
-        // Records keep their stored fields and text, in the order given.
-        assert_eq!(
-            accounts[0]["list"][0],
-            serde_json::to_value(&first[0]).unwrap()
-        );
 
         let read = read(&written(&export)).unwrap();
         let read: Vec<_> = read
@@ -900,7 +905,7 @@ mod tests {
                     "1800000002".to_owned(),
                     History {
                         timezone: -5,
-                        rolls: second
+                        rolls: of("1800000002", &second)
                     }
                 ),
             ]
@@ -936,6 +941,8 @@ mod tests {
         assert_eq!(lang_of(&[None, None, None]), None);
         let unlisted = Some("en-gb");
         assert_eq!(lang_of(&[unlisted, unlisted, unlisted]), None);
+        // No rolls share no language.
+        assert_eq!(shared_language(&[]), None);
     }
 
     #[test]
@@ -948,7 +955,6 @@ mod tests {
         for roll in &mut none {
             roll.gacha_id = None;
         }
-        let none = of("600000002", &none);
         let export = write(
             &[
                 Saved {
