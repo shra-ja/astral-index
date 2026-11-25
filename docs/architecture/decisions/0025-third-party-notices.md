@@ -40,6 +40,11 @@ change, without the check being skippable or silently incomplete.
   both are gitignored, so they can never be stale. It fails, and so does the
   build, when a component has no licence text or a licence is outside the list.
   `tauri dev` serves the frontend without building it, so it needs no notices.
+- **Bundled data files** (added 2026-11-25): a file the app bundles from
+  another project, such as UIGF's schema in `src-tauri/schemas/uigf/`, which
+  exports are checked against, is listed under its licence file with a link to
+  its source at the pinned commit, since it has no registry to link to. The
+  gate lists each one, and the About dialog shows them as Data Files.
 - **Shown in the About dialog.** The frontend loads the JSON through a lookup
   (`import.meta.glob`) that finds nothing rather than failing when the file is
   missing, so a development run says the notices come from builds. The notices

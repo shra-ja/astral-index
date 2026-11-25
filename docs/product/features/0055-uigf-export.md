@@ -60,13 +60,16 @@ standard's note, and the empty and error states.
   their stored fields. It reports what it left out: rolls without a pool ID per
   account, and accounts without a time zone or with a repeated UID. Tests check
   its outputs against the pinned schema and read them back with `uigf::read`.
+- [ ] **Schema notices.** The schema and its licence move out of the test
+  fixtures to where the app bundles them, with the fixtures' README updated,
+  and the third-party notices gain bundled data files, listing the schema with
+  its licence and source, so no build ships it without its notice.
 - [ ] **Validated export.** `file_export`, beside `file_import`, joins the
   export read and the writer, refuses an export with no rolls, and validates
   the document at runtime against the schema it is given, so a test can hand it
   a stricter one to reach the refusal. `jsonschema` becomes a runtime
-  dependency; the schema and its licence move out of the test fixtures, with
-  the fixtures' README and the `Cargo.toml` comment updated; the third-party
-  notices follow, and a decision records validating at runtime.
+  dependency, with the `Cargo.toml` comment updated, and a decision records
+  validating at runtime.
 - [ ] **Round trips.** Integration tests export synthetic histories through
   `file_export` and import each account back through file import: every roll a
   duplicate, 19-digit IDs unchanged, accounts kept apart, rolls without a pool
