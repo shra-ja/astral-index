@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-11-24
+Updated: 2026-11-26
 
 ## Current state
 
@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Validated export (2026-11-25)
+### Export round trips (2026-11-26)
 
-`feat/validated-export`: 0055's fourth task. `file_export::build` makes a UIGF file of the saved histories through `uigf::write`, refuses an export with no roll to write, saying what each account left out, and checks the document against the schema it is given before it becomes a file ([decision 0035](../architecture/decisions/0035-runtime-export-validation.md)). `uigf::schema()` gives the bundled schema, and `jsonschema` is a runtime dependency without its default features: 30 more crates in the notices, none for networking. Red: the three new tests failed on a stub that refused every export; green: all 18 `file_export` and `uigf` tests, both files at 100% coverage. For 100,000 rolls, validating took 0.10 s after 0.49 s of writing. From review: whether anything was written is the writer's `has_rolls`, not a rule repeated in `file_export`.
+`test/export-round-trips`: 0055's fifth task, tests only. Integration tests in `src-tauri/tests/export_round_trips.rs` export synthetic saved histories through `file_export` and take each account back through the Import screen's file import (`uigf::read`, then `file_import::resolve`). Back into its own history, every roll is a duplicate; into an empty one, each account returns on its own server with every written roll's fields unchanged, the 19-digit IDs included, and the roll without a pool ID is counted and left out. A UID saved on two servers is left out of All accounts but exports alone and imports into an empty history. The tests passed on first run, as the behaviour exists; probes showed they fail when the writer drops a record's count, ignores a repeated UID or writes IDs as numbers.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the round trips: integration tests export synthetic histories through `file_export` and import them back.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with one history read: storage's test-only `history` read is removed and its tests read through `histories`.
 
 ## Keeping this file current
 
@@ -239,6 +239,7 @@ research, under a "From" heading.
 - [2026-11-24: export read](history/2026-11-24-export-read.md):
   storage reads the chosen accounts' histories in export order, the first
   task of 0055.
-- [2026-11-25: UIGF writing and schema notices](history/2026-11-25-uigf-writing.md):
-  `uigf::write` turns saved accounts into a UIGF v4.2 document, and the
-  third-party notices list UIGF's schema as a bundled data file.
+- [2026-11-25: UIGF writing, schema notices and validated export](history/2026-11-25-uigf-writing.md):
+  `uigf::write` turns saved accounts into a UIGF v4.2 document, the
+  third-party notices list UIGF's schema as a bundled data file, and
+  `file_export` checks each export against that schema.

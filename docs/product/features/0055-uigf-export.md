@@ -70,7 +70,7 @@ standard's note, and the empty and error states.
   a stricter one to reach the refusal. `jsonschema` becomes a runtime
   dependency, with the `Cargo.toml` comment updated, and a decision records
   validating at runtime.
-- [ ] **Round trips.** Integration tests export synthetic histories through
+- [x] **Round trips.** Integration tests export synthetic histories through
   `file_export` and import each account back through file import: every roll a
   duplicate, 19-digit IDs unchanged, accounts kept apart, rolls without a pool
   ID counted and left out, and a repeated UID left out of All accounts but
