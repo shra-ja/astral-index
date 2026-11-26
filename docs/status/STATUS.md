@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### One history read (2026-11-26)
+
+`refactor/one-history-read`: 0055's sixth task, a refactor with no change in behaviour. Storage's test-only `Store::history` is removed, so storage has one whole-account history read, `histories`. The integration tests read an account's saved rolls through `common::rolls`, which calls `histories` with the account chosen and gives an empty list for an account without rolls; their assertions passed unchanged, as none depended on the old ID-only order. History's damaged-payload cases (bad JSON, a repeated key, a roll whose UID, ID or category is not its row's or the game's) move to `histories`' unit tests. From review: on a real database, a payload that is not JSON fails in the query, which sorts by its fields, so export reports it as a database error rather than damaged history; this was already so and is unchanged. Every Rust unit and integration test passes.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -70,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with one history read: storage's test-only `history` read is removed and its tests read through `histories`.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with shared file writing: backup's temporary-file write moves into its own module, for backup's snapshot and export's file.
 
 ## Keeping this file current
 
