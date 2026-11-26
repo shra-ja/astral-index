@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-11-24
+Updated: 2026-11-26
 
 ## Current state
 
@@ -52,10 +52,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
   how to download and run the app.
 
 ## In progress
-
-### Validated export (2026-11-25)
-
-`feat/validated-export`: 0055's fourth task. `file_export::build` makes a UIGF file of the saved histories through `uigf::write`, refuses an export with no roll to write, saying what each account left out, and checks the document against the schema it is given before it becomes a file ([decision 0035](../architecture/decisions/0035-runtime-export-validation.md)). `uigf::schema()` gives the bundled schema, and `jsonschema` is a runtime dependency without its default features: 30 more crates in the notices, none for networking. Red: the three new tests failed on a stub that refused every export; green: all 18 `file_export` and `uigf` tests, both files at 100% coverage. For 100,000 rolls, validating took 0.10 s after 0.49 s of writing. From review: whether anything was written is the writer's `has_rolls`, not a rule repeated in `file_export`.
 
 ## Known limitations
 
@@ -239,6 +235,7 @@ research, under a "From" heading.
 - [2026-11-24: export read](history/2026-11-24-export-read.md):
   storage reads the chosen accounts' histories in export order, the first
   task of 0055.
-- [2026-11-25: UIGF writing and schema notices](history/2026-11-25-uigf-writing.md):
-  `uigf::write` turns saved accounts into a UIGF v4.2 document, and the
-  third-party notices list UIGF's schema as a bundled data file.
+- [2026-11-25: UIGF writing, schema notices and validated export](history/2026-11-25-uigf-writing.md):
+  `uigf::write` turns saved accounts into a UIGF v4.2 document, the
+  third-party notices list UIGF's schema as a bundled data file, and
+  `file_export` checks each export against that schema.
