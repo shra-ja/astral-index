@@ -7,7 +7,8 @@ use astral_index::desktop::{
 };
 use astral_index::storage::{MAX_DATABASE_BYTES, Refusal, Schema, Source, Store};
 use common::{
-    Folder, PAGE, SERVER, UID, UPGRADED, batch, imports, names, release_1_0_0, store_with_history,
+    Folder, PAGE, SERVER, UID, UPGRADED, batch, imports, names, release_1_0_0, rolls,
+    store_with_history,
 };
 use std::path::{Path, PathBuf};
 
@@ -203,12 +204,8 @@ fn assert_same_history(restored: &Path, original: &Path, schema: Schema) {
     assert_eq!(restored_store.contents().unwrap(), contents);
     for account in &contents.accounts {
         assert_eq!(
-            restored_store
-                .history(&account.uid, &account.server)
-                .unwrap(),
-            original_store
-                .history(&account.uid, &account.server)
-                .unwrap()
+            rolls(&restored_store, &account.uid, &account.server).unwrap(),
+            rolls(&original_store, &account.uid, &account.server).unwrap()
         );
     }
     assert_eq!(imports(restored), imports(original));

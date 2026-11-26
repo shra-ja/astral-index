@@ -2,9 +2,9 @@
 //! uses only some of them, so the others would be reported as dead code there.
 #![allow(dead_code)]
 
-use astral_index::hsr::Batch;
+use astral_index::hsr::{Batch, Roll};
 use astral_index::parse_response;
-use astral_index::storage::{Schema, Source, Store};
+use astral_index::storage::{Chosen, Error, Schema, Source, Store};
 use rusqlite::Connection;
 use std::{
     path::{Path, PathBuf},
@@ -83,6 +83,16 @@ pub fn store_with_history(path: &Path) -> Store {
         .unwrap();
     store.commit(preview, 1234).unwrap();
     store
+}
+
+/// One account's saved rolls, read as an export reads them: by category, then
+/// server time, then roll ID. Empty when the account has no rolls or is not saved.
+pub fn rolls(store: &Store, uid: &str, server: &str) -> Result<Vec<Roll>, Error> {
+    let histories = store.histories(Chosen::One { uid, server })?;
+    Ok(histories
+        .into_iter()
+        .next()
+        .map_or_else(Vec::new, |history| history.rolls))
 }
 
 /// The names in a folder, sorted.

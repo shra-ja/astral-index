@@ -1,6 +1,6 @@
 //! The desktop database opens real SQLite in a new folder on first use only.
 use astral_index::desktop::Database;
-use common::Folder;
+use common::{Folder, rolls};
 
 mod common;
 
@@ -18,7 +18,7 @@ fn creates_the_folder_and_database_on_first_use_then_reuses_them() {
         .unwrap();
     for _ in 0..2 {
         let history = runtime
-            .block_on(database.run(|store| store.history("100000001", "synthetic-server")))
+            .block_on(database.run(|store| rolls(store, "100000001", "synthetic-server")))
             .unwrap()
             .unwrap();
         assert!(history.is_empty());
@@ -51,7 +51,7 @@ fn a_data_folder_beside_the_executable_holds_the_portable_database() {
     tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap()
-        .block_on(database.run(|store| store.history("100000001", "synthetic-server")))
+        .block_on(database.run(|store| rolls(store, "100000001", "synthetic-server")))
         .unwrap()
         .unwrap();
     assert!(data.join("history.sqlite").is_file());
