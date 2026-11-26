@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Schema notices (2026-11-25)
+### Validated export (2026-11-25)
 
-`feat/schema-notices`: 0055's third task, split from the validated export. UIGF's schema and its MIT licence move from the test fixtures to `src-tauri/schemas/uigf/`, with their provenance beside them, and the third-party notices gain bundled data files, listing the schema with its licence and pinned source; the About dialog shows them as Data Files. Red: the notices builder's four tests that expected the schema failed, and so did the About list's grouping test; green: all tooling and frontend tests, with `tooling/notices.ts` at 100% coverage. `npm run notices` lists the schema. From review: the gate fails when a folder in `src-tauri/schemas/` is not listed or its README does not name the linked commit (both probed), and the kind lists are records, so a new kind cannot be left unsorted or unshown.
+`feat/validated-export`: 0055's fourth task. `file_export::build` makes a UIGF file of the saved histories through `uigf::write`, refuses an export with no roll to write, saying what each account left out, and checks the document against the schema it is given before it becomes a file ([decision 0035](../architecture/decisions/0035-runtime-export-validation.md)). `uigf::schema()` gives the bundled schema, and `jsonschema` is a runtime dependency without its default features: 30 more crates in the notices, none for networking. Red: the three new tests failed on a stub that refused every export; green: all 18 `file_export` and `uigf` tests, both files at 100% coverage. For 100,000 rolls, validating took 0.10 s after 0.49 s of writing. From review: whether anything was written is the writer's `has_rolls`, not a rule repeated in `file_export`.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the validated export: `file_export` joins the export read and the writer and validates the document at runtime.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the round trips: integration tests export synthetic histories through `file_export` and import them back.
 
 ## Keeping this file current
 
@@ -239,6 +239,6 @@ research, under a "From" heading.
 - [2026-11-24: export read](history/2026-11-24-export-read.md):
   storage reads the chosen accounts' histories in export order, the first
   task of 0055.
-- [2026-11-25: UIGF writing](history/2026-11-25-uigf-writing.md):
-  `uigf::write` turns saved accounts into a UIGF v4.2 document, 0055's
-  second task.
+- [2026-11-25: UIGF writing and schema notices](history/2026-11-25-uigf-writing.md):
+  `uigf::write` turns saved accounts into a UIGF v4.2 document, and the
+  third-party notices list UIGF's schema as a bundled data file.

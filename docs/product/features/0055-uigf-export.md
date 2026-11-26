@@ -60,11 +60,11 @@ standard's note, and the empty and error states.
   their stored fields. It reports what it left out: rolls without a pool ID per
   account, and accounts without a time zone or with a repeated UID. Tests check
   its outputs against the pinned schema and read them back with `uigf::read`.
-- [ ] **Schema notices.** The schema and its licence move out of the test
+- [x] **Schema notices.** The schema and its licence move out of the test
   fixtures to where the app bundles them, with the fixtures' README updated,
   and the third-party notices gain bundled data files, listing the schema with
   its licence and source, so no build ships it without its notice.
-- [ ] **Validated export.** `file_export`, beside `file_import`, joins the
+- [x] **Validated export.** `file_export`, beside `file_import`, joins the
   export read and the writer, refuses an export with no rolls, and validates
   the document at runtime against the schema it is given, so a test can hand it
   a stricter one to reach the refusal. `jsonschema` becomes a runtime
@@ -90,7 +90,8 @@ standard's note, and the empty and error states.
   server, builds the export through `file_export`, then opens the save dialog
   from Rust with the suggested name (the mock answers it from its data folder),
   refuses the data folder, writes through the shared file writing and returns
-  the file's name and what was left out; an `open_uigf_standard` command opens
+  the file's name and what was left out, never logging an outcome, as it names
+  accounts; an `open_uigf_standard` command opens
   the standard's fixed URL, as `open_issues_page` does. Narrow permissions, the
   command manifest, the mock's scenarios and a real-file test for Windows CI.
 - [ ] **Shared account selector.** A refactor with no change in behaviour: the

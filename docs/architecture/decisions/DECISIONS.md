@@ -67,3 +67,4 @@ HoYoverse fetching.
 - [0032 — History-file import rules](0032-history-file-import-rules.md)
 - [0033 — App-wide and per-game screens](0033-app-wide-and-per-game-screens.md)
 - [0034 — Native cache file dialog](0034-native-cache-file-dialog.md)
+- [0035 — Runtime export validation](0035-runtime-export-validation.md)

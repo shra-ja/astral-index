@@ -157,6 +157,15 @@ pub fn read(bytes: &[u8]) -> Result<File, Error> {
     })
 }
 
+/// UIGF v4.2's published schema, which the app bundles; its provenance is in
+/// `schemas/uigf/README.md`. Nothing is fetched. It is compiled on each call, in
+/// under a millisecond.
+pub fn schema() -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(include_bytes!("../schemas/uigf/uigf.json"))
+        .expect("the bundled schema is JSON");
+    jsonschema::validator_for(&schema).expect("the bundled schema is a valid schema")
+}
+
 /// How many times each UID appears: UIGF readers refuse a file that repeats one.
 fn copies<'a>(uids: impl Iterator<Item = &'a str>) -> HashMap<&'a str, usize> {
     let mut copies = HashMap::new();
@@ -328,6 +337,15 @@ pub struct Export {
     pub accounts: Vec<Exported>,
 }
 
+impl Export {
+    /// Whether the document holds a roll: an account is written only with one.
+    pub fn has_rolls(&self) -> bool {
+        self.accounts
+            .iter()
+            .any(|outcome| matches!(outcome, Exported::Rolls { written, .. } if *written > 0))
+    }
+}
+
 /// What an export did with one account.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Exported {
@@ -424,12 +442,8 @@ mod tests {
     const STARDB: &[u8] = include_bytes!("../tests/fixtures/uigf/stardb-v4.1.json");
     const LEGACY: &[u8] = include_bytes!("../tests/fixtures/uigf/uigf-v3.0.json");
     const SRGF: &[u8] = include_bytes!("../tests/fixtures/uigf/srgf-v1.0.json");
-    /// UIGF's published schema, pinned in `schemas/uigf/`.
-    static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
-        let schema: Value =
-            serde_json::from_slice(include_bytes!("../schemas/uigf/uigf.json")).unwrap();
-        jsonschema::validator_for(&schema).unwrap()
-    });
+    /// UIGF's published schema, as the app bundles it.
+    static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(schema);
 
     fn fixture(bytes: &[u8]) -> Value {
         serde_json::from_slice(bytes).unwrap()
@@ -868,6 +882,7 @@ mod tests {
             1_767_225_600,
         );
         assert_eq!(export.accounts, [rolls_written(3), rolls_written(1)]);
+        assert!(export.has_rolls());
         assert_eq!(
             export.document["info"],
             json!({
@@ -1035,6 +1050,7 @@ mod tests {
         // With every account left out, the document holds none.
         let export = write(&[account("700000003", None)], "1.3.0", 0);
         assert_eq!(export.document["hkrpg"], json!([]));
+        assert!(!export.has_rolls());
         assert!(read(&written(&export)).unwrap().accounts.is_empty());
     }
 }
