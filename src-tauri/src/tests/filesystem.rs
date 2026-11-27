@@ -43,6 +43,18 @@ pub fn install(fixture: Fixture) {
 pub fn inspect<T>(inspect: impl FnOnce(&Fixture) -> T) -> T {
     FIXTURE.with(|state| inspect(&state.borrow()))
 }
+/// The files removed so far, in order.
+pub fn removed_files() -> Vec<PathBuf> {
+    inspect(|state| state.removed_files.clone())
+}
+/// The renames so far, from and to, in order.
+pub fn renamed() -> Vec<(PathBuf, PathBuf)> {
+    inspect(|state| state.renamed.clone())
+}
+/// Whether a file is at `path` now.
+pub fn has(path: &Path) -> bool {
+    inspect(|state| state.files.contains_key(path))
+}
 fn missing() -> io::Error {
     io::Error::new(io::ErrorKind::NotFound, "synthetic I/O failure")
 }

@@ -31,6 +31,7 @@ pub mod dialogs;
 pub mod history_file;
 pub mod ipc_trace;
 pub mod local_time;
+mod replacing_file;
 pub mod restore;
 pub use database::Database;
 
