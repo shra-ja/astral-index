@@ -16,6 +16,10 @@ pub fn install(fixture: Fixture) {
 pub fn inspect<T>(inspect: impl FnOnce(&Fixture) -> T) -> T {
     FIXTURE.with(|state| inspect(&state.borrow()))
 }
+/// What has been opened so far, in order.
+pub fn opened() -> Vec<String> {
+    inspect(|state| state.opened.clone())
+}
 fn launch(request: String) -> Result<(), ()> {
     FIXTURE.with(|state| {
         let mut state = state.borrow_mut();

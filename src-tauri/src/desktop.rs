@@ -31,6 +31,7 @@ pub mod dialogs;
 pub mod history_file;
 pub mod ipc_trace;
 pub mod local_time;
+mod opener;
 mod replacing_file;
 pub mod restore;
 pub use database::Database;
@@ -408,7 +409,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         folder_name: database::FOLDER_NAME,
         portable: true,
         fresh_webview: false,
-        opener: about::Opener::System,
+        opener: opener::Opener::System,
         dialogs: dialogs::Dialogs::System,
         schema: storage::Schema::CURRENT,
     };
@@ -431,7 +432,7 @@ pub fn register_mock<R: Runtime>(builder: Builder<R>, scenario: Scenario) -> Bui
         folder_name: database::MOCK_FOLDER_NAME,
         portable: false,
         fresh_webview: true,
-        opener: about::Opener::Recording,
+        opener: opener::Opener::Recording,
         dialogs: dialogs::Dialogs::Answering,
         schema: scenario.schema,
     };
@@ -482,7 +483,7 @@ struct Settings {
     portable: bool,
     /// Whether the webview's profile is cleared at each start.
     fresh_webview: bool,
-    opener: about::Opener,
+    opener: opener::Opener,
     dialogs: dialogs::Dialogs,
     /// The schema the history is opened with.
     schema: storage::Schema,
@@ -515,8 +516,8 @@ fn register_with<R: Runtime>(
         let opened = open_window(app.handle(), folder.as_deref());
         app.manage(about::About {
             portable: database::portable(executable.as_deref(), folder.as_deref()),
-            opener: settings.opener,
         });
+        app.manage(settings.opener);
         app.manage(settings.dialogs);
         restore::remove_leftovers(folder.as_deref());
         app.manage(Database::with_schema(folder, settings.schema));
@@ -1543,9 +1544,11 @@ mod tests {
         assert_eq!(database.path(), Some(folder.join(database::FILE_NAME)));
         assert_eq!(database.schema(), storage::Schema::CURRENT);
         // The system opens things.
-        let about = app.state::<about::About>();
-        assert!(!about.portable);
-        assert!(matches!(about.opener, about::Opener::System));
+        assert!(!app.state::<about::About>().portable);
+        assert!(matches!(
+            *app.state::<opener::Opener>(),
+            opener::Opener::System
+        ));
         // Backups are saved where the user chooses in the system's dialog.
         assert!(matches!(
             *app.state::<dialogs::Dialogs>(),
@@ -1606,9 +1609,11 @@ mod tests {
             Network::Mock(mock::Scenario::History)
         ));
         // It records requests to open rather than launching anything.
-        let about = app.state::<about::About>();
-        assert!(!about.portable);
-        assert!(matches!(about.opener, about::Opener::Recording));
+        assert!(!app.state::<about::About>().portable);
+        assert!(matches!(
+            *app.state::<opener::Opener>(),
+            opener::Opener::Recording
+        ));
         // Its tests answer the save dialog from its data folder.
         assert!(matches!(
             *app.state::<dialogs::Dialogs>(),
@@ -1722,13 +1727,14 @@ mod tests {
         let error = invoke(&window, "commit_import", InvokeBody::default());
         assert!(error.unwrap_err().contains("state not managed"));
         // The About commands read the data folder from the database too.
-        let about = about::About {
-            portable: false,
-            opener: about::Opener::Recording,
-        };
-        let app = handle_commands(mock_builder().manage(about))
-            .build(mock_context(noop_assets()))
-            .unwrap();
+        let about = about::About { portable: false };
+        let app = handle_commands(
+            mock_builder()
+                .manage(about)
+                .manage(opener::Opener::Recording),
+        )
+        .build(mock_context(noop_assets()))
+        .unwrap();
         let window = WebviewWindowBuilder::new(&app, "main", Default::default())
             .build()
             .unwrap();

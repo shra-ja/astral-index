@@ -87,6 +87,11 @@ standard's note, and the empty and error states.
   unpublished, so backup's asynchronous, checked SQLite snapshot and export's
   bytes both fit with their own failures; backup and restore use it, the kept
   copy's naming shares its `first_unused` loop, and its tests move with it.
+- [x] **Shared opener.** A refactor with no change in behaviour: the opening of
+  a file, a folder or the issues page (the opener, its targets and the mock's
+  record) moves out of the About dialog's module into `desktop/opener.rs`, held
+  as its own state, so the export command can open the standard without
+  reaching into About.
 - [ ] **Export command.** `export_uigf` takes All accounts or one UID and
   server, builds the export through `file_export`, then opens the save dialog
   from Rust with the suggested name (the mock answers it from its data folder),
