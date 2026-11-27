@@ -75,7 +75,7 @@ standard's note, and the empty and error states.
   duplicate, 19-digit IDs unchanged, accounts kept apart, rolls without a pool
   ID counted and left out, and a repeated UID left out of All accounts but
   exported alone.
-- [ ] **One history read.** A refactor with no change in behaviour: storage's
+- [x] **One history read.** A refactor with no change in behaviour: storage's
   test-only `history` read is removed, and its tests read through `histories`
   with the account chosen, allowing for its numeric order and for an account
   without rolls being left out.
@@ -91,7 +91,9 @@ standard's note, and the empty and error states.
   from Rust with the suggested name (the mock answers it from its data folder),
   refuses the data folder, writes through the shared file writing and returns
   the file's name and what was left out, never logging an outcome, as it names
-  accounts; an `open_uigf_standard` command opens
+  accounts. A roll payload that is not JSON fails the history read as a
+  database error, not damaged history, as the read sorts by its fields; the
+  command's messages take that into account. An `open_uigf_standard` command opens
   the standard's fixed URL, as `open_issues_page` does. Narrow permissions, the
   command manifest, the mock's scenarios and a real-file test for Windows CI.
 - [ ] **Shared account selector.** A refactor with no change in behaviour: the

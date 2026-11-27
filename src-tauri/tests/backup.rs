@@ -6,7 +6,7 @@ use astral_index::desktop::{
     database::Database,
 };
 use astral_index::storage::{Error, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
-use common::{Folder, SERVER, UID, UPGRADED, names, release_1_0_0, store_with_history};
+use common::{Folder, SERVER, UID, UPGRADED, names, release_1_0_0, rolls, store_with_history};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
@@ -29,8 +29,8 @@ fn a_snapshot_passes_the_check_and_holds_the_same_history() {
     assert_eq!(check_database(&backup, Schema::CURRENT), Ok(()));
     let restored = Store::open(&backup).unwrap();
     assert_eq!(
-        restored.history(UID, SERVER).unwrap(),
-        store.history(UID, SERVER).unwrap()
+        rolls(&restored, UID, SERVER).unwrap(),
+        rolls(&store, UID, SERVER).unwrap()
     );
     assert_eq!(restored.accounts().unwrap(), store.accounts().unwrap());
     // Its contents, as the restore confirmation shows them, match the history's.
@@ -178,7 +178,7 @@ fn saving_replaces_a_file_the_user_chose_to_replace_with_a_checked_backup() {
     );
     assert_eq!(check_database(&target, Schema::CURRENT), Ok(()));
     let saved = Store::open(&target).unwrap();
-    assert_eq!(saved.history(UID, SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&saved, UID, SERVER).unwrap().len(), 2);
     // Nothing else was left beside it.
     assert_eq!(names(folder.root()), ["backup.sqlite", "data"]);
 }

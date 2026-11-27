@@ -3,7 +3,7 @@ use astral_index::acquisition::{
     Transport, TransportError, extract_request_contexts, fetch_history,
 };
 use astral_index::storage::{Source, Store, Summary};
-use common::{Folder, PAGE, SERVER, UID};
+use common::{Folder, PAGE, SERVER, UID, rolls};
 use std::{collections::VecDeque, sync::Mutex};
 
 mod common;
@@ -66,7 +66,7 @@ fn retrieved_history_previews_and_commits_through_storage() {
     assert_eq!(review["earliest"], "2024-02-29 12:34:56");
     assert_eq!(review["conflicts"], serde_json::json!([]));
     assert_eq!(store.commit(preview, 1).unwrap(), expected);
-    assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap().len(), 2);
     // A quick refresh stops at the saved rolls: the character event page holds
     // them, so its trailing empty page is never requested.
     let saved = store.saved_rolls().unwrap();

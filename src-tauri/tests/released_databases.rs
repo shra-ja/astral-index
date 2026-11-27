@@ -6,7 +6,7 @@ use astral_index::storage::{
     Account, CategorySummary, CategoryTotal, Filter, LastImport, Refusal, SavedAccount, Schema,
     Source, Store, StoredRoll, Summary, check_database,
 };
-use common::{BANNER, Folder, UID, UPGRADED, batch, imports, release_1_0_0};
+use common::{BANNER, Folder, UID, UPGRADED, batch, imports, release_1_0_0, rolls};
 use rusqlite::Connection;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -229,8 +229,7 @@ fn a_1_0_0_database_keeps_each_accounts_rolls_and_pity() {
             .unwrap();
         assert_eq!(other.total, 2);
         // A field HoYoverse added and the app does not know is kept with its roll.
-        let stellar = store
-            .history(UID, ASIA)
+        let stellar = rolls(&store, UID, ASIA)
             .unwrap()
             .into_iter()
             .filter(|roll| roll.gacha_type == Category::Stellar.code())

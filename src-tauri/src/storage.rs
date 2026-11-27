@@ -698,22 +698,6 @@ impl Store {
         Ok(())
     }
 
-    /// Returns a deterministic identity ordering, not an inferred chronological ordering.
-    pub fn history(&self, uid: &str, server: &str) -> Result<Vec<Roll>, Error> {
-        let mut statement = self.connection.prepare(
-            "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id",
-        )?;
-        let rows = statement.query_map(params![GAME, uid, server], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-        let mut records = Vec::new();
-        for row in rows {
-            let (id, payload) = row?;
-            records.push(stored(uid, &id, &payload)?);
-        }
-        Ok(records)
-    }
-
     /// Every saved roll ID of this game, grouped by account.
     pub fn saved_rolls(&self) -> Result<SavedRolls, Error> {
         let mut statement = self
@@ -1257,8 +1241,6 @@ pub(crate) mod tests {
     const TIMEZONE: &str = "SELECT timezone FROM accounts WHERE game=?1 AND uid=?2 AND server=?3";
     const LOOKUP: &str =
         "SELECT payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 AND id=?4";
-    const HISTORY: &str =
-        "SELECT id,payload FROM rolls WHERE game=?1 AND uid=?2 AND server=?3 ORDER BY id";
     const SAVED: &str = "SELECT uid,server,id FROM rolls WHERE game=?1";
     const LAST: &str = "SELECT imported_at,adapter,uid,server,inserted FROM batches WHERE game=?1 ORDER BY id DESC LIMIT 1";
     const LATEST: &str = "SELECT b.uid,b.server,a.timezone FROM batches b JOIN accounts a ON a.game=b.game AND a.uid=b.uid AND a.server=b.server WHERE b.game=?1 ORDER BY b.id DESC LIMIT 1";
@@ -2133,72 +2115,6 @@ pub(crate) mod tests {
             store().commit(preview(), 1234).map(|_| ())
         });
     }
-    fn history_script(rows_data: Vec<Vec<Value>>) -> Vec<Step> {
-        vec![
-            done(&format!("PREPARE {HISTORY}")),
-            rows(HISTORY, scope(), rows_data),
-        ]
-    }
-    #[test]
-    fn history_returns_only_valid_scoped_records_in_database_order() {
-        let (id, payload) = record();
-        database::expect(history_script(vec![vec![text(&id), text(&payload)]]));
-        assert_eq!(
-            store().history(UID, SERVER).unwrap(),
-            vec![parse_response(PAGE).unwrap().list.remove(0)]
-        );
-        database::finish();
-    }
-    #[test]
-    fn history_query_and_row_failures_are_safe() {
-        fail_each(&|| history_script(vec![]), None, &mut || {
-            store().history(UID, SERVER).map(|_| ())
-        });
-        for rows_data in [
-            vec![vec![Value::Null, text("{}")]],
-            vec![vec![text("1"), Value::Null]],
-        ] {
-            database::expect(history_script(rows_data));
-            assert_eq!(store().history(UID, SERVER), Err(Error::Database));
-            database::finish();
-        }
-        database::expect(vec![
-            done(&format!("PREPARE {HISTORY}")),
-            step(
-                HISTORY,
-                scope(),
-                Reply::Rows(vec![Err(rusqlite::Error::InvalidQuery)]),
-            ),
-        ]);
-        assert_eq!(store().history(UID, SERVER), Err(Error::Database));
-        database::finish();
-    }
-    #[test]
-    fn history_rejects_corrupt_payloads_and_identity_without_partial_results() {
-        let (id, payload) = record();
-        let mut corrupt = vec!["{".into(), "{}".into(), "{\"id\":1,\"id\":2}".into()];
-        for (field, value) in [
-            ("uid", "100000001"),
-            ("id", "001"),
-            ("gacha_type", "invalid"),
-        ] {
-            let mut record: serde_json::Value = serde_json::from_str(&payload).unwrap();
-            record[field] = text_json(value);
-            corrupt.push(record.to_string());
-        }
-        for corrupt in corrupt {
-            database::expect(history_script(vec![
-                vec![text(&id), text(&payload)],
-                vec![text(&id), text(&corrupt)],
-            ]));
-            assert_eq!(store().history(UID, SERVER), Err(Error::InvalidStoredData));
-            database::finish();
-        }
-    }
-    fn text_json(value: &str) -> serde_json::Value {
-        serde_json::Value::String(value.into())
-    }
-
     #[test]
     fn the_latest_account_is_the_one_most_recently_imported_into() {
         let latest = |found: Vec<Vec<Value>>| {
@@ -2427,12 +2343,24 @@ pub(crate) mod tests {
             unreadable[column] = if column == 2 { text("8") } else { Value::Null };
             assert_eq!(read(vec![good.clone(), unreadable]), Err(Error::Database));
         }
-        let mut damaged = good.clone();
-        damaged[4] = text("{");
-        assert_eq!(
-            read(vec![good.clone(), damaged]),
-            Err(Error::InvalidStoredData)
-        );
+        // Payloads `stored` refuses: damaged JSON, a repeated key, and a roll whose
+        // UID, ID or category is not its row's or the game's. (A real database fails
+        // earlier on damaged JSON, as the query sorts by its fields: `Database`.)
+        let mut damaged: Vec<String> = vec!["{".into(), "{}".into(), r#"{"id":1,"id":2}"#.into()];
+        for (field, value) in [
+            ("uid", "100000001"),
+            ("id", "001"),
+            ("gacha_type", "invalid"),
+        ] {
+            let mut record = serde_json::to_value(roll()).unwrap();
+            record[field] = value.into();
+            damaged.push(record.to_string());
+        }
+        for payload in damaged {
+            let mut row = good.clone();
+            row[4] = text(&payload);
+            assert_eq!(read(vec![good.clone(), row]), Err(Error::InvalidStoredData));
+        }
         // A roll saved under another account's row is damage.
         let mut misplaced = good.clone();
         misplaced[0] = text("100000003");

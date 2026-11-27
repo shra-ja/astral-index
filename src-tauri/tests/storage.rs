@@ -3,7 +3,7 @@ use astral_index::storage::{
     Account, AccountHistory, CategorySummary, Chosen, Error, Filter, HistoryPage, LastImport,
     Rarities, SavedAccount, Source, Store, Summary,
 };
-use common::{Folder, PAGE, SERVER, UID, batch};
+use common::{Folder, PAGE, SERVER, UID, batch, rolls};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -61,10 +61,10 @@ fn preview_does_not_write_and_commit_survives_restart_with_exact_fields() {
         .preview(Source::Hoyoverse, batch(UID, SERVER, &[&bytes]))
         .unwrap();
     assert_eq!(preview.summary(), summary(2, 0, 0));
-    assert!(store.history(UID, SERVER).unwrap().is_empty());
+    assert!(rolls(&store, UID, SERVER).unwrap().is_empty());
     assert_eq!(store.commit(preview, 1234).unwrap(), summary(2, 0, 0));
     drop(store);
-    let stored = db.store().history(UID, SERVER).unwrap();
+    let stored = rolls(&db.store(), UID, SERVER).unwrap();
     let expected = astral_index::parse_response(&bytes).unwrap();
     assert_eq!(stored.len(), 2);
     assert!(expected.list.iter().all(|r| stored.contains(r)));
@@ -107,7 +107,7 @@ fn repeats_overlaps_and_same_second_distinct_ids_are_safe() {
         .unwrap();
     assert_eq!(preview.summary(), summary(1, 3, 0));
     store.commit(preview, 1234).unwrap();
-    assert_eq!(store.history(UID, SERVER).unwrap().len(), 3);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap().len(), 3);
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn a_saved_roll_is_matched_by_its_facts_and_kept_as_saved() {
     let db = Database::new();
     let mut store = db.store();
     import(&mut store, PAGE);
-    let saved = store.history(UID, SERVER).unwrap();
+    let saved = rolls(&store, UID, SERVER).unwrap();
     // The same rolls retrieved in another language, with a field added: the roll
     // ID, category, item ID, time and rarity still match.
     let translated = page(|p| {
@@ -127,7 +127,7 @@ fn a_saved_roll_is_matched_by_its_facts_and_kept_as_saved() {
         }
     });
     assert_eq!(import(&mut store, &translated), summary(0, 2, 0));
-    assert_eq!(store.history(UID, SERVER).unwrap(), saved);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap(), saved);
     // Any fact that differs is a conflict.
     for (field, value) in [
         ("gacha_type", json!("1")),
@@ -176,7 +176,7 @@ fn a_duplicate_gives_its_pool_id_to_a_saved_roll_without_one() {
         ),
         2
     );
-    let saved = store.history(UID, SERVER).unwrap();
+    let saved = rolls(&store, UID, SERVER).unwrap();
     assert!(saved.iter().all(|roll| roll.gacha_id.is_none()));
     // The same rolls with pool IDs fill them in, as skipped duplicates.
     let preview = store
@@ -188,7 +188,7 @@ fn a_duplicate_gives_its_pool_id_to_a_saved_roll_without_one() {
     };
     assert_eq!(preview.summary(), filled);
     assert_eq!(store.commit(preview, 1234), Ok(filled));
-    assert_eq!(store.history(UID, SERVER).unwrap(), with_pool_ids());
+    assert_eq!(rolls(&store, UID, SERVER).unwrap(), with_pool_ids());
     // A saved pool ID stays, whether a duplicate lacks one or gives another.
     let preview = store
         .preview(Source::Hoyoverse, without_pool_ids())
@@ -196,18 +196,18 @@ fn a_duplicate_gives_its_pool_id_to_a_saved_roll_without_one() {
     assert_eq!(store.commit(preview, 1234), Ok(summary(0, 2, 0)));
     let other = page(|p| p["data"]["list"][0]["gacha_id"] = json!("9999"));
     assert_eq!(import(&mut store, &other), summary(0, 2, 0));
-    assert_eq!(store.history(UID, SERVER).unwrap(), with_pool_ids());
+    assert_eq!(rolls(&store, UID, SERVER).unwrap(), with_pool_ids());
 }
 
 #[test]
 fn a_later_roll_in_the_same_batch_gives_its_pool_id_to_a_new_one() {
     let db = Database::new();
     let mut store = db.store();
-    let mut rolls = without_pool_ids();
-    rolls.rolls.extend(batch(UID, SERVER, &[PAGE]).rolls);
-    let preview = store.preview(Source::Hoyoverse, rolls).unwrap();
+    let mut both = without_pool_ids();
+    both.rolls.extend(batch(UID, SERVER, &[PAGE]).rolls);
+    let preview = store.preview(Source::Hoyoverse, both).unwrap();
     assert_eq!(store.commit(preview, 1234), Ok(summary(2, 2, 0)));
-    assert_eq!(store.history(UID, SERVER).unwrap(), with_pool_ids());
+    assert_eq!(rolls(&store, UID, SERVER).unwrap(), with_pool_ids());
 }
 
 #[test]
@@ -224,7 +224,7 @@ fn conflicting_records_block_the_whole_batch() {
         .unwrap();
     assert_eq!(preview.summary(), summary(1, 0, 1));
     assert_eq!(store.commit(preview, 1234), Err(Error::Conflict));
-    assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap().len(), 2);
     let conflicting_pair = page(|p| {
         p["data"]["list"][1]["id"] = p["data"]["list"][0]["id"].clone();
         p["data"]["list"][1]["rank_type"] = json!("3");
@@ -236,7 +236,7 @@ fn conflicting_records_block_the_whole_batch() {
         .unwrap();
     assert_eq!(preview.summary(), summary(1, 0, 1));
     assert_eq!(fresh.commit(preview, 1234), Err(Error::Conflict));
-    assert!(fresh.history(UID, SERVER).unwrap().is_empty());
+    assert!(rolls(&fresh, UID, SERVER).unwrap().is_empty());
 }
 
 #[test]
@@ -277,7 +277,7 @@ fn validates_the_account_and_every_roll_before_writes() {
         store.preview(Source::Hoyoverse, invalid),
         Err(Error::InvalidBatch)
     ));
-    assert!(store.history(UID, SERVER).unwrap().is_empty());
+    assert!(rolls(&store, UID, SERVER).unwrap().is_empty());
 }
 
 #[test]
@@ -304,13 +304,13 @@ fn isolates_accounts_servers_and_game_namespace() {
         )
         .unwrap();
     store.commit(preview, 1234).unwrap();
-    assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
-    assert_eq!(store.history("100000003", SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&store, "100000003", SERVER).unwrap().len(), 2);
     assert_eq!(
-        store.history(UID, "resolved-other-server").unwrap().len(),
+        rolls(&store, UID, "resolved-other-server").unwrap().len(),
         2
     );
-    assert!(store.history("100000004", SERVER).unwrap().is_empty());
+    assert!(rolls(&store, "100000004", SERVER).unwrap().is_empty());
     assert_eq!(
         db.connection()
             .query_row("SELECT DISTINCT game FROM rolls", [], |r| r
@@ -539,7 +539,7 @@ fn unknown_timezone_stays_unknown_and_changed_evidence_requires_reconciliation()
         None
     );
     assert_eq!(
-        store.history(UID, SERVER).unwrap()[0].time,
+        rolls(&store, UID, SERVER).unwrap()[0].time,
         "2024-02-29 12:34:56"
     );
 }
@@ -554,7 +554,7 @@ fn preview_owns_input_and_cancellation_leaves_no_batch() {
         .unwrap();
     bytes.fill(b'x');
     store.commit(preview, 1234).unwrap();
-    assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap().len(), 2);
     let cancelled = store
         .preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE]))
         .unwrap();
@@ -585,7 +585,7 @@ fn database_uniqueness_foreign_keys_and_game_isolation_are_enforced() {
         .is_err()
     );
     conn.execute_batch("INSERT INTO accounts SELECT 'genshin-impact',uid,server,timezone FROM accounts; INSERT INTO batches SELECT 2,'genshin-impact',uid,server,adapter,imported_at,inserted,duplicates,conflicts FROM batches WHERE id=1; INSERT INTO rolls SELECT 'genshin-impact',uid,server,id,payload,2 FROM rolls WHERE game='honkai-star-rail'").unwrap();
-    assert_eq!(store.history(UID, SERVER).unwrap().len(), 2);
+    assert_eq!(rolls(&store, UID, SERVER).unwrap().len(), 2);
     assert_eq!(
         conn.query_row("SELECT count(*) FROM rolls", [], |r| r.get::<_, i64>(0))
             .unwrap(),
@@ -601,7 +601,7 @@ fn database_and_decode_errors_are_safe_and_failed_previews_do_not_write() {
     db.connection()
         .execute_batch("UPDATE rolls SET payload='{}'")
         .unwrap();
-    assert_eq!(store.history(UID, SERVER), Err(Error::InvalidStoredData));
+    assert_eq!(rolls(&store, UID, SERVER), Err(Error::InvalidStoredData));
     db.connection()
         .execute_batch("PRAGMA foreign_keys=OFF; DROP TABLE rolls")
         .unwrap();
@@ -609,8 +609,8 @@ fn database_and_decode_errors_are_safe_and_failed_previews_do_not_write() {
         store.preview(Source::Hoyoverse, batch(UID, SERVER, &[PAGE])),
         Err(Error::Database)
     ));
-    assert_eq!(store.history(UID, SERVER), Err(Error::Database));
-    assert_eq!(format!("{:?}", store.history(UID, SERVER)), "Err(Database)");
+    assert_eq!(rolls(&store, UID, SERVER), Err(Error::Database));
+    assert_eq!(format!("{:?}", rolls(&store, UID, SERVER)), "Err(Database)");
 }
 
 #[test]
@@ -624,7 +624,7 @@ fn locked_database_rejects_commit_and_rolls_back_without_partial_writes() {
     blocker.execute_batch("BEGIN IMMEDIATE").unwrap();
     assert_eq!(store.commit(preview, 1234), Err(Error::Database));
     blocker.execute_batch("ROLLBACK").unwrap();
-    assert!(store.history(UID, SERVER).unwrap().is_empty());
+    assert!(rolls(&store, UID, SERVER).unwrap().is_empty());
     assert_eq!(import(&mut store, PAGE), summary(2, 0, 0));
 }
 
@@ -870,7 +870,7 @@ fn rolling_year_imports_grow_with_unique_rolls_and_compact_summaries() {
     let conflict_time = began.elapsed();
     assert_eq!(std::fs::read(db.path()).unwrap(), before);
     drop(store);
-    assert_eq!(db.store().history(UID, SERVER).unwrap().len(), 12000);
+    assert_eq!(rolls(&db.store(), UID, SERVER).unwrap().len(), 12000);
     println!(
         "initial={initial_time:?}; 24 repeats={repeats_time:?}; 12 rolling={rolling_time:?}; conflict={conflict_time:?}; database bytes={initial_size}/{repeats_size}/{final_size}"
     );
@@ -883,12 +883,12 @@ fn precise_extensions_survive_restart_and_a_duplicate_keeps_the_saved_values() {
     let b = include_bytes!("fixtures/hsr-api/numeric-extensions-b.json");
     assert_eq!(import(&mut db.store(), a), summary(2, 0, 0));
     let mut store = db.store();
-    let stored = serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap();
+    let stored = serde_json::to_string(&rolls(&store, UID, SERVER).unwrap()).unwrap();
     assert!(stored.contains("18446744073709551616"));
     assert!(stored.contains("0.123456789012345678901"));
     assert_eq!(import(&mut store, b), summary(0, 2, 0));
     assert_eq!(
-        serde_json::to_string(&store.history(UID, SERVER).unwrap()).unwrap(),
+        serde_json::to_string(&rolls(&store, UID, SERVER).unwrap()).unwrap(),
         stored
     );
 }
@@ -911,7 +911,7 @@ fn corrupt_payload_identity_and_domain_values_never_escape_history_queries() {
             )
             .unwrap();
         assert_eq!(
-            db.store().history(UID, SERVER),
+            rolls(&db.store(), UID, SERVER),
             Err(Error::InvalidStoredData),
             "{field}"
         );
@@ -929,7 +929,7 @@ fn ambiguous_stored_json_is_rejected_before_deserialization() {
             [r#"{"uid":"100000003","uid":"100000002"}"#],
         )
         .unwrap();
-    assert_eq!(store.history(UID, SERVER), Err(Error::InvalidStoredData));
+    assert_eq!(rolls(&store, UID, SERVER), Err(Error::InvalidStoredData));
 }
 
 #[test]
