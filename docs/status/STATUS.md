@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Shared opener (2026-11-27)
+
+`refactor/shared-opener`: a refactor with no change in behaviour, added to 0055 before the export command. Opening a file, a folder or the issues page moves out of `desktop/about.rs` into `desktop/opener.rs`: the `Opener` (the system's, or the mock's recording), its targets and `open`, with their tests. The `Opener` is managed as its own state, so `About` keeps only whether the data folder is portable, and the export command can open UIGF's standard without reaching into the About dialog. The opening's tests move with it, and the setup tests check the opener as its own state; all desktop unit tests pass, and Rust unit coverage stays at 100% per file, `opener.rs` included. From review: the issues page is called a fixed address rather than the only one, ahead of the standard's, and the launcher double's `opened` reader is shared.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the

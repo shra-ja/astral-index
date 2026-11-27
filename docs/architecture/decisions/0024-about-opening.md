@@ -66,6 +66,7 @@ testing guide mocks plugins only from the frontend, by intercepting their IPC.
 - `tauri-plugin-opener` 2.7.1's source: the public functions in `open.rs` and
   `reveal_item_in_dir.rs` use the `open` crate and D-Bus directly, with no
   plugin state; its commands and default permission are separate.
-- Unit tests in `src-tauri/src/desktop/about.rs` cover each target, failure
-  and the mock's record; the end-to-end tests read the mock's record and check
-  the capability grants the three commands.
+- Unit tests in `src-tauri/src/desktop/opener.rs` (in `about.rs` until
+  2026-11-27) cover each target, failure and the mock's record; the end-to-end
+  tests read the mock's record and check the capability grants the three
+  commands.
