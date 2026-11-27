@@ -7,10 +7,10 @@
 use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure, Session,
-    backup::{publish, real},
     database::{self, Database},
     dialogs::{Dialogs, ask, file_name},
     local_time,
+    replacing_file::{flush_and_rename, real},
 };
 use crate::selected_file::{self, FileError};
 use crate::storage::{Contents, MAX_DATABASE_BYTES, Refusal, Schema, Store, check_database};
@@ -353,7 +353,7 @@ pub fn put_in_place(
         .map(|stem| database::keep_copy(history, &stem))
         .transpose()
         .map_err(|_| Failure::RestoreFailed)?;
-    if publish(copy, history).is_err() {
+    if flush_and_rename(copy, history).is_err() {
         if let Some(kept) = &kept {
             let _ = fs::remove_file(history.with_file_name(kept));
         }
@@ -428,7 +428,7 @@ mod tests {
         last_import_row, last_import_step, opened_at, setup, step, text, upgrading,
     };
     use crate::storage::{LastImport, SavedAccount, Source};
-    use crate::tests::filesystem::{self, Fixture as Files};
+    use crate::tests::filesystem::{self, Fixture as Files, has};
     use chooser::{Asked, FilePath, Fixture as Answers};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 
@@ -542,9 +542,6 @@ mod tests {
             restore,
             &database(),
         ))
-    }
-    fn has(path: &Path) -> bool {
-        filesystem::inspect(|state| state.files.contains_key(path))
     }
     fn holding(restore: &Restore) -> Option<PathBuf> {
         restore.state().held.as_ref().map(|held| held.copy.clone())

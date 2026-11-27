@@ -20,7 +20,9 @@ for how the parts fit together; run commands from the repository root.
   mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its
   restore commands, which choose a backup in the open dialog, then copy, check
   and hold it in the data folder, and replace the history with it, keeping a
-  safety copy; `src/desktop/chosen_file.rs` holds the Import screen's commands
+  safety copy; `src/desktop/replacing_file.rs` writes a file beside its target
+  and then gives it the target's name, so backup and restore replace a file
+  whole or not at all; `src/desktop/chosen_file.rs` holds the Import screen's commands
   that choose the cache file or a history file in the open dialog and hold its
   path for `extract_from_file` or `read_history_file` to read;
   `src/desktop/history_file.rs` holds the commands that read a history file,

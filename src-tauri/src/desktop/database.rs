@@ -1,8 +1,8 @@
 //! The local history database, opened on first use in the app's local data folder
 //! ([decision 0009](../../../docs/architecture/decisions/0009-local-database-location.md)).
-use super::local_time;
 #[cfg(test)]
 use super::tests::blocking::spawn_blocking;
+use super::{local_time, replacing_file::first_unused};
 use crate::storage::{Error, Schema, Store};
 #[cfg(test)]
 use crate::tests::filesystem as fs;
@@ -200,18 +200,11 @@ const COPY_NAMES: usize = 8;
 /// Copy `from` beside it as `<stem>.sqlite`, or as `<stem>-1.sqlite` and on while
 /// that name is taken, so no file is ever replaced; returns the name claimed.
 pub(super) fn keep_copy(from: &Path, stem: &str) -> std::io::Result<String> {
-    for attempt in 0..COPY_NAMES {
-        let name = match attempt {
-            0 => format!("{stem}.sqlite"),
-            _ => format!("{stem}-{attempt}.sqlite"),
-        };
-        match copy_new(from, &from.with_file_name(&name)) {
-            Ok(()) => return Ok(name),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(error) => return Err(error),
-        }
-    }
-    Err(std::io::ErrorKind::AlreadyExists.into())
+    let names = (0..COPY_NAMES).map(|attempt| match attempt {
+        0 => format!("{stem}.sqlite"),
+        _ => format!("{stem}-{attempt}.sqlite"),
+    });
+    first_unused(names, |name| copy_new(from, &from.with_file_name(name))).map(|(name, ())| name)
 }
 
 /// Copy the history in `file`, at schema `version`, beside it before it is
