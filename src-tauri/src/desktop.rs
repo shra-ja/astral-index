@@ -28,6 +28,7 @@ pub mod backup;
 pub mod chosen_file;
 pub mod database;
 pub mod dialogs;
+pub mod export;
 pub mod history_file;
 pub mod ipc_trace;
 pub mod local_time;
@@ -115,6 +116,17 @@ pub enum Failure {
     /// The chosen file is a history format or version that can't be imported:
     /// what it declares.
     UnsupportedFile(crate::uigf::Found),
+    /// No chosen account has a roll to export; each one says why.
+    NothingToExport(Vec<crate::file_export::ExportedAccount>),
+    /// UIGF's schema refused the export, which the app should never make, so
+    /// nothing was saved.
+    ExportInvalid,
+    /// The export could not be written where the user chose, or the save dialog
+    /// failed; nothing was left there.
+    ExportFailed,
+    /// The chosen place is inside the data folder, where an export could replace
+    /// the history itself.
+    ExportInDataFolder,
 }
 
 /// A failure, with the category and page being requested when retrieval failed.
@@ -395,6 +407,8 @@ fn handle_commands<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         about::reveal_data_folder,
         about::open_issues_page,
         backup::save_backup,
+        export::export_uigf,
+        export::open_uigf_standard,
         restore::choose_restore,
         restore::cancel_restore,
         restore::confirm_restore
@@ -883,12 +897,20 @@ const MAX_SEARCH: usize = 100;
 /// The longest UID or server name a history read accepts.
 const MAX_ACCOUNT_FIELD: usize = 64;
 
-/// The saved account a history read is for, as the account switcher names it.
-/// Holds a player identifier: never log it.
+/// The saved account a history read or an export is for, as the account switcher
+/// names it. Holds a player identifier: never log it.
 #[derive(Deserialize)]
-struct AccountKey {
-    uid: String,
-    server: String,
+pub struct AccountKey {
+    pub uid: String,
+    pub server: String,
+}
+impl AccountKey {
+    /// Whether the UID and server fit what a read accepts; one that doesn't names
+    /// no saved account, so it is refused before the database is opened.
+    fn fits(&self) -> bool {
+        let field = |value: &str| (1..=MAX_ACCOUNT_FIELD).contains(&value.len());
+        field(&self.uid) && field(&self.server)
+    }
 }
 
 /// Which rolls a history read shows, as the webview names them; each part left
@@ -978,11 +1000,7 @@ async fn history_into(
     ) else {
         return Err(Failure::InvalidRequest);
     };
-    let field = |value: &str| (1..=MAX_ACCOUNT_FIELD).contains(&value.len());
-    if account
-        .as_ref()
-        .is_some_and(|key| !field(&key.uid) || !field(&key.server))
-    {
+    if account.as_ref().is_some_and(|key| !key.fits()) {
         return Err(Failure::InvalidRequest);
     }
     database
@@ -1329,6 +1347,8 @@ mod tests {
                 "reveal_data_folder",
                 "open_issues_page",
                 "save_backup",
+                "export_uigf",
+                "open_uigf_standard",
                 "choose_restore",
                 "cancel_restore",
                 "confirm_restore"
@@ -1387,6 +1407,28 @@ mod tests {
         assert_eq!(
             invoke(&window, "confirm_restore", InvokeBody::default()),
             Err(r#"{"kind":"restore_failed"}"#.into())
+        );
+        // Export takes the account, or none for every account, and no local time.
+        // An account no read accepts is refused; otherwise, on the worker thread,
+        // the history can't be read, so nothing is exported.
+        let overlong = serde_json::json!({
+            "account": { "uid": "1".repeat(65), "server": "prod_official_asia" }
+        });
+        assert_eq!(
+            invoke(&window, "export_uigf", InvokeBody::Json(overlong)),
+            Err(r#"{"kind":"invalid_request"}"#.into())
+        );
+        assert_eq!(
+            invoke(&window, "export_uigf", InvokeBody::default()),
+            Err(r#"{"kind":"storage"}"#.into())
+        );
+        // An account that is not a UID and server is refused as an argument.
+        let malformed = serde_json::json!({ "account": 800000001 });
+        let refused = invoke(&window, "export_uigf", InvokeBody::Json(malformed)).unwrap_err();
+        assert!(refused.contains("account"), "{refused}");
+        assert_eq!(
+            invoke(&window, "open_uigf_standard", InvokeBody::default()),
+            Ok(())
         );
         assert_eq!(
             invoke(&window, "saved_accounts", InvokeBody::default()),
@@ -1738,7 +1780,12 @@ mod tests {
         let window = WebviewWindowBuilder::new(&app, "main", Default::default())
             .build()
             .unwrap();
-        for command in ["app_info", "reveal_data_folder", "open_issues_page"] {
+        for command in [
+            "app_info",
+            "reveal_data_folder",
+            "open_issues_page",
+            "open_uigf_standard",
+        ] {
             let error = invoke(&window, command, InvokeBody::default());
             assert!(
                 error.unwrap_err().contains("state not managed"),
@@ -1866,19 +1913,21 @@ mod tests {
     }
 
     #[test]
-    fn a_backup_fails_over_ipc_without_its_state() {
-        for builder in [
-            mock_builder(),
-            mock_builder().manage(dialogs::Dialogs::System),
-        ] {
-            let app = handle_commands(builder)
-                .build(mock_context(noop_assets()))
-                .unwrap();
-            let window = WebviewWindowBuilder::new(&app, "main", Default::default())
-                .build()
-                .unwrap();
-            let reply = invoke(&window, "save_backup", InvokeBody::default()).unwrap_err();
-            assert!(reply.contains("state not managed"), "{reply}");
+    fn a_backup_or_an_export_fails_over_ipc_without_its_state() {
+        for command in ["save_backup", "export_uigf"] {
+            for builder in [
+                mock_builder(),
+                mock_builder().manage(dialogs::Dialogs::System),
+            ] {
+                let app = handle_commands(builder)
+                    .build(mock_context(noop_assets()))
+                    .unwrap();
+                let window = WebviewWindowBuilder::new(&app, "main", Default::default())
+                    .build()
+                    .unwrap();
+                let reply = invoke(&window, command, InvokeBody::default()).unwrap_err();
+                assert!(reply.contains("state not managed"), "{command}: {reply}");
+            }
         }
     }
 

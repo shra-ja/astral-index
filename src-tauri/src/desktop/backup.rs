@@ -2,24 +2,17 @@
 //! ([decision 0031](../../../docs/architecture/decisions/0031-sqlite-snapshot-backups.md)).
 //! Files are chosen in dialogs the Rust side opens, so no command takes a path from
 //! the webview.
-#[cfg(test)]
-use super::tests::{blocking::spawn_blocking, chooser};
 use super::{
     Failure,
     database::Database,
-    dialogs::{Dialogs, ask, file_name},
+    dialogs::{Dialogs, SaveDialog, file_name, save_as},
     local_time,
     replacing_file::{ReplacingFile, in_data_folder},
 };
 use crate::storage::check_database;
-use chooser::DialogExt;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::{AppHandle, Runtime, State};
-#[cfg(not(test))]
-use tauri_plugin_dialog as chooser;
-#[cfg(not(test))]
-use tokio::task::spawn_blocking;
 
 /// The file in which the mock debug binary's tests name where a backup is saved;
 /// without it, the save dialog counts as cancelled.
@@ -40,22 +33,13 @@ fn suggested_name(now: chrono::NaiveDateTime) -> String {
     format!("Astral-Index-backup-{}.sqlite", now.format("%Y-%m-%d"))
 }
 
-/// Where to save the backup: the user's choice in the save dialog, or the mock's
-/// answer; none when the dialog is closed. A choice that is not a local file fails.
-fn choose<R: Runtime>(
-    app: &AppHandle<R>,
-    dialogs: Dialogs,
-    folder: Option<&Path>,
-    name: &str,
-) -> Result<Option<PathBuf>, Failure> {
-    ask(dialogs, folder, ANSWER, Failure::BackupFailed, || {
-        app.dialog()
-            .file()
-            .set_file_name(name)
-            .add_filter("Astral Index backup", &["sqlite"])
-            .blocking_save_file()
-    })
-}
+/// Backup's save dialog.
+const DIALOG: SaveDialog = SaveDialog {
+    answer: ANSWER,
+    filter: "Astral Index backup",
+    extension: "sqlite",
+    failure: Failure::BackupFailed,
+};
 
 /// Write a snapshot of the history to `written` and check it as restore would.
 async fn write_checked(database: &Database, written: &Path) -> Result<(), Failure> {
@@ -94,12 +78,8 @@ async fn save_into<R: Runtime>(
     database: &Database,
     now: chrono::NaiveDateTime,
 ) -> Result<Saved, Failure> {
-    let name = suggested_name(now);
     let folder = database.folder().map(Path::to_owned);
-    let chosen = spawn_blocking(move || choose(&app, dialogs, folder.as_deref(), &name))
-        .await
-        .map_err(|_| Failure::BackupFailed)??;
-    match chosen {
+    match save_as(app, dialogs, folder, DIALOG, suggested_name(now)).await? {
         Some(target) => save_to(database, &target).await,
         None => Ok(Saved::Cancelled),
     }
@@ -118,10 +98,11 @@ pub async fn save_backup<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::desktop::tests::chooser::{self, Asked, FilePath, Fixture as Answers};
     use crate::storage::tests::database::{self as sql, Reply, Step};
     use crate::storage::tests::{VACUUM, check_script, ending_at, setup, step, text};
     use crate::tests::filesystem::{self, Fixture as Files, has, removed_files, renamed};
-    use chooser::{Asked, FilePath, Fixture as Answers};
+    use std::path::PathBuf;
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
 
     const NAME: &str = "Astral-Index-backup-2026-10-16.sqlite";
@@ -191,15 +172,6 @@ mod tests {
     fn failing_at(steps: Vec<Step>, sql: &str) -> Vec<Step> {
         ending_at(steps, sql, Err(rusqlite::Error::InvalidQuery))
     }
-    fn files(entries: &[(PathBuf, &[u8])]) -> Files {
-        Files {
-            files: entries
-                .iter()
-                .map(|(path, bytes)| (path.clone(), bytes.to_vec()))
-                .collect(),
-            ..Default::default()
-        }
-    }
     fn save(database: &Database) -> Result<Saved, Failure> {
         run(save_to(database, &target()))
     }
@@ -219,60 +191,6 @@ mod tests {
     #[test]
     fn the_suggested_name_carries_the_local_day() {
         assert_eq!(suggested_name(when()), NAME);
-    }
-
-    #[test]
-    fn the_save_dialog_suggests_the_name_and_returns_the_chosen_file() {
-        chooser::install(Answers {
-            answer: Some(FilePath::Path(target())),
-            ..Default::default()
-        });
-        assert_eq!(
-            choose(&app(), Dialogs::System, Some(&folder()), NAME),
-            Ok(Some(target()))
-        );
-        assert_eq!(
-            asked(),
-            [Asked {
-                opening: false,
-                file_name: NAME.into(),
-                filter: "Astral Index backup".into(),
-                extensions: vec!["sqlite".into()],
-            }]
-        );
-        // Closing the dialog chooses nothing; a choice that is not a local file fails.
-        chooser::install(Answers::default());
-        assert_eq!(
-            choose(&app(), Dialogs::System, Some(&folder()), NAME),
-            Ok(None)
-        );
-        chooser::install(Answers {
-            answer: Some(FilePath::Url(
-                "https://example.com/backup.sqlite".parse().unwrap(),
-            )),
-            ..Default::default()
-        });
-        assert_eq!(
-            choose(&app(), Dialogs::System, Some(&folder()), NAME),
-            Err(Failure::BackupFailed)
-        );
-    }
-
-    #[test]
-    fn the_mock_answers_from_its_data_folder_and_otherwise_cancels() {
-        let answering = Dialogs::Answering;
-        let answer = format!("{}\n", target().display());
-        filesystem::install(files(&[(folder().join(ANSWER), answer.as_bytes())]));
-        chooser::install(Answers::default());
-        assert_eq!(
-            choose(&app(), answering, Some(&folder()), NAME),
-            Ok(Some(target()))
-        );
-        // It never opens the real dialog.
-        assert_eq!(asked(), []);
-        filesystem::install(Files::default());
-        assert_eq!(choose(&app(), answering, Some(&folder()), NAME), Ok(None));
-        assert_eq!(choose(&app(), answering, None, NAME), Ok(None));
     }
 
     #[test]
@@ -372,7 +290,16 @@ mod tests {
             run(save_into(app(), Dialogs::System, &database(), when())),
             Ok(Saved::Cancelled)
         );
-        assert_eq!(asked().len(), 1);
+        // The dialog suggests the day's name and offers backups.
+        assert_eq!(
+            asked(),
+            [Asked {
+                opening: false,
+                file_name: NAME.into(),
+                filter: "Astral Index backup".into(),
+                extensions: vec!["sqlite".into()],
+            }]
+        );
         filesystem::inspect(|state| assert!(state.accessed.is_empty()));
         // A fault in the dialog fails rather than passing for a cancellation.
         chooser::install(Answers {

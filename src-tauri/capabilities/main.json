@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Extraction, acquisition, history-file, stored-history, About, backup and restore commands for the main window only.",
+  "description": "Extraction, acquisition, history-file, stored-history, About, backup, export and restore commands for the main window only.",
   "local": true,
   "windows": ["main"],
   "permissions": [
@@ -23,6 +23,8 @@
     "allow-reveal-data-folder",
     "allow-open-issues-page",
     "allow-save-backup",
+    "allow-export-uigf",
+    "allow-open-uigf-standard",
     "allow-choose-restore",
     "allow-cancel-restore",
     "allow-confirm-restore"
