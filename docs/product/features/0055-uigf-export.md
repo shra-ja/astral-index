@@ -79,13 +79,14 @@ standard's note, and the empty and error states.
   test-only `history` read is removed, and its tests read through `histories`
   with the account chosen, allowing for its numeric order and for an account
   without rolls being left out.
-- [ ] **Shared file writing.** A refactor with no change in behaviour: backup's
+- [x] **Shared file writing.** A refactor with no change in behaviour: backup's
   temporary-file write (claim a `.partial` name, write, flush, rename, remove it
-  on failure), with `publish`, `real` and `in_data_folder`, moves into its own
-  module, named for its purpose. It takes the writing step as a function of the
-  temporary path and returns `io::Result`, so backup's SQLite snapshot and
-  export's bytes both fit; backup and restore use it, and its tests move with
-  it.
+  on failure), with `publish` (renamed `flush_and_rename`), `real` and `in_data_folder`, moves into
+  `desktop/replacing_file.rs`. `ReplacingFile` claims the temporary file, is
+  written through its path and published, and removes the file when dropped
+  unpublished, so backup's asynchronous, checked SQLite snapshot and export's
+  bytes both fit with their own failures; backup and restore use it, the kept
+  copy's naming shares its `first_unused` loop, and its tests move with it.
 - [ ] **Export command.** `export_uigf` takes All accounts or one UID and
   server, builds the export through `file_export`, then opens the save dialog
   from Rust with the suggested name (the mock answers it from its data folder),
