@@ -13,8 +13,9 @@ for how the parts fit together; run commands from the repository root.
 - `src/desktop.rs` holds the commands, the acquisition session and window setup;
   `src/desktop/database.rs` chooses the data folder, holds it for every
   command and runs SQLite work off the async workers; `src/desktop/about.rs` holds the About dialog's
-  commands, which open the data folder or the issues page through the opener
-  plugin's functions, or record the request in the mock debug binary; and
+  commands, which open the data folder or the issues page through
+  `src/desktop/opener.rs`; that module opens a fixed target with the opener
+  plugin's functions, or records the request in the mock debug binary; and
   `src/desktop/backup.rs` holds the Backup & Restore screen's backup command,
   which chooses where to save in the dialog plugin's save dialog, or takes the
   mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its

@@ -1,39 +1,22 @@
 //! The About dialog's commands: the app's details, and opening the data folder or
-//! the issues page ([decision 0024](../../../docs/architecture/decisions/0024-about-opening.md)).
-//! The opening commands take no arguments, so the webview can open nothing else.
-#[cfg(test)]
-use super::tests::launcher;
-use super::{Failure, database::Database};
+//! the issues page ([decision 0024](../../../docs/architecture/decisions/0024-about-opening.md))
+//! through the shared opener. The opening commands take no arguments, so the
+//! webview can open nothing else.
+use super::{
+    Failure,
+    database::Database,
+    opener::{Opener, Target, open},
+};
 #[cfg(test)]
 use crate::tests::filesystem as fs;
 use serde::Serialize;
 #[cfg(not(test))]
 use std::fs;
-use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Runtime, State};
-#[cfg(not(test))]
-use tauri_plugin_opener as launcher;
 
-/// The repository's issues page, the only address the app opens.
-pub const ISSUES: &str = "https://github.com/shra-ja/astral-index/issues";
-/// The file in which the mock debug binary records what it would have opened.
-pub const RECORD: &str = "opened.txt";
-
-/// How requests to open are carried out.
-pub enum Opener {
-    /// By the system's file manager and default browser.
-    System,
-    /// Recorded in the data folder's `opened.txt`, for the mock debug binary, which
-    /// never launches anything
-    /// ([decision 0014](../../../docs/architecture/decisions/0014-mock-debug-binary.md)).
-    Recording,
-}
-
-/// Whether the data folder is the portable one, and how requests to open are
-/// carried out.
+/// Whether the data folder is the portable one.
 pub struct About {
     pub portable: bool,
-    pub opener: Opener,
 }
 
 /// What the About dialog shows. The data folder is the user's own, shown so they
@@ -94,17 +77,6 @@ fn info(version: String, build: Build, about: &About, database: &Database) -> Ap
     }
 }
 
-/// Something to open.
-#[derive(Debug, PartialEq, Eq)]
-enum Target {
-    /// A file, shown selected in its folder.
-    Reveal(PathBuf),
-    /// A folder, opened.
-    Folder(PathBuf),
-    /// The issues page, in the default browser.
-    Issues,
-}
-
 /// The database file selected in its folder, or the folder itself when the file
 /// does not exist yet.
 fn data_target(database: &Database) -> Option<Target> {
@@ -116,31 +88,6 @@ fn data_target(database: &Database) -> Option<Target> {
             Target::Folder(folder.to_owned())
         },
     )
-}
-
-/// A line naming the request, as the mock debug binary records it.
-fn request(target: &Target) -> String {
-    match target {
-        Target::Reveal(file) => format!("reveal {}", file.display()),
-        Target::Folder(folder) => format!("open {}", folder.display()),
-        Target::Issues => format!("browse {ISSUES}"),
-    }
-}
-
-/// Open `target`, or record it in `folder` for the mock debug binary. A failure
-/// names neither the target nor the reason.
-fn open(opener: &Opener, folder: Option<&Path>, target: Target) -> Result<(), Failure> {
-    let opened = match opener {
-        Opener::System => match &target {
-            Target::Reveal(file) => launcher::reveal_item_in_dir(file).is_ok(),
-            Target::Folder(folder) => launcher::open_path(folder, None::<&str>).is_ok(),
-            Target::Issues => launcher::open_url(ISSUES, None::<&str>).is_ok(),
-        },
-        Opener::Recording => folder.is_some_and(|folder| {
-            fs::write(folder.join(RECORD), format!("{}\n", request(&target))).is_ok()
-        }),
-    };
-    opened.then_some(()).ok_or(Failure::OpenFailed)
 }
 
 #[tauri::command]
@@ -158,47 +105,42 @@ pub fn app_info<R: Runtime>(
 }
 
 /// Show the data folder, or fail without a folder to show.
-fn reveal(about: &About, database: &Database) -> Result<(), Failure> {
+fn reveal(opener: &Opener, database: &Database) -> Result<(), Failure> {
     let target = data_target(database).ok_or(Failure::OpenFailed)?;
-    open(&about.opener, database.folder(), target)
+    open(opener, database.folder(), target)
 }
 
 #[tauri::command]
 pub async fn reveal_data_folder(
-    about: State<'_, About>,
+    opener: State<'_, Opener>,
     database: State<'_, Database>,
 ) -> Result<(), Failure> {
-    reveal(&about, &database)
+    reveal(&opener, &database)
 }
 
 #[tauri::command]
 pub async fn open_issues_page(
-    about: State<'_, About>,
+    opener: State<'_, Opener>,
     database: State<'_, Database>,
 ) -> Result<(), Failure> {
-    open(&about.opener, database.folder(), Target::Issues)
+    open(&opener, database.folder(), Target::Issues)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::desktop::tests::launcher::{self, Fixture as Launches, opened};
     use crate::tests::filesystem::{self, Fixture};
-    use launcher::Fixture as Launches;
+    use std::path::PathBuf;
 
     fn folder() -> PathBuf {
         PathBuf::from("/local/astral-index")
     }
     fn about(portable: bool) -> About {
-        About {
-            portable,
-            opener: Opener::System,
-        }
+        About { portable }
     }
     fn database(folder: Option<PathBuf>) -> Database {
         Database::new(folder)
-    }
-    fn opened() -> Vec<String> {
-        launcher::inspect(|state| state.opened.clone())
     }
 
     #[test]
@@ -291,105 +233,14 @@ mod tests {
     fn revealing_opens_the_data_folder_or_fails_without_one() {
         launcher::install(Launches::default());
         filesystem::install(Fixture::default());
-        assert_eq!(reveal(&about(false), &database(Some(folder()))), Ok(()));
+        assert_eq!(reveal(&Opener::System, &database(Some(folder()))), Ok(()));
         assert_eq!(opened(), ["open /local/astral-index"]);
         // The platform gave no folder: nothing is opened.
         launcher::install(Launches::default());
         assert_eq!(
-            reveal(&about(false), &database(None)),
+            reveal(&Opener::System, &database(None)),
             Err(Failure::OpenFailed)
         );
         assert!(opened().is_empty());
-    }
-
-    #[test]
-    fn the_system_opener_hands_each_target_to_the_plugin() {
-        launcher::install(Launches::default());
-        let file = folder().join("history.sqlite");
-        assert_eq!(open(&Opener::System, None, Target::Reveal(file)), Ok(()));
-        assert_eq!(
-            open(&Opener::System, None, Target::Folder(folder())),
-            Ok(())
-        );
-        assert_eq!(open(&Opener::System, None, Target::Issues), Ok(()));
-        assert_eq!(
-            opened(),
-            [
-                format!("reveal {}", folder().join("history.sqlite").display()).as_str(),
-                "open /local/astral-index",
-                "browse https://github.com/shra-ja/astral-index/issues",
-            ]
-        );
-    }
-
-    #[test]
-    fn a_failed_opening_is_reported_without_the_target() {
-        launcher::install(Launches {
-            failing: true,
-            ..Default::default()
-        });
-        for target in [
-            Target::Reveal(folder()),
-            Target::Folder(folder()),
-            Target::Issues,
-        ] {
-            assert_eq!(
-                open(&Opener::System, None, target),
-                Err(Failure::OpenFailed)
-            );
-        }
-        assert_eq!(
-            serde_json::to_value(Failure::OpenFailed).unwrap(),
-            serde_json::json!({ "kind": "open_failed" })
-        );
-    }
-
-    #[test]
-    fn the_recording_opener_writes_the_request_and_launches_nothing() {
-        launcher::install(Launches::default());
-        filesystem::install(Fixture::default());
-        let record = folder().join(RECORD);
-        let folder = Some(folder());
-        assert_eq!(
-            open(&Opener::Recording, folder.as_deref(), Target::Issues),
-            Ok(())
-        );
-        let written = |path: &Path| filesystem::inspect(|state| state.files.get(path).cloned());
-        assert_eq!(
-            written(&record).as_deref(),
-            Some(&b"browse https://github.com/shra-ja/astral-index/issues\n"[..])
-        );
-        // Each request replaces the last.
-        let target = Target::Reveal(PathBuf::from("/local/astral-index/history.sqlite"));
-        assert_eq!(open(&Opener::Recording, folder.as_deref(), target), Ok(()));
-        assert_eq!(
-            written(&record).as_deref(),
-            Some(&b"reveal /local/astral-index/history.sqlite\n"[..])
-        );
-        let target = Target::Folder(PathBuf::from("/local/astral-index"));
-        assert_eq!(open(&Opener::Recording, folder.as_deref(), target), Ok(()));
-        assert_eq!(
-            written(&record).as_deref(),
-            Some(&b"open /local/astral-index\n"[..])
-        );
-        assert!(opened().is_empty());
-    }
-
-    #[test]
-    fn the_recording_opener_fails_when_it_cannot_record() {
-        // A folder in the record's place, as the end-to-end tests arrange.
-        filesystem::install(Fixture {
-            directories: vec![folder().join(RECORD)],
-            ..Default::default()
-        });
-        assert_eq!(
-            open(&Opener::Recording, Some(&folder()), Target::Issues),
-            Err(Failure::OpenFailed)
-        );
-        // Without a data folder there is nowhere to record.
-        assert_eq!(
-            open(&Opener::Recording, None, Target::Issues),
-            Err(Failure::OpenFailed)
-        );
     }
 }
