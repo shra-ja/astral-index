@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Export command (2026-11-27)
+
+`feat/export-command`: 0055's ninth task. `desktop/export.rs` adds `export_uigf`, which reads All accounts or the one named through `store.histories`, builds the file through `file_export` with the app's version and the current time, and refuses an export with nothing to write before the save dialog opens; the dialog suggests `Astral-Index-UIGF-YYYY-MM-DD.json` (the mock answers from `export-as.txt`), a target in the data folder is refused, and the file is written through `ReplacingFile`. It returns the file's name and each account's outcome, never logged. New failure kinds: `nothing_to_export` (with each account's outcome), `export_invalid`, `export_failed` and `export_in_data_folder`; an unreadable history, a stored roll that is not JSON included, is `storage`. `open_uigf_standard` opens UIGF's standard through a new opener target. Both are in the command manifest and the capability, and the account-key check is shared with `history_page`. From review: backup and export share one save dialog, `dialogs::save_as`, whose tests move there; the name and timestamp come from one moment, `local_time::moment`; and the file is built and checked off the async workers, after the read. Red: 7 of the 11 export unit tests failed against placeholder bodies, and CI's test failed until its Windows step ran the new `tests/export.rs` real-file tests, which read back a replaced file, leave no partial file after a failed rename, refuse the data folder and fail a non-JSON payload as `storage`. Green: all 328 Rust unit tests, the 4 real-file tests, CI's tests and Clippy pass, and Rust unit coverage stays at 100% per file; a first full check found the export's argument handling and a refused dialog answer untested, now covered. The webview's types and messages come with the screen.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -70,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the export command: `export_uigf` builds the export, asks where to save it and writes it through `replacing_file`.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the shared account selector: the History screen's account switcher and single-account chip move to the shared components unchanged.
 
 ## Keeping this file current
 

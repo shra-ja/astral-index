@@ -5,8 +5,9 @@ Status: implemented. See decisions
 [0007](decisions/0007-validate-during-extraction.md),
 [0014](decisions/0014-mock-debug-binary.md),
 [0024](decisions/0024-about-opening.md),
-[0031](decisions/0031-sqlite-snapshot-backups.md) and
-[0032](decisions/0032-history-file-import-rules.md).
+[0031](decisions/0031-sqlite-snapshot-backups.md),
+[0032](decisions/0032-history-file-import-rules.md) and
+[0035](decisions/0035-runtime-export-validation.md).
 
 The webview reaches native code only through these commands, listed once in
 `src-tauri/src/desktop/commands.in` for both the library and the `build.rs` app
@@ -40,6 +41,8 @@ refused commands, so the webview must not use them.
 | `reveal_data_folder` | Show `history.sqlite` selected in the system file manager, or open the data folder before the file exists | No |
 | `open_issues_page` | Open the repository's issues page in the default browser | No |
 | `save_backup` | Ask where to save in the system's save dialog, suggesting `Astral-Index-backup-<date>.sqlite` from the local date, then write a checked snapshot there; returns the file's name or a cancellation. A place inside the data folder is refused (`backup_in_data_folder`), and a snapshot that fails its check is `history_damaged`. The mock debug binary answers from `save-as.txt` in its data folder | No |
+| `export_uigf` | Read the saved Star Rail history of the `account` named (UID and server), or of every saved account when none is, and make its UIGF v4.2 file, checked against the bundled schema; then ask where to save it in the system's save dialog, suggesting `Astral-Index-UIGF-<date>.json` from the local date, and write it beside the target, flushed and renamed into place. Returns the file's name and, per account, the rolls written and those left out without a pool ID, or that the account was left out (`no_timezone`, `repeated_uid`); or a cancellation. An export with no roll to write is refused before the dialog opens (`nothing_to_export`, with each account's outcome); a document the schema refuses is `export_invalid`; a place inside the data folder is refused (`export_in_data_folder`); a failed write or dialog is `export_failed`; an account named past what a read accepts is `invalid_request`; and a history that cannot be read, a stored roll that is not JSON included, is `storage`. Never logs an outcome. The mock debug binary answers from `export-as.txt` in its data folder | No |
+| `open_uigf_standard` | Open UIGF's standard in the default browser, as UIGF's certification asks of an exporting app | No |
 | `choose_restore` | Ask which backup to restore in the system's open dialog, copy it into the data folder under a temporary name claimed new, check the copy as untrusted input and hold it; returns the backup's file name, what it holds and what the current history holds (accounts with roll totals, and the last import; `null` when the history is from an older release and couldn't be upgraded), or a cancellation. The copy is checked against, and upgraded to, the schema the history is opened with. Choosing a file drops any copy held before. The history file itself, compared by its real path, is refused (`restore_is_history`), while any other file in the data folder, such as a safety copy, is checked as any backup is. The held copy itself is refused as `restore_refused` (`not_database`), and stays held. A backup that fails its check is `restore_refused` with the reason (`too_large`, `not_database`, `other_app`, `newer`, `damaged`, `unreadable`); anything but a regular file, such as a named pipe, is refused without being read (`not_database`, or `unreadable` where the system won't open it, as Windows won't a folder), and a copy that cannot be made or read is `restore_failed`. The mock debug binary answers from `restore-from.txt` in its data folder | No |
 | `cancel_restore` | Drop the held copy of the backup; the history is unchanged | No |
 | `confirm_restore` | Replace the history with the held copy: read the history again under the store's lock (one that couldn't be upgraded is handed over unopened, and kept as a safety copy exactly as it is), copy it to `history-before-restore-YYYYMMDD-HHMMSS.sqlite` in the data folder (a name claimed new, numbered `-1`, `-2` and on when it is taken, as when the local time repeats; no copy for a history without accounts), flush the held copy and rename it over `history.sqlite`; the store reopens it when next used. Returns the safety copy's name, or none. The held copy is used up whatever the outcome. A history that changed since the confirmation is `restore_changed`; a history that cannot be read is `storage`; a copy that cannot be made or put in place, or no held copy, is `restore_failed`; each leaves the history as it was and removes any safety copy it made | No |
@@ -85,7 +88,7 @@ later the preview.
 
 - Paths never cross IPC, except the data folder and history file that `app_info`
   returns for the About dialog and the Backup & Restore screen to show; the
-  webview never builds a path itself. `save_backup` returns only
+  webview never builds a path itself. `save_backup` and `export_uigf` return only
   the saved file's name, `choose_restore` only the chosen file's, and
   `confirm_restore` only the safety copy's, and `choose_cache_file` and
   `choose_history_file` only the chosen file's. No command takes a file's bytes: the native side reads every
@@ -93,7 +96,7 @@ later the preview.
   The CSP allows only Tauri's local `ipc:` origins, for the custom-protocol IPC.
 - Contexts, cached URLs, HTTP statuses, API messages and response text never
   reach the webview. Results and failures are small typed values; failures are
-  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, the format and version for `unsupported_file`, the copy's file name (or `null` when none was kept) for `history_not_upgraded`, which any command that uses the history returns once an older release's history failed to upgrade, and the failing
+  `{"kind": …}` categories, plus the API code for `api_error`, the reason for `restore_refused`, each account's outcome for `nothing_to_export`, the format and version for `unsupported_file`, the copy's file name (or `null` when none was kept) for `history_not_upgraded`, which any command that uses the history returns once an older release's history failed to upgrade, and the failing
   category and page for retrieval failures. The full list lives with the
   messages that describe them in `src-ui/src/messages.ts`.
 - The webview's `src-ui/src/commands.ts` treats any rejection that is not exactly
@@ -101,8 +104,8 @@ later the preview.
 
 ## Transports and builds
 
-The data folder is held once, by the managed `Database`; the About, backup and
-restore commands read it, and the history file's path, from there. Commands take
+The data folder is held once, by the managed `Database`; the About, backup,
+export and restore commands read it, and the history file's path, from there. Commands take
 their transport from a managed `Network`: HTTPS in the app, or the
 synthetic HoYoverse of the mock debug binary, which also keeps its history in its
 own `astral-index-mock` folder, never uses portable mode and clears its webview
