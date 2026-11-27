@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Shared opener (2026-11-27)
+### Export command (2026-11-27)
 
-`refactor/shared-opener`: a refactor with no change in behaviour, added to 0055 before the export command. Opening a file, a folder or the issues page moves out of `desktop/about.rs` into `desktop/opener.rs`: the `Opener` (the system's, or the mock's recording), its targets and `open`, with their tests. The `Opener` is managed as its own state, so `About` keeps only whether the data folder is portable, and the export command can open UIGF's standard without reaching into the About dialog. The opening's tests move with it, and the setup tests check the opener as its own state; all desktop unit tests pass, and Rust unit coverage stays at 100% per file, `opener.rs` included. From review: the issues page is called a fixed address rather than the only one, ahead of the standard's, and the launcher double's `opened` reader is shared.
+`feat/export-command`: 0055's ninth task. `desktop/export.rs` adds `export_uigf`, which reads All accounts or the one named through `store.histories`, builds the file through `file_export` with the app's version and the current time, and refuses an export with nothing to write before the save dialog opens; the dialog suggests `Astral-Index-UIGF-YYYY-MM-DD.json` (the mock answers from `export-as.txt`), a target in the data folder is refused, and the file is written through `ReplacingFile`. It returns the file's name and each account's outcome, never logged. New failure kinds: `nothing_to_export` (with each account's outcome), `export_invalid`, `export_failed` and `export_in_data_folder`; an unreadable history, a stored roll that is not JSON included, is `storage`. `open_uigf_standard` opens UIGF's standard through a new opener target. Both are in the command manifest and the capability, and the account-key check is shared with `history_page`. From review: backup and export share one save dialog, `dialogs::save_as`, whose tests move there; the name and timestamp come from one moment, `local_time::moment`; and the file is built and checked off the async workers, after the read. Red: 7 of the 11 export unit tests failed against placeholder bodies, and CI's test failed until its Windows step ran the new `tests/export.rs` real-file tests, which read back a replaced file, leave no partial file after a failed rename, refuse the data folder and fail a non-JSON payload as `storage`. Green: all 328 Rust unit tests, the 4 real-file tests, CI's tests and Clippy pass, and Rust unit coverage stays at 100% per file; a first full check found the export's argument handling and a refused dialog answer untested, now covered. The webview's types and messages come with the screen.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the export command: `export_uigf` builds the export, asks where to save it and writes it through `replacing_file`.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the shared account selector: the History screen's account switcher and single-account chip move to the shared components unchanged.
 
 ## Keeping this file current
 
@@ -246,7 +246,7 @@ research, under a "From" heading.
 - [2026-11-26: export round trips and one history read](history/2026-11-26-export-round-trips.md):
   integration tests take exports back through file import, and storage's
   test-only `history` read is removed.
-- [2026-11-27: end-to-end session cleanup and shared file writing](history/2026-11-27-session-cleanup.md):
+- [2026-11-27: end-to-end session cleanup, shared file writing and the shared opener](history/2026-11-27-session-cleanup.md):
   ending an end-to-end session stops everything the driver started, fixing
-  the CSP probe's stall, and backup's whole-file write moves into
-  `replacing_file`.
+  the CSP probe's stall, backup's whole-file write moves into
+  `replacing_file`, and opening moves out of the About dialog into `opener`.

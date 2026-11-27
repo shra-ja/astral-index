@@ -2243,7 +2243,7 @@ pub(crate) mod tests {
 
     /// The SQL for reading the chosen accounts' histories, bound to `chosen`'s
     /// UID and server, or nulls for all, and answered with `found`.
-    fn histories_script(chosen: [Value; 2], found: Vec<Vec<Value>>) -> Vec<Step> {
+    pub(crate) fn histories_script(chosen: [Value; 2], found: Vec<Vec<Value>>) -> Vec<Step> {
         let [uid, server] = chosen;
         vec![
             done(&format!("PREPARE {HISTORIES}")),
@@ -2251,7 +2251,12 @@ pub(crate) mod tests {
         ]
     }
     /// A row of the histories read: the account, its offset and one of its rolls.
-    fn history_row(uid: &str, server: &str, timezone: Option<i32>, roll: &Roll) -> Vec<Value> {
+    pub(crate) fn history_row(
+        uid: &str,
+        server: &str,
+        timezone: Option<i32>,
+        roll: &Roll,
+    ) -> Vec<Value> {
         vec![
             text(uid),
             text(server),
@@ -2261,7 +2266,7 @@ pub(crate) mod tests {
         ]
     }
     /// The fixture page's rolls, given to `uid`.
-    fn rolls_of(uid: &str) -> Vec<Roll> {
+    pub(crate) fn rolls_of(uid: &str) -> Vec<Roll> {
         let mut rolls = parse_response(PAGE).unwrap().list;
         for roll in &mut rolls {
             roll.uid = uid.into();

@@ -17,6 +17,8 @@
     "reveal_data_folder",
     "open_issues_page",
     "save_backup",
+    "export_uigf",
+    "open_uigf_standard",
     "choose_restore",
     "cancel_restore",
     "confirm_restore",

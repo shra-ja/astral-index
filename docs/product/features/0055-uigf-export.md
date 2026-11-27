@@ -92,7 +92,7 @@ standard's note, and the empty and error states.
   record) moves out of the About dialog's module into `desktop/opener.rs`, held
   as its own state, so the export command can open the standard without
   reaching into About.
-- [ ] **Export command.** `export_uigf` takes All accounts or one UID and
+- [x] **Export command.** `export_uigf` takes All accounts or one UID and
   server, builds the export through `file_export`, then opens the save dialog
   from Rust with the suggested name (the mock answers it from its data folder),
   refuses the data folder, writes through the shared file writing and returns

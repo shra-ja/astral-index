@@ -347,7 +347,8 @@ impl Export {
 }
 
 /// What an export did with one account.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Exported {
     /// Its rolls with a pool ID were written, and those without were left out, as
     /// UIGF requires one. An account with none to write is left out of the file.

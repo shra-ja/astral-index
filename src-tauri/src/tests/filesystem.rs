@@ -31,7 +31,7 @@ pub struct Fixture {
     /// Files flushed to disk, in order; `sync_failure` makes flushing fail.
     pub synced: Vec<PathBuf>,
     pub sync_failure: bool,
-    /// Writing to an open file fails.
+    /// Writing a file, whole or once open, fails.
     pub write_failure: bool,
     /// Reading from an open file fails.
     pub read_failure: bool,
@@ -101,7 +101,7 @@ pub fn create_dir_all(path: &Path) -> io::Result<()> {
         Ok(())
     })
 }
-/// Writes the file, unless a folder occupies its path.
+/// Writes the file, unless a folder occupies its path or writing fails.
 pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> io::Result<()> {
     let path = path.as_ref();
     access(path);
@@ -112,6 +112,9 @@ pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> io::Result<(
                 io::ErrorKind::IsADirectory,
                 "synthetic folder",
             ));
+        }
+        if state.write_failure {
+            return Err(missing());
         }
         state
             .files

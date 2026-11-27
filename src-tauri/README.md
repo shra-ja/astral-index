@@ -15,22 +15,26 @@ for how the parts fit together; run commands from the repository root.
   command and runs SQLite work off the async workers; `src/desktop/about.rs` holds the About dialog's
   commands, which open the data folder or the issues page through
   `src/desktop/opener.rs`; that module opens a fixed target with the opener
-  plugin's functions, or records the request in the mock debug binary; and
+  plugin's functions, or records the request in the mock debug binary;
+  `src/desktop/export.rs` holds the Export screen's commands, which make a UIGF
+  file of the saved history through `file_export`, choose where to save it in
+  the save dialog, or take the mock's answer, and open UIGF's standard; and
   `src/desktop/backup.rs` holds the Backup & Restore screen's backup command,
   which chooses where to save in the dialog plugin's save dialog, or takes the
   mock's answer, and saves checked snapshots; `src/desktop/restore.rs` holds its
   restore commands, which choose a backup in the open dialog, then copy, check
   and hold it in the data folder, and replace the history with it, keeping a
   safety copy; `src/desktop/replacing_file.rs` writes a file beside its target
-  and then gives it the target's name, so backup and restore replace a file
+  and then gives it the target's name, so backup, export and restore replace a file
   whole or not at all; `src/desktop/chosen_file.rs` holds the Import screen's commands
   that choose the cache file or a history file in the open dialog and hold its
   path for `extract_from_file` or `read_history_file` to read;
   `src/desktop/history_file.rs` holds the commands that read a history file,
-  list its accounts and preview one; `src/desktop/dialogs.rs` opens those dialogs,
-  or takes the mock's answer from its data folder; `src/desktop/local_time.rs`
+  list its accounts and preview one; `src/desktop/dialogs.rs` opens those dialogs
+  and backup's and export's save dialog, or takes the mock's answer from its data
+  folder; `src/desktop/local_time.rs`
   reads the local time that names the copies kept beside the history and the
-  suggested backup; and `src/desktop/ipc_trace.rs` writes the mock's IPC trace
+  suggested backup and export; and `src/desktop/ipc_trace.rs` writes the mock's IPC trace
   to stderr.
 - `src/selected_file.rs` opens a chosen or discovered file read-only, refusing
   anything but a regular file, and reads it within its format's bound.

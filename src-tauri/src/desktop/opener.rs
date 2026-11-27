@@ -15,6 +15,8 @@ use tauri_plugin_opener as launcher;
 
 /// The repository's issues page, a fixed address the app opens.
 const ISSUES: &str = "https://github.com/shra-ja/astral-index/issues";
+/// UIGF's standard, which an exporting app links to.
+const STANDARD: &str = "https://uigf.org/en/standards/uigf.html";
 /// The file in which the mock debug binary records what it would have opened.
 const RECORD: &str = "opened.txt";
 
@@ -38,6 +40,8 @@ pub(super) enum Target {
     Folder(PathBuf),
     /// The issues page, in the default browser.
     Issues,
+    /// UIGF's standard, in the default browser.
+    Standard,
 }
 
 /// A line naming the request, as the mock debug binary records it.
@@ -46,6 +50,7 @@ fn request(target: &Target) -> String {
         Target::Reveal(file) => format!("reveal {}", file.display()),
         Target::Folder(folder) => format!("open {}", folder.display()),
         Target::Issues => format!("browse {ISSUES}"),
+        Target::Standard => format!("browse {STANDARD}"),
     }
 }
 
@@ -57,6 +62,7 @@ pub(super) fn open(opener: &Opener, folder: Option<&Path>, target: Target) -> Re
             Target::Reveal(file) => launcher::reveal_item_in_dir(file).is_ok(),
             Target::Folder(folder) => launcher::open_path(folder, None::<&str>).is_ok(),
             Target::Issues => launcher::open_url(ISSUES, None::<&str>).is_ok(),
+            Target::Standard => launcher::open_url(STANDARD, None::<&str>).is_ok(),
         },
         Opener::Recording => folder.is_some_and(|folder| {
             fs::write(folder.join(RECORD), format!("{}\n", request(&target))).is_ok()
@@ -85,12 +91,14 @@ mod tests {
             Ok(())
         );
         assert_eq!(open(&Opener::System, None, Target::Issues), Ok(()));
+        assert_eq!(open(&Opener::System, None, Target::Standard), Ok(()));
         assert_eq!(
             opened(),
             [
                 format!("reveal {}", folder().join("history.sqlite").display()).as_str(),
                 "open /local/astral-index",
                 "browse https://github.com/shra-ja/astral-index/issues",
+                "browse https://uigf.org/en/standards/uigf.html",
             ]
         );
     }
@@ -105,6 +113,7 @@ mod tests {
             Target::Reveal(folder()),
             Target::Folder(folder()),
             Target::Issues,
+            Target::Standard,
         ] {
             assert_eq!(
                 open(&Opener::System, None, target),
@@ -144,6 +153,14 @@ mod tests {
         assert_eq!(
             written(&record).as_deref(),
             Some(&b"open /local/astral-index\n"[..])
+        );
+        assert_eq!(
+            open(&Opener::Recording, folder.as_deref(), Target::Standard),
+            Ok(())
+        );
+        assert_eq!(
+            written(&record).as_deref(),
+            Some(&b"browse https://uigf.org/en/standards/uigf.html\n"[..])
         );
         assert!(opened().is_empty());
     }

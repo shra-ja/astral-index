@@ -524,15 +524,15 @@ test('Windows runs the unit tests and the release build as separate jobs', () =>
   only(setup, (step) => step.with?.['node-version-file'] === '.tool-versions', 'Node')
   running(setup, `awk '$1 == "rust" { print $2 }' .tool-versions`)
   running(setup, 'rustup toolchain install "$toolchain" --profile minimal --component clippy')
-  // The unit tests embed the built frontend. Backups and restores write, flush and
-  // rename real files, which Windows treats differently from Linux, so their
-  // real-file tests run there too. Clippy lints the Windows-only code, which the
+  // The unit tests embed the built frontend. Backups, exports and restores write,
+  // flush and rename real files, which Windows treats differently from Linux, so
+  // their real-file tests run there too. Clippy lints the Windows-only code, which the
   // Linux static checks never compile.
   const tests = check.jobs['windows-tests'].steps
   const build = running(tests, 'npm run build --workspace src-ui')
   for (const after of [
     'cargo test --manifest-path src-tauri/Cargo.toml --lib --locked',
-    'cargo test --manifest-path src-tauri/Cargo.toml --locked --test backup --test restore',
+    'cargo test --manifest-path src-tauri/Cargo.toml --locked --test backup --test export --test restore',
     'cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings',
   ]) {
     expectInOrder(tests, build, running(tests, after))
