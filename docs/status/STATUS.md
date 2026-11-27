@@ -53,10 +53,6 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Shared opener (2026-11-27)
-
-`refactor/shared-opener`: a refactor with no change in behaviour, added to 0055 before the export command. Opening a file, a folder or the issues page moves out of `desktop/about.rs` into `desktop/opener.rs`: the `Opener` (the system's, or the mock's recording), its targets and `open`, with their tests. The `Opener` is managed as its own state, so `About` keeps only whether the data folder is portable, and the export command can open UIGF's standard without reaching into the About dialog. The opening's tests move with it, and the setup tests check the opener as its own state; all desktop unit tests pass, and Rust unit coverage stays at 100% per file, `opener.rs` included. From review: the issues page is called a fixed address rather than the only one, ahead of the standard's, and the launcher double's `opened` reader is shared.
-
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -246,7 +242,7 @@ research, under a "From" heading.
 - [2026-11-26: export round trips and one history read](history/2026-11-26-export-round-trips.md):
   integration tests take exports back through file import, and storage's
   test-only `history` read is removed.
-- [2026-11-27: end-to-end session cleanup and shared file writing](history/2026-11-27-session-cleanup.md):
+- [2026-11-27: end-to-end session cleanup, shared file writing and the shared opener](history/2026-11-27-session-cleanup.md):
   ending an end-to-end session stops everything the driver started, fixing
-  the CSP probe's stall, and backup's whole-file write moves into
-  `replacing_file`.
+  the CSP probe's stall, backup's whole-file write moves into
+  `replacing_file`, and opening moves out of the About dialog into `opener`.
