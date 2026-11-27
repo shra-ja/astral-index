@@ -15,8 +15,9 @@ Tests that belong to neither the frontend nor the backend alone.
   launches; a 20,000-roll history within time bounds; and an axe-core
   accessibility audit of every screen and step, run by `accessibility.ts`.
   `app-driver.ts` drives each app
-  through tauri-driver and WebDriver; `close-window-helper.py` closes its window
-  as a user would.
+  through tauri-driver and WebDriver, and ending a session stops everything the
+  driver started, so an app a failed test left open can't stall the run;
+  `close-window-helper.py` closes its window as a user would.
 - `windows/smoke.test.ts` runs the release executable on Windows, in CI only
   (`npm run test:windows-smoke`, its own Vitest project, never in the gates): the
   version `TAURI_CONFIG` gave the build, a windowed app with no console, the committed icon in Explorer and on the

@@ -10,11 +10,21 @@ import {
 import { basename, dirname, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
-import { afterAll, beforeAll, expect, test } from 'vitest'
+import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
 import { backendCargo, backendEnvironment } from '../tooling/backend-coverage'
 import { accessibilityViolations } from './accessibility'
-import { DOWN, ENTER, ESCAPE, RIGHT, TAB, launch, type AppSession } from './app-driver'
+import {
+  DOWN,
+  ENTER,
+  ESCAPE,
+  RIGHT,
+  TAB,
+  appWindow,
+  ended,
+  launch,
+  type AppSession,
+} from './app-driver'
 import { outputs } from '../tooling/outputs'
 
 let backendEnv: NodeJS.ProcessEnv
@@ -302,6 +312,25 @@ test('the bundled native shell works offline, supports keyboard navigation, and 
   } finally {
     await app.dispose()
   }
+}, 60000)
+
+// A failed test's session must not leave the app running (see `dispose`).
+test('ending a session leaves no app running, even when the driver cannot delete it', async () => {
+  const app = await launch('astral-index', environment())
+  let pid = ''
+  const realFetch = globalThis.fetch
+  try {
+    pid = appWindow().pid
+    vi.stubGlobal('fetch', (input: string | URL | Request, init?: RequestInit) =>
+      init?.method === 'DELETE'
+        ? Promise.reject(new Error('synthetic failure'))
+        : realFetch(input, init),
+    )
+  } finally {
+    await app.dispose()
+    vi.unstubAllGlobals()
+  }
+  await expect.poll(() => ended(pid), { timeout: 5000 }).toBe(true)
 }, 60000)
 
 // The mock debug binary answers from a synthetic HoYoverse (decision 0014), so the whole
