@@ -2,7 +2,7 @@
 // end-to-end tests. Each launch starts its own driver, so run one app at a time.
 import { execFileSync, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { globSync, mkdirSync, writeFileSync } from 'node:fs'
+import { globSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect } from 'vitest'
 import { outputs } from '../tooling/outputs'
@@ -54,16 +54,70 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
   return result.value as T
 }
 
+/** The X window of the running app, and its process ID. */
+export function appWindow(): { window: string; pid: string } {
+  const window = execFileSync('xdotool', ['search', '--name', '^Astral Index$'], {
+    encoding: 'utf8',
+  })
+    .trim()
+    .split('\n')[0]
+  return {
+    window,
+    pid: execFileSync('xdotool', ['getwindowpid', window], { encoding: 'utf8' }).trim(),
+  }
+}
+
+/** Whether process `pid` has ended: gone, or a zombie waiting to be reaped. */
+export function ended(pid: string): boolean {
+  try {
+    return readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1]?.startsWith('Z') ?? true
+  } catch {
+    return true
+  }
+}
+
+/** Every process below `pid`, found by walking `pgrep -P`. */
+function descendants(pid: number): number[] {
+  let children: number[] = []
+  try {
+    children = execFileSync('pgrep', ['-P', String(pid)], { encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .map(Number)
+  } catch {
+    // pgrep exits non-zero when there are none.
+  }
+  return children.flatMap((child) => [child, ...descendants(child)])
+}
+
 /** Start `src-tauri/target/debug/<binary>` with `env`, once its driver is ready. */
 export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<AppSession> {
   const driver = spawn('tauri-driver', [], { env, stdio: 'inherit' })
+  // Watched from the start, so a driver that has already exited is not waited for.
+  const exited = once(driver, 'exit')
   let session = ''
+  // Deleting the session normally closes the app, but not always, as when a failed
+  // test ends it with the window open. Whatever the driver started still shares the
+  // test worker's output, and Vitest waits for that output to end before it finishes,
+  // so the run would stall: everything below the driver is stopped too. They stay in
+  // its process group, so `runBounded`'s group signal (tooling/probe-run.ts) still
+  // reaches them. A driver that has already exited has no children left to stop.
   const dispose = async () => {
     if (session) {
-      await fetch(`${driverUrl}/session/${session}`, { method: 'DELETE' }).catch(() => {})
+      await fetch(`${driverUrl}/session/${session}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(15000),
+      }).catch(() => {})
+    }
+    for (const pid of descendants(driver.pid!)) {
+      try {
+        process.kill(pid, 'SIGTERM')
+      } catch {
+        // Already gone.
+      }
     }
     driver.kill('SIGTERM')
-    await once(driver, 'exit')
+    await exited
   }
   try {
     await expect
@@ -142,18 +196,12 @@ export async function launch(binary: string, env: NodeJS.ProcessEnv): Promise<Ap
       writeFileSync(`${outputs().results}/${name}.png`, Buffer.from(image, 'base64'))
     },
     close: async () => {
-      const window = execFileSync('xdotool', ['search', '--name', '^Astral Index$'], {
-        encoding: 'utf8',
-      })
-        .trim()
-        .split('\n')[0]
-      const pid = execFileSync('xdotool', ['getwindowpid', window], { encoding: 'utf8' }).trim()
+      const { window, pid } = appWindow()
       execFileSync('python3', ['tests/close-window-helper.py', window])
-      await expect
-        .poll(() => globSync(`src-tauri/target/src-tauri-${pid}-*.profraw`).length, {
-          timeout: 10000,
-        })
-        .toBeGreaterThan(0)
+      // Ended, not just started on its coverage file, so stopping what is left can't
+      // cut the file short.
+      await expect.poll(() => ended(pid), { timeout: 10000 }).toBe(true)
+      expect(globSync(`src-tauri/target/src-tauri-${pid}-*.profraw`).length).toBeGreaterThan(0)
     },
     dispose,
   }
