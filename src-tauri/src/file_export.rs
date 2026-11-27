@@ -23,7 +23,7 @@ impl std::fmt::Debug for Export {
 }
 
 /// What an export did with one saved account. Holds a player identifier: never log it.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct ExportedAccount {
     pub uid: String,
     pub server: String,
