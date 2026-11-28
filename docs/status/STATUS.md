@@ -53,6 +53,10 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
+### Shared account selector (2026-11-28)
+
+`refactor/account-selector`: 0055's tenth task, a refactor with no change in behaviour. The History screen's `AccountChip` and `AccountSwitcher` move from `components/history/` to `components/shared/` with their tests, and a new `AccountSelector` there holds the choice between them: the switcher while more than one account is saved, the chip otherwise, passing on the account chosen. The History screen shows it in its header in their place. From review: the chip and the switcher's button share `AccountName`, the UID and server they each copied, so the chip's server name no longer wraps, as the switcher's never did; and the selector's tests check what it shows rather than which props its parts get. Red: the selector's 3 tests failed against an empty placeholder, which showed neither, as did `AccountName`'s; green: they pass, and the full check passes.
+
 ## Known limitations
 
 - The UI is tested end to end only on Linux (WebKitGTK); Windows CI checks the
@@ -70,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the shared account selector: the History screen's account switcher and single-account chip move to the shared components unchanged.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the screen, after its mockup is approved on the canvas: the route and sidebar link, the selector's All accounts option, `useExport`, and the webview's types and messages.
 
 ## Keeping this file current
 

@@ -23,7 +23,10 @@ The Vue webview app, as the `astral-index-ui` npm workspace. See
   Unavailable (`UnavailableCard`), `about/`
   for the About dialog (`AboutDialog`, the modal and its views, `AboutSummary`,
   its main view, and `NoticesList`, the third-party notices), and `shared/` for pieces any screen may use
-  (`ActionCard`, the card offering one action on Import and Backup & Restore,
+  (`AccountSelector`, the chosen account as a switcher while more than one is
+  saved (`AccountSwitcher`) and as text otherwise (`AccountChip`), both showing
+  its UID and server through `AccountName`;
+  `ActionCard`, the card offering one action on Import and Backup & Restore,
   with `StatusLine` for what its action reported; `StatusCard`, the card
   in the middle of the screen holding its whole status, with `FailureSummary`
   for what failed; `IconTile`, the tile that draws an action or failure card's
