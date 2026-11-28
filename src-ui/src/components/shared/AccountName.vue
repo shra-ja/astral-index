@@ -1,33 +1,23 @@
 <script setup lang="ts">
-// Presentational: the account whose history is shown, as text, while it is the only
-// saved account; with more, the screen shows the account switcher instead.
+// Presentational: an account's UID and server, as the account chip and the
+// switcher's button show it. Hidden from assistive technology, as each names the
+// account in its own label. Its parts take their place in the holder's row.
 import { serverName } from '../../format'
 
 defineProps<{ uid: string; server: string }>()
 </script>
 
 <template>
-  <div
-    class="account"
-    role="group"
-    :aria-label="`Account: UID ${uid}, ${serverName(server)} server`"
-  >
+  <span class="name">
     <span class="label" aria-hidden="true">UID</span>
     <span class="uid" aria-hidden="true">{{ uid }}</span>
     <span class="server" aria-hidden="true">{{ serverName(server) }}</span>
-  </div>
+  </span>
 </template>
 
 <style scoped>
-.account {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--rim);
-  border-radius: 8px;
-  background: var(--panel);
+.name {
+  display: contents;
 }
 .label {
   color: var(--text-muted);
@@ -45,5 +35,6 @@ defineProps<{ uid: string; server: string }>()
   background: var(--panel-rim);
   color: var(--text-secondary);
   font-size: 12px;
+  white-space: nowrap;
 }
 </style>

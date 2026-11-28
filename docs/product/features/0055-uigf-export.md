@@ -102,7 +102,7 @@ standard's note, and the empty and error states.
   command's messages take that into account. An `open_uigf_standard` command opens
   the standard's fixed URL, as `open_issues_page` does. Narrow permissions, the
   command manifest, the mock's scenarios and a real-file test for Windows CI.
-- [ ] **Shared account selector.** A refactor with no change in behaviour: the
+- [x] **Shared account selector.** A refactor with no change in behaviour: the
   History screen's account switcher, its single-account chip and the choice
   between them move to the shared components unchanged.
 - [ ] **Screen.** The route and sidebar link, the selector's All accounts

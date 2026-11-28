@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // Presentational: the account switcher, a menu button listing every saved account
-// with its rolls. It emits the chosen account; the screen reads its history. Arrow
+// with its rolls. It emits the chosen account and never switches by itself. Arrow
 // keys, Home and End move through the menu; Escape, Tab or a press outside close it.
 import { Check, ChevronDown } from '@lucide/vue'
 import { nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from 'vue'
 import type { SavedAccount } from '../../commands'
 import { plural, serverName } from '../../format'
+import AccountName from './AccountName.vue'
 
 const props = defineProps<{
   accounts: SavedAccount[]
@@ -96,9 +97,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, tru
       @click="open ? close(false) : show()"
       @keydown="onButtonKey"
     >
-      <span class="label" aria-hidden="true">UID</span>
-      <span class="uid" aria-hidden="true">{{ current.uid }}</span>
-      <span class="server" aria-hidden="true">{{ serverName(current.server) }}</span>
+      <AccountName :uid="current.uid" :server="current.server" />
       <ChevronDown :size="14" class="chevron" aria-hidden="true" />
     </button>
     <div
@@ -152,17 +151,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, tru
 .toggle[aria-expanded='true'] {
   background: var(--control);
 }
-.label {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-.uid {
+.who .uid {
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
-.server {
+.who .server {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--panel-rim);

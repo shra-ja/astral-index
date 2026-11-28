@@ -37,8 +37,8 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 - **Quality gates:** 100% per-file coverage for frontend, tooling and Rust unit
   tests, mutation probes for each gate, end-to-end tests against the mock debug
   binary's synthetic HoYoverse, and checks of the docs, icons, README logo and
-  app version. On Windows, CI also runs the Rust unit tests and backup's and
-  restore's real-file tests, and smoke-tests the release executable (decision
+  app version. On Windows, CI also runs the Rust unit tests and backup's, export's
+  and restore's real-file tests, and smoke-tests the release executable (decision
   0029). A frozen 1.0.0 database shows each schema change keeps saved history.
 - **Backup:** the app-wide Backup & Restore screen saves a checked snapshot of
   the whole history where the user chooses, never inside the data folder, and
@@ -53,9 +53,9 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## In progress
 
-### Export command (2026-11-27)
+### Shared account selector (2026-11-28)
 
-`feat/export-command`: 0055's ninth task. `desktop/export.rs` adds `export_uigf`, which reads All accounts or the one named through `store.histories`, builds the file through `file_export` with the app's version and the current time, and refuses an export with nothing to write before the save dialog opens; the dialog suggests `Astral-Index-UIGF-YYYY-MM-DD.json` (the mock answers from `export-as.txt`), a target in the data folder is refused, and the file is written through `ReplacingFile`. It returns the file's name and each account's outcome, never logged. New failure kinds: `nothing_to_export` (with each account's outcome), `export_invalid`, `export_failed` and `export_in_data_folder`; an unreadable history, a stored roll that is not JSON included, is `storage`. `open_uigf_standard` opens UIGF's standard through a new opener target. Both are in the command manifest and the capability, and the account-key check is shared with `history_page`. From review: backup and export share one save dialog, `dialogs::save_as`, whose tests move there; the name and timestamp come from one moment, `local_time::moment`; and the file is built and checked off the async workers, after the read. Red: 7 of the 11 export unit tests failed against placeholder bodies, and CI's test failed until its Windows step ran the new `tests/export.rs` real-file tests, which read back a replaced file, leave no partial file after a failed rename, refuse the data folder and fail a non-JSON payload as `storage`. Green: all 328 Rust unit tests, the 4 real-file tests, CI's tests and Clippy pass, and Rust unit coverage stays at 100% per file; a first full check found the export's argument handling and a refused dialog answer untested, now covered. The webview's types and messages come with the screen.
+`refactor/account-selector`: 0055's tenth task, a refactor with no change in behaviour. The History screen's `AccountChip` and `AccountSwitcher` move from `components/history/` to `components/shared/` with their tests, and a new `AccountSelector` there holds the choice between them: the switcher while more than one account is saved, the chip otherwise, passing on the account chosen. The History screen shows it in its header in their place. From review: the chip and the switcher's button share `AccountName`, the UID and server they each copied, so the chip's server name no longer wraps, as the switcher's never did; and the selector's tests check what it shows rather than which props its parts get. Red: the selector's 3 tests failed against an empty placeholder, which showed neither, as did `AccountName`'s; green: they pass, and the full check passes.
 
 ## Known limitations
 
@@ -74,7 +74,7 @@ history import works end to end; Genshin Impact, with no import yet, shows only 
 
 ## Next
 
-Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the shared account selector: the History screen's account switcher and single-account chip move to the shared components unchanged.
+Next: [0055](../product/features/0055-uigf-export.md), UIGF export, continuing with the screen, after its mockup is approved on the canvas: the route and sidebar link, the selector's All accounts option, `useExport`, and the webview's types and messages.
 
 ## Keeping this file current
 
@@ -246,7 +246,8 @@ research, under a "From" heading.
 - [2026-11-26: export round trips and one history read](history/2026-11-26-export-round-trips.md):
   integration tests take exports back through file import, and storage's
   test-only `history` read is removed.
-- [2026-11-27: end-to-end session cleanup, shared file writing and the shared opener](history/2026-11-27-session-cleanup.md):
+- [2026-11-27: end-to-end session cleanup, shared file writing, the shared opener and the export command](history/2026-11-27-session-cleanup.md):
   ending an end-to-end session stops everything the driver started, fixing
   the CSP probe's stall, backup's whole-file write moves into
-  `replacing_file`, and opening moves out of the About dialog into `opener`.
+  `replacing_file`, opening moves out of the About dialog into `opener`, and
+  `export_uigf` saves a UIGF file where the user chooses.
