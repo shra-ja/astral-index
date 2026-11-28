@@ -2,6 +2,7 @@
 // Presentational: the chosen account, as text, while it is the only saved account;
 // with more, the account selector shows the account switcher instead.
 import { serverName } from '../../format'
+import AccountName from './AccountName.vue'
 
 defineProps<{ uid: string; server: string }>()
 </script>
@@ -12,9 +13,7 @@ defineProps<{ uid: string; server: string }>()
     role="group"
     :aria-label="`Account: UID ${uid}, ${serverName(server)} server`"
   >
-    <span class="label" aria-hidden="true">UID</span>
-    <span class="uid" aria-hidden="true">{{ uid }}</span>
-    <span class="server" aria-hidden="true">{{ serverName(server) }}</span>
+    <AccountName :uid :server />
   </div>
 </template>
 
@@ -28,22 +27,5 @@ defineProps<{ uid: string; server: string }>()
   border: 1px solid var(--rim);
   border-radius: 8px;
   background: var(--panel);
-}
-.label {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-.uid {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.server {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--panel-rim);
-  color: var(--text-secondary);
-  font-size: 12px;
 }
 </style>

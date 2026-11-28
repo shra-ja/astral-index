@@ -13,7 +13,7 @@ test('names the account by UID and server, as text rather than a control', () =>
   expect(wrapper.get('.account').attributes('aria-label')).toBe(
     'Account: UID 100000001, synthetic-server server',
   )
-  expect(wrapper.findAll('.account > span').map((part) => part.text())).toEqual([
+  expect(wrapper.findAll('.account .name > span').map((part) => part.text())).toEqual([
     'UID',
     '100000001',
     'synthetic-server',
