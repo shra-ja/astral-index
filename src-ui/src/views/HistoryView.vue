@@ -7,8 +7,6 @@
 import { Download } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import AccountChip from '../components/history/AccountChip.vue'
-import AccountSwitcher from '../components/history/AccountSwitcher.vue'
 import CategoryTabs from '../components/history/CategoryTabs.vue'
 import DateRangeFilter from '../components/history/DateRangeFilter.vue'
 import EmptyState from '../components/history/EmptyState.vue'
@@ -22,6 +20,7 @@ import RollPager from '../components/history/RollPager.vue'
 import RollSearch from '../components/history/RollSearch.vue'
 import SummaryStrip from '../components/history/SummaryStrip.vue'
 import ScreenHeader from '../components/layout/ScreenHeader.vue'
+import AccountSelector from '../components/shared/AccountSelector.vue'
 import type { StoredHistory } from '../commands'
 import { useHistory } from '../composables/useHistory'
 import {
@@ -92,13 +91,7 @@ const tabsOf = (counts: StoredHistory['categories']) =>
 <template>
   <main>
     <ScreenHeader :title="`${terms[game]} History`" :game="games[game]">
-      <AccountSwitcher
-        v-if="account && accounts.length > 1"
-        :accounts
-        :current="account"
-        @switch="switchAccount"
-      />
-      <AccountChip v-else-if="account" :uid="account.uid" :server="account.server" />
+      <AccountSelector v-if="account" :accounts :current="account" @switch="switchAccount" />
     </ScreenHeader>
     <div class="body" :class="{ centred: empty || failure }" :aria-busy="loading">
       <EmptyState v-if="empty" :term="terms[game]" :game="games[game]">

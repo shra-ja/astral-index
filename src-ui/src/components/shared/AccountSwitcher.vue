@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Presentational: the account switcher, a menu button listing every saved account
-// with its rolls. It emits the chosen account; the screen reads its history. Arrow
+// with its rolls. It emits the chosen account for the screen to show. Arrow
 // keys, Home and End move through the menu; Escape, Tab or a press outside close it.
 import { Check, ChevronDown } from '@lucide/vue'
 import { nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from 'vue'

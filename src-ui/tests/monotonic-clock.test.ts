@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { expect, test } from 'vitest'
-import AccountSwitcher from '../src/components/history/AccountSwitcher.vue'
+import AccountSwitcher from '../src/components/shared/AccountSwitcher.vue'
 import { monotonic } from './monotonic-clock'
 
 const accounts = [{ uid: '100000001', server: 'prod_official_asia', timezone: 8, rolls: 2 }]
